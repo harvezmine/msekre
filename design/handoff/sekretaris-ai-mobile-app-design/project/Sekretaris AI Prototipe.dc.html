@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><script src="sk-shared.js"></script><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><style>body{margin:0;background:#ECEBE4;font-family:'Plus Jakarta Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#0D2B22}a{color:#1D7550}a:hover{color:#2A8A5C}button{font-family:inherit}</style></helmet>
+<div style="min-height:100vh;display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;justify-content:center;padding:40px 24px;box-sizing:border-box">
+
+<div style="width:300px;max-width:100%;display:flex;flex-direction:column;gap:16px;padding-top:8px">
+<dc-import name="Wordmark" size="18" hint-size="180px,30px"></dc-import>
+<span style="font-size:15px;line-height:22px;color:#4F5A54">Prototipe tiga alur. Pilih alur untuk mulai dari awal, lalu ikuti petunjuk di bawahnya.</span>
+<sc-for list="{{ flows }}" as="f" hint-placeholder-count="3">
+<button onClick="{{ f.start }}" style="text-align:left;border-radius:20px;border:{{ f.border }};background:{{ f.bg }};padding:16px;display:flex;flex-direction:column;gap:4px;cursor:pointer;color:#0D2B22"><span style="font-size:13px;line-height:18px;font-weight:600;color:#1D7550">Alur {{ f.n }}</span><span style="font-size:16px;line-height:22px;font-weight:600">{{ f.t }}</span><span style="font-size:13px;line-height:18px;color:#4F5A54">{{ f.d }}</span></button>
+</sc-for>
+<div style="background:#0E3A2C;color:#ECF2EA;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;line-height:18px;font-weight:600;color:#81C084">Petunjuk</span><span style="font-size:15px;line-height:22px">{{ hint }}</span></div>
+</div>
+
+<div style="width:412px;height:915px;max-width:100%;position:relative;background:#F6F6F0;border-radius:32px;overflow:hidden;border:1px solid rgba(0,0,0,.08);box-shadow:0 1px 3px rgba(0,0,0,.06);flex:none;user-select:none">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:{{ sb }};position:relative;z-index:3">10.42<div style="display:flex">{{ ic.status }}</div></div>
+
+<sc-if value="{{ s.beranda }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;top:36px;left:0;right:0;bottom:88px;overflow:auto">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0 12px">
+<span style="height:48px;padding:0 12px 0 16px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;display:flex;align-items:center;gap:6px;font-size:16px;font-weight:600">Semua<span style="width:20px;height:20px;display:block">{{ ic.chevD }}</span></span>
+<span style="width:48px;height:48px;border-radius:50%;background:#E8F4E8;color:#1D7550;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center">RW</span>
+</div>
+<div style="padding:20px 20px 0;display:flex;flex-direction:column;gap:8px"><span style="font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.01em">Selamat pagi, Rina</span><span style="font-size:17px;line-height:24px;color:#647069">Ada 3 hal yang perlu Anda hari ini.</span></div>
+<div style="padding:16px 20px 0;display:flex;flex-direction:column;align-items:center">{{ orbit }}
+<button onClick="{{ go.terhubung }}" style="height:48px;padding:0 16px;border:none;background:none;color:#647069;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;cursor:pointer">{{ ringLabel }}<span style="width:16px;height:16px;display:block">{{ ic.chevR }}</span></button></div>
+<div style="padding:8px 16px 24px;display:flex;flex-direction:column;gap:12px">
+<sc-if value="{{ approvalOpen }}" hint-placeholder-val="{{ true }}">
+<div style="background:#E8F4E8;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:16px"><span style="font-size:13px;line-height:18px;font-weight:600;color:#1D7550">Butuh persetujuan Anda</span><span style="font-size:16px;line-height:24px">Balasan untuk Pak Budi soal harga sewa sudah siap. Kirim?</span><button onClick="{{ go.chat }}" style="height:48px;border-radius:24px;border:none;background:#1D7550;color:#FFFFFF;font-size:16px;font-weight:600;cursor:pointer">Lihat</button></div>
+</sc-if>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:4px">
+<span style="font-size:17px;line-height:24px;font-weight:600;margin-bottom:8px">Rumah</span>
+<div style="display:flex;align-items:center;gap:12px;min-height:48px"><div style="width:40px;height:40px;border-radius:14px;background:{{ ac.icBg }};color:{{ ac.icFg }};display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.snow }}</div></div><span style="flex:1;font-size:16px;line-height:24px;font-weight:500">{{ ac.label }}</span><button onClick="{{ toggleAc }}" aria-label="AC kamar" style="width:52px;height:32px;border-radius:16px;border:none;padding:0;background:{{ ac.sw }};position:relative;cursor:pointer;transition:background .2s"><span style="position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#FFFFFF;transform:translateX({{ ac.x }});transition:transform .2s"></span></button></div>
+<div style="display:flex;align-items:center;gap:12px;min-height:48px"><div style="width:40px;height:40px;border-radius:14px;background:#F1F2EC;display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.lock }}</div></div><span style="flex:1;font-size:16px;line-height:24px">Pintu depan terkunci</span></div>
+</div>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:20px 20px 8px;display:flex;flex-direction:column">
+<span style="font-size:17px;line-height:24px;font-weight:600;margin-bottom:4px">Agenda hari ini</span>
+<div style="display:flex;gap:16px;padding:12px 0;border-bottom:1px solid #E2E6DE"><span style="width:52px;font-weight:600;font-variant-numeric:tabular-nums">13.00</span><span style="flex:1;font-size:16px;line-height:24px">Bayar listrik Kedai Dago</span></div>
+<div style="display:flex;gap:16px;padding:12px 0"><span style="width:52px;font-weight:600;font-variant-numeric:tabular-nums">16.00</span><span style="flex:1;font-size:16px;line-height:24px">Jemput Kayla les</span></div>
+</div>
+</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:#FCFCF8;border-top:1px solid #E2E6DE;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:0 4px">
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#1D7550"><div style="width:24px;height:24px">{{ ic.home }}</div><span style="font-size:13px;line-height:18px;font-weight:600">Beranda</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069"><div style="width:24px;height:24px">{{ ic.calendar }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Agenda</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:-26px"><div style="width:68px;height:68px;border-radius:50%;background:#FCFCF8;border:1px solid #E2E6DE;display:flex;align-items:center;justify-content:center">{{ intiTab }}</div><span style="font-size:13px;line-height:18px;font-weight:600">Nadia</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069"><div style="width:24px;height:24px">{{ ic.bulb }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Perangkat</span></div>
+<button onClick="{{ go.riwayat }}" style="border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069;cursor:pointer"><div style="width:24px;height:24px">{{ ic.history }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Riwayat</span></button>
+</div>
+</sc-if>
+
+<sc-if value="{{ s.voice }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background:#0E3A2C;color:#ECF2EA">
+<div style="padding:60px 28px 0;display:flex;flex-direction:column;gap:8px;min-height:120px"><span style="font-size:13px;line-height:18px;font-weight:500;color:#A9B8AE">Anda</span><span style="font-size:20px;line-height:28px;font-weight:500">{{ voice.you }}<span style="color:#7F948A">{{ voice.youRest }}</span></span></div>
+<div style="height:340px;display:flex;align-items:center;justify-content:center">{{ intiVoice }}</div>
+<div style="padding:0 28px;display:flex;flex-direction:column;gap:8px;min-height:120px"><span style="font-size:13px;line-height:18px;font-weight:500;color:#A9B8AE">{{ voice.label }}</span><span style="font-size:26px;line-height:34px;font-weight:600;color:#F6F6F0;letter-spacing:-.01em">{{ voice.reply }}</span></div>
+<div style="position:absolute;left:0;right:0;bottom:36px;display:flex;justify-content:center"><button onClick="{{ endVoice }}" style="height:56px;padding:0 40px;border-radius:28px;border:none;background:#F6F6F0;color:#0E3A2C;font-size:17px;font-weight:600;cursor:pointer">Selesai</button></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ s.chat }}" hint-placeholder-val="{{ false }}">
+<div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 8px;border-bottom:1px solid #E2E6DE">
+<button onClick="{{ go.beranda }}" aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button>
+{{ intiChat }}<div style="flex:1;display:flex;flex-direction:column;margin-left:4px"><span style="font-size:17px;line-height:24px;font-weight:600">Nadia</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Siap membantu</span></div>
+</div>
+<div style="position:absolute;top:101px;left:0;right:0;bottom:88px;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px">
+<div style="align-self:flex-end;max-width:78%;background:#1D7550;color:#FFFFFF;border-radius:20px 20px 6px 20px;padding:12px 16px;font-size:16px;line-height:24px">Balas Pak Budi, harga sewa bisa Rp15 juta</div>
+<span style="max-width:86%;font-size:16px;line-height:24px;padding:0 4px">Ini draf balasannya. Saya kirim setelah Anda setuju.</span>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:12px"><span style="width:40px;height:40px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">PB</span><div style="display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Pak Budi</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">lewat WhatsApp</span></div></div>
+<div style="background:#F6F6F0;border-radius:16px;padding:12px 16px;font-size:16px;line-height:24px">Selamat siang, Pak Budi. Untuk sewa tempatnya, kami bisa di harga Rp15 juta. Terima kasih.</div>
+<sc-if value="{{ draftOpen }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:8px"><button style="flex:1;height:48px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;font-size:16px;font-weight:600;cursor:pointer">Ubah</button><button onClick="{{ send }}" style="flex:1;height:48px;border-radius:24px;border:none;background:#1D7550;color:#FFFFFF;font-size:16px;font-weight:600;cursor:pointer">Kirim</button></div></sc-if>
+<sc-if value="{{ sentState }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;min-height:48px;color:{{ sentColor }};font-size:16px;font-weight:600"><span style="width:22px;height:22px;display:block">{{ sentIcon }}</span>{{ sentText }}</div></sc-if>
+</div>
+<sc-if value="{{ sentState }}" hint-placeholder-val="{{ false }}"><span style="font-size:16px;line-height:24px;padding:0 4px">{{ sentReply }}</span></sc-if>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;height:88px;display:flex;align-items:center;gap:8px;padding:0 12px 8px"><div style="flex:1;height:52px;border-radius:26px;background:#FCFCF8;border:1px solid #E2E6DE;display:flex;align-items:center;padding:0 20px;font-size:16px;color:#647069">Tulis pesan untuk Nadia</div><span style="width:52px;height:52px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center"><span style="width:24px;height:24px;display:block">{{ ic.mic }}</span></span></div>
+</sc-if>
+
+<sc-if value="{{ s.riwayat }}" hint-placeholder-val="{{ false }}">
+<div style="height:64px;display:flex;align-items:center;gap:4px;padding:0 8px"><button onClick="{{ go.beranda }}" aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button><span style="font-size:22px;line-height:28px;font-weight:600">Riwayat</span></div>
+<div style="padding:8px 20px;display:flex;flex-direction:column">
+<span style="font-size:15px;line-height:20px;font-weight:600;padding:8px 0 12px">Hari ini</span>
+<sc-for list="{{ history }}" as="e" hint-placeholder-count="3">
+<div style="display:flex;gap:14px"><div style="width:40px;height:40px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:20px;height:20px">{{ e.icon }}</div></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding:8px 0 20px"><span style="font-size:16px;line-height:24px;font-weight:500;text-decoration:{{ e.strike }}">{{ e.t }}</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">{{ e.s }}</span>
+<sc-if value="{{ e.undo }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:12px;margin-top:10px"><button onClick="{{ undo }}" style="height:48px;padding:0 16px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer"><span style="width:18px;height:18px;display:block">{{ ic.undo }}</span>Batalkan</button><span style="font-size:13px;font-weight:500;color:#647069">sampai 10.47</span></div></sc-if>
+</div></div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ s.terhubung }}" hint-placeholder-val="{{ false }}">
+<div style="height:64px;display:flex;align-items:center;padding:0 8px"><button onClick="{{ go.beranda }}" aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button></div>
+<div style="padding:0 16px;display:flex;flex-direction:column;gap:12px">
+<div style="padding:0 4px 8px;display:flex;flex-direction:column;gap:4px"><span style="font-size:32px;line-height:40px;font-weight:600">Terhubung</span><span style="font-size:17px;line-height:24px;color:#647069">Semua yang sudah Nadia kenal.</span></div>
+<span style="font-size:15px;font-weight:600;padding:4px 4px 0">Usaha</span>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:4px 4px 4px 16px;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:12px;min-height:64px;border-bottom:1px solid #E2E6DE"><div style="width:40px;height:40px;border-radius:14px;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.receipt }}</div></div><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:600">Moka</span><span style="font-size:13px;font-weight:500;color:#647069">Aktif · terakhir dibaca 1 menit lalu</span></div></div>
+<div style="display:flex;align-items:center;gap:12px;min-height:64px"><div style="width:40px;height:40px;border-radius:14px;background:{{ tt.bg }};color:{{ tt.fg }};display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.bag }}</div></div><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:600">TikTok Shop &amp; Tokopedia</span><span style="font-size:13px;font-weight:500;color:#647069">{{ tt.status }}</span></div>
+<sc-if value="{{ ttOff }}" hint-placeholder-val="{{ true }}"><button onClick="{{ go.login }}" style="height:48px;padding:0 12px;border:none;background:none;color:#1D7550;font-size:15px;font-weight:600;cursor:pointer">Sambungkan</button></sc-if></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ s.login }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background:rgba(13,43,34,.45)"></div>
+<div style="position:absolute;left:0;right:0;top:100px;bottom:0;background:#FCFCF8;border-radius:28px 28px 0 0;display:flex;flex-direction:column;padding-bottom:24px">
+<div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 8px;border-bottom:1px solid #E2E6DE"><button onClick="{{ go.terhubung }}" aria-label="Tutup" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.x }}</span></button><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:600">Masuk ke TikTok Shop</span><span style="font-size:13px;font-weight:500;color:#647069">seller.tiktokshop.com</span></div></div>
+<div style="margin:16px 16px 0;background:#E8F4E8;border-radius:16px;padding:12px 16px;font-size:15px;line-height:22px">Ini halaman resmi TikTok Shop. Kata sandi Anda tidak saya lihat atau simpan.</div>
+<div style="flex:1;margin:16px;border:1.5px dashed #C9D2C6;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#647069;text-align:center"><span style="width:32px;height:32px;display:block">{{ ic.globe }}</span><span style="font-size:16px;font-weight:600;color:#3F5048">Halaman masuk TikTok Shop</span></div>
+<button onClick="{{ connect }}" style="margin:0 16px;height:56px;border-radius:28px;border:none;background:#0D2B22;color:#FFFFFF;font-size:17px;font-weight:600;cursor:pointer">Masuk (simulasi)</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ s.joined }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;top:36px;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding:72px 24px 32px">
+<div style="display:flex;justify-content:center">{{ orbitJoin }}</div>
+<div style="display:flex;flex-direction:column;gap:8px;text-align:center;margin-top:32px"><span style="font-size:22px;line-height:28px;font-weight:600">TikTok Shop sudah terhubung</span><span style="font-size:17px;line-height:26px;color:#647069">Mulai sekarang saya kabari pesanan baru dan yang perlu dikirim.</span></div>
+<div style="flex:1"></div>
+<button onClick="{{ go.beranda }}" style="height:56px;border-radius:28px;border:none;background:#1D7550;color:#FFFFFF;font-size:17px;font-weight:600;cursor:pointer">Selesai</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:16px;right:16px;bottom:104px;background:#0D2B22;color:#F6F6F0;border-radius:16px;padding:14px 16px;font-size:15px;line-height:22px;z-index:4">{{ toast }}</div>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;reduceMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Gerak&quot;}}">
+class Component extends DCLogic {
+  state = { screen: 'beranda', flow: 0, ac: true, approval: true, sent: 0, tt: false, vs: 0, toast: null, tick: 0 };
+  componentDidMount() { this._p = setInterval(() => { if (window.SK) { clearInterval(this._p); this.forceUpdate(); } }, 60); }
+  componentWillUnmount() { clearInterval(this._p); this.clear(); }
+  clear() { (this._t || []).forEach(clearTimeout); this._t = []; }
+  later(ms, fn) { (this._t = this._t || []).push(setTimeout(fn, ms)); }
+  rm() { return this.props.reduceMotion ?? (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  flash(msg) { this.setState({ toast: msg }); this.later(2600, () => this.setState({ toast: null })); }
+  reset(flow) { this.clear(); this.setState({ screen: 'beranda', flow, ac: true, approval: true, sent: 0, tt: false, vs: 0, toast: null }); }
+  startVoice() {
+    this.clear(); this.setState({ screen: 'voice', vs: 1 });
+    this.later(2200, () => this.setState({ vs: 2 }));
+    this.later(3400, () => this.setState({ vs: 3, ac: false }));
+  }
+  renderVals() {
+    const SK = window.SK, h = React.createElement, st = this.state, rm = this.rm();
+    const go = {}; ['beranda', 'chat', 'riwayat', 'terhubung', 'login'].forEach(k => go[k] = () => this.setState({ screen: k }));
+    const flows = [
+      { n: 1, t: 'Bicara dengan Nadia', d: 'Tahan Inti, ucapkan perintah, AC kamar mati.' },
+      { n: 2, t: 'Setujui dan batalkan kiriman', d: 'Kirim balasan ke Pak Budi, lalu batalkan dari Riwayat.' },
+      { n: 3, t: 'Sambungkan layanan baru', d: 'TikTok Shop masuk ke cincin di Beranda.' }
+    ].map(f => ({ ...f, start: () => this.reset(f.n), bg: st.flow === f.n ? '#E8F4E8' : '#FCFCF8', border: st.flow === f.n ? '1.5px solid #1D7550' : '1px solid #E2E6DE' }));
+    const hints = {
+      beranda: st.flow === 2 ? 'Ketuk "Lihat" di kartu Butuh persetujuan Anda.' : st.flow === 3 ? (st.tt ? 'TikTok Shop sekarang ada di cincin. Alur selesai.' : 'Ketuk tulisan di bawah cincin untuk membuka Terhubung.') : (st.ac ? 'Tekan dan tahan Inti di tengah cincin.' : 'AC kamar sekarang mati di kartu Rumah. Alur selesai.'),
+      voice: st.vs < 3 ? 'Nadia sedang mendengar lalu berpikir…' : 'Ketuk Selesai untuk kembali ke Beranda.',
+      chat: st.sent ? 'Buka Riwayat lewat tombol kembali, lalu tab Riwayat.' : 'Periksa drafnya, lalu ketuk Kirim.',
+      riwayat: st.sent === 2 ? 'Kiriman dibatalkan. Alur selesai.' : 'Ketuk Batalkan dalam 5 menit setelah kirim.',
+      terhubung: 'Ketuk Sambungkan di TikTok Shop.',
+      login: 'Halaman ini milik layanan. Ketuk Masuk untuk simulasi.',
+      joined: 'Simpul baru masuk ke cincin. Ketuk Selesai.'
+    };
+    const vtexts = [
+      { you: '', youRest: '', label: 'Nadia', reply: '' },
+      { you: 'Matikan AC kamar ', youRest: 'dan…', label: 'Mendengar', reply: '' },
+      { you: 'Matikan AC kamar.', youRest: '', label: 'Nadia', reply: '' },
+      { you: 'Matikan AC kamar.', youRest: '', label: 'Nadia', reply: 'Sudah. AC kamar saya matikan.' }
+    ];
+    const base = {
+      flows, hint: hints[st.screen], go, s: { [st.screen]: true },
+      sb: st.screen === 'voice' ? '#ECF2EA' : '#0D2B22',
+      ringLabel: st.tt ? '8 terhubung · CCTV tidak terjangkau' : '7 terhubung · CCTV tidak terjangkau',
+      approvalOpen: st.approval, draftOpen: !st.sent, sentState: !!st.sent,
+      sentText: st.sent === 2 ? 'Dibatalkan · tidak jadi terkirim' : 'Terkirim · 10.42',
+      sentColor: st.sent === 2 ? '#647069' : '#1D7550',
+      sentReply: st.sent === 2 ? 'Kiriman ke Pak Budi sudah saya tarik.' : 'Terkirim. Kalau berubah pikiran, Anda bisa membatalkannya dari Riwayat sampai 10.47.',
+      ttOff: !st.tt, tt: st.tt ? { bg: '#E8F4E8', fg: '#1D7550', status: 'Aktif · baru tersambung' } : { bg: '#F1F2EC', fg: '#0D2B22', status: 'Belum tersambung' },
+      toast: st.toast, voice: vtexts[st.vs],
+      ac: st.ac ? { label: 'AC kamar nyala · 24°', sw: '#1D7550', x: '20px', icBg: '#E8F4E8', icFg: '#1D7550' } : { label: 'AC kamar mati', sw: '#CBD3C8', x: '0px', icBg: '#F1F2EC', icFg: '#647069' },
+      toggleAc: () => this.setState(s => ({ ac: !s.ac })),
+      endVoice: () => { this.clear(); this.setState({ screen: 'beranda', vs: 0 }); },
+      send: () => { this.setState({ sent: 1, approval: false }); },
+      undo: () => { this.setState({ sent: 2 }); this.flash('Kiriman ke Pak Budi dibatalkan.'); },
+      connect: () => this.setState(s => ({ screen: 'joined', tt: true, tick: s.tick + 1 }))
+    };
+    if (!SK) return { ...base, ic: {}, history: [] };
+    const ic = SK.icons(h);
+    const history = [];
+    if (st.sent) history.push({ icon: ic.chat, t: 'Mengirim balasan ke Pak Budi', s: st.sent === 2 ? 'dibatalkan Anda 10.43' : 'disetujui Anda 10.42', undo: st.sent === 1, strike: st.sent === 2 ? 'line-through' : 'none' });
+    if (!st.ac) history.push({ icon: ic.snow, t: 'Mematikan AC kamar', s: 'lewat suara · 10.41', undo: false, strike: 'none' });
+    history.push({ icon: ic.bolt, t: 'Membeli token listrik Rp100.000', s: 'lunas · 10.05', undo: false, strike: 'none' });
+    history.push({ icon: ic.note, t: 'Mencatat rapat supplier', s: '09.40 · notulen siap', undo: false, strike: 'none' });
+    const nodes = st.tt ? SK.NODES.concat([['bag', 'TikTok Shop']]) : SK.NODES;
+    const holdStart = () => { this._held = false; this._hold = setTimeout(() => { this._held = true; this.startVoice(); }, 450); };
+    const holdEnd = () => clearTimeout(this._hold);
+    const tap = e => { e && e.stopPropagation && e.stopPropagation(); if (!this._held) this.setState({ screen: 'chat' }); this._held = false; };
+    const vstate = ['idle', 'listen', 'think', 'speak'][st.vs];
+    return {
+      ...base, ic, history,
+      orbit: SK.orbit(h, { nodes, rm, onIntiDown: holdStart, onIntiUp: holdEnd, onInti: tap }),
+      orbitJoin: SK.orbit(h, { nodes, join: 7, tick: st.tick, rm }),
+      intiTab: SK.inti(h, 50, 'idle', { rm }), intiChat: SK.inti(h, 36, 'idle', { rm }),
+      intiVoice: SK.inti(h, 200, vstate, { light: true, rm })
+    };
+  }
+}
+</script>
+</body>
+</html>

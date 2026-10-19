@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><script src="sk-shared.js"></script><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><style>body{margin:0;background:#ECEBE4;font-family:'Plus Jakarta Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}a{color:#1D7550}a:hover{color:#2A8A5C}button{font-family:inherit}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.55)}.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}.dv-next{margin:22px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5)}.dv-grp{font:600 12px/1 system-ui,sans-serif;color:rgba(0,0,0,.5);margin:8px 0 14px;text-transform:uppercase;letter-spacing:.08em}</style></helmet>
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Layar 6.4–6.11 · mode terang · gaya dari <a href="Sekretaris AI.dc.html" style="color:#1a1a1a">turn 1</a></span></div>
+
+<div class="dv-grp">6.4 Agenda</div>
+<div class="dv-opts" style="margin-bottom:40px">
+
+<div class="dv-opt" id="2a"><div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Agenda · Hari ini</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.41<div style="display:flex">{{ ic.status }}</div></div>
+<div style="position:absolute;top:36px;left:0;right:0;bottom:88px;overflow:auto">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0 20px"><span style="font-size:22px;line-height:28px;font-weight:600">Agenda</span><button style="width:48px;height:48px;border-radius:50%;border:none;background:#E8F4E8;color:#1D7550;font-size:15px;font-weight:700;cursor:pointer">RW</button></div>
+<div style="margin:12px 16px 0;height:56px;border:1px solid #E2E6DE;background:#FCFCF8;border-radius:28px;padding:4px;box-sizing:border-box;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))">
+<button style="border:none;border-radius:24px;background:#E8F4E8;color:#1D7550;font-size:15px;font-weight:600;cursor:pointer">Hari ini</button>
+<button style="border:none;border-radius:24px;background:none;color:#647069;font-size:15px;font-weight:500;cursor:pointer">Minggu ini</button>
+<button style="border:none;border-radius:24px;background:none;color:#647069;font-size:15px;font-weight:500;cursor:pointer">Kalender</button>
+</div>
+<div style="padding:24px 20px 8px;display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:17px;line-height:24px;font-weight:600">Senin, 20 Okt</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">4 lagi hari ini</span></div>
+<div style="margin:8px 16px 0;background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px">
+<span style="font-size:15px;line-height:20px;font-weight:600;color:#1D7550">Kemarin belum selesai</span>
+<div style="display:flex;gap:12px;align-items:flex-start"><span style="width:24px;height:24px;display:block;color:#647069;flex:none">{{ ic.task }}</span><span style="font-size:16px;line-height:24px">Kirim penawaran katering ke Bu Sari</span></div>
+<div style="display:flex;gap:8px">
+<button style="flex:1;height:48px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#1D7550;font-size:15px;font-weight:600;cursor:pointer">Kerjakan hari ini</button>
+<button style="flex:1;height:48px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;font-size:15px;font-weight:600;cursor:pointer">Lepaskan</button>
+</div>
+</div>
+<div style="padding:16px 16px 96px;display:flex;flex-direction:column">
+<div style="display:flex;gap:12px;padding:12px 4px;align-items:flex-start;opacity:.75"><span style="width:48px;font-size:16px;line-height:40px;font-weight:600;font-variant-numeric:tabular-nums;color:#647069">09.00</span><div style="width:40px;height:40px;border-radius:14px;background:#E2E6DE;color:#647069;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.camera }}</div></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding-top:8px"><span style="font-size:16px;line-height:24px;font-weight:500">Rapat dengan supplier susu</span><span style="font-size:13px;line-height:18px;font-weight:600;color:#1D7550">Notulen siap</span></div></div>
+<div style="display:flex;align-items:center;gap:8px;padding:2px 4px"><span style="font-size:13px;font-weight:600;color:#1D7550;font-variant-numeric:tabular-nums;width:48px">09.41</span><span style="width:8px;height:8px;border-radius:50%;background:#1D7550"></span><span style="flex:1;height:1.5px;background:#1D7550"></span></div>
+<div style="display:flex;gap:12px;padding:12px 4px;align-items:flex-start"><span style="width:48px;font-size:16px;line-height:40px;font-weight:600;font-variant-numeric:tabular-nums">13.00</span><div style="width:40px;height:40px;border-radius:14px;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.bell }}</div></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding-top:8px"><span style="font-size:16px;line-height:24px;font-weight:500">Bayar listrik Kedai Dago</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069;display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;display:block">{{ ic.call }}</span>Telepon saya</span></div></div>
+<div style="display:flex;gap:12px;padding:12px 4px;align-items:flex-start"><span style="width:48px;font-size:16px;line-height:40px;font-weight:600;font-variant-numeric:tabular-nums">15.00</span><div style="width:40px;height:40px;border-radius:14px;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.task }}</div></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding-top:8px"><span style="font-size:16px;line-height:24px;font-weight:500">Cek stok Kedai Riau</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Tugas</span></div></div>
+<div style="display:flex;gap:12px;padding:12px 4px;align-items:flex-start"><span style="width:48px;font-size:16px;line-height:40px;font-weight:600;font-variant-numeric:tabular-nums">16.00</span><div style="width:40px;height:40px;border-radius:14px;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.bell }}</div></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding-top:8px"><span style="font-size:16px;line-height:24px;font-weight:500">Jemput Kayla les</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069;display:flex;align-items:center;gap:6px;flex-wrap:wrap">Bunyi sebagai alarm<span style="display:flex;align-items:center;gap:4px">· <span style="width:14px;height:14px;display:block">{{ ic.repeat }}</span>Tiap Senin</span></span></div></div>
+<div style="display:flex;gap:12px;padding:12px 4px;align-items:flex-start"><span style="width:48px;font-size:16px;line-height:40px;font-weight:600;font-variant-numeric:tabular-nums">19.00</span><div style="width:40px;height:40px;border-radius:14px;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.camera }}</div></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding-top:8px"><span style="font-size:16px;line-height:24px;font-weight:500">Rapat manajer kedai</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069;display:flex;align-items:center;gap:4px">Google Meet · <span style="width:14px;height:14px;display:block">{{ ic.repeat }}</span>Tiap Senin</span></div></div>
+</div>
+</div>
+<button style="position:absolute;right:20px;bottom:104px;height:56px;padding:0 24px 0 18px;border-radius:28px;border:none;background:#1D7550;color:#FFFFFF;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(13,43,34,.14);cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.plus }}</span>Tambah</button>
+<div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:#FCFCF8;border-top:1px solid #E2E6DE;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:0 4px">
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069"><div style="width:24px;height:24px">{{ ic.home }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Beranda</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#1D7550"><div style="width:24px;height:24px">{{ ic.calendar }}</div><span style="font-size:13px;line-height:18px;font-weight:600">Agenda</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:-26px"><div style="width:68px;height:68px;border-radius:50%;background:#FCFCF8;border:1px solid #E2E6DE;display:flex;align-items:center;justify-content:center">{{ intiTab }}</div><span style="font-size:13px;line-height:18px;font-weight:600">Nadia</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069"><div style="width:24px;height:24px">{{ ic.bulb }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Perangkat</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069"><div style="width:24px;height:24px">{{ ic.store }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Usaha</span></div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2b"><div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Agenda · lembar Tambah dengan pratinjau</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.42<div style="display:flex">{{ ic.status }}</div></div>
+<div style="padding:16px 20px;font-size:22px;line-height:28px;font-weight:600">Agenda</div>
+<div style="position:absolute;inset:0;background:rgba(13,43,34,.45)"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:#FCFCF8;border-radius:28px 28px 0 0;padding:12px 20px 28px;display:flex;flex-direction:column;gap:16px">
+<span style="align-self:center;width:36px;height:4px;border-radius:2px;background:#D5DBD2"></span>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:22px;line-height:28px;font-weight:600">Tambah ke agenda</span><span style="font-size:16px;line-height:24px;color:#647069">Tulis seperti biasa, nanti saya rapikan.</span></div>
+<div style="min-height:104px;border:1.5px solid #1D7550;border-radius:20px;background:#F6F6F0;padding:14px 16px;box-sizing:border-box;display:flex;gap:8px;align-items:flex-start">
+<span style="flex:1;font-size:17px;line-height:26px">Ingatkan saya bayar pajak motor tanggal 25<span style="display:inline-block;width:2px;height:20px;background:#1D7550;vertical-align:-4px;margin-left:2px"></span></span>
+<button aria-label="Bicara" style="width:48px;height:48px;border-radius:50%;border:none;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><span style="width:22px;height:22px;display:block">{{ ic.mic }}</span></button>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="font-size:13px;line-height:18px;font-weight:600;color:#647069">Akan saya simpan sebagai</span>
+<div style="background:#E8F4E8;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:14px;background:#FCFCF8;color:#1D7550;display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.bell }}</div></div><div style="display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Bayar pajak motor</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#1D7550">Pengingat</span></div></div>
+<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:16px;line-height:24px">
+<span style="color:#647069">Tanggal</span><span style="font-weight:600;text-align:right">Sabtu, 25 Okt</span>
+<span style="color:#647069">Jam</span><span style="font-weight:600;text-align:right;font-variant-numeric:tabular-nums">09.00</span>
+<span style="color:#647069">Cara</span><span style="font-weight:600;text-align:right">Bunyi sebagai alarm</span>
+</div>
+<span style="font-size:13px;line-height:18px;font-weight:500;color:#3F5048">Jamnya saya tebak. Ketuk untuk mengubah.</span>
+</div>
+</div>
+<button style="height:56px;border-radius:28px;border:none;background:#1D7550;color:#FFFFFF;font-size:17px;font-weight:600;cursor:pointer">Simpan</button>
+</div>
+</div></div>
+
+</div>
+
+<div class="dv-grp">6.5 Perangkat</div>
+<div class="dv-opts" style="margin-bottom:40px">
+
+<div class="dv-opt" id="2c"><div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>Perangkat · Rumah, Ruang tamu</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.41<div style="display:flex">{{ ic.status }}</div></div>
+<div style="position:absolute;top:36px;left:0;right:0;bottom:88px;overflow:auto">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0 12px">
+<button style="height:48px;padding:0 12px 0 16px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;display:flex;align-items:center;gap:6px;font-size:16px;font-weight:600;cursor:pointer">Rumah<span style="width:20px;height:20px;display:block">{{ ic.chevD }}</span></button>
+<div style="display:flex;gap:8px"><button aria-label="Tambah perangkat" style="width:48px;height:48px;border-radius:50%;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.plus }}</span></button><button style="width:48px;height:48px;border-radius:50%;border:none;background:#E8F4E8;color:#1D7550;font-size:15px;font-weight:700;cursor:pointer">RW</button></div>
+</div>
+<div style="padding:16px 20px 0;font-size:22px;line-height:28px;font-weight:600">Perangkat</div>
+<div style="display:flex;gap:4px;padding:8px 12px 0;border-bottom:1px solid #E2E6DE;overflow-x:auto">
+<button style="height:48px;padding:0 12px;border:none;background:none;color:#1D7550;font-size:16px;font-weight:600;border-bottom:2.5px solid #1D7550;flex:none;cursor:pointer">Ruang tamu</button>
+<button style="height:48px;padding:0 12px;border:none;background:none;color:#647069;font-size:16px;font-weight:500;border-bottom:2.5px solid transparent;flex:none;cursor:pointer">Kamar</button>
+<button style="height:48px;padding:0 12px;border:none;background:none;color:#647069;font-size:16px;font-weight:500;border-bottom:2.5px solid transparent;flex:none;cursor:pointer">Dapur</button>
+<button style="height:48px;padding:0 12px;border:none;background:none;color:#647069;font-size:16px;font-weight:500;border-bottom:2.5px solid transparent;flex:none;cursor:pointer">Teras</button>
+</div>
+<div style="padding:16px 16px 24px;display:flex;flex-direction:column;gap:12px">
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:14px;background:#0E3A2C;color:#ECF2EA;display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.box }}</div></div><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:17px;line-height:24px;font-weight:600">Kotak Sekretaris AI</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#1D7550;display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:#4DA36E"></span>Online</span></div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:22px;line-height:28px;font-weight:600;font-variant-numeric:tabular-nums">27°</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Suhu ruangan</span></div>
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:22px;line-height:28px;font-weight:600;font-variant-numeric:tabular-nums">68%</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Kelembapan</span></div>
+</div>
+<div style="background:#E8F4E8;border-radius:16px;padding:12px 12px 12px 16px;display:flex;align-items:center;gap:12px">
+<span style="width:24px;height:24px;display:block;color:#1D7550;flex:none">{{ ic.mic }}</span>
+<div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Mic menyala</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#3F5048">Mendengar saat dipanggil "Nadia"</span></div>
+<button style="height:48px;padding:0 16px;border-radius:24px;border:1px solid #CFE3CF;background:#FCFCF8;color:#0D2B22;font-size:15px;font-weight:600;cursor:pointer;flex:none">Matikan</button>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;font-size:16px;line-height:24px"><span style="color:#647069">Speaker</span><span style="font-weight:500">JBL Ruang Tamu</span></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:20px;padding:16px;min-height:140px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between">
+<div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="width:44px;height:44px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.bulb }}</div></div><span style="width:52px;height:32px;border-radius:16px;background:#1D7550;position:relative;display:block"><span style="position:absolute;top:4px;left:24px;width:24px;height:24px;border-radius:50%;background:#FFFFFF"></span></span></div>
+<div style="display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Lampu utama</span><span style="font-size:13px;line-height:18px;font-weight:600;color:#1D7550">Nyala · 80%</span></div>
+</div>
+<div style="background:#EEF0EA;border:1px solid #E2E6DE;border-radius:20px;padding:16px;min-height:140px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between">
+<div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="width:44px;height:44px;border-radius:50%;background:#E2E6DE;color:#8A948E;display:flex;align-items:center;justify-content:center;position:relative"><div style="width:22px;height:22px">{{ ic.bulb }}</div><span style="position:absolute;top:0;right:0;width:10px;height:10px;border-radius:50%;background:#A14E2E;border:2px solid #EEF0EA"></span></div></div>
+<div style="display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600;color:#4F5A54">Lampu sudut</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Tidak terjangkau sejak 10.12</span></div>
+</div>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:20px;padding:16px;min-height:140px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between">
+<div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="width:44px;height:44px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.camera }}</div></div><span style="width:52px;height:32px;border-radius:16px;background:#1D7550;position:relative;display:block"><span style="position:absolute;top:4px;left:24px;width:24px;height:24px;border-radius:50%;background:#FFFFFF"></span></span></div>
+<div style="display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Kamera ruang tamu</span><span style="font-size:13px;line-height:18px;font-weight:600;color:#1D7550">Merekam</span></div>
+</div>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:20px;padding:16px;min-height:140px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between">
+<div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="width:44px;height:44px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.lock }}</div></div><span style="width:52px;height:32px;border-radius:16px;background:#1D7550;position:relative;display:block"><span style="position:absolute;top:4px;left:24px;width:24px;height:24px;border-radius:50%;background:#FFFFFF"></span></span></div>
+<div style="display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Pintu depan</span><span style="font-size:13px;line-height:18px;font-weight:600;color:#1D7550">Terkunci</span></div>
+</div>
+</div>
+<div style="padding:12px 4px 0;font-size:17px;line-height:24px;font-weight:600">Rutinitas</div>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:4px 16px;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #E2E6DE"><div style="width:40px;height:40px;border-radius:14px;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.home }}</div></div><div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Saya pulang</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Lampu teras nyala, AC kamar 25°</span></div><button style="height:48px;padding:0 16px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#1D7550;font-size:15px;font-weight:600;flex:none;cursor:pointer">Jalankan</button></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #E2E6DE"><div style="width:40px;height:40px;border-radius:14px;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.store }}</div></div><div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Tutup kedai</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Matikan semua, kunci, aktifkan kamera</span></div><button style="height:48px;padding:0 16px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#1D7550;font-size:15px;font-weight:600;flex:none;cursor:pointer">Jalankan</button></div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 0"><div style="width:40px;height:40px;border-radius:14px;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.moon }}</div></div><div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Tidur</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Lampu mati, AC kamar 26°, pintu dikunci</span></div><button style="height:48px;padding:0 16px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#1D7550;font-size:15px;font-weight:600;flex:none;cursor:pointer">Jalankan</button></div>
+</div>
+</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:#FCFCF8;border-top:1px solid #E2E6DE;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:0 4px">
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069"><div style="width:24px;height:24px">{{ ic.home }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Beranda</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069"><div style="width:24px;height:24px">{{ ic.calendar }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Agenda</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:-26px"><div style="width:68px;height:68px;border-radius:50%;background:#FCFCF8;border:1px solid #E2E6DE;display:flex;align-items:center;justify-content:center">{{ intiTab }}</div><span style="font-size:13px;line-height:18px;font-weight:600">Nadia</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#1D7550"><div style="width:24px;height:24px">{{ ic.bulb }}</div><span style="font-size:13px;line-height:18px;font-weight:600">Perangkat</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069"><div style="width:24px;height:24px">{{ ic.store }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Usaha</span></div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2d"><div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a>Detail AC kamar</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.41<div style="display:flex">{{ ic.status }}</div></div>
+<div style="height:64px;display:flex;align-items:center;gap:4px;padding:0 8px">
+<button aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button>
+<div style="flex:1;display:flex;flex-direction:column"><span style="font-size:17px;line-height:24px;font-weight:600">AC kamar</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">LG · lewat Kotak Sekretaris AI</span></div>
+</div>
+<div style="position:absolute;top:100px;left:0;right:0;bottom:0;overflow:auto;padding:0 16px 24px;display:flex;flex-direction:column;gap:16px">
+<div style="position:relative;width:280px;height:280px;align-self:center;margin-top:4px">
+{{ dial }}
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:64px;line-height:72px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em">24°</span><span style="font-size:16px;line-height:24px;color:#647069">Dingin</span></div>
+<span style="position:absolute;left:34px;bottom:12px;font-size:13px;font-weight:500;color:#647069">16°</span>
+<span style="position:absolute;right:30px;bottom:12px;font-size:13px;font-weight:500;color:#647069">30°</span>
+</div>
+<div style="display:flex;justify-content:center;gap:24px;margin-top:-8px">
+<button aria-label="Turunkan suhu" style="width:56px;height:56px;border-radius:50%;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.minus }}</span></button>
+<button aria-label="Naikkan suhu" style="width:56px;height:56px;border-radius:50%;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.plus }}</span></button>
+</div>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:20px;padding:16px;display:flex;gap:12px">
+<span style="width:22px;height:22px;display:block;color:#1D7550;flex:none;margin-top:1px">{{ ic.info }}</span>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:16px;line-height:24px;font-weight:500">Perintah terakhir: 24° Dingin · suhu ruangan sekarang 27°</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">AC ini saya kendalikan lewat inframerah, jadi saya tahu perintah yang dikirim, bukan keadaan AC-nya.</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="font-size:15px;line-height:20px;font-weight:600">Mode</span>
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+<button style="height:72px;border-radius:20px;border:1.5px solid #1D7550;background:#E8F4E8;color:#1D7550;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:600;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.snow }}</span>Dingin</button>
+<button style="height:72px;border-radius:20px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:500;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.drop }}</span>Kering</button>
+<button style="height:72px;border-radius:20px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:500;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.fan }}</span>Kipas</button>
+<button style="height:72px;border-radius:20px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:500;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.auto }}</span>Otomatis</button>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="font-size:15px;line-height:20px;font-weight:600">Kecepatan kipas</span>
+<div style="height:56px;border:1px solid #E2E6DE;background:#FCFCF8;border-radius:28px;padding:4px;box-sizing:border-box;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))">
+<button style="border:none;border-radius:24px;background:none;color:#647069;font-size:15px;font-weight:500;cursor:pointer">Pelan</button>
+<button style="border:none;border-radius:24px;background:#E8F4E8;color:#1D7550;font-size:15px;font-weight:600;cursor:pointer">Sedang</button>
+<button style="border:none;border-radius:24px;background:none;color:#647069;font-size:15px;font-weight:500;cursor:pointer">Kencang</button>
+<button style="border:none;border-radius:24px;background:none;color:#647069;font-size:15px;font-weight:500;cursor:pointer">Otomatis</button>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="font-size:15px;line-height:20px;font-weight:600">Jadwal</span>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:20px;padding:4px 8px 4px 16px;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:12px;min-height:56px;border-bottom:1px solid #E2E6DE"><span style="width:22px;height:22px;display:block;color:#1D7550">{{ ic.clock }}</span><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:500">Mati sendiri jam 05.00</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Tiap hari</span></div><span style="width:20px;height:20px;display:block;color:#647069;margin-right:8px">{{ ic.chevR }}</span></div>
+<button style="min-height:52px;border:none;background:none;color:#1D7550;font-size:16px;font-weight:600;display:flex;align-items:center;gap:12px;padding:0;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.plus }}</span>Tambah jadwal</button>
+</div>
+</div>
+<button style="height:56px;border-radius:28px;border:none;background:#1D7550;color:#FFFFFF;font-size:17px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;flex:none"><span style="width:22px;height:22px;display:block">{{ ic.power }}</span>Matikan AC</button>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2e"><div class="dv-olabel"><a class="dv-oid" href="#2e">2e</a>Lembar PIN · mematikan kamera</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.43<div style="display:flex">{{ ic.status }}</div></div>
+<div style="padding:16px 20px;font-size:22px;line-height:28px;font-weight:600">Perangkat</div>
+<div style="position:absolute;inset:0;background:rgba(13,43,34,.45)"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:#FCFCF8;border-radius:28px 28px 0 0;padding:12px 20px 28px;display:flex;flex-direction:column;align-items:center;gap:20px">
+<span style="width:36px;height:4px;border-radius:2px;background:#D5DBD2"></span>
+<div style="width:56px;height:56px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center"><span style="width:26px;height:26px;display:block">{{ ic.lock }}</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center"><span style="font-size:22px;line-height:28px;font-weight:600">Masukkan PIN</span><span style="font-size:16px;line-height:24px;color:#647069">Untuk mematikan Kamera ruang tamu.</span></div>
+<div style="display:flex;gap:16px;padding:4px 0">
+<span style="width:14px;height:14px;border-radius:50%;background:#0D2B22"></span><span style="width:14px;height:14px;border-radius:50%;background:#0D2B22"></span><span style="width:14px;height:14px;border-radius:50%;background:#0D2B22"></span><span style="width:14px;height:14px;border-radius:50%;border:1.75px solid #9AA59F;box-sizing:border-box"></span><span style="width:14px;height:14px;border-radius:50%;border:1.75px solid #9AA59F;box-sizing:border-box"></span><span style="width:14px;height:14px;border-radius:50%;border:1.75px solid #9AA59F;box-sizing:border-box"></span>
+</div>
+<div style="width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<button style="height:64px;border-radius:20px;border:none;background:#F1F2EC;color:#0D2B22;font-size:24px;font-weight:600;cursor:pointer">1</button>
+<button style="height:64px;border-radius:20px;border:none;background:#F1F2EC;color:#0D2B22;font-size:24px;font-weight:600;cursor:pointer">2</button>
+<button style="height:64px;border-radius:20px;border:none;background:#F1F2EC;color:#0D2B22;font-size:24px;font-weight:600;cursor:pointer">3</button>
+<button style="height:64px;border-radius:20px;border:none;background:#F1F2EC;color:#0D2B22;font-size:24px;font-weight:600;cursor:pointer">4</button>
+<button style="height:64px;border-radius:20px;border:none;background:#F1F2EC;color:#0D2B22;font-size:24px;font-weight:600;cursor:pointer">5</button>
+<button style="height:64px;border-radius:20px;border:none;background:#F1F2EC;color:#0D2B22;font-size:24px;font-weight:600;cursor:pointer">6</button>
+<button style="height:64px;border-radius:20px;border:none;background:#F1F2EC;color:#0D2B22;font-size:24px;font-weight:600;cursor:pointer">7</button>
+<button style="height:64px;border-radius:20px;border:none;background:#F1F2EC;color:#0D2B22;font-size:24px;font-weight:600;cursor:pointer">8</button>
+<button style="height:64px;border-radius:20px;border:none;background:#F1F2EC;color:#0D2B22;font-size:24px;font-weight:600;cursor:pointer">9</button>
+<button style="height:64px;border-radius:20px;border:none;background:none;color:#0D2B22;font-size:16px;font-weight:600;cursor:pointer">Batal</button>
+<button style="height:64px;border-radius:20px;border:none;background:#F1F2EC;color:#0D2B22;font-size:24px;font-weight:600;cursor:pointer">0</button>
+<button aria-label="Hapus" style="height:64px;border-radius:20px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:26px;height:26px;display:block">{{ ic.backspace }}</span></button>
+</div>
+<a href="#" style="font-size:16px;font-weight:600;text-decoration:none;color:#1D7550;padding:12px">Lupa PIN?</a>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2f"><div class="dv-olabel"><a class="dv-oid" href="#2f">2f</a>Tambah perangkat</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.44<div style="display:flex">{{ ic.status }}</div></div>
+<div style="height:64px;display:flex;align-items:center;gap:4px;padding:0 8px">
+<button aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button>
+<span style="font-size:17px;line-height:24px;font-weight:600">Tambah perangkat</span>
+</div>
+<div style="position:absolute;top:100px;left:0;right:0;bottom:0;overflow:auto;padding:8px 16px 24px;display:flex;flex-direction:column;gap:16px">
+<div style="background:#E8F4E8;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;gap:12px"><div style="width:48px;height:48px;border-radius:16px;background:#0E3A2C;color:#ECF2EA;display:flex;align-items:center;justify-content:center"><div style="width:24px;height:24px">{{ ic.box }}</div></div><span style="font-size:17px;line-height:24px;font-weight:600">Kotak Sekretaris AI</span></div>
+<span style="font-size:16px;line-height:24px">Dipasang lewat Bluetooth. Nyalakan kotaknya, lalu dekatkan HP Anda.</span>
+<button style="height:52px;border-radius:26px;border:none;background:#1D7550;color:#FFFFFF;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.bt }}</span>Pasang Kotak</button>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px;padding:8px 4px 0"><span style="font-size:17px;line-height:24px;font-weight:600">Atau pilih merek perangkat</span><span style="font-size:16px;line-height:24px;color:#647069">Masuk dengan akun merek itu. Semua perangkatnya langsung muncul di sini.</span></div>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:4px 12px 4px 16px;display:flex;flex-direction:column">
+<sc-for list="{{ brands }}" as="b" hint-placeholder-count="9">
+<div style="display:flex;align-items:center;gap:12px;min-height:60px;border-bottom:1px solid #E2E6DE"><span style="width:40px;height:40px;border-radius:12px;background:#F1F2EC;color:#0D2B22;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none">{{ b.m }}</span><span style="flex:1;font-size:16px;line-height:24px;font-weight:500">{{ b.n }}</span><span style="width:20px;height:20px;display:block;color:#647069">{{ ic.chevR }}</span></div>
+</sc-for>
+</div>
+</div>
+</div></div>
+
+</div>
+<div class="dv-grp">6.6 Usaha · 6.7 Terhubung</div>
+<div class="dv-opts" style="margin-bottom:40px">
+
+<div class="dv-opt" id="2g"><div class="dv-olabel"><a class="dv-oid" href="#2g">2g</a>Usaha · Semua cabang</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">14.20<div style="display:flex">{{ ic.status }}</div></div>
+<div style="position:absolute;top:36px;left:0;right:0;bottom:88px;overflow:auto">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0 12px">
+<button style="height:48px;padding:0 12px 0 16px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;display:flex;align-items:center;gap:6px;font-size:16px;font-weight:600;cursor:pointer">Semua cabang<span style="width:20px;height:20px;display:block">{{ ic.chevD }}</span></button>
+<button style="width:48px;height:48px;border-radius:50%;border:none;background:#E8F4E8;color:#1D7550;font-size:15px;font-weight:700;cursor:pointer">RW</button>
+</div>
+<div style="padding:16px 20px 0;font-size:22px;line-height:28px;font-weight:600">Usaha</div>
+<div style="padding:16px 16px 24px;display:flex;flex-direction:column;gap:12px">
+
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:17px;line-height:24px;font-weight:600">Penjualan hari ini</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">dari Moka</span></div>
+<div style="display:flex;flex-direction:column"><span style="font-size:32px;line-height:40px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em">Rp4.250.000</span><span style="font-size:16px;line-height:24px;font-weight:500;color:#1D7550">naik 12% dari Senin lalu</span></div>
+<div style="display:flex;flex-direction:column;gap:4px">{{ spark }}
+<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));font-size:13px;line-height:18px;font-weight:500;color:#647069;text-align:center"><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span><span style="color:#1D7550;font-weight:600">Sen</span></div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid #E2E6DE;padding-top:12px">
+<div style="display:flex;flex-direction:column"><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Kedai Dago</span><span style="font-size:17px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">Rp2.610.000</span></div>
+<div style="display:flex;flex-direction:column"><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Kedai Riau</span><span style="font-size:17px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">Rp1.640.000</span></div>
+</div>
+</div>
+
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:20px 20px 8px;display:flex;flex-direction:column">
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px"><span style="font-size:17px;line-height:24px;font-weight:600">Uang masuk</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">dari BCA</span></div>
+<div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #E2E6DE"><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px">Transfer dari PT Sumber Susu</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069;font-variant-numeric:tabular-nums">10.12</span></div><span style="font-size:16px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">Rp2.400.000</span></div>
+<div style="display:flex;gap:12px;padding:12px 0"><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px">QRIS Kedai Dago</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069;font-variant-numeric:tabular-nums">09.58</span></div><span style="font-size:16px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums">Rp1.185.000</span></div>
+</div>
+
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:17px;line-height:24px;font-weight:600">Stok menipis</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">dari Moka</span></div>
+<div style="background:#F5E5DB;border-radius:16px;padding:4px 16px;display:flex;flex-direction:column">
+<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #EBD3C4;font-size:16px;line-height:24px;color:#0D2B22"><span>Susu UHT</span><span style="font-weight:600;color:#A14E2E;font-variant-numeric:tabular-nums">6 karton</span></div>
+<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:16px;line-height:24px;color:#0D2B22"><span>Biji kopi Gayo</span><span style="font-weight:600;color:#A14E2E;font-variant-numeric:tabular-nums">2 kg</span></div>
+</div>
+<span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Saya buatkan draf pesanan ke supplier. Tidak ada yang terkirim sebelum Anda setuju.</span>
+<button style="height:52px;border-radius:26px;border:none;background:#1D7550;color:#FFFFFF;font-size:16px;font-weight:600;cursor:pointer">Pesan lagi</button>
+</div>
+
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:16px 16px 16px 20px;display:flex;align-items:center;gap:12px">
+<div style="width:40px;height:40px;border-radius:14px;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.bag }}</div></div>
+<div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:500">TikTok Shop: 3 pesanan perlu dikirim</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">dari TikTok Shop</span></div>
+<span style="width:20px;height:20px;display:block;color:#647069">{{ ic.chevR }}</span>
+</div>
+
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:12px">
+<span style="font-size:17px;line-height:24px;font-weight:600">Laporan</span>
+<div style="align-self:flex-end;max-width:85%;background:#1D7550;color:#FFFFFF;border-radius:20px 20px 6px 20px;padding:10px 16px;font-size:16px;line-height:24px">Buat laporan penjualan minggu ini</div>
+<div style="display:flex;align-items:center;gap:12px;background:#F6F6F0;border-radius:16px;padding:12px">
+<div style="width:40px;height:48px;border-radius:12px;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.file }}</div></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;line-height:22px;font-weight:600">Laporan penjualan 14–20 Okt.xlsx</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">36 KB · baru saja</span></div>
+<button style="height:48px;padding:0 16px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;font-size:15px;font-weight:600;flex:none;cursor:pointer">Buka</button>
+</div>
+</div>
+
+</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:#FCFCF8;border-top:1px solid #E2E6DE;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:0 4px">
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069"><div style="width:24px;height:24px">{{ ic.home }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Beranda</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069"><div style="width:24px;height:24px">{{ ic.calendar }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Agenda</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:-26px"><div style="width:68px;height:68px;border-radius:50%;background:#FCFCF8;border:1px solid #E2E6DE;display:flex;align-items:center;justify-content:center">{{ intiTab }}</div><span style="font-size:13px;line-height:18px;font-weight:600">Nadia</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#647069"><div style="width:24px;height:24px">{{ ic.bulb }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Perangkat</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#1D7550"><div style="width:24px;height:24px">{{ ic.store }}</div><span style="font-size:13px;line-height:18px;font-weight:600">Usaha</span></div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2h"><div class="dv-olabel"><a class="dv-oid" href="#2h">2h</a>Terhubung</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.41<div style="display:flex">{{ ic.status }}</div></div>
+<div style="height:64px;display:flex;align-items:center;padding:0 8px"><button aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button></div>
+<div style="position:absolute;top:100px;left:0;right:0;bottom:0;overflow:auto;padding:0 16px 32px;display:flex;flex-direction:column;gap:12px">
+<div style="padding:0 4px 8px;display:flex;flex-direction:column;gap:4px"><span style="font-size:32px;line-height:40px;font-weight:600">Terhubung</span><span style="font-size:17px;line-height:24px;color:#647069">Semua yang sudah Nadia kenal.</span></div>
+<span style="font-size:15px;line-height:20px;font-weight:600;padding:8px 4px 0">Sudah terhubung</span>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:4px 12px 4px 16px;display:flex;flex-direction:column">
+<sc-for list="{{ connected }}" as="s" hint-placeholder-count="7">
+<div style="display:flex;align-items:center;gap:12px;min-height:64px;border-bottom:1px solid #E2E6DE"><div style="width:40px;height:40px;border-radius:14px;background:{{ s.bg }};color:{{ s.fg }};display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ s.icon }}</div></div><div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">{{ s.n }}</span><span style="font-size:13px;line-height:18px;font-weight:500;color:{{ s.sc }}">{{ s.st }}</span></div><span style="width:20px;height:20px;display:block;color:#647069">{{ ic.chevR }}</span></div>
+</sc-for>
+</div>
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+<span style="font-size:15px;line-height:20px;font-weight:600;padding:12px 4px 0">{{ g.t }}</span>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:4px 4px 4px 16px;display:flex;flex-direction:column">
+<sc-for list="{{ g.items }}" as="s" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:12px;min-height:60px;border-bottom:1px solid #E2E6DE"><span style="width:40px;height:40px;border-radius:14px;background:#F1F2EC;color:#0D2B22;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none">{{ s.m }}</span><span style="flex:1;min-width:0;font-size:16px;line-height:22px;font-weight:500">{{ s.n }}</span><button style="height:48px;padding:0 12px;border:none;background:none;color:#1D7550;font-size:15px;font-weight:600;cursor:pointer;flex:none">Sambungkan</button></div>
+</sc-for>
+</div>
+</sc-for>
+<span style="font-size:15px;line-height:20px;font-weight:600;padding:12px 4px 0">Rumah</span>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:4px 12px 4px 16px;display:flex;align-items:center;gap:12px;min-height:64px"><div style="width:40px;height:40px;border-radius:14px;background:#F1F2EC;color:#0D2B22;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.bulb }}</div></div><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:500">Merek perangkat rumah</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">LG, Samsung, Philips Hue, Aqara, dan 5 lainnya</span></div><span style="width:20px;height:20px;display:block;color:#647069">{{ ic.chevR }}</span></div>
+<span style="font-size:15px;line-height:20px;font-weight:600;padding:12px 4px 0">Lainnya</span>
+<button style="background:#FCFCF8;border:1px dashed #C9D2C6;border-radius:24px;padding:0 16px;display:flex;align-items:center;gap:12px;min-height:64px;color:#1D7550;font-size:16px;font-weight:600;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.plus }}</span>Sambungkan layanan lain</button>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2i"><div class="dv-olabel"><a class="dv-oid" href="#2i">2i</a>Detail layanan · Moka</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.41<div style="display:flex">{{ ic.status }}</div></div>
+<div style="height:64px;display:flex;align-items:center;padding:0 8px"><button aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button></div>
+<div style="position:absolute;top:100px;left:0;right:0;bottom:0;overflow:auto;padding:0 16px 32px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;align-items:center;gap:16px;padding:0 4px"><div style="width:64px;height:64px;border-radius:20px;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center"><div style="width:30px;height:30px">{{ ic.receipt }}</div></div><div style="display:flex;flex-direction:column"><span style="font-size:22px;line-height:28px;font-weight:600">Moka</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#1D7550;display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:#4DA36E"></span>Aktif · terakhir dibaca 1 menit lalu</span></div></div>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:12px">
+<span style="font-size:17px;line-height:24px;font-weight:600">Yang bisa Nadia lakukan</span>
+<div style="display:flex;gap:12px;font-size:16px;line-height:24px"><span style="width:20px;height:20px;display:block;color:#1D7550;flex:none;margin-top:2px">{{ ic.check }}</span>Melihat penjualan tiap kedai, kapan saja Anda tanya.</div>
+<div style="display:flex;gap:12px;font-size:16px;line-height:24px"><span style="width:20px;height:20px;display:block;color:#1D7550;flex:none;margin-top:2px">{{ ic.check }}</span>Memberi tahu Anda kalau stok mulai menipis.</div>
+<div style="display:flex;gap:12px;font-size:16px;line-height:24px"><span style="width:20px;height:20px;display:block;color:#1D7550;flex:none;margin-top:2px">{{ ic.check }}</span>Membuat laporan penjualan harian dan mingguan.</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="font-size:15px;line-height:20px;font-weight:600;padding:0 4px">Izin</span>
+<div style="border:1.5px solid #1D7550;background:#E8F4E8;border-radius:20px;padding:16px;display:flex;gap:12px"><span style="width:22px;height:22px;border-radius:50%;border:2px solid #1D7550;box-sizing:border-box;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px"><span style="width:10px;height:10px;border-radius:50%;background:#1D7550"></span></span><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;line-height:24px;font-weight:600">Hanya membaca</span><span style="font-size:16px;line-height:24px;color:#3F5048">Nadia melihat data, tidak mengubah apa pun.</span></div></div>
+<div style="border:1px solid #E2E6DE;background:#FCFCF8;border-radius:20px;padding:16px;display:flex;gap:12px"><span style="width:22px;height:22px;border-radius:50%;border:2px solid #9AA59F;box-sizing:border-box;flex:none;margin-top:1px"></span><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;line-height:24px;font-weight:600">Boleh bertindak</span><span style="font-size:16px;line-height:24px;color:#647069">Nadia boleh mengubah stok dan harga, selalu dengan persetujuan Anda.</span></div></div>
+</div>
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:4px 16px;display:flex;flex-direction:column">
+<button style="min-height:60px;border:none;border-bottom:1px solid #E2E6DE;background:none;color:#A14E2E;font-size:16px;font-weight:600;display:flex;align-items:center;gap:12px;padding:0;text-align:left;cursor:pointer"><span style="width:22px;height:22px;display:block;flex:none">{{ ic.trash }}</span>Hapus semua yang Nadia tahu dari layanan ini</button>
+<button style="min-height:60px;border:none;background:none;color:#0D2B22;font-size:16px;font-weight:600;display:flex;align-items:center;gap:12px;padding:0;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.x }}</span>Putuskan</button>
+</div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2j"><div class="dv-olabel"><a class="dv-oid" href="#2j">2j</a>Menyambung · halaman masuk layanan</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.45<div style="display:flex">{{ ic.status }}</div></div>
+<div style="padding:16px 20px;font-size:22px;line-height:28px;font-weight:600">Terhubung</div>
+<div style="position:absolute;inset:0;background:rgba(13,43,34,.45)"></div>
+<div style="position:absolute;left:0;right:0;top:100px;bottom:0;background:#FCFCF8;border-radius:28px 28px 0 0;display:flex;flex-direction:column;overflow:hidden">
+<div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 8px;border-bottom:1px solid #E2E6DE">
+<button aria-label="Tutup" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.x }}</span></button>
+<div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;line-height:22px;font-weight:600">Masuk ke TikTok Shop</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069;display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;display:block">{{ ic.lock }}</span>seller.tiktokshop.com</span></div>
+</div>
+<div style="margin:16px 16px 0;background:#E8F4E8;border-radius:16px;padding:12px 16px;display:flex;gap:12px;align-items:center">{{ intiSm }}<span style="font-size:15px;line-height:22px;color:#0D2B22">Ini halaman resmi TikTok Shop. Kata sandi Anda tidak saya lihat atau simpan.</span></div>
+<div style="flex:1;margin:16px;border:1.5px dashed #C9D2C6;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#647069;text-align:center;padding:24px"><span style="width:32px;height:32px;display:block">{{ ic.globe }}</span><span style="font-size:16px;line-height:24px;font-weight:600;color:#3F5048">Halaman masuk TikTok Shop</span><span style="font-size:13px;line-height:18px;font-weight:500">Tampilan milik layanan, dibuka di dalam aplikasi</span></div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2k"><div class="dv-olabel"><a class="dv-oid" href="#2k">2k</a>Menyambung · kembali, simpul baru masuk cincin</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.46<div style="display:flex">{{ ic.status }}</div></div>
+<div style="position:absolute;top:36px;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding:72px 24px 32px">
+<div style="display:flex;justify-content:center">{{ orbitJoin }}</div>
+<div style="display:flex;flex-direction:column;gap:8px;text-align:center;margin-top:32px"><span style="font-size:22px;line-height:28px;font-weight:600">TikTok Shop sudah terhubung</span><span style="font-size:17px;line-height:26px;color:#647069;text-wrap:pretty">Mulai sekarang saya kabari pesanan baru dan yang perlu dikirim.</span></div>
+<div style="margin-top:24px;background:#FCFCF8;border:1px solid #E2E6DE;border-radius:20px;padding:4px 8px 4px 16px;display:flex;align-items:center;gap:12px;min-height:60px"><span style="flex:1;font-size:16px;line-height:24px"><span style="color:#647069">Izin: </span><span style="font-weight:600">Hanya membaca</span></span><button style="height:48px;padding:0 12px;border:none;background:none;color:#1D7550;font-size:15px;font-weight:600;cursor:pointer">Ubah</button></div>
+<div style="flex:1"></div>
+<button style="height:56px;border-radius:28px;border:none;background:#1D7550;color:#FFFFFF;font-size:17px;font-weight:600;cursor:pointer">Selesai</button>
+</div>
+</div></div>
+
+</div>
+<div class="dv-grp">6.8 Alarm · 6.9 Riwayat · 6.11 Akun</div>
+<div class="dv-opts" style="margin-bottom:40px">
+
+<div class="dv-opt" id="2l"><div class="dv-olabel"><a class="dv-oid" href="#2l">2l</a>Alarm layar penuh · HP terkunci, mode pesawat</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#0E3A2C;color:#ECF2EA;border-radius:32px;border-color:#0E3A2C">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">07.00<div style="display:flex;align-items:center;gap:8px"><span style="width:16px;height:16px;display:block">{{ ic.plane }}</span><span style="width:22px;height:12px;border:1.3px solid #ECF2EA;border-radius:3px;box-sizing:border-box;padding:1.5px;display:block"><span style="display:block;width:70%;height:100%;background:#ECF2EA;border-radius:1px"></span></span></div></div>
+<div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:56px 28px 0;gap:8px">
+{{ intiAlarm }}
+<span style="margin-top:24px;font-size:15px;line-height:20px;font-weight:600;color:#A9B8AE;display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;display:block">{{ ic.bell }}</span>Pengingat · Senin, 20 Okt</span>
+<span style="font-size:96px;line-height:104px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.03em;color:#F6F6F0">07.00</span>
+<span style="font-size:28px;line-height:36px;font-weight:600;color:#F6F6F0">Berangkat ke bandara</span>
+<div style="margin-top:12px;background:rgba(236,242,234,.07);border:1px solid rgba(236,242,234,.12);border-radius:20px;padding:14px 18px;display:flex;align-items:center;gap:12px;font-size:17px;line-height:24px;color:#ECF2EA;text-align:left"><span style="width:22px;height:22px;display:block;color:#81C084;flex:none">{{ ic.plane }}</span>Penerbangan GA 408 jam 09.15, Terminal 3</div>
+</div>
+<div style="position:absolute;left:20px;right:20px;bottom:40px;display:flex;flex-direction:column;gap:16px">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+<button style="height:56px;border-radius:28px;border:1px solid rgba(236,242,234,.2);background:rgba(236,242,234,.08);color:#ECF2EA;font-size:16px;font-weight:600;cursor:pointer">Tunda 10 menit</button>
+<button style="height:56px;border-radius:28px;border:1px solid rgba(236,242,234,.2);background:rgba(236,242,234,.08);color:#ECF2EA;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer">{{ intiMini }}Tanya Nadia</button>
+</div>
+<div style="height:72px;border-radius:36px;background:rgba(236,242,234,.1);position:relative;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;font-weight:600;color:#C9D4CC;padding-left:40px">Geser untuk mematikan</span><span style="position:absolute;left:6px;top:6px;width:60px;height:60px;border-radius:50%;background:#F6F6F0;color:#0E3A2C;display:flex;align-items:center;justify-content:center"><span style="width:26px;height:26px;display:block">{{ ic.chevR }}</span></span></div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2m"><div class="dv-olabel"><a class="dv-oid" href="#2m">2m</a>Riwayat</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">10.43<div style="display:flex">{{ ic.status }}</div></div>
+<div style="height:64px;display:flex;align-items:center;gap:4px;padding:0 8px"><button aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button><span style="font-size:22px;line-height:28px;font-weight:600">Riwayat</span></div>
+<div style="display:flex;gap:8px;padding:4px 16px 12px;overflow-x:auto">
+<button style="height:48px;padding:0 18px;border-radius:24px;border:none;background:#E8F4E8;color:#1D7550;font-size:15px;font-weight:600;flex:none;cursor:pointer">Semua</button>
+<button style="height:48px;padding:0 18px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;font-size:15px;font-weight:500;flex:none;cursor:pointer">Pesan</button>
+<button style="height:48px;padding:0 18px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;font-size:15px;font-weight:500;flex:none;cursor:pointer">Rumah</button>
+<button style="height:48px;padding:0 18px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;font-size:15px;font-weight:500;flex:none;cursor:pointer">Usaha</button>
+<button style="height:48px;padding:0 18px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;font-size:15px;font-weight:500;flex:none;cursor:pointer">Pembelian</button>
+</div>
+<div style="position:absolute;top:164px;left:0;right:0;bottom:0;overflow:auto;padding:4px 20px 32px;display:flex;flex-direction:column">
+<span style="font-size:15px;line-height:20px;font-weight:600;padding:8px 0 12px">Hari ini</span>
+<div style="display:flex;gap:14px"><div style="display:flex;flex-direction:column;align-items:center"><div style="width:40px;height:40px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:20px;height:20px">{{ ic.chat }}</div></div><span style="flex:1;width:1.5px;background:#E2E6DE"></span></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding:8px 0 20px"><span style="font-size:16px;line-height:24px;font-weight:500">Mengirim balasan ke Pak Budi</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">disetujui Anda 10.42</span><div style="display:flex;align-items:center;gap:12px;margin-top:10px"><button style="height:48px;padding:0 16px;border-radius:24px;border:1px solid #E2E6DE;background:#FCFCF8;color:#0D2B22;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer"><span style="width:18px;height:18px;display:block">{{ ic.undo }}</span>Batalkan</button><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">sampai 10.47</span></div></div></div>
+<div style="display:flex;gap:14px"><div style="display:flex;flex-direction:column;align-items:center"><div style="width:40px;height:40px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:20px;height:20px">{{ ic.bolt }}</div></div><span style="flex:1;width:1.5px;background:#E2E6DE"></span></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding:8px 0 20px"><span style="font-size:16px;line-height:24px;font-weight:500">Membeli token listrik Rp100.000</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">lunas · 10.05</span></div></div>
+<div style="display:flex;gap:14px"><div style="display:flex;flex-direction:column;align-items:center"><div style="width:40px;height:40px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:20px;height:20px">{{ ic.note }}</div></div><span style="flex:1;width:1.5px;background:#E2E6DE"></span></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding:8px 0 20px"><span style="font-size:16px;line-height:24px;font-weight:500">Mencatat rapat supplier</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">09.40 · notulen siap</span></div></div>
+<div style="display:flex;gap:14px"><div style="display:flex;flex-direction:column;align-items:center"><div style="width:40px;height:40px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:20px;height:20px">{{ ic.bell }}</div></div></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding:8px 0 20px"><span style="font-size:16px;line-height:24px;font-weight:500">Mengingatkan rapat dengan supplier susu</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">08.45</span></div></div>
+<span style="font-size:15px;line-height:20px;font-weight:600;padding:12px 0 12px">Kemarin</span>
+<div style="display:flex;gap:14px"><div style="display:flex;flex-direction:column;align-items:center"><div style="width:40px;height:40px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:20px;height:20px">{{ ic.snow }}</div></div><span style="flex:1;width:1.5px;background:#E2E6DE"></span></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding:8px 0 20px"><span style="font-size:16px;line-height:24px;font-weight:500">Mematikan AC kamar</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">23.10</span></div></div>
+<div style="display:flex;gap:14px"><div style="display:flex;flex-direction:column;align-items:center"><div style="width:40px;height:40px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:20px;height:20px">{{ ic.lock }}</div></div><span style="flex:1;width:1.5px;background:#E2E6DE"></span></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding:8px 0 20px"><span style="font-size:16px;line-height:24px;font-weight:500">Mengunci pintu depan</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">22.30 · rutinitas Tidur</span></div></div>
+<div style="display:flex;gap:14px"><div style="display:flex;flex-direction:column;align-items:center"><div style="width:40px;height:40px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:20px;height:20px">{{ ic.file }}</div></div></div><div style="flex:1;display:flex;flex-direction:column;gap:2px;padding:8px 0 20px"><span style="font-size:16px;line-height:24px;font-weight:500">Mengirim laporan penjualan harian</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">21.00 · dari Moka</span></div></div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2q"><div class="dv-olabel"><a class="dv-oid" href="#2q">2q</a>Akun</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.41<div style="display:flex">{{ ic.status }}</div></div>
+<div style="height:64px;display:flex;align-items:center;gap:4px;padding:0 8px"><button aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button><span style="font-size:22px;line-height:28px;font-weight:600">Akun</span></div>
+<div style="position:absolute;top:100px;left:0;right:0;bottom:0;overflow:auto;padding:4px 16px 32px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:16px;padding:4px 4px 8px"><span style="width:64px;height:64px;border-radius:50%;background:#E8F4E8;color:#1D7550;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700">RW</span><div style="display:flex;flex-direction:column"><span style="font-size:17px;line-height:24px;font-weight:600">Rina Wulandari</span><span style="font-size:16px;line-height:24px;color:#647069;font-variant-numeric:tabular-nums">+62 812-2045-7781</span></div></div>
+<div style="background:#E8F4E8;border-radius:24px;padding:16px 8px 16px 20px;display:flex;align-items:center;gap:12px"><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:13px;line-height:18px;font-weight:600;color:#1D7550">Langganan</span><span style="font-size:17px;line-height:24px;font-weight:600">Paket Bisnis</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#3F5048">Aktif sampai 12 Jan 2027</span></div><button style="height:48px;padding:0 16px;border:none;background:none;color:#1D7550;font-size:15px;font-weight:600;cursor:pointer">Kelola</button></div>
+<sc-for list="{{ akun }}" as="sec" hint-placeholder-count="5">
+<div style="background:#FCFCF8;border:1px solid #E2E6DE;border-radius:24px;padding:4px 12px 4px 16px;display:flex;flex-direction:column">
+<sc-for list="{{ sec.rows }}" as="r" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;gap:14px;min-height:64px;border-bottom:1px solid #E2E6DE"><span style="width:22px;height:22px;display:block;color:#1D7550;flex:none">{{ r.icon }}</span><div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:8px 0"><span style="font-size:16px;line-height:24px;font-weight:500">{{ r.t }}</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">{{ r.s }}</span></div><span style="width:20px;height:20px;display:block;color:#647069">{{ ic.chevR }}</span></div>
+</sc-for>
+</div>
+</sc-for>
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 0 0"><dc-import name="Wordmark" size="16" hint-size="160px,26px"></dc-import><span style="font-size:13px;line-height:18px;font-weight:500;color:#647069">Versi 1.0</span></div>
+</div>
+</div></div>
+
+</div>
+
+<div class="dv-grp">6.10 Pertama kali membuka aplikasi</div>
+<div class="dv-opts" style="margin-bottom:40px">
+
+<div class="dv-opt" id="2n"><div class="dv-olabel"><a class="dv-oid" href="#2n">2n</a>1 · Inti menyapa</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.41<div style="display:flex">{{ ic.status }}</div></div>
+<div style="position:absolute;top:36px;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;padding:40px 28px 32px;text-align:center">
+<dc-import name="Wordmark" size="18" hint-size="180px,30px"></dc-import>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px">{{ intiHero }}
+<div style="display:flex;flex-direction:column;gap:12px"><span style="font-size:32px;line-height:40px;font-weight:600;text-wrap:balance">Halo, saya Nadia, sekretaris AI Anda.</span><span style="font-size:17px;line-height:26px;color:#647069;text-wrap:pretty">Saya bantu urus jadwal, pesan, rumah, dan usaha Anda. Dari sini atau dari WhatsApp.</span></div></div>
+<div style="display:flex;gap:6px;margin-bottom:20px"><span style="width:24px;height:4px;border-radius:2px;background:#1D7550"></span><span style="width:24px;height:4px;border-radius:2px;background:#D5DBD2"></span><span style="width:24px;height:4px;border-radius:2px;background:#D5DBD2"></span></div>
+<button style="width:100%;height:56px;border-radius:28px;border:none;background:#1D7550;color:#FFFFFF;font-size:17px;font-weight:600;cursor:pointer">Mulai</button>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2o"><div class="dv-olabel"><a class="dv-oid" href="#2o">2o</a>2 · Masuk dengan nomor WhatsApp</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.42<div style="display:flex">{{ ic.status }}</div></div>
+<div style="height:64px;display:flex;align-items:center;padding:0 8px"><button aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button></div>
+<div style="position:absolute;top:100px;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding:8px 24px 32px;gap:24px">
+<div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:32px;line-height:40px;font-weight:600">Masuk dengan nomor WhatsApp</span><span style="font-size:17px;line-height:26px;color:#647069">Kodenya saya kirim lewat WhatsApp, bukan SMS.</span></div>
+<div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:15px;line-height:20px;font-weight:600">Nomor WhatsApp</span>
+<div style="height:60px;border:1px solid #E2E6DE;background:#FCFCF8;border-radius:20px;display:flex;align-items:center;padding:0 8px 0 18px;gap:12px"><span style="font-size:17px;font-weight:600;color:#647069">+62</span><span style="width:1px;height:28px;background:#E2E6DE"></span><span style="flex:1;font-size:17px;font-weight:500;font-variant-numeric:tabular-nums">812-2045-7781</span><button style="height:48px;padding:0 12px;border:none;background:none;color:#1D7550;font-size:15px;font-weight:600;cursor:pointer">Ubah</button></div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:15px;line-height:20px;font-weight:600">Kode dari WhatsApp</span>
+<div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px">
+<span style="height:60px;border-radius:16px;border:1px solid #E2E6DE;background:#FCFCF8;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums">4</span>
+<span style="height:60px;border-radius:16px;border:1px solid #E2E6DE;background:#FCFCF8;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums">8</span>
+<span style="height:60px;border-radius:16px;border:1px solid #E2E6DE;background:#FCFCF8;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums">1</span>
+<span style="height:60px;border-radius:16px;border:1px solid #E2E6DE;background:#FCFCF8;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums">9</span>
+<span style="height:60px;border-radius:16px;border:1.5px solid #1D7550;background:#FCFCF8;display:flex;align-items:center;justify-content:center"><span style="width:2px;height:26px;background:#1D7550"></span></span>
+<span style="height:60px;border-radius:16px;border:1px solid #E2E6DE;background:#FCFCF8"></span>
+</div>
+<span style="font-size:13px;line-height:18px;font-weight:500;color:#647069;font-variant-numeric:tabular-nums">Kirim ulang kode dalam 00.42</span></div>
+<div style="flex:1"></div>
+<div style="display:flex;gap:6px;align-self:center"><span style="width:24px;height:4px;border-radius:2px;background:#1D7550"></span><span style="width:24px;height:4px;border-radius:2px;background:#1D7550"></span><span style="width:24px;height:4px;border-radius:2px;background:#D5DBD2"></span></div>
+<button style="height:56px;border-radius:28px;border:none;background:#1D7550;color:#FFFFFF;font-size:17px;font-weight:600;cursor:pointer">Masuk</button>
+</div>
+</div></div>
+
+<div class="dv-opt" id="2p"><div class="dv-olabel"><a class="dv-oid" href="#2p">2p</a>3 · Apa yang mau saya bantu urus?</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:#F6F6F0;color:#0D2B22;border-radius:32px">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.43<div style="display:flex">{{ ic.status }}</div></div>
+<div style="height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 8px"><button aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:#0D2B22;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button><button style="height:48px;padding:0 16px;border:none;background:none;color:#0D2B22;font-size:16px;font-weight:600;cursor:pointer">Lewati dulu</button></div>
+<div style="position:absolute;top:100px;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding:8px 24px 32px;gap:12px">
+<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"><span style="font-size:32px;line-height:40px;font-weight:600">Apa yang mau saya bantu urus?</span><span style="font-size:17px;line-height:26px;color:#647069">Pilih satu atau lebih. Bisa ditambah kapan saja.</span></div>
+<div style="border:1.5px solid #1D7550;background:#E8F4E8;border-radius:24px;padding:18px;display:flex;gap:14px;align-items:flex-start"><div style="width:44px;height:44px;border-radius:14px;background:#FCFCF8;color:#1D7550;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.calendar }}</div></div><div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:17px;line-height:24px;font-weight:600">Jadwal &amp; pesan</span><span style="font-size:16px;line-height:24px;color:#3F5048">Kalender, email, WhatsApp, dan pengingat</span></div><span style="width:26px;height:26px;border-radius:50%;background:#1D7550;color:#FFFFFF;display:flex;align-items:center;justify-content:center;flex:none"><span style="width:16px;height:16px;display:block">{{ ic.check }}</span></span></div>
+<div style="border:1px solid #E2E6DE;background:#FCFCF8;border-radius:24px;padding:18px;display:flex;gap:14px;align-items:flex-start"><div style="width:44px;height:44px;border-radius:14px;background:#F1F2EC;color:#0D2B22;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.home }}</div></div><div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:17px;line-height:24px;font-weight:600">Rumah</span><span style="font-size:16px;line-height:24px;color:#647069">AC, lampu, kamera, dan Kotak Sekretaris AI</span></div><span style="width:26px;height:26px;border-radius:50%;border:2px solid #C9D2C6;box-sizing:border-box;flex:none"></span></div>
+<div style="border:1px solid #E2E6DE;background:#FCFCF8;border-radius:24px;padding:18px;display:flex;gap:14px;align-items:flex-start"><div style="width:44px;height:44px;border-radius:14px;background:#F1F2EC;color:#0D2B22;display:flex;align-items:center;justify-content:center;flex:none"><div style="width:22px;height:22px">{{ ic.store }}</div></div><div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:17px;line-height:24px;font-weight:600">Usaha</span><span style="font-size:16px;line-height:24px;color:#647069">Penjualan, stok, uang masuk, dan pesanan online</span></div><span style="width:26px;height:26px;border-radius:50%;border:2px solid #C9D2C6;box-sizing:border-box;flex:none"></span></div>
+<div style="flex:1"></div>
+<span style="font-size:16px;line-height:24px;color:#647069;text-align:center">Kita mulai dari Google Kalender. Yang lain bisa menyusul.</span>
+<div style="display:flex;gap:6px;align-self:center;margin:4px 0 8px"><span style="width:24px;height:4px;border-radius:2px;background:#1D7550"></span><span style="width:24px;height:4px;border-radius:2px;background:#1D7550"></span><span style="width:24px;height:4px;border-radius:2px;background:#1D7550"></span></div>
+<button style="height:56px;border-radius:28px;border:none;background:#1D7550;color:#FFFFFF;font-size:17px;font-weight:600;cursor:pointer">Sambungkan Google Kalender</button>
+</div>
+</div></div>
+
+</div>
+
+<div class="dv-grp">Ikon aplikasi · Android adaptive icon</div>
+<div class="dv-opts" style="margin-bottom:24px">
+<div class="dv-opt" id="2r"><div class="dv-olabel"><a class="dv-oid" href="#2r">2r</a>Lapisan, bentuk masker, dan versi monokrom</div>
+<div class="dv-card" style="width:1100px;background:#FCFCF8;border-radius:24px;padding:36px 40px;box-sizing:border-box;display:flex;flex-direction:column;gap:36px;color:#0D2B22">
+<div style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap">
+<div style="display:flex;flex-direction:column;gap:10px;align-items:center"><div style="width:216px;height:216px;background:#F6F6F0;border:1px solid #E2E6DE;position:relative;display:flex;align-items:center;justify-content:center"><span style="position:absolute;width:132px;height:132px;border-radius:50%;border:1px dashed #81C084"></span><img src="assets/s-mark.png" alt="" style="height:116px;display:block;position:relative"></div><span style="font-size:13px;font-weight:600">Gabungan · 108dp</span><span style="font-size:13px;color:#647069">Garis putus: zona aman 66dp</span></div>
+<div style="display:flex;flex-direction:column;gap:10px;align-items:center"><div style="width:216px;height:216px;background:#F6F6F0;border:1px solid #E2E6DE"></div><span style="font-size:13px;font-weight:600">Latar · paper #F6F6F0</span></div>
+<div style="display:flex;flex-direction:column;gap:10px;align-items:center"><div style="width:216px;height:216px;border:1px solid #E2E6DE;background-color:#FFFFFF;background-image:linear-gradient(45deg,#EEF0EA 25%,transparent 25%,transparent 75%,#EEF0EA 75%),linear-gradient(45deg,#EEF0EA 25%,transparent 25%,transparent 75%,#EEF0EA 75%);background-size:16px 16px;background-position:0 0,8px 8px;display:flex;align-items:center;justify-content:center"><img src="assets/s-mark.png" alt="" style="height:116px;display:block"></div><span style="font-size:13px;font-weight:600">Depan · tanda S, transparan</span></div>
+<div style="display:flex;flex-direction:column;gap:10px;align-items:center"><div style="width:216px;height:216px;border:1px solid #E2E6DE;background-color:#FFFFFF;background-image:linear-gradient(45deg,#EEF0EA 25%,transparent 25%,transparent 75%,#EEF0EA 75%),linear-gradient(45deg,#EEF0EA 25%,transparent 25%,transparent 75%,#EEF0EA 75%);background-size:16px 16px;background-position:0 0,8px 8px;display:flex;align-items:center;justify-content:center"><img src="assets/s-mono-ink.png" alt="" style="height:116px;display:block"></div><span style="font-size:13px;font-weight:600">Monokrom · satu warna</span></div>
+</div>
+<div style="display:flex;gap:48px;align-items:flex-end;flex-wrap:wrap;border-top:1px solid #E2E6DE;padding-top:32px">
+<div style="display:flex;flex-direction:column;gap:10px;align-items:center"><div style="width:112px;height:112px;border-radius:50%;background:#F6F6F0;box-shadow:0 0 0 1px #E2E6DE;display:flex;align-items:center;justify-content:center"><img src="assets/s-mark.png" alt="" style="height:60px;display:block"></div><span style="font-size:13px;color:#647069">Lingkaran</span></div>
+<div style="display:flex;flex-direction:column;gap:10px;align-items:center"><div style="width:112px;height:112px;border-radius:36%;background:#F6F6F0;box-shadow:0 0 0 1px #E2E6DE;display:flex;align-items:center;justify-content:center"><img src="assets/s-mark.png" alt="" style="height:60px;display:block"></div><span style="font-size:13px;color:#647069">Squircle</span></div>
+<div style="display:flex;flex-direction:column;gap:10px;align-items:center"><div style="width:112px;height:112px;border-radius:22%;background:#F6F6F0;box-shadow:0 0 0 1px #E2E6DE;display:flex;align-items:center;justify-content:center"><img src="assets/s-mark.png" alt="" style="height:60px;display:block"></div><span style="font-size:13px;color:#647069">Persegi bulat</span></div>
+<div style="display:flex;flex-direction:column;gap:10px;align-items:center"><div style="width:112px;height:112px;border-radius:50% 50% 50% 18%;background:#F6F6F0;box-shadow:0 0 0 1px #E2E6DE;display:flex;align-items:center;justify-content:center"><img src="assets/s-mark.png" alt="" style="height:60px;display:block"></div><span style="font-size:13px;color:#647069">Tetesan</span></div>
+<span style="width:1px;height:112px;background:#E2E6DE"></span>
+<div style="display:flex;flex-direction:column;gap:10px;align-items:center"><div style="width:112px;height:112px;border-radius:50%;background:#DCEBDD;display:flex;align-items:center;justify-content:center"><img src="assets/s-mono-ink.png" alt="" style="height:60px;display:block"></div><span style="font-size:13px;color:#647069">Ikon bertema · terang</span></div>
+<div style="display:flex;flex-direction:column;gap:10px;align-items:center"><div style="width:112px;height:112px;border-radius:50%;background:#123A2D;display:flex;align-items:center;justify-content:center"><img src="assets/s-mono-light.png" alt="" style="height:60px;display:block"></div><span style="font-size:13px;color:#647069">Ikon bertema · gelap</span></div>
+</div>
+<div style="display:flex;gap:28px;align-items:center;border-top:1px solid #E2E6DE;padding-top:32px">
+<div style="width:300px;height:200px;border-radius:24px;background:#2E3A34;display:grid;grid-template-columns:repeat(4,1fr);align-content:center;justify-items:center;gap:14px 0;padding:0 12px;box-sizing:border-box">
+<span style="width:52px;height:52px;border-radius:50%;background:#55625B"></span><span style="width:52px;height:52px;border-radius:50%;background:#F6F6F0;display:flex;align-items:center;justify-content:center"><img src="assets/s-mark.png" alt="" style="height:28px;display:block"></span><span style="width:52px;height:52px;border-radius:50%;background:#55625B"></span><span style="width:52px;height:52px;border-radius:50%;background:#55625B"></span>
+<span style="font-size:11px;color:#C9D4CC;grid-column:2;margin-top:-8px">Sekretaris AI</span>
+</div>
+<span style="font-size:13px;line-height:20px;color:#647069;max-width:520px">Di layar utama Android. Tanda S tetap di dalam zona aman 66dp, jadi tidak terpotong oleh bentuk masker apa pun. Label di bawah ikon mengikuti nama aplikasi dan ikut berganti saat nama final ditetapkan.</span>
+</div>
+</div></div>
+</div>
+<p class="dv-next">Coba: "Agenda tampilan Minggu ini dan Kalender" · "Mode gelap untuk Perangkat" · "Alarm dengan kartu lalu lintas setelah Tanya Nadia"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;reduceMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Gerak&quot;}}">
+class Component extends DCLogic {
+  state = { tick: 1 };
+  componentDidMount() {
+    this._p = setInterval(() => { if (window.SK) { clearInterval(this._p); this.forceUpdate(); } }, 60);
+    this.t = setInterval(() => this.setState(s => ({ tick: s.tick + 1 })), 4500);
+  }
+  componentWillUnmount() { clearInterval(this._p); clearInterval(this.t); }
+  rm() { return this.props.reduceMotion ?? (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  dial() {
+    const h = React.createElement, S = 280, c = S / 2, r = 116, f = (24 - 16) / 14;
+    const pt = a => [c + r * Math.cos(a * Math.PI / 180), c + r * Math.sin(a * Math.PI / 180)];
+    const arc = (a0, a1) => { const [x0, y0] = pt(a0), [x1, y1] = pt(a1); return `M${x0} ${y0}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1} ${y1}`; };
+    const a0 = 135, a1 = 405, av = a0 + 270 * f, [kx, ky] = pt(av);
+    return h('svg', { width: S, height: S, viewBox: `0 0 ${S} ${S}`, style: { display: 'block' } },
+      h('path', { d: arc(a0, a1), fill: 'none', stroke: '#E2E6DE', strokeWidth: 16, strokeLinecap: 'round' }),
+      h('path', { d: arc(a0, av), fill: 'none', stroke: '#1D7550', strokeWidth: 16, strokeLinecap: 'round' }),
+      h('circle', { cx: kx, cy: ky, r: 15, fill: '#FCFCF8', stroke: '#1D7550', strokeWidth: 3 }));
+  }
+  spark() {
+    const h = React.createElement, v = [3.1, 3.6, 2.9, 3.8, 4.4, 4.9, 4.25];
+    const pts = v.map((y, i) => [8 + i * 50.7, 58 - (y - 2.6) / 2.5 * 50]);
+    const last = pts[pts.length - 1];
+    return h('svg', { viewBox: '0 0 320 64', width: '100%', style: { display: 'block' } },
+      h('polyline', { points: pts.map(p => p.join(',')).join(' '), fill: 'none', stroke: '#1D7550', strokeWidth: 2, strokeLinejoin: 'round', strokeLinecap: 'round' }),
+      h('circle', { cx: last[0], cy: last[1], r: 4.5, fill: '#1D7550', stroke: '#FCFCF8', strokeWidth: 2 }));
+  }
+  renderVals() {
+    const SK = window.SK, h = React.createElement;
+    const brands = [['LG', 'LG'], ['S', 'Samsung SmartThings'], ['Hue', 'Philips Hue'], ['A', 'Aqara'], ['eW', 'eWeLink / Sonoff'], ['I', 'Imou'], ['EZ', 'EZVIZ'], ['T', 'Tuya'], ['HA', 'Home Assistant']].map(([m, n]) => ({ m, n }));
+    const groups = [
+      { t: 'Kerja', items: [['M', 'Microsoft 365'], ['N', 'Notion'], ['Rp', 'Pencatat rapat Zoom, Meet, Teams'], ['P', 'Plaud'], ['GH', 'GitHub']] },
+      { t: 'Usaha', items: [['TT', 'TikTok Shop & Tokopedia'], ['Ac', 'Accurate']] }
+    ].map(g => ({ t: g.t, items: g.items.map(([m, n]) => ({ m, n })) }));
+    if (!SK) return { ic: {}, brands, groups };
+    const rm = this.rm(), I = (s, st, light) => SK.inti(h, s, st, { light, rm });
+    const ic = SK.icons(h);
+    const ok = (icon, n, st) => ({ icon: ic[icon], n, st, bg: '#E8F4E8', fg: '#1D7550', sc: '#647069' });
+    const connected = [
+      ok('calendar', 'Google Kalender', 'Aktif · terakhir dibaca 5 menit lalu'),
+      ok('mail', 'Gmail', 'Aktif · terakhir dibaca 2 menit lalu'),
+      ok('chat', 'WhatsApp', 'Aktif · pesan masuk langsung terbaca'),
+      ok('receipt', 'Moka', 'Aktif · terakhir dibaca 1 menit lalu'),
+      ok('bank', 'Mutasi rekening BCA', 'Aktif · terakhir dibaca 10 menit lalu'),
+      ok('box', 'Kotak Sekretaris AI', 'Aktif · di ruang tamu'),
+      { icon: ic.camera, n: 'Imou · CCTV', st: 'Tidak terjangkau sejak 10.12', bg: '#F5E5DB', fg: '#A14E2E', sc: '#A14E2E' }
+    ];
+    const row = (icon, t, s) => ({ icon: ic[icon], t, s });
+    const akun = [
+      { rows: [row('user', 'Nama dan gaya asisten', 'Nadia · ramah dan singkat')] },
+      { rows: [row('lock', 'PIN', 'Diminta untuk pembayaran, kamera, dan alarm'), row('shield', 'Privasi', 'Lihat dan hapus yang Nadia tahu, per layanan')] },
+      { rows: [row('bell', 'Notifikasi', 'Lewat aplikasi dulu. Lewat WhatsApp kalau aplikasi tidak aktif.')] },
+      { rows: [row('phone', 'HP yang terhubung', 'Pixel 8 (HP ini) dan 1 lainnya'), row('link', 'Terhubung', '7 layanan dan perangkat')] },
+      { rows: [row('help', 'Bantuan', 'Tanya jawab dan hubungi tim'), row('history', 'Riwayat', 'Semua yang sudah Nadia kerjakan')] }
+    ];
+    return {
+      ic, brands, groups, connected, akun,
+      intiTab: I(50, 'idle'), intiHero: I(180, 'idle'), intiAlarm: I(96, 'idle', true), intiMini: I(26, 'idle', true), intiSm: I(36, 'idle'),
+      orbitJoin: SK.orbit(h, { nodes: SK.NODES.concat([['bag', 'TikTok Shop']]), join: 7, tick: this.state.tick, rm }),
+      dial: this.dial(), spark: this.spark()
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><script src="sk-shared.js"></script><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><style>body{margin:0;background:#ECEBE4;font-family:'Plus Jakarta Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}a{color:#1D7550}a:hover{color:#2A8A5C}button{font-family:inherit}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.55)}.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}.dv-next{margin:22px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5)}
+@keyframes sk-breath{from{transform:scale(1)}to{transform:scale(1.04)}}
+@keyframes sk-dot{0%,70%,100%{opacity:.35;transform:translateY(0)}35%{opacity:1;transform:translateY(-30%)}}
+@keyframes sk-listen{0%{transform:scale(1)}15%{transform:scale(1.07)}30%{transform:scale(1.02)}48%{transform:scale(1.1)}62%{transform:scale(1.03)}80%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes sk-wave{from{transform:scale(1);opacity:.55}to{transform:scale(1.55);opacity:0}}
+@keyframes sk-flow{0%{transform:translate(var(--fx),var(--fy));opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translate(var(--tx),var(--ty));opacity:0}}
+@keyframes sk-blink{0%,100%{opacity:0}50%{opacity:1}}
+</style></helmet>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Mengunci gaya: Beranda, Chat, Mode Suara · terang &amp; gelap</span></div>
+<div style="max-width:760px;margin:0 0 28px;font:400 13px/1.6 system-ui,sans-serif;color:rgba(0,0,0,.62);display:flex;flex-direction:column;gap:6px">
+<div><b style="color:#1a1a1a">Inti.</b> Diambil langsung dari pita "S" di logo. Tiga titik gelembung chat dipisah supaya bisa berdenyut saat berpikir. Di latar gelap, pita memakai versi hijau muda agar tetap terbaca.</div>
+<div>Ikon layanan (Google, Gmail, Moka, BCA) memakai ikon garis netral, bukan logo merek. Foto profil memakai inisial. Rincian seperti nomor meter dan isi notulen adalah contoh.</div>
+<div>Gerak hanya di Inti dan aliran data di cincin. Setelan kurangi gerakan bisa dicoba lewat Tweaks.</div>
+</div>
+<sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+<div style="{{ t.vars }}">
+<div style="font:600 12px/1 system-ui,sans-serif;color:rgba(0,0,0,.5);margin:0 0 14px;text-transform:uppercase;letter-spacing:.08em">{{ t.label }}</div>
+<div class="dv-opts" style="margin-bottom:40px">
+
+<div class="dv-opt" id="{{ t.id.b }}"><div class="dv-olabel"><a class="dv-oid" href="#{{ t.id.b }}">{{ t.id.b }}</a>Beranda</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:var(--paper);color:var(--ink);border-radius:32px;border-color:var(--line)">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.41<div style="display:flex">{{ ic.status }}</div></div>
+<div style="position:absolute;top:36px;left:0;right:0;bottom:88px;overflow:auto">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0 12px">
+<button style="height:48px;padding:0 12px 0 16px;border-radius:24px;border:1px solid var(--line);background:var(--card);color:var(--ink);display:flex;align-items:center;gap:6px;font-size:16px;font-weight:600;cursor:pointer">Semua<span style="width:20px;height:20px;display:block">{{ ic.chevD }}</span></button>
+<button style="width:48px;height:48px;border-radius:50%;border:none;background:var(--mint);color:var(--green);font-size:15px;font-weight:700;cursor:pointer">RW</button>
+</div>
+<div style="padding:20px 20px 0;display:flex;flex-direction:column;gap:8px">
+<div style="font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.01em">Selamat pagi, Rina</div>
+<div style="font-size:17px;line-height:24px;color:var(--muted)">Ada 3 hal yang perlu Anda hari ini.</div>
+</div>
+<div style="padding:16px 20px 0;display:flex;flex-direction:column;align-items:center">
+{{ t.orbit }}
+<button style="height:48px;padding:0 16px;border:none;background:none;color:var(--muted);font-size:13px;line-height:18px;font-weight:500;display:flex;align-items:center;gap:6px;cursor:pointer">7 terhubung · CCTV tidak terjangkau<span style="width:16px;height:16px;display:block">{{ ic.chevR }}</span></button>
+</div>
+<div style="padding:8px 16px 24px;display:flex;flex-direction:column;gap:12px">
+
+<sc-if value="{{ showApproval }}" hint-placeholder-val="{{ true }}">
+<div style="background:var(--mint);border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:16px">
+<div style="font-size:13px;line-height:18px;font-weight:600;color:var(--green)">Butuh persetujuan Anda</div>
+<div style="font-size:16px;line-height:24px">Balasan untuk Pak Budi soal harga sewa sudah siap. Kirim?</div>
+<button style="height:48px;border-radius:24px;border:none;background:var(--green);color:var(--onGreen);font-size:16px;font-weight:600;cursor:pointer">Lihat</button>
+</div>
+</sc-if>
+
+<div style="background:var(--card);border:1px solid var(--line);border-radius:24px;padding:20px 20px 8px;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:17px;line-height:24px;font-weight:600">Agenda hari ini</div><a href="#" style="font-size:15px;font-weight:600;text-decoration:none;padding:12px 0 12px 12px;color:var(--green)">Lihat semua</a></div>
+<div style="display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)"><span style="width:52px;font-weight:600;font-variant-numeric:tabular-nums">09.00</span><span style="flex:1;font-size:16px;line-height:24px">Rapat dengan supplier susu</span></div>
+<div style="display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)"><span style="width:52px;font-weight:600;font-variant-numeric:tabular-nums">13.00</span><span style="flex:1;font-size:16px;line-height:24px">Bayar listrik Kedai Dago</span></div>
+<div style="display:flex;gap:16px;padding:12px 0"><span style="width:52px;font-weight:600;font-variant-numeric:tabular-nums">16.00</span><span style="flex:1;font-size:16px;line-height:24px">Jemput Kayla les</span></div>
+</div>
+
+<div style="background:var(--card);border:1px solid var(--line);border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:4px">
+<div style="font-size:17px;line-height:24px;font-weight:600;margin-bottom:8px">Rumah</div>
+<div style="display:flex;align-items:center;gap:12px;min-height:48px">
+<div style="width:40px;height:40px;border-radius:14px;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.snow }}</div></div>
+<div style="flex:1;font-size:16px;line-height:24px;font-weight:500">{{ acSw.label }}</div>
+<button onClick="{{ toggleAc }}" aria-label="AC kamar" style="width:52px;height:32px;border-radius:16px;border:none;padding:0;background:{{ acSw.bg }};position:relative;cursor:pointer;transition:background .2s"><span style="position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#FFFFFF;transform:translateX({{ acSw.x }});transition:transform .2s"></span></button>
+</div>
+<div style="display:flex;align-items:center;gap:12px;min-height:48px">
+<div style="width:40px;height:40px;border-radius:14px;background:var(--paper);color:var(--ink);display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.lock }}</div></div>
+<div style="flex:1;font-size:16px;line-height:24px">Pintu depan terkunci</div>
+</div>
+<div style="display:flex;align-items:center;gap:12px;min-height:48px">
+<div style="width:40px;height:40px;border-radius:14px;background:var(--paper);color:var(--ink);display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.camera }}</div></div>
+<div style="flex:1;font-size:16px;line-height:24px">Kamera aktif</div>
+</div>
+</div>
+
+<div style="background:var(--card);border:1px solid var(--line);border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><div style="font-size:17px;line-height:24px;font-weight:600">Usaha</div><span style="font-size:13px;line-height:18px;font-weight:500;color:var(--muted)">dari Moka</span></div>
+<div style="display:flex;flex-direction:column;gap:2px">
+<span style="font-size:13px;line-height:18px;font-weight:500;color:var(--muted)">Penjualan hari ini</span>
+<span style="font-size:28px;line-height:36px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em">Rp4.250.000</span>
+<span style="font-size:16px;line-height:24px;color:var(--leafText);font-weight:500">naik 12% dari Senin lalu</span>
+</div>
+<div style="background:var(--clayBg);color:var(--clay);border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:16px;line-height:24px;font-weight:500"><span style="width:8px;height:8px;border-radius:50%;background:var(--clay);flex:none"></span>Susu UHT tinggal 6 karton</div>
+</div>
+
+</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:0 4px">
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--green)"><div style="width:24px;height:24px">{{ ic.home }}</div><span style="font-size:13px;line-height:18px;font-weight:600">Beranda</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted)"><div style="width:24px;height:24px">{{ ic.calendar }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Agenda</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:-26px"><div style="width:68px;height:68px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center">{{ t.intiTab }}</div><span style="font-size:13px;line-height:18px;font-weight:600">Nadia</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted)"><div style="width:24px;height:24px">{{ ic.bulb }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Perangkat</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted)"><div style="width:24px;height:24px">{{ ic.store }}</div><span style="font-size:13px;line-height:18px;font-weight:500">Usaha</span></div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="{{ t.id.c }}"><div class="dv-olabel"><a class="dv-oid" href="#{{ t.id.c }}">{{ t.id.c }}</a>Chat · konfirmasi kirim &amp; perangkat</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:var(--paper);color:var(--ink);border-radius:32px;border-color:var(--line)">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.41<div style="display:flex">{{ ic.status }}</div></div>
+<div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 8px;border-bottom:1px solid var(--line)">
+<button aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button>
+{{ t.intiChat }}
+<div style="flex:1;display:flex;flex-direction:column;margin-left:4px"><span style="font-size:17px;line-height:24px;font-weight:600">Nadia</span><span style="font-size:13px;line-height:18px;font-weight:500;color:var(--muted)">Siap membantu</span></div>
+<button aria-label="Mode Suara" style="width:48px;height:48px;border-radius:50%;border:none;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.wave }}</span></button>
+</div>
+<div style="position:absolute;top:101px;left:0;right:0;bottom:88px;overflow:auto;padding:16px 16px 20px;display:flex;flex-direction:column;gap:12px">
+<div style="align-self:center;max-width:300px;text-align:center;font-size:13px;line-height:18px;font-weight:500;color:var(--muted);padding:4px 8px">Nadia ingat semua obrolan Anda, di aplikasi maupun di WhatsApp.</div>
+<div style="align-self:flex-end;max-width:78%;background:var(--green);color:var(--onGreen);border-radius:20px 20px 6px 20px;padding:12px 16px;font-size:16px;line-height:24px">Nyalakan AC kamar 24 derajat</div>
+<div style="align-self:flex-start;max-width:86%;font-size:16px;line-height:24px;padding:0 4px">Sudah. AC kamar nyala di 24°.</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:340px">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:40px;height:40px;border-radius:14px;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.snow }}</div></div>
+<div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">AC kamar</span><span style="font-size:13px;line-height:18px;font-weight:500;color:var(--muted)">{{ acSw.status }}</span></div>
+<button onClick="{{ toggleAc }}" aria-label="AC kamar" style="width:52px;height:32px;border-radius:16px;border:none;padding:0;background:{{ acSw.bg }};position:relative;cursor:pointer;transition:background .2s"><span style="position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#FFFFFF;transform:translateX({{ acSw.x }});transition:transform .2s"></span></button>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;background:var(--paper);border-radius:16px;padding:4px">
+<button aria-label="Turunkan suhu" style="width:48px;height:48px;border-radius:14px;border:none;background:none;color:var(--ink);font-size:24px;cursor:pointer">−</button>
+<span style="font-size:28px;line-height:36px;font-weight:600;font-variant-numeric:tabular-nums">24°</span>
+<button aria-label="Naikkan suhu" style="width:48px;height:48px;border-radius:14px;border:none;background:none;color:var(--ink);font-size:24px;cursor:pointer">+</button>
+</div>
+<div style="font-size:13px;line-height:18px;font-weight:500;color:var(--muted)">Perintah terakhir: 24° Dingin · suhu ruangan sekarang 27°</div>
+</div>
+<div style="align-self:flex-end;max-width:78%;background:var(--green);color:var(--onGreen);border-radius:20px 20px 6px 20px;padding:12px 16px;font-size:16px;line-height:24px;margin-top:8px">Balas Pak Budi, harga sewa bisa Rp15 juta</div>
+<div style="align-self:flex-start;max-width:86%;font-size:16px;line-height:24px;padding:0 4px">Ini draf balasannya. Saya kirim setelah Anda setuju.</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:340px">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:40px;height:40px;border-radius:50%;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">PB</div>
+<div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Pak Budi</span><span style="font-size:13px;line-height:18px;font-weight:500;color:var(--muted)">lewat WhatsApp</span></div>
+</div>
+<div style="background:var(--paper);border-radius:16px;padding:12px 16px;font-size:16px;line-height:24px">Selamat siang, Pak Budi. Untuk sewa tempatnya, kami bisa di harga Rp15 juta. Terima kasih.</div>
+<sc-if value="{{ notSent }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:8px">
+<button style="flex:1;height:48px;border-radius:24px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:16px;font-weight:600;cursor:pointer">Ubah</button>
+<button onClick="{{ send }}" style="flex:1;height:48px;border-radius:24px;border:none;background:var(--green);color:var(--onGreen);font-size:16px;font-weight:600;cursor:pointer">Kirim</button>
+</div>
+</sc-if>
+<sc-if value="{{ sent }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:8px;min-height:48px;color:var(--leafText);font-size:16px;font-weight:600"><span style="width:22px;height:22px;display:block">{{ ic.check }}</span>Terkirim · 10.42</div>
+</sc-if>
+</div>
+<div style="align-self:flex-end;max-width:78%;background:var(--green);color:var(--onGreen);border-radius:20px 20px 6px 20px;padding:12px 16px;font-size:16px;line-height:24px;margin-top:8px">Cek stok kedai</div>
+<div style="align-self:flex-start;background:var(--card);border:1px solid var(--line);border-radius:20px 20px 20px 6px;padding:16px 18px">{{ thinking }}</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:var(--paper);display:flex;align-items:center;gap:8px;padding:0 12px 8px">
+<button aria-label="Lampiran" style="width:48px;height:48px;border-radius:50%;border:none;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><span style="width:24px;height:24px;display:block">{{ ic.clip }}</span></button>
+<div style="flex:1;min-width:0;height:52px;border-radius:26px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;padding:0 20px;font-size:16px;color:var(--muted)">Tulis pesan untuk Nadia</div>
+<button aria-label="Bicara" style="width:52px;height:52px;border-radius:50%;border:none;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><span style="width:24px;height:24px;display:block">{{ ic.mic }}</span></button>
+</div>
+</div></div>
+
+<div class="dv-opt" id="{{ t.id.c2 }}"><div class="dv-olabel"><a class="dv-oid" href="#{{ t.id.c2 }}">{{ t.id.c2 }}</a>Chat · notulen, file, pembayaran &amp; QRIS</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:var(--paper);color:var(--ink);border-radius:32px;border-color:var(--line)">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">10.05<div style="display:flex">{{ ic.status }}</div></div>
+<div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 8px;border-bottom:1px solid var(--line)">
+<button aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button>
+{{ t.intiChat }}
+<div style="flex:1;display:flex;flex-direction:column;margin-left:4px"><span style="font-size:17px;line-height:24px;font-weight:600">Nadia</span><span style="font-size:13px;line-height:18px;font-weight:500;color:var(--muted)">Siap membantu</span></div>
+<button aria-label="Mode Suara" style="width:48px;height:48px;border-radius:50%;border:none;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.wave }}</span></button>
+</div>
+<div style="position:absolute;top:101px;left:0;right:0;bottom:88px;overflow:auto;padding:16px 16px 20px;display:flex;flex-direction:column;gap:12px">
+<div style="align-self:flex-start;max-width:86%;font-size:16px;line-height:24px;padding:0 4px">Rapat dengan supplier susu sudah saya catat.</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:340px">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:40px;height:40px;border-radius:14px;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.note }}</div></div>
+<div style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Rapat dengan supplier susu</span><span style="font-size:13px;line-height:18px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums">Senin, 20 Okt · 09.00–09.40</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;gap:10px;font-size:16px;line-height:24px"><span style="color:var(--green);font-weight:600;width:16px;flex:none">1</span>Harga susu UHT tetap sampai Desember.</div>
+<div style="display:flex;gap:10px;font-size:16px;line-height:24px"><span style="color:var(--green);font-weight:600;width:16px;flex:none">2</span>Pengiriman jadi dua kali seminggu, Selasa dan Jumat.</div>
+<div style="display:flex;gap:10px;font-size:16px;line-height:24px"><span style="color:var(--green);font-weight:600;width:16px;flex:none">3</span>Kedai Riau dapat 20 karton tiap kiriman.</div>
+</div>
+<a href="#" style="font-size:16px;font-weight:600;text-decoration:none;color:var(--green);min-height:40px;display:flex;align-items:center;gap:4px">Baca notulen<span style="width:18px;height:18px;display:block">{{ ic.chevR }}</span></a>
+</div>
+<div style="align-self:flex-start;max-width:86%;font-size:16px;line-height:24px;padding:0 4px;margin-top:4px">Laporan yang Anda minta sudah jadi.</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:340px">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:40px;height:48px;border-radius:12px;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.file }}</div></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;line-height:24px;font-weight:600">Laporan penjualan Oktober.xlsx</span><span style="font-size:13px;line-height:18px;font-weight:500;color:var(--muted)">48 KB · Excel</span></div>
+</div>
+<div style="display:flex;gap:8px">
+<button style="flex:1;height:48px;border-radius:24px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:16px;font-weight:600;cursor:pointer">Buka</button>
+<button style="flex:1;height:48px;border-radius:24px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:16px;font-weight:600;cursor:pointer">Bagikan</button>
+</div>
+</div>
+<div style="align-self:flex-end;max-width:78%;background:var(--green);color:var(--onGreen);border-radius:20px 20px 6px 20px;padding:12px 16px;font-size:16px;line-height:24px;margin-top:8px">Beli token listrik 100 ribu</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:340px">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:40px;height:40px;border-radius:14px;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center"><div style="width:22px;height:22px">{{ ic.bolt }}</div></div>
+<span style="font-size:16px;line-height:24px;font-weight:600">Token listrik PLN</span>
+</div>
+<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:16px;line-height:24px">
+<span style="color:var(--muted)">Nominal</span><span style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums">Rp100.000</span>
+<span style="color:var(--muted)">No. meter</span><span style="text-align:right;font-variant-numeric:tabular-nums">5321 0987 6543</span>
+<span style="color:var(--muted)">Atas nama</span><span style="text-align:right">RINA WULANDARI</span>
+</div>
+<div style="border-top:1px solid var(--line);padding-top:12px;font-size:16px;line-height:24px;color:var(--muted)">Sudah benar?</div>
+</div>
+<div style="align-self:flex-end;max-width:78%;background:var(--green);color:var(--onGreen);border-radius:20px 20px 6px 20px;padding:12px 16px;font-size:16px;line-height:24px">Ya, benar</div>
+<div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:340px">
+<span style="align-self:flex-start;font-size:16px;line-height:24px;font-weight:600">Bayar dengan QRIS</span>
+<div style="width:208px;height:208px;background:#FFFFFF;border-radius:16px;padding:14px;box-sizing:border-box;border:1px solid #E2E6DE">{{ qr }}</div>
+<span style="font-size:28px;line-height:36px;font-weight:600;font-variant-numeric:tabular-nums">Rp100.000</span>
+<span style="font-size:16px;line-height:24px;color:var(--muted);text-align:center;text-wrap:pretty">Pindai dari aplikasi bank atau dompet digital. Berlaku sampai 10.15.</span>
+</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:var(--paper);display:flex;align-items:center;gap:8px;padding:0 12px 8px">
+<button aria-label="Lampiran" style="width:48px;height:48px;border-radius:50%;border:none;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><span style="width:24px;height:24px;display:block">{{ ic.clip }}</span></button>
+<div style="flex:1;min-width:0;height:52px;border-radius:26px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;padding:0 20px;font-size:16px;color:var(--muted)">Tulis pesan untuk Nadia</div>
+<button aria-label="Bicara" style="width:52px;height:52px;border-radius:50%;border:none;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><span style="width:24px;height:24px;display:block">{{ ic.mic }}</span></button>
+</div>
+</div></div>
+
+<div class="dv-opt" id="{{ t.id.e }}"><div class="dv-olabel"><a class="dv-oid" href="#{{ t.id.e }}">{{ t.id.e }}</a>Chat · masih kosong</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:var(--paper);color:var(--ink);border-radius:32px;border-color:var(--line)">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">09.41<div style="display:flex">{{ ic.status }}</div></div>
+<div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 8px;border-bottom:1px solid var(--line)">
+<button aria-label="Kembali" style="width:48px;height:48px;border:none;background:none;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.back }}</span></button>
+{{ t.intiChat }}
+<div style="flex:1;display:flex;flex-direction:column;margin-left:4px"><span style="font-size:17px;line-height:24px;font-weight:600">Nadia</span><span style="font-size:13px;line-height:18px;font-weight:500;color:var(--muted)">Siap membantu</span></div>
+<button aria-label="Mode Suara" style="width:48px;height:48px;border-radius:50%;border:none;background:var(--mint);color:var(--green);display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:22px;height:22px;display:block">{{ ic.wave }}</span></button>
+</div>
+<div style="position:absolute;top:101px;left:0;right:0;bottom:88px;display:flex;flex-direction:column;padding:16px 20px 16px">
+<div style="align-self:center;max-width:300px;text-align:center;font-size:13px;line-height:18px;font-weight:500;color:var(--muted);padding:4px 8px">Nadia ingat semua obrolan Anda, di aplikasi maupun di WhatsApp.</div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px">
+{{ t.intiEmpty }}
+<div style="font-size:22px;line-height:28px;font-weight:600;text-align:center">Mau saya bantu urus apa?</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<button style="height:52px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:16px;text-align:left;padding:0 16px;display:flex;align-items:center;gap:12px;cursor:pointer"><span style="width:22px;height:22px;display:block;color:var(--green)">{{ ic.mail }}</span>Ringkas email hari ini</button>
+<button style="height:52px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:16px;text-align:left;padding:0 16px;display:flex;align-items:center;gap:12px;cursor:pointer"><span style="width:22px;height:22px;display:block;color:var(--green)">{{ ic.bulb }}</span>Matikan semua lampu</button>
+<button style="height:52px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:16px;text-align:left;padding:0 16px;display:flex;align-items:center;gap:12px;cursor:pointer"><span style="width:22px;height:22px;display:block;color:var(--green)">{{ ic.store }}</span>Cek stok kedai</button>
+<button style="height:52px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:16px;text-align:left;padding:0 16px;display:flex;align-items:center;gap:12px;cursor:pointer"><span style="width:22px;height:22px;display:block;color:var(--green)">{{ ic.bolt }}</span>Beli token listrik</button>
+</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:var(--paper);display:flex;align-items:center;gap:8px;padding:0 12px 8px">
+<button aria-label="Lampiran" style="width:48px;height:48px;border-radius:50%;border:none;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><span style="width:24px;height:24px;display:block">{{ ic.clip }}</span></button>
+<div style="flex:1;min-width:0;height:52px;border-radius:26px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;padding:0 20px;font-size:16px;color:var(--muted)">Tulis pesan untuk Nadia</div>
+<button aria-label="Bicara" style="width:52px;height:52px;border-radius:50%;border:none;background:var(--green);color:var(--onGreen);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><span style="width:24px;height:24px;display:block">{{ ic.mic }}</span></button>
+</div>
+</div></div>
+
+<div class="dv-opt" id="{{ t.id.v }}"><div class="dv-olabel"><a class="dv-oid" href="#{{ t.id.v }}">{{ t.id.v }}</a>Mode Suara · berbicara</div>
+<div class="dv-card" style="width:412px;height:915px;position:relative;background:var(--voice);color:#ECF2EA;border-radius:32px;border-color:var(--voice)">
+<div style="height:36px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">06.12<div style="display:flex">{{ ic.status }}</div></div>
+<div style="padding:24px 28px 0;display:flex;flex-direction:column;gap:8px">
+<span style="font-size:13px;line-height:18px;font-weight:500;color:#A9B8AE">Anda</span>
+<div style="font-size:20px;line-height:28px;font-weight:500;color:#ECF2EA;text-wrap:pretty">Matikan AC kamar dan ingatkan saya jam 7 pagi <span style="color:#7F948A">berangkat ke bandara.</span></div>
+</div>
+<div style="height:340px;display:flex;align-items:center;justify-content:center">{{ intiVoice }}</div>
+<div style="padding:0 28px;display:flex;flex-direction:column;gap:8px">
+<span style="font-size:13px;line-height:18px;font-weight:500;color:#A9B8AE">Nadia</span>
+<div style="font-size:26px;line-height:34px;font-weight:600;color:#F6F6F0;text-wrap:pretty;letter-spacing:-.01em">Siap. AC kamar sudah mati, dan alarm jam 07.00 sudah saya pasang.</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:36px;display:grid;grid-template-columns:1fr auto 1fr;align-items:start;padding:0 20px">
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><button aria-label="Bisukan mic" style="width:56px;height:56px;border-radius:50%;border:1px solid rgba(236,242,234,.18);background:rgba(236,242,234,.08);color:#ECF2EA;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.micOff }}</span></button><span style="font-size:13px;line-height:18px;font-weight:500;color:#C9D4CC">Bisukan mic</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><button style="height:56px;padding:0 40px;border-radius:28px;border:none;background:#F6F6F0;color:#0E3A2C;font-size:17px;font-weight:600;cursor:pointer">Selesai</button></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><button aria-label="Pindah ke ketik" style="width:56px;height:56px;border-radius:50%;border:1px solid rgba(236,242,234,.18);background:rgba(236,242,234,.08);color:#ECF2EA;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="width:24px;height:24px;display:block">{{ ic.keyboard }}</span></button><span style="font-size:13px;line-height:18px;font-weight:500;color:#C9D4CC">Pindah ke ketik</span></div>
+</div>
+</div></div>
+
+</div>
+</div>
+</sc-for>
+
+<div class="dv-opts">
+<div class="dv-opt" id="1k"><div class="dv-olabel"><a class="dv-oid" href="#1k">1k</a>Inti · lima keadaan</div>
+<div class="dv-card" style="width:1100px;background:#0E3A2C;border-radius:24px;border-color:#0E3A2C;padding:40px 24px 36px;box-sizing:border-box;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px">
+<sc-for list="{{ states }}" as="s" hint-placeholder-count="5">
+<div style="display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center">
+<div style="height:200px;display:flex;align-items:center;justify-content:center">{{ s.el }}</div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:0 8px"><span style="font-size:17px;line-height:24px;font-weight:600;color:#F6F6F0">{{ s.name }}</span><span style="font-size:13px;line-height:18px;font-weight:500;color:#A9B8AE;text-wrap:pretty">{{ s.desc }}</span></div>
+</div>
+</sc-for>
+</div></div>
+</div>
+<p class="dv-next">Coba: "lanjutkan ke Agenda dan Perangkat" · "Inti lebih mirip pita, kurang mirip daun" · "kartu Beranda lebih padat"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;reduceMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Gerak&quot;},&quot;showApproval&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Beranda&quot;}}">
+class Component extends DCLogic {
+  state = { acOn: true, tick: 0, node: 0, sent: false };
+  componentDidMount() {
+    this._p = setInterval(() => { if (window.SK) { clearInterval(this._p); this.forceUpdate(); } }, 60);
+    const live = [0, 1, 2, 3, 5, 6];
+    this.timer = setInterval(() => this.setState(s => ({ tick: s.tick + 1, node: live[Math.floor(Math.random() * live.length)] })), 3000);
+  }
+  componentWillUnmount() { clearInterval(this.timer); clearInterval(this._p); }
+  rm() { return this.props.reduceMotion ?? (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
+
+  icons() { return window.SK ? SK.icons(React.createElement) : {}; }
+  inti(size, st, light) { return window.SK ? SK.inti(React.createElement, size, st, { light, rm: this.rm() }) : null; }
+  orbit(light) { return window.SK ? SK.orbit(React.createElement, { node: this.state.node, tick: this.state.tick, rm: this.rm(), light }) : null; }
+  qr() { return window.SK ? SK.qr(React.createElement) : null; }
+  themeEls(light) { return { orbit: this.orbit(light), intiTab: this.inti(50, 'idle', light), intiChat: this.inti(36, 'idle', light), intiEmpty: this.inti(104, 'idle', light) }; }
+
+  renderVals() {
+    const L = { '--paper': '#F6F6F0', '--card': '#FCFCF8', '--mint': '#E8F4E8', '--line': '#E2E6DE', '--ink': '#0D2B22', '--muted': '#647069', '--green': '#1D7550', '--onGreen': '#FFFFFF', '--leaf': '#4DA36E', '--leafText': '#1D7550', '--sage': '#81C084', '--clay': '#A14E2E', '--clayBg': '#F5E5DB', '--track': '#CBD3C8', '--voice': '#0E3A2C' };
+    const D = { '--paper': '#0A1F18', '--card': '#123A2D', '--mint': '#18493A', '--line': '#1E4A3B', '--ink': '#ECF2EA', '--muted': '#A9B8AE', '--green': '#4DA36E', '--onGreen': '#0A1F18', '--leaf': '#81C084', '--leafText': '#81C084', '--sage': '#81C084', '--clay': '#E39A74', '--clayBg': '#3B2A21', '--track': '#2E5C4B', '--voice': '#0A1F18' };
+    const on = this.state.acOn;
+    return {
+      themes: [
+        { label: 'Mode terang', vars: L, ...this.themeEls(false), id: { b: '1a', c: '1b', c2: '1c', e: '1d', v: '1e' } },
+        { label: 'Mode gelap', vars: D, ...this.themeEls(true), id: { b: '1f', c: '1g', c2: '1h', e: '1i', v: '1j' } }
+      ],
+      ic: this.icons(),
+      intiVoice: this.inti(200, 'speak', true),
+      thinking: React.createElement('div', { style: { display: 'flex', gap: 6 } }, [0, 1, 2].map(i => React.createElement('span', { key: i, style: { width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', opacity: .35, animation: this.rm() ? undefined : `sk-dot 1.2s ease-in-out ${i * 0.18}s infinite` } }))),
+      qr: this.qr(),
+      states: [
+        { name: 'Diam', desc: 'Bernapas pelan, 1,00 → 1,04 tiap 4 detik.', el: this.inti(140, 'idle', true) },
+        { name: 'Mendengar', desc: 'Cincin luar mengikuti keras-pelannya suara.', el: this.inti(140, 'listen', true) },
+        { name: 'Berpikir', desc: 'Tiga titik berdenyut bergantian.', el: this.inti(140, 'think', true) },
+        { name: 'Berbicara', desc: 'Gelombang lembut keluar dari tepi Inti.', el: this.inti(140, 'speak', true) },
+        { name: 'Tanpa sinyal', desc: 'Sinyal lemah, permintaan Anda saya simpan dulu.', el: this.inti(140, 'off', true) }
+      ],
+      acSw: { bg: on ? 'var(--green)' : 'var(--track)', x: on ? '20px' : '0px', label: on ? 'AC kamar nyala · 24°' : 'AC kamar mati', status: on ? 'Nyala · Dingin' : 'Mati' },
+      toggleAc: () => this.setState(s => ({ acOn: !s.acOn })),
+      showApproval: this.props.showApproval ?? true,
+      sent: this.state.sent, notSent: !this.state.sent,
+      send: () => this.setState({ sent: true })
+    };
+  }
+}
+</script>
+</body>
+</html>
