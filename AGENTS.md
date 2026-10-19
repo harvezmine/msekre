@@ -10,6 +10,8 @@ Expo ships breaking changes every SDK release. APIs you remember are likely rena
 
 ## Commands
 
+Run every command after `source dev-env.sh` (Node 24 via nvm, JDK 17, Android SDK).
+
 Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
 
 ```bash
@@ -25,7 +27,7 @@ Run lint and typecheck before declaring any task done.
 
 ## Navigation & Routing
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
+- Use **Expo Router** for all navigation. Routes live in root `app/` — every file there is a screen, `_layout.tsx` files define navigators. Non-route code (components, hooks, theme, utils) lives in `src/` and is imported with the `@/` alias (`@/*` → `./src/*`).
 - Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
 - Docs: https://docs.expo.dev/router/introduction.md
 
