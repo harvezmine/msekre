@@ -20,10 +20,32 @@ persis seperti desain, dengan Inti yang hidup dan tab bar. Datanya masih contoh,
 - Jest dengan jest-expo dan @testing-library/react-native.
 
 **Aturan untuk seluruh rencana:**
-- Semua perintah dijalankan dari `/Users/rafaeljosh/dev/milo-ai/mobile`, kecuali disebut lain.
-- Commit di repo `mobile`, bukan di milo-ai.
+- Semua perintah dijalankan dari `/Users/rafaeljosh/dev/milo-ai/mobile` **setelah `source dev-env.sh`**, kecuali disebut
+  lain.
+- Commit di repo `mobile` (branch `dev`), bukan di milo-ai.
 - Pesan commit tanpa baris Co-Authored-By.
 - Teks di layar memakai bahasa Indonesia sehari-hari, tanpa istilah teknis dan tanpa emoji.
+
+## Penyesuaian setelah Tugas 1 (20 Okt 2026)
+
+Yang terpasang ternyata Expo SDK 58: React Native 0.88, React 19.3, reanimated 4.7, expo-router 58, TypeScript 6,
+Jest 30, React Native Testing Library (RNTL) 14. Rencana ini ditulis dengan acuan API yang lebih lama, jadi aturan
+berikut **menggantikan** kode di tugas-tugas di bawah bila bertentangan.
+
+1. **Tes asinkron (RNTL 14).**
+   - Setiap tes ditulis `async`. Gunakan `await render(...)`, `await fireEvent.press(...)`,
+     `await fireEvent(el, 'longPress')`, dan `await screen.unmount()`.
+   - Query (`screen.getBy…`) tetap sinkron.
+   - Baca `node_modules/@testing-library/react-native/docs/guides/llm-guidelines.md` sebelum menulis tes.
+2. **Reanimated dengan React Compiler.** React Compiler aktif (`experiments.reactCompiler`). Di dalam komponen dan
+   worklet, pakai `sv.set(nilai)` dan `sv.get()`, bukan `sv.value`.
+3. **Tab memakai `expo-router/js-tabs`.**
+   - `Tabs` diimpor dari `expo-router/js-tabs`, bukan dari `expo-router`, dan tipe `BottomTabBarProps` juga dari sana.
+   - Tab bar kustom menerima `{ state, descriptors, emitter, navigateToTab, insets }`; tidak ada objek `navigation`.
+   - Tugas 11 sudah ditulis ulang mengikuti ini.
+4. **Cek API di versi terpasang.** Kalau kode di rencana tidak cocok dengan typings di `node_modules` atau dokumentasi
+   SDK 58 (`https://docs.expo.dev/versions/v58.0.0/`), ikuti versi terpasang, lalu catat penyimpangannya di laporan.
+5. **Cek akhir setiap tugas.** Sebelum commit, `npx tsc --noEmit`, `npm run lint`, dan `npx jest` harus hijau.
 
 ---
 
@@ -67,6 +89,15 @@ persis seperti desain, dengan Inti yang hidup dan tab bar. Datanya masih contoh,
 ---
 
 ### Tugas 0: Siapkan Mac (sekali saja)
+
+> **Selesai 20 Okt 2026, dengan cara yang berbeda dari langkah di bawah.** Langkah 1–3 di bawah tidak perlu dijalankan
+> lagi; langkah 4 (HP) masih perlu dilakukan.
+> - Node 24 dipasang lewat nvm yang sudah ada (default nvm tetap 18). fnm tidak dipakai.
+> - JDK 17 sudah ada dari Homebrew (`openjdk@17`). JDK 21 bawaan pengguna tidak diubah.
+> - Android SDK memakai `android-commandlinetools` dari Homebrew dan `platform-tools`, tanpa Android Studio.
+>   Lisensinya sudah diterima. Platform dan build-tools diunduh Gradle saat build pertama.
+> - Semua jalur ini diatur oleh `dev-env.sh` di akar repo, jadi `~/.zshrc` tidak diubah.
+> - Catatan: `node@22` dari Homebrew yang dipakai `~/.zshrc` pengguna rusak (libsimdjson hilang).
 
 **File:** tidak ada di repo.
 
@@ -121,6 +152,15 @@ Hasil yang diharapkan: `adb devices` menampilkan satu perangkat berstatus `devic
 ---
 
 ### Tugas 1: Kerangka Expo
+
+> **Selesai 20 Okt 2026** (commit `4be0390` sampai `ce568b0`). Perbedaan dari langkah di bawah, hasil review:
+> - Rute template ada di `src/app` dan sudah dipindah ke `app/`.
+> - Jest memakai `"resolver": "react-native-reanimated/jest/resolver"`, ditambah tes asap `__tests__/setup.test.tsx`.
+> - `react-test-renderer` diganti `test-renderer` (dipakai RNTL 14).
+> - `@react-navigation/bottom-tabs` dilepas karena expo-router 58 punya tab sendiri.
+> - Ditambah `"types": ["jest"]` di tsconfig, lint (`npm run lint`, eslint-config-expo), dan isian `.gitignore`
+>   (`.env`, `coverage/`, `credentials.json`, `google-services.json`).
+> - LICENSE template dihapus.
 
 **File:**
 - Buat: `.nvmrc`, dan semua file template Expo.
@@ -1845,41 +1885,55 @@ git commit -m "feat: layar chat kosong dan Mode Suara"
 Buat `__tests__/TabBar.test.tsx`:
 
 ```tsx
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { TabBar } from '@/ui/TabBar';
 
 beforeEach(() => jest.clearAllMocks());
 
-function setup(index = 0) {
-  const navigation = { navigate: jest.fn(), emit: jest.fn(() => ({ defaultPrevented: false })) };
+async function setup(index = 0) {
+  const emitter = { emit: jest.fn(() => ({ defaultPrevented: false })) };
+  const navigateToTab = jest.fn();
   const routes = ['index', 'agenda', 'perangkat', 'usaha'].map((name) => ({ key: `${name}-k`, name }));
-  const props = { state: { index, routes }, navigation, descriptors: {} } as unknown as BottomTabBarProps;
-  render(<TabBar {...props} />);
-  return navigation;
+  const props = {
+    state: { index, routes },
+    descriptors: {},
+    emitter,
+    navigateToTab,
+    insets: { top: 0, right: 0, bottom: 0, left: 0 },
+  } as unknown as BottomTabBarProps;
+  await render(<TabBar {...props} />);
+  return { emitter, navigateToTab };
 }
 
-test('urutan tab sesuai desain, Inti di tengah', () => {
-  setup();
+test('urutan tab sesuai desain, Inti di tengah', async () => {
+  await setup();
   const tabs = screen.getAllByRole('tab').map((t) => t.props.accessibilityLabel);
   expect(tabs).toEqual(['Beranda', 'Agenda', 'Perangkat', 'Usaha']);
   expect(screen.getByRole('button', { name: 'Bicara dengan Nadia' })).toBeTruthy();
 });
 
-test('ketuk Agenda pindah tab', () => {
-  const navigation = setup();
-  fireEvent.press(screen.getByRole('tab', { name: 'Agenda' }));
-  expect(navigation.navigate).toHaveBeenCalledWith('agenda');
+test('ketuk Agenda pindah tab', async () => {
+  const { emitter, navigateToTab } = await setup();
+  await fireEvent.press(screen.getByRole('tab', { name: 'Agenda' }));
+  expect(emitter.emit).toHaveBeenCalledWith({ type: 'tabPress', target: 'agenda-k', canPreventDefault: true });
+  expect(navigateToTab).toHaveBeenCalledWith('agenda-k');
 });
 
-test('ketuk Inti membuka chat, tahan Inti membuka Mode Suara dengan getar', () => {
-  setup();
+test('ketuk tab yang sedang aktif tidak berpindah', async () => {
+  const { navigateToTab } = await setup(0);
+  await fireEvent.press(screen.getByRole('tab', { name: 'Beranda' }));
+  expect(navigateToTab).not.toHaveBeenCalled();
+});
+
+test('ketuk Inti membuka chat, tahan Inti membuka Mode Suara dengan getar', async () => {
+  await setup();
   const inti = screen.getByRole('button', { name: 'Bicara dengan Nadia' });
-  fireEvent.press(inti);
+  await fireEvent.press(inti);
   expect(router.push).toHaveBeenCalledWith('/chat');
-  fireEvent(inti, 'longPress');
+  await fireEvent(inti, 'longPress');
   expect(Haptics.impactAsync).toHaveBeenCalled();
   expect(router.push).toHaveBeenCalledWith('/suara');
 });
@@ -1896,11 +1950,10 @@ Hasil yang diharapkan: FAIL, `Cannot find module '@/ui/TabBar'`.
 Buat `src/ui/TabBar.tsx`:
 
 ```tsx
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { Pressable, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_ASSISTANT } from '@/brand';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from './Icon';
@@ -1916,9 +1969,8 @@ const TABS: Record<string, { label: string; icon: IconName }> = {
 };
 
 /** Beranda · Agenda · [Inti] · Perangkat · Usaha. Inti bukan tab: ketuk membuka chat, tahan membuka Mode Suara. */
-export function TabBar({ state, navigation }: BottomTabBarProps) {
+export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const { c, scheme } = useTheme();
-  const insets = useSafeAreaInsets();
 
   const tab = (index: number) => {
     const route = state.routes[index];
@@ -1933,8 +1985,8 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
         accessibilityLabel={meta.label}
         accessibilityState={{ selected: active }}
         onPress={() => {
-          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (!active && !event.defaultPrevented) navigation.navigate(route.name);
+          const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          if (!active && !event.defaultPrevented) navigateToTab(route.key);
         }}
         style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 }}
       >
@@ -2001,7 +2053,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
 
 Jalankan: `npx jest __tests__/TabBar.test.tsx`
 
-Hasil yang diharapkan: PASS, 3 tes.
+Hasil yang diharapkan: PASS, 4 tes.
 
 - [ ] **Langkah 5: Tulis layout tab dan isi sementara**
 
@@ -2029,7 +2081,7 @@ export function LaterScreen({ title, phase }: { title: string; phase: string }) 
 Buat `app/(tabs)/_layout.tsx`:
 
 ```tsx
-import { Tabs } from 'expo-router';
+import { Tabs } from 'expo-router/js-tabs';
 import { TabBar } from '@/ui/TabBar';
 
 export default function TabsLayout() {
