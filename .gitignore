@@ -36,7 +36,6 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-example
 
 # generated native folders
 /ios
@@ -44,3 +43,10 @@ example
 
 # Zip asli dari Claude Design; isinya sudah ada di design/handoff/
 design/*.zip
+
+# secrets and build output
+.env
+!.env.example
+coverage/
+credentials.json
+google-services.json

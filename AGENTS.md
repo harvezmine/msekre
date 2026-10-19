@@ -25,6 +25,11 @@ npx expo install --fix      # fix incompatible package versions
 
 Run lint and typecheck before declaring any task done.
 
+## Testing
+
+- Tests use @testing-library/react-native 14, which is async: `await render(...)`, `await fireEvent...`. Read node_modules/@testing-library/react-native/docs/guides/llm-guidelines.md (if present) before writing tests.
+- React Compiler is on: with reanimated use `sv.get()` / `sv.set()` instead of `.value`.
+
 ## Navigation & Routing
 
 - Use **Expo Router** for all navigation. Routes live in root `app/` — every file there is a screen, `_layout.tsx` files define navigators. Non-route code (components, hooks, theme, utils) lives in `src/` and is imported with the `@/` alias (`@/*` → `./src/*`).

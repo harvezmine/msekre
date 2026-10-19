@@ -7,4 +7,4 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:/opt/homebrew/bin:$PATH
 # nvm terakhir, supaya Node 24 berada di depan node lain di PATH (Homebrew punya Node 26).
 export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh" >/dev/null
-nvm use >/dev/null
+nvm use 24 >/dev/null
