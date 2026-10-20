@@ -1,10 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   type ScrollViewInstance,
   type TextInputInstance,
 } from 'react-native';
@@ -29,6 +32,9 @@ import { Inti } from '@/ui/inti/Inti';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
 
+/** Jarak (dp) dari dasar utas yang masih dianggap "di dasar". */
+const NEAR_BOTTOM = 80;
+
 const SUGGESTIONS: { icon: IconName; text: string }[] = [
   { icon: 'mail', text: 'Ringkas email hari ini' },
   { icon: 'bulb', text: 'Matikan semua lampu' },
@@ -50,6 +56,19 @@ export default function Chat() {
   const seq = useRef(0);
   const input = useRef<TextInputInstance>(null);
   const scroll = useRef<ScrollViewInstance>(null);
+  // Auto-gulir hanya saat jumlah baris bertambah, atau saat keyboard muncul dan pengguna memang sudah di dasar utas.
+  const lastCount = useRef(-1);
+  const nearBottom = useRef(true);
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      if (nearBottom.current) scroll.current?.scrollToEnd({ animated: true });
+    });
+    return () => sub.remove();
+  }, []);
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    nearBottom.current = contentSize.height - (contentOffset.y + layoutMeasurement.height) < NEAR_BOTTOM;
+  };
 
   // Jawaban contoh muncul 1,2 detik setelah pesan terakhir; mengirim lagi sebelum itu membatalkan yang lama.
   useEffect(() => {
@@ -144,16 +163,24 @@ export default function Chat() {
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 16, paddingBottom: 20, gap: 12 }}
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: fresh.length > 0 })}
+          scrollEventThrottle={64}
+          onScroll={onScroll}
+          onContentSizeChange={() => {
+            if (lastCount.current === thread.length) return;
+            const first = lastCount.current === -1;
+            lastCount.current = thread.length;
+            nearBottom.current = true;
+            scroll.current?.scrollToEnd({ animated: !first });
+          }}
         >
           <Note />
-          {thread.map((item) => (
-            <ThreadRow key={item.id} item={item} paused={!live} />
+          {thread.map((item, i) => (
+            <ThreadRow key={item.id} item={item} prev={thread[i - 1]} paused={!live} />
           ))}
         </ScrollView>
       )}
 
-      <Composer value={text} onChangeText={setText} onSend={send} inputRef={input} />
+      <Composer value={text} onChangeText={setText} onSend={send} inputRef={input} strongMic={showEmpty} />
     </KeyboardAvoidingView>
   );
 }
@@ -171,10 +198,11 @@ function Note() {
   );
 }
 
-function ThreadRow({ item, paused }: { item: ChatEntry; paused: boolean }) {
+function ThreadRow({ item, prev, paused }: { item: ChatEntry; prev?: ChatEntry; paused: boolean }) {
   switch (item.kind) {
     case 'user':
-      return <UserBubble text={item.text} />;
+      // Awal tukar-pesan baru: jarak ekstra. Balasan atas pertanyaan kartu token ("Sudah benar?") masih tukar-pesan yang sama.
+      return <UserBubble text={item.text} startsExchange={!!prev && prev.kind !== 'user' && prev.kind !== 'token'} />;
     case 'assistant':
       return <AssistantLine text={item.text} />;
     case 'device':

@@ -21,6 +21,7 @@ export function QrisCard({ qris }: { qris: QrisInfo }) {
       </Txt>
       <View
         testID="qris-kode"
+        accessible
         accessibilityLabel="Kode QRIS contoh"
         style={{
           width: 208,

@@ -3,13 +3,10 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '../Card';
 import { Txt } from '../Txt';
 
-/** Bingkai kartu di dalam utas chat (radius 20, isi 16, lebar paling besar 340). */
+/** Bingkai kartu di dalam utas chat (radius 20, isi 16; selebar kolom sampai paling besar 340). */
 export function ChatCard({ style, ...rest }: ViewProps) {
   return (
-    <Card
-      {...rest}
-      style={[{ borderRadius: 20, padding: 16, gap: 12, maxWidth: 340, alignSelf: 'flex-start' }, style]}
-    />
+    <Card {...rest} style={[{ borderRadius: 20, padding: 16, gap: 12, maxWidth: 340, alignSelf: 'stretch' }, style]} />
   );
 }
 

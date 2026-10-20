@@ -18,6 +18,7 @@ export function Thinking({ paused = false }: { paused?: boolean }) {
   return (
     <View
       testID="berpikir"
+      accessible
       accessibilityLabel="Sedang berpikir"
       accessibilityLiveRegion="polite"
       style={{
@@ -25,7 +26,7 @@ export function Thinking({ paused = false }: { paused?: boolean }) {
         flexDirection: 'row',
         gap: 6,
         alignItems: 'center',
-        height: 56,
+        paddingVertical: 16,
         paddingHorizontal: 18,
         backgroundColor: c.card,
         borderWidth: 1,
@@ -65,12 +66,12 @@ function Dot({ index, pulse, color }: { index: number; pulse: boolean; color: st
   const style = useAnimatedStyle(() =>
     pulse
       ? { opacity: 0.35 + 0.65 * t.get(), transform: [{ translateY: -3 * t.get() }] }
-      : { opacity: 1, transform: [{ translateY: 0 }] },
+      : { opacity: 0.35, transform: [{ translateY: 0 }] },
   );
   return (
     <Animated.View
       testID={`berpikir-titik-${index}`}
-      style={[{ width: 10, height: 10, borderRadius: 5, backgroundColor: color }, style]}
+      style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }, style]}
     />
   );
 }

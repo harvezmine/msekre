@@ -3,6 +3,7 @@ import { useEffect, useState, type Ref } from 'react';
 import { Keyboard, Pressable, TextInput, View, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_ASSISTANT } from '@/brand';
+import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
 import { Icon } from '../Icon';
@@ -13,11 +14,14 @@ interface Props {
   onChangeText: (text: string) => void;
   onSend: () => void;
   inputRef?: Ref<TextInputInstance>;
+  /** Layar kosong (desain 1d): mic hijau penuh. Di utas, mic berlatar mint dengan ikon hijau (1b, 1c). */
+  strongMic?: boolean;
 }
 
 /** Bilah ketik di bawah: lampiran, kolom teks, lalu mic (kosong) atau kirim (ada teks). */
-export function Composer({ value, onChangeText, onSend, inputRef }: Props) {
+export function Composer({ value, onChangeText, onSend, inputRef, strongMic = false }: Props) {
   const { c } = useTheme();
+  const dispatch = useSampleDispatch();
   const insets = useSafeAreaInsets();
   // Saat keyboard terbuka, area gestur di bawah tertutup keyboard: tak perlu jarak tambahan.
   const [keyboard, setKeyboard] = useState(false);
@@ -30,11 +34,11 @@ export function Composer({ value, onChangeText, onSend, inputRef }: Props) {
     };
   }, []);
   const hasText = value.trim().length > 0;
+  const solid = hasText || strongMic;
   return (
     <View
       style={{
-        minHeight: 80 + (keyboard ? 0 : insets.bottom),
-        paddingTop: 12,
+        height: 88 + (keyboard ? 0 : insets.bottom),
         paddingBottom: 8 + (keyboard ? 0 : insets.bottom),
         paddingHorizontal: 12,
         flexDirection: 'row',
@@ -43,14 +47,19 @@ export function Composer({ value, onChangeText, onSend, inputRef }: Props) {
         backgroundColor: c.paper,
       }}
     >
-      <IconButton icon="clip" label="Lampiran" color={c.muted} />
+      <IconButton
+        icon="clip"
+        label="Lampiran"
+        color={c.muted}
+        onPress={() => dispatch({ type: 'showToast', text: 'Lampiran dibangun di Fase 1.' })}
+      />
       <TextInput
         ref={inputRef}
         value={value}
         onChangeText={onChangeText}
         onSubmitEditing={onSend}
         returnKeyType="send"
-        submitBehavior="blurAndSubmit"
+        submitBehavior="submit"
         accessibilityLabel={`Tulis pesan untuk ${DEFAULT_ASSISTANT}`}
         placeholder={`Tulis pesan untuk ${DEFAULT_ASSISTANT}`}
         placeholderTextColor={c.muted}
@@ -77,12 +86,12 @@ export function Composer({ value, onChangeText, onSend, inputRef }: Props) {
           width: 52,
           height: 52,
           borderRadius: 26,
-          backgroundColor: c.green,
+          backgroundColor: solid ? c.green : c.mint,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Icon name={hasText ? 'send' : 'mic'} size={24} color={c.onGreen} />
+        <Icon name={hasText ? 'send' : 'mic'} size={24} color={solid ? c.onGreen : c.green} />
       </Pressable>
     </View>
   );

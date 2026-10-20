@@ -48,6 +48,15 @@ export function DeviceCard({ deviceId }: { deviceId: string }) {
         />
       </View>
       <View
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={`Suhu ${name}`}
+        accessibilityValue={{ text: `${temp} derajat` }}
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === 'increment') step(1);
+          else if (e.nativeEvent.actionName === 'decrement') step(-1);
+        }}
         style={{
           flexDirection: 'row',
           alignItems: 'center',

@@ -290,7 +290,7 @@ test('addAgenda: id baru, tampil di tanggalnya, dicatat; hari ini masuk Beranda'
       type: 'addAgenda',
       item: { date: '2025-10-25', time: '09.00', title: 'Beli kado ulang tahun', kind: 'reminder', way: 'alarm' },
     },
-    { type: 'addAgenda', item: { date: '2025-10-20', time: '18.00', title: 'Telepon Ibu', kind: 'reminder' } },
+    { type: 'addAgenda', item: { date: '2025-10-20', time: '08.00', title: 'Telepon Ibu', kind: 'reminder' } },
   ]);
   const added = agendaOn(s, '2025-10-25').find((a) => a.title === 'Beli kado ulang tahun')!;
   expect(added.id).toBeTruthy();
@@ -298,7 +298,7 @@ test('addAgenda: id baru, tampil di tanggalnya, dicatat; hari ini masuk Beranda'
   expect(homeAgenda(s).some((a) => a.title === 'Telepon Ibu')).toBe(true);
   expect(homeAgenda(s).some((a) => a.id === added.id)).toBe(false);
   expect(init.agenda.every((a) => !('home' in a))).toBe(true);
-  expect(s.history[0]).toMatchObject({ title: 'Menambah ke agenda', sub: 'Telepon Ibu · 18.00' });
+  expect(s.history[0]).toMatchObject({ title: 'Menambah ke agenda', sub: 'Telepon Ibu · 08.00' });
   expect(agendaOn(s, '2025-10-20').map((a) => a.time)).toEqual(
     [...agendaOn(s, '2025-10-20').map((a) => a.time)].sort(),
   );
@@ -318,8 +318,8 @@ test('snooze, toggleTask, finishLeftover', () => {
   s = run([{ type: 'finishLeftover', choice: 'today' }]);
   expect(s.leftover).toBeNull();
   expect(agendaOn(s, '2025-10-20').some((a) => a.title === title && a.kind === 'task')).toBe(true);
-  // tugas kemarin yang dikerjakan hari ini juga tampil di Beranda
-  expect(homeAgenda(s).some((a) => a.title === title)).toBe(true);
+  // tugas ada di layar Agenda, bukan di kartu Beranda
+  expect(homeAgenda(s).some((a) => a.title === title)).toBe(false);
   s = run([{ type: 'finishLeftover', choice: 'drop' }]);
   expect(s.leftover).toBeNull();
   expect(s.agenda).toHaveLength(init.agenda.length);
@@ -448,4 +448,13 @@ test('toast, onboarding', () => {
   expect(run([{ type: 'hideToast', id: two.toast!.id }], two).toast).toBeNull();
   expect(run([{ type: 'hideToast' }])).toBe(init);
   expect(run([{ type: 'finishOnboarding' }]).onboarded).toBe(true);
+});
+
+test('homeAgenda: paling banyak tiga item hari ini urut jam, tanpa tugas', () => {
+  expect(homeAgenda(init).map((a) => a.time)).toEqual(['09.00', '13.00', '16.00']);
+  expect(homeAgenda(init).some((a) => a.kind === 'task')).toBe(false);
+  const early = run([
+    { type: 'addAgenda', item: { date: '2025-10-20', time: '07.00', title: 'Olahraga', kind: 'reminder' } },
+  ]);
+  expect(homeAgenda(early).map((a) => a.time)).toEqual(['07.00', '09.00', '13.00']);
 });

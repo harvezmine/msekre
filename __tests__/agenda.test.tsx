@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import Agenda from '../app/(tabs)/agenda';
@@ -161,6 +161,10 @@ test('Tambah: Simpan nonaktif sampai ada teks, pratinjau dari teks, Simpan menam
     way: 'alarm',
   });
   expect(latest.toast?.text).toBe('Tersimpan di agenda.');
+  expect(router.back).not.toHaveBeenCalled();
+  await act(async () => {
+    jest.advanceTimersByTime(250);
+  });
   expect(router.back).toHaveBeenCalled();
 });
 

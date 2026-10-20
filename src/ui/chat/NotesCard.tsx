@@ -1,4 +1,5 @@
 import { Pressable, View } from 'react-native';
+import { useSampleDispatch } from '@/sample/store';
 import type { NotesInfo } from '@/sample/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
@@ -8,6 +9,7 @@ import { ChatCard } from './ChatCard';
 /** Kartu notulen rapat: tiga keputusan dan tautan Baca notulen (layar notulen menyusul di tugas lain). */
 export function NotesCard({ notes, onOpen }: { notes: NotesInfo; onOpen?: () => void }) {
   const { c } = useTheme();
+  const dispatch = useSampleDispatch();
   return (
     <ChatCard>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -43,7 +45,8 @@ export function NotesCard({ notes, onOpen }: { notes: NotesInfo; onOpen?: () => 
       <Pressable
         accessibilityRole="link"
         accessibilityLabel="Baca notulen"
-        onPress={onOpen}
+        onPress={onOpen ?? (() => dispatch({ type: 'showToast', text: 'Notulen lengkap tampil di Fase 1.' }))}
+        hitSlop={{ top: 4, bottom: 4 }}
         style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}
       >
         <Txt weight={600} color={c.green}>

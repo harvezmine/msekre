@@ -1,12 +1,14 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import { AccessibilityInfo, BackHandler, Text } from 'react-native';
+import { AccessibilityInfo, BackHandler, StyleSheet, Text } from 'react-native';
 import Tempat from '../app/tempat';
 import { useSample, type SampleState } from '@/sample/store';
 import { FilterChips } from '@/ui/FilterChips';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Segmented } from '@/ui/Segmented';
-import { Sheet } from '@/ui/Sheet';
+import { Sheet, useSheet } from '@/ui/Sheet';
+import { shouldDismiss } from '@/ui/sheetMath';
+import { setTabBarShown } from '@/ui/tabBarShown';
 import { Toast, ToastHost } from '@/ui/Toast';
 import { renderWithProviders } from './helpers';
 
@@ -58,7 +60,9 @@ test('Sheet: tombol kembali Android menutup', async () => {
 test('Toast: tampil dengan teks dan sebagai pesan yang dibacakan', async () => {
   await render(<Toast text="Tersimpan." />);
   expect(screen.getByText('Tersimpan.')).toBeOnTheScreen();
-  expect(screen.getByTestId('toast')).toHaveProp('accessibilityLiveRegion', 'polite');
+  expect(screen.getByTestId('toast')).toHaveProp('accessibilityRole', 'alert');
+  // diumumkan hanya lewat ToastHost, bukan juga lewat live region
+  expect(screen.getByTestId('toast')).not.toHaveProp('accessibilityLiveRegion');
 });
 
 test('ToastHost: tampil dari penyimpanan dan hilang sendiri setelah 2,6 detik', async () => {
@@ -139,6 +143,15 @@ test('ListRow menampilkan judul dan keterangan, dan bisa ditekan', async () => {
   expect(onPress).toHaveBeenCalled();
 });
 
+test('ListRow tanpa onPress tidak mengaku tombol', async () => {
+  await render(
+    <ListGroup>
+      <ListRow icon="mail" title="Gmail" last />
+    </ListGroup>,
+  );
+  expect(screen.queryByRole('button', { name: /Gmail/ })).toBeNull();
+});
+
 test('/tempat: daftar tempat dengan centang di tempat sekarang, memilih mengubah tempat dan menutup', async () => {
   let seen: SampleState | undefined;
   function Probe() {
@@ -152,11 +165,70 @@ test('/tempat: daftar tempat dengan centang di tempat sekarang, memilih mengubah
     </>,
   );
   for (const p of ['Semua', 'Rumah', 'Kedai Dago', 'Kedai Riau']) {
-    expect(screen.getByRole('button', { name: p })).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: p })).toBeOnTheScreen();
   }
-  expect(screen.getByRole('button', { name: 'Semua' })).toBeSelected();
-  expect(screen.getByRole('button', { name: 'Rumah' })).not.toBeSelected();
-  await fireEvent.press(screen.getByRole('button', { name: 'Kedai Dago' }));
+  expect(screen.getByRole('radio', { name: 'Semua' })).toBeChecked();
+  expect(screen.getByRole('radio', { name: 'Rumah' })).not.toBeChecked();
+  await fireEvent.press(screen.getByRole('radio', { name: 'Kedai Dago' }));
+  // tempat berganti dan lembar tertutup setelah geser keluar
+  expect(router.back).not.toHaveBeenCalled();
+  await advance(250);
   expect(seen!.place).toBe('Kedai Dago');
   expect(router.back).toHaveBeenCalled();
+});
+
+test('Sheet: close() dari isi menggeser keluar 200 ms, lalu onClose, lalu after', async () => {
+  const calls: string[] = [];
+  function Isi() {
+    const { close } = useSheet();
+    return <Text onPress={() => close(() => calls.push('after'))}>Simpan</Text>;
+  }
+  await renderWithProviders(
+    <Sheet onClose={() => calls.push('onClose')}>
+      <Isi />
+    </Sheet>,
+  );
+  await fireEvent.press(screen.getByText('Simpan'));
+  await advance(150);
+  expect(calls).toEqual([]);
+  await advance(60);
+  expect(calls).toEqual(['onClose', 'after']);
+  // dipanggil lagi saat sedang menutup: tidak berulang
+  await fireEvent.press(screen.getByText('Simpan'));
+  await advance(250);
+  expect(calls).toEqual(['onClose', 'after']);
+});
+
+test('Sheet: ambang geser memakai tinggi panel yang terukur; sentakan cepat juga menutup', () => {
+  // panel 400 dp: ambang 100 dp
+  expect(shouldDismiss(99, 400, 0)).toBe(false);
+  expect(shouldDismiss(101, 400, 0)).toBe(true);
+  // panel 1000 dp: 101 dp belum cukup
+  expect(shouldDismiss(101, 1000, 0)).toBe(false);
+  expect(shouldDismiss(251, 1000, 0)).toBe(true);
+  // belum terukur: cadangan 300 dp, ambang 75
+  expect(shouldDismiss(76, 0, 0)).toBe(true);
+  expect(shouldDismiss(74, 0, 0)).toBe(false);
+  expect(shouldDismiss(5, 400, 1000)).toBe(true);
+});
+
+test('ToastHost: duduk 16 dp di atas tepi bawah, ditambah tinggi tab bar hanya saat tab bar terlihat', async () => {
+  let dispatch!: ReturnType<typeof useSample>['dispatch'];
+  function Probe() {
+    dispatch = useSample().dispatch;
+    return null;
+  }
+  await renderWithProviders(
+    <>
+      <ToastHost />
+      <Probe />
+    </>,
+  );
+  await act(async () => dispatch({ type: 'showToast', text: 'Satu' }));
+  const bottom = () => StyleSheet.flatten(screen.getByTestId('toast').parent!.props.style).bottom as number;
+  const base = bottom();
+  await act(async () => setTabBarShown(true));
+  expect(bottom()).toBe(base + 88);
+  await act(async () => setTabBarShown(false));
+  expect(bottom()).toBe(base);
 });

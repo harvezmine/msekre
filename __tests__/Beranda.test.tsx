@@ -115,13 +115,13 @@ test('cincin mengikuti layanan: memutus Imou menghapus simpul CCTV', async () =>
 test('agenda hari ini yang ditambah tampil di Beranda', async () => {
   await renderWithProviders(<Beranda />, {
     actions: [
-      { type: 'addAgenda', item: { date: '2025-10-20', time: '18.00', title: 'Telepon Ibu', kind: 'reminder' } },
+      { type: 'addAgenda', item: { date: '2025-10-20', time: '08.00', title: 'Telepon Ibu', kind: 'reminder' } },
     ],
   });
   expect(screen.getByText('Telepon Ibu')).toBeOnTheScreen();
 });
 
-test('Agenda hari ini memuat semua item hari ini, urut jam, dan item jam yang sama tidak bertabrakan', async () => {
+test('Agenda hari ini memuat item hari ini urut jam, dan item jam yang sama tidak bertabrakan', async () => {
   const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
   await renderWithProviders(<Beranda />, {
     actions: [
@@ -129,15 +129,12 @@ test('Agenda hari ini memuat semua item hari ini, urut jam, dan item jam yang sa
       { type: 'finishLeftover', choice: 'today' },
     ],
   });
-  for (const t of [
-    'Rapat dengan supplier susu',
-    'Sarapan dengan Ibu',
-    'Bayar listrik Kedai Dago',
-    'Jemput Kayla les',
-    'Kirim penawaran katering ke Bu Sari',
-  ]) {
+  for (const t of ['Rapat dengan supplier susu', 'Sarapan dengan Ibu', 'Bayar listrik Kedai Dago']) {
     expect(screen.getByText(t)).toBeOnTheScreen();
   }
+  // paling banyak tiga baris, tanpa tugas
+  expect(screen.queryByText('Jemput Kayla les')).toBeNull();
+  expect(screen.queryByText('Kirim penawaran katering ke Bu Sari')).toBeNull();
   expect(screen.getAllByText('09.00')).toHaveLength(2);
   expect(spy.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false);
   spy.mockRestore();
@@ -147,4 +144,14 @@ test('tombol tempat membuka pemilih tempat', async () => {
   await renderWithProviders(<Beranda />);
   await fireEvent.press(screen.getByRole('button', { name: 'Tempat: Semua' }));
   expect(router.push).toHaveBeenCalledWith('/tempat');
+});
+
+test('kartu Agenda hari ini persis tiga baris desain 1a, tanpa tugas', async () => {
+  await renderWithProviders(<Beranda />);
+  for (const t of ['Rapat dengan supplier susu', 'Bayar listrik Kedai Dago', 'Jemput Kayla les']) {
+    expect(screen.getByText(t)).toBeOnTheScreen();
+  }
+  expect(screen.queryByText('Cek stok Kedai Riau')).toBeNull();
+  expect(screen.queryByText('Rapat manajer kedai')).toBeNull();
+  expect(screen.getAllByText(/^\d\d\.\d\d$/).map((t) => t.props.children)).toEqual(['09.00', '13.00', '16.00']);
 });

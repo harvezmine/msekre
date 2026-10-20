@@ -2,6 +2,7 @@ import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
+import { AccessibilityInfo } from 'react-native';
 import Chat from '../app/chat';
 import { renderWithProviders } from './helpers';
 import { BUDI_DRAFT_ID as BUDI, supplierOrderDraft } from '@/sample/outgoing';
@@ -25,6 +26,26 @@ async function renderChat(options?: Parameters<typeof renderWithProviders>[1]) {
     </>,
     options,
   );
+}
+
+/** Isi tiap elemen Text pada pohon yang tampil, menurut urutan pohon (anak-anaknya digabung). */
+function textsInOrder(): string[] {
+  const out: string[] = [];
+  const flat = (n: unknown): string =>
+    typeof n === 'string'
+      ? n
+      : n && typeof n === 'object'
+        ? ((n as { children?: unknown[] }).children ?? []).map(flat).join('')
+        : '';
+  const walk = (n: unknown) => {
+    if (!n || typeof n !== 'object') return;
+    const node = n as { type?: string; children?: unknown[] };
+    if (node.type === 'Text') out.push(flat(node));
+    else node.children?.forEach(walk);
+  };
+  const tree = screen.toJSON();
+  (Array.isArray(tree) ? tree : [tree]).forEach(walk);
+  return out;
 }
 
 async function advance(ms: number) {
@@ -63,6 +84,11 @@ test('utas contoh menampilkan semua pesan dan kartu berurutan', async () => {
     'Cek stok kedai',
   ];
   for (const t of order) expect(screen.getByText(t)).toBeTruthy();
+  // urutan di utas: setiap teks muncul setelah yang sebelumnya
+  const shown = textsInOrder();
+  const at = order.map((t) => shown.indexOf(t));
+  expect(at.every((i) => i >= 0)).toBe(true);
+  expect(at).toEqual([...at].sort((a, b) => a - b));
   expect(screen.getByText('Nadia ingat semua obrolan Anda, di aplikasi maupun di WhatsApp.')).toBeTruthy();
   expect(screen.getByText('Nyala · Dingin')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Buka' })).toBeTruthy();
@@ -217,6 +243,63 @@ test('pola QR contoh selalu sama dan punya tiga mata penjuru', () => {
     expect(has(ox + 3, oy + 3)).toBe(true); // inti
     expect(has(ox + 1, oy + 1)).toBe(false); // cincin kosong
   }
-  expect(has(N - 7, N - 7)).toBe(a.some((c) => c.x === N - 7 && c.y === N - 7)); // sudut kanan bawah bebas
+  // jalur kosong di sekeliling mata penjuru
+  expect(has(7, 0)).toBe(false);
+  expect(has(0, 7)).toBe(false);
+  expect(has(N - 8, 0)).toBe(false);
+  expect(has(0, N - 8)).toBe(false);
   expect(a.length).toBeGreaterThan(150);
+});
+
+test('tidak ada tombol mati: Baca notulen, Buka, Bagikan, dan Lampiran memunculkan toast', async () => {
+  await renderChat();
+  await fireEvent.press(screen.getByRole('link', { name: 'Baca notulen' }));
+  expect(latest.toast?.text).toBe('Notulen lengkap tampil di Fase 1.');
+  await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
+  expect(latest.toast?.text).toBe('Membuka berkas contoh.');
+  await fireEvent.press(screen.getByRole('button', { name: 'Bagikan' }));
+  expect(latest.toast?.text).toBe('Berbagi berkas dibangun di Fase 1.');
+  await fireEvent.press(screen.getByRole('button', { name: 'Lampiran' }));
+  expect(latest.toast?.text).toBe('Lampiran dibangun di Fase 1.');
+});
+
+test('mic: mint dengan ikon hijau di utas, hijau penuh dengan ikon putih di keadaan kosong', async () => {
+  const { light } = jest.requireActual('@/theme/tokens');
+  await renderChat();
+  expect(screen.getByRole('button', { name: 'Bicara' })).toHaveStyle({ backgroundColor: light.mint });
+  expect(within(screen.getByRole('button', { name: 'Bicara' })).getByTestId('ikon-mic').props.stroke).toBe(light.green);
+});
+
+test('mic di keadaan kosong: latar hijau, ikon putih', async () => {
+  const { light } = jest.requireActual('@/theme/tokens');
+  jest.mocked(useLocalSearchParams).mockReturnValue({ kosong: '1' });
+  await renderChat();
+  expect(screen.getByRole('button', { name: 'Bicara' })).toHaveStyle({ backgroundColor: light.green });
+  expect(within(screen.getByRole('button', { name: 'Bicara' })).getByTestId('ikon-mic').props.stroke).toBe(
+    light.onGreen,
+  );
+});
+
+test('Kirim diumumkan ke pembaca layar; pengatur suhu bisa disetel dengan aksi naik dan turun', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
+  await renderChat();
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
+  expect(announce).toHaveBeenCalledWith('Dikirim 10.47, bisa dibatalkan');
+  announce.mockRestore();
+  const stepper = screen.getByRole('adjustable');
+  expect(stepper.props.accessibilityValue).toEqual({ text: '24 derajat' });
+  await fireEvent(stepper, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+  expect(deviceById(latest, 'ac-kamar')!.ac!.temp).toBe(25);
+  await fireEvent(stepper, 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
+  expect(deviceById(latest, 'ac-kamar')!.ac!.temp).toBe(24);
+});
+
+test('gelembung pengguna yang membuka tukar-pesan baru diberi jarak atas 8', async () => {
+  await renderChat();
+  const first = screen.getByText('Nyalakan AC kamar 24 derajat');
+  const second = screen.getByText('Balas Pak Budi, harga sewa bisa Rp15 juta');
+  const reply = screen.getByText('Ya, benar');
+  expect(first.parent).toHaveStyle({ marginTop: 0 });
+  expect(second.parent).toHaveStyle({ marginTop: 8 });
+  expect(reply.parent).toHaveStyle({ marginTop: 0 });
 });

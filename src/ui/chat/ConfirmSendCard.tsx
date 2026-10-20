@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { AccessibilityInfo, Pressable, TextInput, View } from 'react-native';
 import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
@@ -36,7 +36,7 @@ export function ConfirmSendCard({ outgoingId }: { outgoingId: string }) {
             justifyContent: 'center',
           }}
         >
-          <Txt v="caption" weight={700} color={c.green}>
+          <Txt weight={700} color={c.green} style={{ fontSize: 14, lineHeight: 20 }}>
             {initials}
           </Txt>
         </View>
@@ -100,6 +100,7 @@ export function ConfirmSendCard({ outgoingId }: { outgoingId: string }) {
             onPress={() => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               dispatch({ type: 'sendDraft', id });
+              AccessibilityInfo.announceForAccessibility(`Dikirim ${heldUntil}, bisa dibatalkan`);
             }}
           />
         </View>
