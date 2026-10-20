@@ -2,8 +2,9 @@ import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import Agenda from '../app/(tabs)/agenda';
-import Tambah from '../app/agenda/tambah';
-import { renderWithProviders } from './helpers';
+import Tambah, { PREVIEW_DEBOUNCE_MS } from '../app/agenda/tambah';
+import { ERROR_TEXT } from '@/api/errors';
+import { createTestApi, renderWithProviders } from './helpers';
 import { useSample, type SampleState } from '@/sample/store';
 
 beforeEach(() => jest.clearAllMocks());
@@ -15,6 +16,12 @@ function Probe() {
     latest = state;
   });
   return null;
+}
+
+async function advance(ms: number) {
+  await act(async () => {
+    jest.advanceTimersByTime(ms);
+  });
 }
 
 const row = (time: string) => screen.getByRole(/button|checkbox/, { name: new RegExp(`^${time}`) });
@@ -146,6 +153,11 @@ test('Tambah: Simpan nonaktif sampai ada teks, pratinjau dari teks, Simpan menam
     screen.getByPlaceholderText('Ingatkan saya bayar pajak motor tanggal 25'),
     'Ingatkan saya bayar pajak motor tanggal 25',
   );
+  // Server belum ditanya selama masih diketik; pratinjau datang sesudah jeda.
+  expect(screen.getByText('Menyiapkan pratinjau…')).toBeOnTheScreen();
+  expect(screen.queryByText('Akan saya simpan sebagai')).toBeNull();
+  await advance(PREVIEW_DEBOUNCE_MS);
+  expect(screen.queryByText('Menyiapkan pratinjau…')).toBeNull();
   expect(screen.getByText('Akan saya simpan sebagai')).toBeOnTheScreen();
   expect(screen.getByText('Bayar pajak motor')).toBeOnTheScreen();
   expect(screen.getByText('Pengingat')).toBeOnTheScreen();
@@ -154,6 +166,7 @@ test('Tambah: Simpan nonaktif sampai ada teks, pratinjau dari teks, Simpan menam
   expect(screen.getByText('Bunyi sebagai alarm')).toBeOnTheScreen();
   expect(screen.getByText('Jamnya saya tebak. Ketuk untuk mengubah.')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Simpan' }));
+  await advance(0);
   expect(latest.agenda.find((a) => a.title === 'Bayar pajak motor')).toMatchObject({
     date: '2025-10-25',
     time: '09.00',
@@ -174,9 +187,93 @@ test('Tambah: jam disebut berarti catatan tebakan hilang; mic membuka Mode Suara
     screen.getByPlaceholderText('Ingatkan saya bayar pajak motor tanggal 25'),
     'Cek stok besok jam 14.00',
   );
+  await advance(PREVIEW_DEBOUNCE_MS);
   expect(screen.getByText('Tugas')).toBeOnTheScreen();
   expect(screen.getByText('14.00')).toBeOnTheScreen();
   expect(screen.queryByText('Jamnya saya tebak. Ketuk untuk mengubah.')).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: 'Bicara' }));
   expect(router.push).toHaveBeenCalledWith('/suara');
+});
+
+test('Tambah: mengetik terus hanya bertanya ke server sekali, setelah berhenti', async () => {
+  const api = createTestApi();
+  const parse = jest.spyOn(api.transport, 'agendaParse');
+  await renderWithProviders(<Tambah />, { api });
+  const input = screen.getByPlaceholderText('Ingatkan saya bayar pajak motor tanggal 25');
+  await fireEvent.changeText(input, 'Ingatkan');
+  await advance(200);
+  await fireEvent.changeText(input, 'Ingatkan saya telepon Pak Budi');
+  await advance(200);
+  expect(parse).not.toHaveBeenCalled();
+  await fireEvent.changeText(input, 'Ingatkan saya telepon Pak Budi besok jam 3 sore');
+  await advance(PREVIEW_DEBOUNCE_MS);
+  expect(parse).toHaveBeenCalledTimes(1);
+  expect(parse).toHaveBeenCalledWith('Ingatkan saya telepon Pak Budi besok jam 3 sore');
+  expect(screen.getByText('Telepon Pak Budi')).toBeOnTheScreen();
+  expect(screen.getByText('15.00')).toBeOnTheScreen();
+  // Teks dikosongkan: pratinjau hilang dan Simpan mati lagi.
+  await fireEvent.changeText(input, '');
+  expect(screen.queryByText('Akan saya simpan sebagai')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Simpan' })).toBeDisabled();
+});
+
+test('Tambah: pratinjau lama tidak dipakai selama teks sudah berubah', async () => {
+  await renderWithProviders(<Tambah />);
+  const input = screen.getByPlaceholderText('Ingatkan saya bayar pajak motor tanggal 25');
+  await fireEvent.changeText(input, 'Cek stok gudang');
+  await advance(PREVIEW_DEBOUNCE_MS);
+  expect(screen.getByRole('button', { name: 'Simpan' })).toBeEnabled();
+  await fireEvent.changeText(input, 'Cek stok gudang kopi');
+  expect(screen.getByText('Menyiapkan pratinjau…')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Simpan' })).toBeDisabled();
+});
+
+test('Tambah: server gagal menjawab, pesan ramah muncul tanpa kode; mengetik lagi mencoba lagi', async () => {
+  const api = createTestApi();
+  await renderWithProviders(<Tambah />, { api });
+  api.transport.failNext('server');
+  const input = screen.getByPlaceholderText('Ingatkan saya bayar pajak motor tanggal 25');
+  await fireEvent.changeText(input, 'Cek stok gudang');
+  await advance(PREVIEW_DEBOUNCE_MS);
+  expect(screen.getByText(ERROR_TEXT)).toBeOnTheScreen();
+  expect(screen.queryByText('Menyiapkan pratinjau…')).toBeNull();
+  await fireEvent.changeText(input, 'Cek stok gudang kopi');
+  await advance(PREVIEW_DEBOUNCE_MS);
+  expect(screen.queryByText(ERROR_TEXT)).toBeNull();
+  expect(screen.getByText('Akan saya simpan sebagai')).toBeOnTheScreen();
+});
+
+test('Tambah: simpan yang gagal tidak menutup lembar dan menampilkan pesan ramah', async () => {
+  const api = createTestApi();
+  await renderWithProviders(<Tambah />, { api });
+  await fireEvent.changeText(
+    screen.getByPlaceholderText('Ingatkan saya bayar pajak motor tanggal 25'),
+    'Cek stok gudang',
+  );
+  await advance(PREVIEW_DEBOUNCE_MS);
+  api.transport.failNext('network');
+  await fireEvent.press(screen.getByRole('button', { name: 'Simpan' }));
+  await advance(0);
+  expect(screen.getByText(ERROR_TEXT)).toBeOnTheScreen();
+  await advance(300);
+  expect(router.back).not.toHaveBeenCalled();
+});
+
+test('Agenda di mode server tanpa jawaban: pesan ramah dan Coba lagi memuat ulang', async () => {
+  const api = createTestApi();
+  api.transport.failNext('network');
+  await renderWithProviders(<Agenda />, { api });
+  expect(screen.getByText(ERROR_TEXT)).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
+  expect(screen.getByText('Senin, 20 Okt')).toBeOnTheScreen();
+});
+
+test('agenda berubah dari luar (stream) langsung tampil: tugas dicentang di perangkat lain', async () => {
+  const api = createTestApi();
+  await renderWithProviders(<Agenda />, { api });
+  expect(within(row('15.00')).getByTestId('ikon-task')).toBeOnTheScreen();
+  await act(async () => {
+    api.transport.sample.dispatch({ type: 'setDone', id: 'a3', done: true });
+  });
+  expect(within(row('15.00')).getByTestId('ikon-taskDone')).toBeOnTheScreen();
 });

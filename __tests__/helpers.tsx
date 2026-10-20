@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
+import { AgendaProvider } from '@/api/AgendaProvider';
 import { ApiProvider, type Api } from '@/api/ApiProvider';
 import { ChatProvider } from '@/api/ChatProvider';
 import { ApiSampleProvider } from '@/api/ApiSampleProvider';
@@ -44,7 +45,9 @@ export async function renderWithProviders(ui: ReactElement, { state, actions = [
           <ApiSampleProvider initial={seeded}>
             <AuthProvider>
               <ChatProvider>
-                <HomeProvider>{ui}</HomeProvider>
+                <HomeProvider>
+                  <AgendaProvider>{ui}</AgendaProvider>
+                </HomeProvider>
               </ChatProvider>
             </AuthProvider>
           </ApiSampleProvider>

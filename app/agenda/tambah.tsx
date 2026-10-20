@@ -1,7 +1,9 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
-import { parseAgenda, toAgendaItem } from '@/sample/parse';
+import type { AgendaNew } from '@/api/contract';
+import { useAgenda } from '@/api/useAgenda';
+import { dayLabel } from '@/sample/dates';
 import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
@@ -10,7 +12,18 @@ import { IconButton } from '@/ui/IconButton';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
 
-// Lembar Tambah (desain 2b). Pratinjau dibaca dari teks oleh pengurai contoh; pengurai sungguhan datang dari server nanti.
+/** Jeda setelah mengetik sebelum pratinjau diminta ke server. */
+export const PREVIEW_DEBOUNCE_MS = 400;
+
+interface Preview {
+  /** Teks yang menghasilkan pratinjau ini. */
+  text: string;
+  item: AgendaNew;
+  guessedTime: boolean;
+}
+
+// Lembar Tambah (desain 2b). Server yang membaca kalimatnya (`POST /agenda/parse`); layar menunggu sebentar setelah
+// berhenti mengetik, lalu menampilkan pratinjau.
 export default function Tambah() {
   return (
     <Sheet onClose={() => router.back()}>
@@ -23,12 +36,44 @@ function Isi() {
   const { c } = useTheme();
   const { close } = useSheet();
   const dispatch = useSampleDispatch();
+  const agenda = useAgenda();
+  const { preview: ask, add } = agenda;
   const [text, setText] = useState('');
-  const parsed = parseAgenda(text);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const typed = text.trim();
+  // Pratinjau hanya berlaku untuk teks yang menghasilkannya; selama teks berubah, ia menunggu yang baru.
+  const parsed = preview && preview.text === typed ? preview : null;
+  const preparing = typed !== '' && !parsed && error === null;
 
-  const save = () => {
-    if (!parsed) return;
-    dispatch({ type: 'addAgenda', item: toAgendaItem(parsed) });
+  useEffect(() => {
+    if (!typed) return;
+    let stale = false;
+    const t = setTimeout(() => {
+      void ask(typed).then((res) => {
+        if (stale) return;
+        if (res.ok) {
+          setPreview({ text: typed, item: res.item, guessedTime: res.guessedTime });
+          setError(null);
+        } else {
+          setPreview(null);
+          setError(res.error);
+        }
+      });
+    }, PREVIEW_DEBOUNCE_MS);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
+  }, [typed, ask]);
+
+  const save = async () => {
+    if (!parsed || saving) return;
+    setSaving(true);
+    const failed = await add(parsed.item);
+    setSaving(false);
+    if (failed) return setError(failed);
     dispatch({ type: 'showToast', text: 'Tersimpan di agenda.' });
     close();
   };
@@ -58,7 +103,10 @@ function Isi() {
       >
         <TextInput
           value={text}
-          onChangeText={setText}
+          onChangeText={(t) => {
+            setText(t);
+            setError(null);
+          }}
           multiline
           autoFocus
           accessibilityLabel="Tulis yang mau ditambahkan"
@@ -80,6 +128,17 @@ function Isi() {
         <IconButton icon="mic" label="Bicara" tinted onPress={() => router.push('/suara')} />
       </View>
 
+      {preparing ? (
+        <Txt v="caption" color={c.muted} accessibilityLiveRegion="polite">
+          Menyiapkan pratinjau…
+        </Txt>
+      ) : null}
+      {error ? (
+        <Txt v="caption" color={c.muted} accessibilityLiveRegion="polite">
+          {error}
+        </Txt>
+      ) : null}
+
       {parsed ? (
         <View style={{ gap: 8 }}>
           <Txt v="caption" weight={600} color={c.muted}>
@@ -97,21 +156,21 @@ function Isi() {
                   justifyContent: 'center',
                 }}
               >
-                <Icon name={parsed.kind === 'reminder' ? 'bell' : 'task'} size={22} color={c.green} />
+                <Icon name={parsed.item.kind === 'reminder' ? 'bell' : 'task'} size={22} color={c.green} />
               </View>
               <View style={{ flex: 1 }}>
-                <Txt weight={600}>{parsed.title}</Txt>
+                <Txt weight={600}>{parsed.item.title}</Txt>
                 <Txt v="caption" color={c.green}>
-                  {parsed.kind === 'reminder' ? 'Pengingat' : 'Tugas'}
+                  {parsed.item.kind === 'reminder' ? 'Pengingat' : 'Tugas'}
                 </Txt>
               </View>
             </View>
             <View style={{ gap: 8 }}>
-              <Row label="Tanggal" value={parsed.dateLabel} />
-              <Row label="Jam" value={parsed.time} tabular />
-              {parsed.way ? <Row label="Cara" value="Bunyi sebagai alarm" /> : null}
+              <Row label="Tanggal" value={dayLabel(parsed.item.date)} />
+              <Row label="Jam" value={parsed.item.time} tabular />
+              {parsed.item.way === 'alarm' ? <Row label="Cara" value="Bunyi sebagai alarm" /> : null}
             </View>
-            {parsed.timeGuessed ? (
+            {parsed.guessedTime ? (
               <Txt v="caption" color={c.micSub}>
                 Jamnya saya tebak. Ketuk untuk mengubah.
               </Txt>
@@ -123,9 +182,9 @@ function Isi() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Simpan"
-        accessibilityState={{ disabled: !parsed }}
-        disabled={!parsed}
-        onPress={save}
+        accessibilityState={{ disabled: !parsed || saving }}
+        disabled={!parsed || saving}
+        onPress={() => void save()}
         android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
         style={{
           height: 56,

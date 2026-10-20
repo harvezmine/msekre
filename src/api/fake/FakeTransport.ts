@@ -8,6 +8,12 @@ import { createSampleStore, type SampleStore } from '@/sample/sampleStore';
 import { deviceById } from '@/sample/selectors';
 import { PLACES } from '@/sample/types';
 import {
+  agendaAddReqSchema,
+  agendaLeftoverReqSchema,
+  agendaQuerySchema,
+  agendaParseReqSchema,
+  agendaPatchReqSchema,
+  alarmAckReqSchema,
   authStartReqSchema,
   authVerifyReqSchema,
   deviceControlReqSchema,
@@ -22,6 +28,11 @@ import {
   pushTokenReqSchema,
   securityUpdateReqSchema,
   sendMessageReqSchema,
+  type AgendaItem,
+  type AgendaNew,
+  type AgendaParseRes,
+  type AgendaPatchReq,
+  type AgendaRes,
   type AuthStartReq,
   type AuthStartRes,
   type AuthVerifyReq,
@@ -55,6 +66,16 @@ import {
   type Transport,
   type Unsubscribe,
 } from '../transport';
+import {
+  agendaIn,
+  defaultRange,
+  FAKE_NOW,
+  FAKE_TODAY,
+  hhmmOfIso,
+  leftoverOf,
+  previewOf,
+  toContractItem,
+} from './agenda';
 import { FakeClock } from './clock';
 import { homeFrom } from './home';
 import { draftFromOutgoing, SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
@@ -136,6 +157,8 @@ export class FakeTransport implements Transport {
   readonly registeredPushTokens: PushTokenReq[] = [];
   /** Token yang dicabut (`unregisterPushToken`), dari yang pertama. Hanya dicatat. */
   readonly unregisteredPushTokens: string[] = [];
+  /** Setiap tanda terima alarm lokal (`agendaAlarmAck`), dari yang pertama. Server asli lalu tidak mengirim pengingatnya lewat WhatsApp. */
+  readonly alarmAcks: { id: string; scheduledFor: string }[] = [];
   /**
    * Data contoh (agenda, perangkat, kiriman, layanan, riwayat, usaha, tempat) milik server tiruan. Skenario dan Beranda
    * membaca dan menulis di sini; di mode contoh layar yang belum pindah ke kontrak melihat penyimpanan yang sama
@@ -179,6 +202,11 @@ export class FakeTransport implements Transport {
   private homeRev = 0;
   /** `rev` Beranda terakhir yang disiarkan lewat stream (jawaban GET tidak menghitung: ia hanya membaca). */
   private homeSent = 0;
+  private agendaTimer: Promise<void> | null = null;
+  /** Keadaan agenda yang terakhir disiarkan: item per id (JSON) dan sisa tugas, untuk menghitung perubahan. */
+  private agendaSnap = new Map<string, string>();
+  private leftoverSnap = 'null';
+  private agendaRev = 1;
   private readonly failures: SimulatedFailure[] = [];
   private offline = false;
   private restoreTimer: Timer | null = null;
@@ -223,6 +251,7 @@ export class FakeTransport implements Transport {
     this.syncOutgoing();
     this.currentHome();
     this.homeSent = this.homeRev;
+    this.snapshotAgenda();
   }
 
   // ---- Jalur kontrak ----
@@ -411,6 +440,90 @@ export class FakeTransport implements Transport {
     });
   }
 
+  agenda(range?: { from: string; to: string }): Promise<AgendaRes> {
+    return this.call(true, () => {
+      const { from, to } = range ?? defaultRange();
+      const query = parse(agendaQuerySchema, { from, to });
+      if (query.from! > query.to!) throw invalid();
+      const state = this.sample.getState();
+      return copy({
+        items: agendaIn(state, query.from!, query.to!),
+        leftover: leftoverOf(state),
+        from: query.from!,
+        to: query.to!,
+        today: FAKE_TODAY,
+        now: FAKE_NOW,
+        rev: this.agendaRev,
+      });
+    });
+  }
+
+  agendaItem(id: string): Promise<AgendaItem> {
+    return this.call(true, () => {
+      const found = this.sample.getState().agenda.find((a) => a.id === id);
+      if (!found) throw notFound();
+      return copy(toContractItem(found));
+    });
+  }
+
+  agendaParse(text: string): Promise<AgendaParseRes> {
+    return this.call(true, () => {
+      const req = parse(agendaParseReqSchema, { text });
+      const preview = previewOf(req.text);
+      if (!preview) throw invalid();
+      return preview;
+    });
+  }
+
+  agendaAdd(item: AgendaNew): Promise<AgendaItem> {
+    return this.call(true, () => {
+      const req = parse(agendaAddReqSchema, { item });
+      const { item: n } = req;
+      this.sample.dispatch({
+        type: 'addAgenda',
+        item: {
+          date: n.date,
+          time: n.time,
+          title: n.title,
+          kind: n.kind,
+          ...(n.way === 'alarm' || n.way === 'call' ? { way: n.way } : {}),
+          ...(n.repeat ? { repeat: n.repeat } : {}),
+          ...(n.note ? { note: n.note } : {}),
+        },
+      });
+      return copy(toContractItem(this.sample.getState().agenda.at(-1)!));
+    });
+  }
+
+  agendaPatch(id: string, req: AgendaPatchReq): Promise<AgendaItem> {
+    return this.call(true, () => {
+      const patch = parse(agendaPatchReqSchema, req);
+      if (!this.sample.getState().agenda.some((a) => a.id === id)) throw notFound();
+      if (patch.done !== undefined) this.sample.dispatch({ type: 'setDone', id, done: patch.done });
+      if (patch.snoozeUntil !== undefined) {
+        this.sample.dispatch({ type: 'snooze', id, until: hhmmOfIso(patch.snoozeUntil) });
+      }
+      return copy(toContractItem(this.sample.getState().agenda.find((a) => a.id === id)!));
+    });
+  }
+
+  agendaLeftover(choice: 'today' | 'drop'): Promise<AgendaItem | null> {
+    return this.call(true, () => {
+      const req = parse(agendaLeftoverReqSchema, { choice });
+      if (!this.sample.getState().leftover) throw notFound();
+      this.sample.dispatch({ type: 'finishLeftover', choice: req.choice });
+      return req.choice === 'today' ? copy(toContractItem(this.sample.getState().agenda.at(-1)!)) : null;
+    });
+  }
+
+  agendaAlarmAck(id: string, scheduledFor: string): Promise<void> {
+    return this.call(true, () => {
+      const req = parse(alarmAckReqSchema, { scheduledFor });
+      if (!this.sample.getState().agenda.some((a) => a.id === id)) throw notFound();
+      this.alarmAcks.push({ id, scheduledFor: req.scheduledFor });
+    });
+  }
+
   registerPushToken(req: PushTokenReq): Promise<void> {
     return this.call(true, () => {
       this.registeredPushTokens.push(parse(pushTokenReqSchema, req));
@@ -580,6 +693,7 @@ export class FakeTransport implements Transport {
   private onSampleChange() {
     this.syncOutgoing();
     this.scheduleHome();
+    this.scheduleAgenda();
   }
 
   /**
@@ -635,6 +749,49 @@ export class FakeTransport implements Transport {
         this.homeSent = home.rev;
         this.emit({ type: 'home', home });
       }
+    });
+  }
+
+  // ---- Agenda ----
+
+  private agendaSnapshot(): { items: Map<string, string>; leftover: string } {
+    const state = this.sample.getState();
+    return {
+      items: new Map(state.agenda.map((a) => [a.id, JSON.stringify(toContractItem(a))])),
+      leftover: JSON.stringify(leftoverOf(state)),
+    };
+  }
+
+  private snapshotAgenda() {
+    const snap = this.agendaSnapshot();
+    this.agendaSnap = snap.items;
+    this.leftoverSnap = snap.leftover;
+  }
+
+  /** Perubahan agenda dalam satu giliran digabung menjadi satu event `agenda` (hanya kalau ada yang berubah). */
+  private scheduleAgenda() {
+    if (this.agendaTimer) return;
+    this.agendaTimer = Promise.resolve().then(() => {
+      this.agendaTimer = null;
+      const before = this.agendaSnap;
+      const leftoverBefore = this.leftoverSnap;
+      const now = this.agendaSnapshot();
+      const items = [...now.items]
+        .filter(([id, json]) => before.get(id) !== json)
+        .map(([, json]) => JSON.parse(json) as AgendaItem);
+      const removed = [...before.keys()].filter((id) => !now.items.has(id));
+      const leftoverChanged = now.leftover !== leftoverBefore;
+      this.agendaSnap = now.items;
+      this.leftoverSnap = now.leftover;
+      if (items.length === 0 && removed.length === 0 && !leftoverChanged) return;
+      this.agendaRev += 1;
+      this.emit({
+        type: 'agenda',
+        ...(items.length ? { items } : {}),
+        ...(removed.length ? { removed } : {}),
+        ...(leftoverChanged ? { leftover: JSON.parse(now.leftover) as AgendaItem | null } : {}),
+        rev: this.agendaRev,
+      });
     });
   }
 

@@ -76,6 +76,8 @@ export type SampleAction =
   | { type: 'snooze'; id: string; until: string }
   | { type: 'finishLeftover'; choice: 'today' | 'drop' }
   | { type: 'toggleTask'; id: string }
+  /** Tandai item (tugas atau pengingat) selesai atau belum, dari server tiruan. */
+  | { type: 'setDone'; id: string; done: boolean }
   | { type: 'connect'; id: string }
   | { type: 'disconnect'; id: string }
   | { type: 'forget'; id: string }
@@ -277,6 +279,14 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       return {
         ...state,
         agenda: state.agenda.map((a) => (a.id === action.id && a.kind === 'task' ? { ...a, done: !a.done } : a)),
+      };
+
+    case 'setDone':
+      return {
+        ...state,
+        agenda: state.agenda.map((a) =>
+          a.id === action.id && !!a.done !== action.done ? { ...a, done: action.done } : a,
+        ),
       };
 
     case 'connect': {

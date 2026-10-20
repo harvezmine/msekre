@@ -1,5 +1,8 @@
 import { backoffDelay } from './backoff';
 import {
+  agendaItemResSchema,
+  agendaLeftoverResSchema,
+  agendaParseResSchema,
   API_PREFIX,
   apiErrorSchema,
   APP_VERSION_HEADER,
@@ -15,6 +18,11 @@ import {
   securityResSchema,
   waNumberSchema,
   WS_CLOSE_UNAUTHORIZED,
+  type AgendaItem,
+  type AgendaNew,
+  type AgendaParseRes,
+  type AgendaPatchReq,
+  type AgendaRes,
   type AuthStartReq,
   type AuthStartRes,
   type AuthVerifyReq,
@@ -40,6 +48,7 @@ import {
   parseChangedPageLenient,
   parseDraftResLenient,
   parseEventLenient,
+  parseAgendaLenient,
   parseHomeLenient,
   parseMessageLenient,
   parsePageLenient,
@@ -81,7 +90,7 @@ export interface HttpOptions {
   random?: () => number;
 }
 
-type Method = 'GET' | 'POST' | 'PUT' | 'DELETE';
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 /** Transport ke server asli: HTTP `/app/v1/*` dan WebSocket `/app/v1/stream`. */
 export class HttpTransport implements Transport {
@@ -218,6 +227,39 @@ export class HttpTransport implements Transport {
 
   setPlace(place: string): Promise<Home> {
     return this.request('PUT', '/places/current', reader(parseHomeLenient), { body: { place } });
+  }
+
+  agenda(range?: { from: string; to: string }): Promise<AgendaRes> {
+    const query = range ? `?from=${range.from}&to=${range.to}` : '';
+    return this.request('GET', `/agenda${query}`, reader(parseAgendaLenient));
+  }
+
+  async agendaItem(id: string): Promise<AgendaItem> {
+    const res = await this.request('GET', `/agenda/${encodeURIComponent(id)}`, agendaItemResSchema);
+    return res.item;
+  }
+
+  agendaParse(text: string): Promise<AgendaParseRes> {
+    return this.request('POST', '/agenda/parse', agendaParseResSchema, { body: { text } });
+  }
+
+  async agendaAdd(item: AgendaNew): Promise<AgendaItem> {
+    const res = await this.request('POST', '/agenda', agendaItemResSchema, { body: { item } });
+    return res.item;
+  }
+
+  async agendaPatch(id: string, req: AgendaPatchReq): Promise<AgendaItem> {
+    const res = await this.request('PATCH', `/agenda/${encodeURIComponent(id)}`, agendaItemResSchema, { body: req });
+    return res.item;
+  }
+
+  async agendaLeftover(choice: 'today' | 'drop'): Promise<AgendaItem | null> {
+    const res = await this.request('POST', '/agenda/leftover', agendaLeftoverResSchema, { body: { choice } });
+    return res.item;
+  }
+
+  async agendaAlarmAck(id: string, scheduledFor: string): Promise<void> {
+    await this.request('POST', `/agenda/${encodeURIComponent(id)}/alarm-ack`, okResSchema, { body: { scheduledFor } });
   }
 
   async controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard> {

@@ -4,7 +4,7 @@ import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import Agenda from '../app/(tabs)/agenda';
 import Alarm from '../app/alarm';
-import { renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders } from './helpers';
 import { Redraw, redraw } from './redraw';
 import { useSample, type SampleState } from '@/sample/store';
 
@@ -105,4 +105,46 @@ test('getar berpola tiap 2 detik dan berhenti saat layar ditutup', async () => {
   await advance(10000);
   expect(Haptics.notificationAsync).not.toHaveBeenCalled();
   clear.mockRestore();
+});
+
+test('tautan /alarm?id= memuat item dari server walau di luar rentang agenda', async () => {
+  const api = createTestApi();
+  api.transport.sample.dispatch({
+    type: 'addAgenda',
+    item: { date: '2026-03-01', time: '05.45', title: 'Subuh di bandara', kind: 'reminder', way: 'alarm' },
+  });
+  const id = api.transport.sample.getState().agenda.at(-1)!.id;
+  jest.mocked(useLocalSearchParams).mockReturnValue({ id });
+  try {
+    await renderWithProviders(<Alarm />, { api });
+    await advance(0);
+    expect(screen.getByText('05.45')).toBeOnTheScreen();
+    expect(screen.getByText('Subuh di bandara')).toBeOnTheScreen();
+    expect(screen.getByText('Pengingat · Minggu, 1 Mar')).toBeOnTheScreen();
+  } finally {
+    jest.mocked(useLocalSearchParams).mockReturnValue({});
+  }
+});
+
+test('id yang tidak ada: layar kosong; mode server tanpa id juga tidak membunyikan apa-apa', async () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'tidak-ada' });
+  try {
+    await renderWithProviders(<Alarm />);
+    await advance(0);
+    expect(screen.queryByText('Geser untuk mematikan')).toBeNull();
+  } finally {
+    jest.mocked(useLocalSearchParams).mockReturnValue({});
+  }
+  await renderWithProviders(<Alarm />, { api: createTestApi({ mode: 'server' }) });
+  await advance(0);
+  expect(screen.queryByText('Geser untuk mematikan')).toBeNull();
+});
+
+test('Tunda yang gagal tetap di layar alarm dan memberi tahu dengan ramah', async () => {
+  const api = createTestApi();
+  await renderWithProviders(<Alarm />, { api });
+  api.transport.failNext('network');
+  await fireEvent.press(screen.getByRole('button', { name: 'Tunda 10 menit' }));
+  await advance(0);
+  expect(router.back).not.toHaveBeenCalled();
 });

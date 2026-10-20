@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
-import { NOW } from '@/sample/agenda';
-import type { AgendaItem as Item } from '@/sample/types';
+import type { AgendaItem as Item } from '@/api/contract';
+import { formatJam } from '@/api/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
 import type { IconName } from '../icons';
@@ -14,9 +14,9 @@ const TILE_ICON: Record<Item['kind'], IconName> = {
   recurring: 'bell',
 };
 
-/** Sudah lewat dibanding jam contoh. Hanya berlaku untuk hari ini. */
-export function isPast(item: Item, today: string): boolean {
-  return item.past ?? (item.date === today && item.time < NOW);
+/** Sudah lewat dibanding jam sekarang (dari server). Hanya berlaku untuk hari ini dan item yang punya jam. */
+export function isPast(item: Item, today: string, now: string): boolean {
+  return !item.allDay && item.date === today && item.time < now;
 }
 
 interface Props {
@@ -34,10 +34,11 @@ export function AgendaItem({ item, past = false, onToggle, onLongPress }: Props)
   const hasAlarm = item.kind === 'reminder' || item.kind === 'recurring';
   const icon: IconName = isTask && item.done ? 'taskDone' : TILE_ICON[item.kind];
   const dim = past || item.done === true;
-  const notulen = item.kind === 'meeting' && item.note === 'Notulen siap';
+  const notulen = item.kind === 'meeting' && item.notesMessageId !== undefined;
+  const time = item.allDay ? 'Seharian' : item.time;
 
   const sub = subtitle(item);
-  const label = [item.time, item.title, sub.text, item.repeat].filter(Boolean).join('. ');
+  const label = [time, item.title, sub.text, item.repeat].filter(Boolean).join('. ');
 
   return (
     <Pressable
@@ -57,8 +58,13 @@ export function AgendaItem({ item, past = false, onToggle, onLongPress }: Props)
         opacity: past ? 0.75 : 1,
       }}
     >
-      <Txt weight={600} tabular color={past ? c.muted : c.ink} style={{ width: 48, lineHeight: 40 }}>
-        {item.time}
+      <Txt
+        weight={600}
+        tabular
+        color={past ? c.muted : c.ink}
+        style={item.allDay ? { width: 48, lineHeight: 40, fontSize: 12 } : { width: 48, lineHeight: 40 }}
+      >
+        {time}
       </Txt>
       <View
         style={{
@@ -122,13 +128,14 @@ export function AgendaItem({ item, past = false, onToggle, onLongPress }: Props)
 }
 
 function subtitle(item: Item): { text: string; icon?: IconName; warn?: boolean } {
-  if (item.snoozedUntil) return { text: `Ditunda sampai ${item.snoozedUntil}`, warn: true };
+  if (item.snoozedUntil) return { text: `Ditunda sampai ${formatJam(item.snoozedUntil)}`, warn: true };
   switch (item.kind) {
     case 'task':
       return { text: item.done ? 'Selesai' : 'Tugas' };
     case 'meeting':
       return { text: item.note ?? 'Rapat' };
     default:
-      return item.way === 'call' ? { text: 'Telepon saya', icon: 'call' } : { text: 'Bunyi sebagai alarm' };
+      if (item.way === 'call') return { text: 'Telepon saya', icon: 'call' };
+      return item.way === 'notif' ? { text: 'Lewat notifikasi' } : { text: 'Bunyi sebagai alarm' };
   }
 }

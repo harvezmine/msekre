@@ -1,4 +1,9 @@
 import type {
+  AgendaItem,
+  AgendaNew,
+  AgendaParseRes,
+  AgendaPatchReq,
+  AgendaRes,
   AuthStartReq,
   AuthStartRes,
   AuthVerifyReq,
@@ -160,6 +165,26 @@ export interface Transport {
   setPlace(place: string): Promise<Home>;
   /** Atur perangkat rumah dari kartu (`POST /home/devices/:id`). Fase 3; sebelum itu `unavailable`. */
   controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard>;
+  /**
+   * Agenda (`GET /agenda`). Tanpa `range`: Senin pekan ini sampai Minggu pekan depan. Perubahan berikutnya datang lewat
+   * event stream `agenda`.
+   */
+  agenda(range?: { from: string; to: string }): Promise<AgendaRes>;
+  /** Satu item agenda (`GET /agenda/:id`), misalnya untuk layar alarm. Tidak ada: `tidak_ditemukan`. */
+  agendaItem(id: string): Promise<AgendaItem>;
+  /** Server mengurai kalimat bebas menjadi pratinjau item (`POST /agenda/parse`); belum disimpan. */
+  agendaParse(text: string): Promise<AgendaParseRes>;
+  /** Simpan item dari pratinjau (`POST /agenda`). */
+  agendaAdd(item: AgendaNew): Promise<AgendaItem>;
+  /** Tandai selesai atau tunda (`PATCH /agenda/:id`). */
+  agendaPatch(id: string, req: AgendaPatchReq): Promise<AgendaItem>;
+  /** Sisa tugas kemarin (`POST /agenda/leftover`): `today` membuat tugasnya hari ini (item baru), `drop` melepasnya (`null`). */
+  agendaLeftover(choice: 'today' | 'drop'): Promise<AgendaItem | null>;
+  /**
+   * HP sudah menjadwalkan alarm lokal untuk item itu pada `scheduledFor` (`POST /agenda/:id/alarm-ack`). Server lalu
+   * tidak mengirim pengingat yang sama lewat WhatsApp. Idempoten.
+   */
+  agendaAlarmAck(id: string, scheduledFor: string): Promise<void>;
   /** Cara menampilkan media `mediaId`, dengan header token untuk server asli. */
   mediaUrl(mediaId: string): Promise<MediaSource>;
   /**

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import {
+  agendaItemSchema,
+  agendaResSchema,
   businessSummarySchema,
   HOME_AGENDA_MAX,
   isoDateTimeSchema,
@@ -12,6 +14,8 @@ import {
   partSchema,
   streamEventSchema,
   UNKNOWN_PART_NOTE,
+  type AgendaItem,
+  type AgendaRes,
   type DraftActionRes,
   type Home,
   type Message,
@@ -111,6 +115,19 @@ export function parseEventLenient(raw: unknown): StreamEvent | null {
     const home = parseHomeLenient((raw as { home?: unknown }).home);
     return home ? { type: 'home', home } : null;
   }
+  if ((raw as { type?: unknown }).type === 'agenda') {
+    const rev = positiveInt.safeParse((raw as { rev?: unknown }).rev);
+    if (!rev.success) return null;
+    const r = raw as { items?: unknown; removed?: unknown; leftover?: unknown };
+    const leftover = r.leftover === null ? null : parseAgendaItemLenient(r.leftover);
+    return {
+      type: 'agenda',
+      ...(Array.isArray(r.items) ? { items: parseAgendaItems(r.items) } : {}),
+      ...(Array.isArray(r.removed) ? { removed: r.removed.filter(nonEmpty) } : {}),
+      ...(r.leftover !== undefined && (r.leftover === null || leftover) ? { leftover } : {}),
+      rev: rev.data,
+    };
+  }
   if ((raw as { type?: unknown }).type === 'draft') {
     // `rev` hilang atau rusak (server lama): drafnya tetap berlaku, `rev` 0 = tidak diketahui.
     const draft = draftSchema.safeParse((raw as { draft?: unknown }).draft);
@@ -187,5 +204,28 @@ export function parseHomeLenient(raw: unknown): Home | null {
     ring: { nodes },
     rev: rev.data,
   });
+  return coerced.success ? coerced.data : null;
+}
+
+/** Satu item agenda; `null` kalau tidak sah (kontrak lebih baru atau rusak). Item yang rusak dibuang, bukan menggagalkan daftar. */
+export function parseAgendaItemLenient(raw: unknown): AgendaItem | null {
+  const item = agendaItemSchema.safeParse(raw);
+  return item.success ? item.data : null;
+}
+
+function parseAgendaItems(raw: unknown[]): AgendaItem[] {
+  return raw.flatMap((r) => {
+    const item = parseAgendaItemLenient(r);
+    return item ? [item] : [];
+  });
+}
+
+/** Jawaban `GET /agenda`: item yang rusak dibuang satu per satu. `null` kalau bentuk jawabannya sendiri salah. */
+export function parseAgendaLenient(raw: unknown): AgendaRes | null {
+  const strict = agendaResSchema.safeParse(raw);
+  if (strict.success) return strict.data;
+  if (!isRecord(raw) || !Array.isArray(raw.items)) return null;
+  const leftover = parseAgendaItemLenient(raw.leftover);
+  const coerced = agendaResSchema.safeParse({ ...raw, items: parseAgendaItems(raw.items), leftover });
   return coerced.success ? coerced.data : null;
 }

@@ -106,3 +106,28 @@ Kontrak ditambah (aditif, `CONTRACT_VERSION` tetap 1); uraian lengkap di `docs/a
   - `PUT /places/current` menolak tempat yang bukan milik pengguna (400 `tidak_valid`).
 - Server tiruan (`FakeTransport`) kini memegang data contoh (`fake.sample`); Beranda dihitung dari data itu dengan
   penyeleksi yang sama seperti layar 0b, sehingga perubahan dari layar mana pun ikut menyiarkan event `home`.
+
+## Agenda dan alarm lokal (Fase 2a, Tugas 2)
+
+Kontrak ditambah (aditif, `CONTRACT_VERSION` tetap 1); uraian lengkap di `docs/api-v1.md` bagian 2.13.
+
+- Jalur: `GET /agenda?from=&to=`, `GET /agenda/:id`, `POST /agenda/parse`, `POST /agenda`, `PATCH /agenda/:id`,
+  `POST /agenda/leftover`, `POST /agenda/:id/alarm-ack`; event stream `agenda`.
+- Aturan server:
+  - **Server yang mengurai kalimat** (`/agenda/parse`): tanggal relatif ("besok", "lusa", "tanggal 25"), jam dengan
+    pagi/siang/sore/malam, `kind` (ada "ingatkan" = `reminder`, selain itu `task`), `way: alarm` untuk pengingat.
+    `guessedTime` true kalau jam tidak disebut. Pratinjau tidak disimpan; `POST /agenda` menyimpan item yang sama.
+  - **Waktu:** `date`/`time` = jam dinding zona pengguna, `at` = ISO 8601. `today`/`now` di `GET /agenda` dari zona
+    pengguna. Bawaan tanpa `from`/`to`: Senin pekan ini sampai Minggu pekan depan.
+  - **Tanda terima alarm (`alarm-ack`)**: begitu ada untuk pasangan (id, `scheduledFor`), JANGAN kirim pengingat yang sama
+    lewat WhatsApp pada `scheduledFor`. Tanpa tanda terima, kirim seperti biasa (cadangan). Tanda terima gugur kalau
+    `at`/`snoozedUntil` berubah. Cuma pengingat `way: alarm`, `reminder`/`recurring`, 7 hari ke depan yang dikabarkan
+    aplikasi.
+  - **Tunda:** `PATCH snoozeUntil` mengganti saat pengingat berikutnya; kirim event `agenda` dengan itemnya supaya HP
+    menjadwalkan ulang alarm lokal.
+  - **Event `agenda`**: upsert per `id`, `removed`, `leftover`, `rev` naik per pengguna; kirim ke semua HP pengguna.
+    Perubahan agenda juga mengubah `Home.agendaToday` (event `home`).
+  - `leftover`: tugas kemarin yang belum selesai; dengan `today` jadi tugas hari ini (jam bawaan 17.00), `drop`
+    melepasnya. Tidak ada lagi: 404.
+- Server tiruan: `FakeTransport` memegang agenda di penyimpanan contoh bersama; pengurai contoh pindah ke
+  `src/api/fake/parseAgenda.ts`. Tanda terima dicatat di `FakeTransport.alarmAcks`.

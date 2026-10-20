@@ -1,7 +1,6 @@
 import { View } from 'react-native';
-import { TODAY } from '@/sample/agenda';
 import { addDays, dayLabel, weekdayIndex } from '@/sample/dates';
-import type { AgendaItem as Item } from '@/sample/types';
+import type { AgendaItem as Item } from '@/api/contract';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Txt } from '../Txt';
 import { AgendaItem, isPast } from './AgendaItem';
@@ -11,22 +10,26 @@ export interface ItemHandlers {
   onLongPress: (id: string) => void;
 }
 
-/** Tujuh hari mulai Senin pekan ini (di data contoh: Senin 20 sampai Minggu 26 Okt 2025). */
-const MONDAY = addDays(TODAY, -weekdayIndex(TODAY));
-export const WEEK_DAYS = Array.from({ length: 7 }, (_, i) => addDays(MONDAY, i));
+/** Tujuh hari mulai Senin pekan dari tanggal ini. */
+export function weekDays(today: string): string[] {
+  const monday = addDays(today, -weekdayIndex(today));
+  return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+}
 
 const FREE_LINE = 'Longgar, belum ada rencana.';
 
 interface Props extends ItemHandlers {
+  today: string;
+  now: string;
   itemsOn: (date: string) => Item[];
 }
 
 /** Segmen Minggu ini: tiap hari punya judul dan daftar item yang sama dengan Hari ini. */
-export function WeekList({ itemsOn, onToggle, onLongPress }: Props) {
+export function WeekList({ today, now, itemsOn, onToggle, onLongPress }: Props) {
   const { c } = useTheme();
   return (
     <View style={{ paddingHorizontal: 16, paddingBottom: 96 }}>
-      {WEEK_DAYS.map((date) => {
+      {weekDays(today).map((date) => {
         const items = itemsOn(date);
         return (
           <View key={date} style={{ paddingTop: 16 }}>
@@ -41,7 +44,7 @@ export function WeekList({ itemsOn, onToggle, onLongPress }: Props) {
               <Txt v="subtitle" accessibilityRole="header">
                 {dayLabel(date)}
               </Txt>
-              {date === TODAY ? (
+              {date === today ? (
                 <Txt v="caption" color={c.green} weight={600}>
                   Hari ini
                 </Txt>
@@ -56,7 +59,7 @@ export function WeekList({ itemsOn, onToggle, onLongPress }: Props) {
                 <AgendaItem
                   key={item.id}
                   item={item}
-                  past={isPast(item, TODAY)}
+                  past={isPast(item, today, now)}
                   onToggle={onToggle}
                   onLongPress={onLongPress}
                 />

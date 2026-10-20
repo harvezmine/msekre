@@ -1,23 +1,22 @@
 import { Pressable, View } from 'react-native';
-import { TODAY } from '@/sample/agenda';
 import { DAY_SHORT, daysInMonth, isoDate, MONTH_NAMES, parts, weekdayIndex } from '@/sample/dates';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Txt } from '../Txt';
 
-// Bulan contoh mengikuti "hari ini" contoh (Oktober 2025).
-const { y: YEAR, m: MONTH } = parts(TODAY);
-const MONTH_NAME = MONTH_NAMES[MONTH - 1];
-
 interface Props {
+  /** "Hari ini" menurut server; bulan yang tampil adalah bulannya. */
+  today: string;
   selected: string;
   /** Tanggal yang punya agenda. */
   marked: ReadonlySet<string>;
   onSelect: (date: string) => void;
 }
 
-/** Kisi bulan contoh (Oktober 2025), mulai Senin. Titik hijau = ada agenda, lingkaran mint = hari ini. */
-export function MonthGrid({ selected, marked, onSelect }: Props) {
+/** Kisi bulan ini, mulai Senin. Titik hijau = ada agenda, lingkaran mint = hari ini. */
+export function MonthGrid({ today, selected, marked, onSelect }: Props) {
   const { c } = useTheme();
+  const { y: YEAR, m: MONTH } = parts(today);
+  const MONTH_NAME = MONTH_NAMES[MONTH - 1];
   const total = daysInMonth(YEAR, MONTH);
   const offset = weekdayIndex(isoDate(YEAR, MONTH, 1));
   const cells: (number | null)[] = [
@@ -56,7 +55,7 @@ export function MonthGrid({ selected, marked, onSelect }: Props) {
           {row.map((day, i) => {
             if (day === null) return <View key={i} style={{ flex: 1, height: 48 }} />;
             const date = isoDate(YEAR, MONTH, day);
-            const isToday = date === TODAY;
+            const isToday = date === today;
             const isSel = date === selected;
             const has = marked.has(date);
             return (

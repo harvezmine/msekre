@@ -1007,3 +1007,89 @@ describe('Beranda', () => {
     expect(l.events).toEqual([{ type: 'home', home: homeBody }]);
   });
 });
+
+describe('Agenda', () => {
+  const item = {
+    id: 'a1',
+    date: '2026-10-21',
+    time: '07.00',
+    at: '2026-10-21T00:00:00.000Z',
+    title: 'Berangkat ke bandara',
+    kind: 'reminder',
+    way: 'alarm',
+  };
+  const res = {
+    items: [item],
+    leftover: null,
+    from: '2026-10-19',
+    to: '2026-11-01',
+    today: '2026-10-21',
+    now: '06.30',
+    rev: 7,
+  };
+
+  test('GET /agenda dengan dan tanpa rentang', async () => {
+    const { fetch, transport } = setup({ reply: () => ({ body: res }) });
+    expect(await transport.agenda()).toEqual(res);
+    expect(call(fetch, 0)).toMatchObject({ url: `${BASE}/app/v1/agenda`, method: 'GET' });
+    await transport.agenda({ from: '2026-10-01', to: '2026-10-31' });
+    expect(call(fetch, 1).url).toBe(`${BASE}/app/v1/agenda?from=2026-10-01&to=2026-10-31`);
+  });
+
+  test('item yang rusak dibuang satu per satu, bukan menggagalkan agenda', async () => {
+    const { transport } = setup({
+      reply: () => ({ body: { ...res, items: [item, { id: 'x' }, { ...item, id: 'a2', kind: 'baru' }] } }),
+    });
+    expect((await transport.agenda()).items.map((i) => i.id)).toEqual(['a1']);
+    const bad = setup({ reply: () => ({ body: { ...res, items: 5 } }) });
+    await expect(bad.transport.agenda()).rejects.toMatchObject({ code: 'server' });
+  });
+
+  test('jalur parse, tambah, ubah, sisa kemarin, tanda terima, dan satu item', async () => {
+    const preview = { preview: { item: { ...item, id: undefined }, guessedTime: true } };
+    const { fetch, transport } = setup({
+      reply: (url, init) => {
+        if (url.endsWith('/agenda/parse')) return { body: preview };
+        if (url.endsWith('/agenda/leftover')) return { body: { item: null } };
+        if (url.endsWith('/alarm-ack')) return { body: { ok: true } };
+        return { body: { item } };
+      },
+    });
+    const { id: _id, ...fresh } = item;
+    expect((await transport.agendaParse('ingatkan saya')).preview.guessedTime).toBe(true);
+    expect(call(fetch, 0)).toMatchObject({
+      url: `${BASE}/app/v1/agenda/parse`,
+      method: 'POST',
+      body: '{"text":"ingatkan saya"}',
+    });
+    expect(await transport.agendaAdd(fresh as never)).toEqual(item);
+    expect(call(fetch, 1)).toMatchObject({ url: `${BASE}/app/v1/agenda`, method: 'POST' });
+    expect(JSON.parse(call(fetch, 1).body as string)).toEqual({ item: fresh });
+    expect(await transport.agendaPatch('a/1', { done: true })).toEqual(item);
+    expect(call(fetch, 2)).toMatchObject({
+      url: `${BASE}/app/v1/agenda/a%2F1`,
+      method: 'PATCH',
+      body: '{"done":true}',
+    });
+    expect(await transport.agendaLeftover('drop')).toBeNull();
+    expect(call(fetch, 3)).toMatchObject({ url: `${BASE}/app/v1/agenda/leftover`, body: '{"choice":"drop"}' });
+    await transport.agendaAlarmAck('a1', '2026-10-21T00:00:00.000Z');
+    expect(call(fetch, 4)).toMatchObject({
+      url: `${BASE}/app/v1/agenda/a1/alarm-ack`,
+      method: 'POST',
+      body: '{"scheduledFor":"2026-10-21T00:00:00.000Z"}',
+    });
+    expect(await transport.agendaItem('a1')).toEqual(item);
+    expect(call(fetch, 5)).toMatchObject({ url: `${BASE}/app/v1/agenda/a1`, method: 'GET' });
+  });
+
+  test('event agenda lewat stream diteruskan; item rusak dibuang, event tanpa rev dilewati', async () => {
+    const { sockets, transport } = setup();
+    const l = listen(transport);
+    await flush();
+    sockets[0]!.open();
+    sockets[0]!.send({ type: 'agenda', items: [item, { id: 'rusak' }], removed: ['a9', 5], leftover: null, rev: 8 });
+    sockets[0]!.send({ type: 'agenda', items: [item] });
+    expect(l.events).toEqual([{ type: 'agenda', items: [item], removed: ['a9'], leftover: null, rev: 8 }]);
+  });
+});

@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AfterSignIn } from '@/api/AfterSignIn';
+import { AgendaProvider } from '@/api/AgendaProvider';
 import { ApiProvider, useApi } from '@/api/ApiProvider';
 import { ApiSampleProvider } from '@/api/ApiSampleProvider';
 import { ChatProvider } from '@/api/ChatProvider';
@@ -172,9 +173,11 @@ export default function RootLayout() {
             <AuthProvider>
               <ChatProvider>
                 <HomeProvider>
-                  <PushProvider>
-                    <Navigator />
-                  </PushProvider>
+                  <AgendaProvider>
+                    <PushProvider>
+                      <Navigator />
+                    </PushProvider>
+                  </AgendaProvider>
                 </HomeProvider>
               </ChatProvider>
             </AuthProvider>

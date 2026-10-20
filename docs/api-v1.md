@@ -471,6 +471,96 @@ Aturan:
   Beranda; baris rusak dibuang. Hanya `place` atau `rev` yang hilang membuat jawaban dianggap salah (kendala server).
 - Perubahan ini aditif; `CONTRACT_VERSION` tetap 1.
 
+### 2.13 Agenda dan alarm: `/agenda` dan event `agenda`
+
+Agenda satu pengguna: pengingat, tugas, rapat, dan yang berulang. Server mengurai kalimat bebas; aplikasi hanya
+menampilkan pratinjau dan menyimpannya.
+
+`AgendaItem`:
+
+```json
+{
+  "id": "a10", "date": "2026-10-21", "time": "07.00", "at": "2026-10-21T00:00:00.000Z",
+  "title": "Berangkat ke bandara", "kind": "reminder", "way": "alarm",
+  "note": "Penerbangan GA 408 jam 09.15, Terminal 3"
+}
+```
+
+- `date` ("YYYY-MM-DD") dan `time` ("HH.MM") adalah jam dinding menurut zona waktu pengguna di server; dipakai untuk
+  mengelompokkan per hari dan ditampilkan. `at` adalah saat yang sama sebagai ISO 8601 dengan zona dan menjadi acuan
+  alarm di HP. `allDay: true` = sepanjang hari (`time` `00.00` diabaikan, tidak ada alarm berbunyi).
+- `kind`: `reminder`, `task`, `meeting`, `recurring`. `way` (opsional): `alarm` (bunyi di HP), `call` (telepon),
+  `notif` (notifikasi biasa). `repeat`: keterangan berulang yang sudah jadi ("Tiap Senin"). `note`: keterangan.
+- `done`: tugas atau pengingat selesai. `snoozedUntil` (ISO): ditunda; pengingat berikutnya berbunyi pada saat itu,
+  bukan pada `at`. `notesMessageId`: rapat yang notulennya sudah ada di chat (id pesan notulen).
+
+`GET /agenda?from=YYYY-MM-DD&to=YYYY-MM-DD` → 200:
+
+```json
+{ "items": [ ... ], "leftover": { "id": "l1", "title": "Kirim penawaran katering ke Bu Sari", "kind": "task", "...": "..." },
+  "from": "2026-10-19", "to": "2026-11-01", "today": "2026-10-21", "now": "06.30", "rev": 12 }
+```
+
+- Tanpa `from`/`to`: Senin pekan ini sampai Minggu pekan depan (14 hari), cukup untuk Hari ini, Minggu ini, dan alarm 7
+  hari ke depan. `from`/`to` di jawaban adalah rentang yang sebenarnya dijawab (kedua ujung termasuk). Aplikasi meminta
+  rentang bulan penuh saat membuka Kalender. `from` > `to` atau bukan tanggal: 400 `tidak_valid`.
+- `items`: urut tanggal lalu jam. `leftover`: tugas hari kemarin yang belum selesai ("Kemarin belum selesai"), atau
+  `null`. `today` dan `now` ("HH.MM") adalah hari ini dan jam sekarang menurut zona pengguna; aplikasi memakainya untuk
+  garis "sekarang" dan menandai yang sudah lewat, jadi layar tidak bergantung pada zona waktu HP.
+- `rev`: naik setiap agenda pengguna berubah.
+
+`GET /agenda/:id` → `{ "item": AgendaItem }` (layar alarm yang dibuka dari tautan, item di luar rentang yang dimuat).
+Tidak ada: 404 `tidak_ditemukan`.
+
+`POST /agenda/parse` dengan `{ "text": "Ingatkan saya bayar pajak motor tanggal 25" }` (objek ketat) → 200:
+
+```json
+{ "preview": { "item": { "date": "2026-10-25", "time": "09.00", "at": "...", "title": "Bayar pajak motor",
+                          "kind": "reminder", "way": "alarm" }, "guessedTime": true } }
+```
+
+Belum disimpan. `guessedTime: true` = jam tidak disebut dan server menebak; aplikasi menulis "Jamnya saya tebak".
+Aplikasi meminta pratinjau setelah pengguna berhenti mengetik ~400 ms, jadi satu kalimat paling banyak satu request.
+Teks yang tidak berisi apa pun: 400 `tidak_valid`.
+
+`POST /agenda` dengan `{ "item": <item pratinjau, tanpa id> }` → 200 `{ "item": AgendaItem }` (server memberi `id`).
+Server memvalidasi ulang dan boleh memperbaiki isinya.
+
+`PATCH /agenda/:id` dengan `{ "done": true }` dan/atau `{ "snoozeUntil": "<ISO 8601>" }` (objek ketat, minimal satu) →
+200 `{ "item": AgendaItem }`. "Tunda 10 menit" di layar alarm mengirim `snoozeUntil` = (`snoozedUntil` atau `at`) + 10
+menit. Item tidak ada: 404.
+
+`POST /agenda/leftover` dengan `{ "choice": "today" | "drop" }` → 200 `{ "item": AgendaItem | null }`. `today`
+membuat tugasnya di agenda hari ini (item baru); `drop` melepasnya (`null`). Tidak ada sisa kemarin: 404.
+
+**Alarm di HP dan tanda terima.** Aplikasi menjadwalkan sendiri alarm lokal (`AlarmManager.setAlarmClock`, jadi bunyi
+walau HP terkunci atau internet mati) untuk setiap item `kind` `reminder`/`recurring` dengan `way: "alarm"`, belum
+`done`, dalam 7 hari ke depan, pada `snoozedUntil ?? at`. Setelah HP berhasil menjadwalkannya, aplikasi mengirim
+
+`POST /agenda/:id/alarm-ack` dengan `{ "scheduledFor": "<ISO 8601>" }` → 200 `{ "ok": true }`
+
+dan aturan untuk server adalah:
+
+- Server TIDAK mengirim pengingat yang sama (item dan `scheduledFor` yang sama) lewat WhatsApp: HP yang membunyikannya.
+- Tanda terima berlaku untuk pasangan (id, `scheduledFor`). Kalau `at` atau `snoozedUntil` berubah, tanda terima lama
+  gugur dan HP mengirim yang baru setelah menjadwalkan ulang; sebelum itu server mengikuti jalur biasa.
+- Tanpa tanda terima pada saat pengingat jatuh tempo (HP mati, izin alarm tepat waktu dimatikan, aplikasi dihapus,
+  atau `way` bukan `alarm`), server mengirim pengingat lewat WhatsApp seperti biasa. Itu cadangan, bukan duplikat.
+- Idempoten: pasangan yang sama boleh dikirim berulang (aplikasi mengirim sekali per pasangan per proses, dan lagi
+  setelah dibuka ulang). Item tidak ada: 404; `scheduledFor` bukan ISO 8601: 400.
+- Alarm yang sudah berbunyi dan dimatikan di HP tidak perlu dikabarkan; `done` hanya berubah lewat `PATCH`.
+
+**Stream.** `{ "type": "agenda", "items": [AgendaItem], "removed": ["id"], "leftover": AgendaItem | null, "rev": 13 }`.
+Semua bidang selain `rev` opsional: `items` menambah atau menggantikan (upsert menurut `id`), `removed` membuang,
+`leftover` (kalau ada) menggantikan sisa kemarin (`null` = hilang). Event dengan `rev` lebih kecil dari yang dipegang
+aplikasi dibuang. Gabungkan perubahan yang berdekatan; jangan siarkan kalau tidak ada yang berubah. Setiap koneksi
+stream terbuka, aplikasi memuat ulang rentang yang ia pegang dengan `GET /agenda`. Rentang di luar yang dimuat boleh
+tetap ikut di `items`.
+
+- Pembacaan longgar (aplikasi): item yang rusak atau berjenis yang belum dikenal dibuang satu per satu, bukan
+  menggagalkan agenda. `Home.agendaToday` tetap dari `/home` (bagian 2.12) dan dihitung server dari agenda yang sama.
+- Perubahan ini aditif; `CONTRACT_VERSION` tetap 1.
+
 ## 3. Bentuk pesan, bagian, dan kartu
 
 Pesan:
@@ -591,6 +681,7 @@ Event dari server:
 { "type": "message", "message": { "id": "813", "seq": 813, "rev": 1407, "...": "..." } }
 { "type": "draft", "draft": { "id": "d-17", "status": "sent", "...": "..." }, "rev": 1409 }
 { "type": "home", "home": { "place": "Semua", "rev": 52, "...": "..." } }
+{ "type": "agenda", "items": [{ "id": "a10", "snoozedUntil": "...", "...": "..." }], "rev": 13 }
 { "type": "thinking", "runId": "r-91", "on": true }
 { "type": "ping" }
 ```
@@ -603,6 +694,8 @@ Event dari server:
   (wajib; lihat bagian 2.7). Event `message` untuk pesan itu tidak wajib: `draft` saja sudah cukup bagi tampilan.
 - `home`: Beranda berubah (bagian 2.12); menggantikan `Home` di layar, kecuali `home.rev` lebih lama dari yang
   dipegang aplikasi (upsert menurut `rev`). Tidak perlu `message` yang menyertainya.
+- `agenda`: agenda berubah (bagian 2.13); upsert per item menurut `id`, dibuang bila `rev` lebih lama dari yang dipegang
+  aplikasi.
 - `thinking`: `runId` unik per proses agen; `on: true` saat mulai, `on: false` saat selesai. Dua proses
   bersamaan (aplikasi dan WhatsApp) tidak saling menimpa; aplikasi menyimpan himpunan `runId` aktif.
 - `ping`: setiap 25 detik (`STREAM_PING_SEC`). Aplikasi menganggap koneksi mati bila 60 detik tanpa pesan apa pun.

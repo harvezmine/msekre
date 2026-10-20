@@ -36,3 +36,10 @@ export function wibIso(month: number, day: number, time: string): string {
   const [h, m] = time.split('.').map(Number);
   return new Date(Date.UTC(2025, month - 1, day, h!, m!) - WIB_MS).toISOString();
 }
+
+/** Waktu ISO dari tanggal "YYYY-MM-DD" dan jam WIB "HH.MM". */
+export function wibIsoOf(date: string, time: string): string {
+  const [y, mo, d] = date.split('-').map(Number);
+  const [h, mi] = time.split('.').map(Number);
+  return new Date(Date.UTC(y!, mo! - 1, d!, h!, mi!) - WIB_MS).toISOString();
+}

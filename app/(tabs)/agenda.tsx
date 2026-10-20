@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TODAY } from '@/sample/agenda';
-import { dayLabel } from '@/sample/dates';
-import { agendaOn, useSample } from '@/sample/store';
+import type { AgendaItem as Item } from '@/api/contract';
+import { useAgenda } from '@/api/useAgenda';
+import { daysInMonth, dayLabel, isoDate, parts } from '@/sample/dates';
+import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { AgendaItem, isPast } from '@/ui/agenda/AgendaItem';
 import { MonthGrid } from '@/ui/agenda/MonthGrid';
@@ -22,17 +23,51 @@ type Segment = (typeof SEGMENTS)[number];
 export default function Agenda() {
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { state, dispatch } = useSample();
+  const toast = useSampleDispatch();
+  const agenda = useAgenda();
+  const { itemsOn, marked, leftover, ensureRange } = agenda;
   const [segment, setSegment] = useState<Segment>('Hari ini');
-  const [selected, setSelected] = useState(TODAY);
+  const [picked, setSelected] = useState<string | null>(null);
+  const TODAY = agenda.today;
+  const NOW = agenda.now;
 
-  const itemsOn = (date: string) => agendaOn(state, date);
-  const onToggle = (id: string) => dispatch({ type: 'toggleTask', id });
+  // Kalender menampilkan satu bulan penuh: pastikan agenda bulan itu sudah dimuat.
+  useEffect(() => {
+    if (segment !== 'Kalender' || !TODAY) return;
+    const { y, m } = parts(TODAY);
+    void ensureRange(isoDate(y, m, 1), isoDate(y, m, daysInMonth(y, m)));
+  }, [segment, TODAY, ensureRange]);
+
+  const say = (error: string | null) => {
+    if (error) toast({ type: 'showToast', text: error });
+  };
+
+  if (!TODAY || !NOW) {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top, paddingHorizontal: 20 }}>
+        <Txt v="title" accessibilityRole="header" style={{ paddingTop: 8 }}>
+          Agenda
+        </Txt>
+        {agenda.status === 'error' ? (
+          <View style={{ paddingTop: 24, gap: 12 }}>
+            <Txt color={c.muted}>{agenda.error}</Txt>
+            <PillButton label="Coba lagi" green onPress={() => void agenda.retry()} />
+          </View>
+        ) : (
+          <Txt color={c.muted} style={{ paddingTop: 24 }}>
+            Sebentar, agenda sedang dimuat…
+          </Txt>
+        )}
+      </View>
+    );
+  }
+
+  const selected = picked ?? TODAY;
+  const onToggle = (id: string) => void agenda.toggle(id).then(say);
   const onLongPress = (id: string) => router.push({ pathname: '/alarm', params: { id } });
 
   const today = itemsOn(TODAY);
-  const remaining = today.filter((a) => !isPast(a, TODAY) && !a.done).length;
-  const marked = new Set(state.agenda.map((a) => a.date));
+  const remaining = today.filter((a) => !isPast(a, TODAY, NOW) && !a.done).length;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top }}>
@@ -89,22 +124,22 @@ export default function Agenda() {
                 </Txt>
               ) : null}
             </View>
-            {state.leftover ? (
+            {leftover ? (
               <Card style={{ marginHorizontal: 16, marginTop: 8, paddingTop: 16, paddingBottom: 20, gap: 12 }}>
                 <Txt weight={600} color={c.green} style={{ fontSize: 15, lineHeight: 20 }}>
                   Kemarin belum selesai
                 </Txt>
                 <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
                   <Icon name="task" size={24} color={c.muted} />
-                  <Txt style={{ flex: 1 }}>{state.leftover.title}</Txt>
+                  <Txt style={{ flex: 1 }}>{leftover.title}</Txt>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <PillButton
                     label="Kerjakan hari ini"
                     green
-                    onPress={() => dispatch({ type: 'finishLeftover', choice: 'today' })}
+                    onPress={() => void agenda.resolveLeftover('today').then(say)}
                   />
-                  <PillButton label="Lepaskan" onPress={() => dispatch({ type: 'finishLeftover', choice: 'drop' })} />
+                  <PillButton label="Lepaskan" onPress={() => void agenda.resolveLeftover('drop').then(say)} />
                 </View>
               </Card>
             ) : null}
@@ -112,17 +147,19 @@ export default function Agenda() {
               {today.length === 0 ? (
                 <EmptyDay text="Hari ini longgar. Mau saya ingatkan sesuatu?" />
               ) : (
-                <DayList items={today} showNow onToggle={onToggle} onLongPress={onLongPress} />
+                <DayList items={today} today={TODAY} now={NOW} showNow onToggle={onToggle} onLongPress={onLongPress} />
               )}
             </View>
           </>
         ) : null}
 
-        {segment === 'Minggu ini' ? <WeekList itemsOn={itemsOn} onToggle={onToggle} onLongPress={onLongPress} /> : null}
+        {segment === 'Minggu ini' ? (
+          <WeekList today={TODAY} now={NOW} itemsOn={itemsOn} onToggle={onToggle} onLongPress={onLongPress} />
+        ) : null}
 
         {segment === 'Kalender' ? (
           <>
-            <MonthGrid selected={selected} marked={marked} onSelect={setSelected} />
+            <MonthGrid today={TODAY} selected={selected} marked={marked} onSelect={setSelected} />
             <View style={{ paddingTop: 20, paddingHorizontal: 20, paddingBottom: 4 }}>
               <Txt v="subtitle" accessibilityRole="header">
                 {dayLabel(selected)}
@@ -138,7 +175,13 @@ export default function Agenda() {
                   }
                 />
               ) : (
-                <DayList items={itemsOn(selected)} onToggle={onToggle} onLongPress={onLongPress} />
+                <DayList
+                  items={itemsOn(selected)}
+                  today={TODAY}
+                  now={NOW}
+                  onToggle={onToggle}
+                  onLongPress={onLongPress}
+                />
               )}
             </View>
           </>
@@ -215,27 +258,31 @@ function EmptyDay({ text }: { text: string }) {
 
 function DayList({
   items,
+  today,
+  now,
   showNow = false,
   onToggle,
   onLongPress,
 }: {
-  items: ReturnType<typeof agendaOn>;
+  items: Item[];
+  today: string;
+  now: string;
   showNow?: boolean;
   onToggle: (id: string) => void;
   onLongPress: (id: string) => void;
 }) {
-  const pasts = items.map((item) => isPast(item, TODAY));
+  const pasts = items.map((item) => isPast(item, today, now));
   // Garis "sekarang" duduk sebelum item pertama yang belum lewat, atau di akhir bila semua sudah lewat.
   const firstUpcoming = showNow ? pasts.indexOf(false) : -2;
   return (
     <View>
       {items.map((item, i) => (
         <View key={item.id}>
-          {i === firstUpcoming ? <NowLine /> : null}
+          {i === firstUpcoming ? <NowLine now={now} /> : null}
           <AgendaItem item={item} past={pasts[i]} onToggle={onToggle} onLongPress={onLongPress} />
         </View>
       ))}
-      {firstUpcoming === -1 ? <NowLine /> : null}
+      {firstUpcoming === -1 ? <NowLine now={now} /> : null}
     </View>
   );
 }

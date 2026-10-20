@@ -1,6 +1,5 @@
-import { TODAY } from './agenda';
-import { addDays, dayLabel, daysInMonth, isoDate, parts } from './dates';
-import type { AgendaItem } from './types';
+import { TODAY } from '@/sample/agenda';
+import { addDays, dayLabel, daysInMonth, isoDate, parts } from '@/sample/dates';
 
 export interface ParsedAgenda {
   kind: 'reminder' | 'task';
@@ -33,9 +32,8 @@ function hour24(h: number, part: string | undefined): number {
 }
 
 /**
- * Pengurai contoh sederhana untuk lembar Tambah (Fase 0b). Mengenali "ingatkan", "tanggal N" (bulan contoh, Oktober),
+ * Pengurai contoh milik server tiruan (`POST /agenda/parse`; server asli mengurai dengan agennya). Mengenali "ingatkan", "tanggal N" (bulan contoh, Oktober),
  * "besok", "lusa", "hari ini", dan "jam N" / "jam N.MM" / "jam N:MM" dengan pagi/siang/sore/malam.
- * Pengurai sungguhan datang dari server di fase berikutnya.
  */
 export function parseAgenda(input: string): ParsedAgenda | null {
   let rest = input.trim();
@@ -92,8 +90,4 @@ export function parseAgenda(input: string): ParsedAgenda | null {
     timeGuessed,
     way: kind === 'reminder' ? 'alarm' : undefined,
   };
-}
-
-export function toAgendaItem(p: ParsedAgenda): Omit<AgendaItem, 'id'> {
-  return { date: p.date, time: p.time, title: p.title, kind: p.kind, ...(p.way ? { way: p.way } : {}) };
 }

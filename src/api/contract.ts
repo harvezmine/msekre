@@ -25,6 +25,13 @@
  * | POST /account/pin/verify       | PinVerifyReq         | OkRes (salah: 403 `pin_salah`)    |
  * | GET  /home                     | -                    | Home (Beranda)                    |
  * | PUT  /places/current           | PlaceReq             | Home                              |
+ * | GET  /agenda?from=&to=         | -                    | AgendaRes                         |
+ * | GET  /agenda/:id               | -                    | AgendaItemRes                     |
+ * | POST /agenda/parse             | AgendaParseReq       | AgendaParseRes                    |
+ * | POST /agenda                   | AgendaAddReq         | AgendaItemRes                     |
+ * | PATCH /agenda/:id              | AgendaPatchReq       | AgendaItemRes                     |
+ * | POST /agenda/leftover          | AgendaLeftoverReq    | AgendaLeftoverRes                 |
+ * | POST /agenda/:id/alarm-ack     | AlarmAckReq          | OkRes                             |
  * | POST /home/devices/:id         | DeviceControlReq     | DeviceControlRes (Fase 3)         |
  * | GET  /media/:id                | -                    | berkasnya (gambar QRIS, dokumen)  |
  * | WS   /stream                   | -                    | StreamEvent, satu JSON per pesan  |
@@ -459,6 +466,81 @@ export const homeSchema = z.object({
 
 export const placeReqSchema = z.strictObject({ place: z.string().min(1) });
 
+// ---- Agenda ----
+
+/** Tanggal "YYYY-MM-DD" menurut zona waktu pengguna di server. */
+export const dateSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
+/** Jam tampil "HH.MM" (24 jam) menurut zona waktu pengguna di server. */
+export const clockSchema = z.string().regex(/^([01]\d|2[0-3])\.[0-5]\d$/);
+export const agendaKindSchema = z.enum(['reminder', 'task', 'meeting', 'recurring']);
+/** Cara pengingat sampai: bunyi alarm di HP, telepon, atau notifikasi biasa. */
+export const agendaWaySchema = z.enum(['alarm', 'call', 'notif']);
+
+/** Isi agenda yang dikirim aplikasi saat menambah: sama dengan {@link agendaItemSchema} tanpa bidang milik server. */
+export const agendaNewSchema = z.object({
+  /** Tanggal dan jam dinding (zona pengguna), untuk dikelompokkan per hari dan ditampilkan. */
+  date: dateSchema,
+  time: clockSchema,
+  /** Sepanjang hari: `time` diabaikan (isi `00.00`) dan tidak ada pengingat berbunyi. */
+  allDay: z.boolean().optional(),
+  /** Saat yang sebenarnya (ISO 8601 dengan zona). Alarm di HP dijadwalkan dari sini. */
+  at: isoDateTimeSchema,
+  title: z.string().trim().min(1).max(300),
+  kind: agendaKindSchema,
+  way: agendaWaySchema.optional(),
+  /** Keterangan berulang yang sudah jadi, contoh "Tiap Senin". */
+  repeat: z.string().min(1).optional(),
+  note: z.string().min(1).optional(),
+});
+
+export const agendaItemSchema = agendaNewSchema.extend({
+  id: idSchema,
+  /** Tugas atau pengingat yang sudah selesai. */
+  done: z.boolean().optional(),
+  /** Ditunda: alarm dan pengingat berikutnya berbunyi pada saat ini, bukan pada `at`. */
+  snoozedUntil: isoDateTimeSchema.optional(),
+  /** Rapat yang notulennya sudah dikirim ke chat: id pesan notulen. */
+  notesMessageId: idSchema.optional(),
+});
+
+/**
+ * Jawaban `GET /agenda`: item dalam rentang, sisa tugas kemarin, dan "hari ini" menurut server. `from`/`to` adalah
+ * rentang yang sebenarnya dijawab (tanggal, kedua ujung termasuk); tanpa `from`/`to` di request, rentangnya Senin pekan
+ * ini sampai Minggu pekan depan.
+ */
+export const agendaResSchema = z.object({
+  items: z.array(agendaItemSchema),
+  /** Tugas hari kemarin yang belum selesai ("Kemarin belum selesai"), atau `null`. */
+  leftover: agendaItemSchema.nullable(),
+  from: dateSchema,
+  to: dateSchema,
+  /** "Hari ini" dan jam sekarang menurut zona pengguna di server; aplikasi memakainya untuk garis "sekarang". */
+  today: dateSchema,
+  now: clockSchema,
+  /** Nomor perubahan agenda per pengguna. Naik setiap agenda berubah. */
+  rev: z.number().int().positive(),
+});
+export const agendaQuerySchema = z.object({ from: dateSchema.optional(), to: dateSchema.optional() });
+export const agendaItemResSchema = z.object({ item: agendaItemSchema });
+
+export const agendaParseReqSchema = z.strictObject({ text: z.string().trim().min(1).max(TEXT_MAX) });
+/** Pratinjau dari kalimat bebas. `guessedTime`: jam tidak disebut, server menebak (aplikasi memberi catatan). */
+export const agendaParseResSchema = z.object({
+  preview: z.object({ item: agendaNewSchema, guessedTime: z.boolean() }),
+});
+export const agendaAddReqSchema = z.strictObject({ item: agendaNewSchema });
+/**
+ * Ubah agenda. `done` menandai tugas selesai atau belum; `snoozeUntil` menunda sampai saat itu (ISO 8601). Minimal satu.
+ */
+export const agendaPatchReqSchema = z
+  .strictObject({ done: z.boolean().optional(), snoozeUntil: isoDateTimeSchema.optional() })
+  .refine((r) => r.done !== undefined || r.snoozeUntil !== undefined, { message: 'minimal satu perubahan' });
+export const agendaLeftoverReqSchema = z.strictObject({ choice: z.enum(['today', 'drop']) });
+/** `today`: tugas dibuat di agenda hari ini (`item`); `drop`: dilepas (`item` `null`). */
+export const agendaLeftoverResSchema = z.object({ item: agendaItemSchema.nullable() });
+/** HP sudah menjadwalkan alarm lokal untuk item itu pada `scheduledFor` (ISO 8601). */
+export const alarmAckReqSchema = z.strictObject({ scheduledFor: isoDateTimeSchema });
+
 // ---- Stream ----
 
 export const streamEventSchema = z.discriminatedUnion('type', [
@@ -472,6 +554,17 @@ export const streamEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('thinking'), runId: idSchema, on: z.boolean() }),
   /** Beranda berubah: menggantikan `Home` di layar, kecuali `home.rev` lebih lama (upsert). */
   z.object({ type: z.literal('home'), home: homeSchema }),
+  /**
+   * Agenda berubah: `items` menggantikan (atau menambah) item dengan `id` yang sama, `removed` membuang, `leftover`
+   * (kalau ada) menggantikan sisa tugas kemarin. Event dengan `rev` lebih kecil dari yang dipegang aplikasi dibuang.
+   */
+  z.object({
+    type: z.literal('agenda'),
+    items: z.array(agendaItemSchema).optional(),
+    removed: z.array(idSchema).optional(),
+    leftover: agendaItemSchema.nullable().optional(),
+    rev: z.number().int().positive(),
+  }),
   z.object({ type: z.literal('ping') }),
 ]);
 
@@ -536,6 +629,19 @@ export type BusinessSummary = z.infer<typeof businessSummarySchema>;
 export type RingNodeSummary = z.infer<typeof ringNodeSchema>;
 export type Home = z.infer<typeof homeSchema>;
 export type PlaceReq = z.infer<typeof placeReqSchema>;
+export type AgendaKind = z.infer<typeof agendaKindSchema>;
+export type AgendaWay = z.infer<typeof agendaWaySchema>;
+export type AgendaNew = z.infer<typeof agendaNewSchema>;
+export type AgendaItem = z.infer<typeof agendaItemSchema>;
+export type AgendaRes = z.infer<typeof agendaResSchema>;
+export type AgendaItemRes = z.infer<typeof agendaItemResSchema>;
+export type AgendaParseReq = z.infer<typeof agendaParseReqSchema>;
+export type AgendaParseRes = z.infer<typeof agendaParseResSchema>;
+export type AgendaAddReq = z.infer<typeof agendaAddReqSchema>;
+export type AgendaPatchReq = z.infer<typeof agendaPatchReqSchema>;
+export type AgendaLeftoverReq = z.infer<typeof agendaLeftoverReqSchema>;
+export type AgendaLeftoverRes = z.infer<typeof agendaLeftoverResSchema>;
+export type AlarmAckReq = z.infer<typeof alarmAckReqSchema>;
 export type DeviceCard = z.infer<typeof deviceCardSchema>;
 export type DeviceControlReq = z.infer<typeof deviceControlReqSchema>;
 export type DeviceControlRes = z.infer<typeof deviceControlResSchema>;

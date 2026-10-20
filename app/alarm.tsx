@@ -1,13 +1,16 @@
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useApi } from '@/api/ApiProvider';
+import type { AgendaItem } from '@/api/contract';
+import { useAgenda } from '@/api/useAgenda';
 import { useAssistantName } from '@/api/useProfile';
 import { ALARM_SAMPLE_ID } from '@/sample/agenda';
-import { addMinutes, dayLabel } from '@/sample/dates';
-import { useSample } from '@/sample/store';
+import { dayLabel } from '@/sample/dates';
+import { useSampleDispatch } from '@/sample/store';
 import { light, onForest } from '@/theme/tokens';
 import { Icon } from '@/ui/Icon';
 import { Inti } from '@/ui/inti/Inti';
@@ -17,15 +20,34 @@ import { useLive } from '@/ui/useLive';
 
 const BUZZ_MS = 2000;
 
-// Alarm layar penuh (desain 2l). Getarnya berpola dan berulang selama layar terbuka. Pengingat nyata datang di fase berikutnya.
+/** Berapa menit "Tunda" menunda alarm. */
+export const SNOOZE_MINUTES = 10;
+
+// Alarm layar penuh (desain 2l). Dibuka dari alarm di HP (`sekretarisai://alarm?id=`) atau dengan menahan sebuah
+// pengingat di Agenda. Itemnya dimuat lewat kontrak; getarnya berpola dan berulang selama layar terbuka.
 export default function Alarm() {
   const assistantName = useAssistantName();
   const insets = useSafeAreaInsets();
   const live = useLive();
-  const { state, dispatch } = useSample();
-  const { id } = useLocalSearchParams<{ id?: string }>();
-  const item =
-    state.agenda.find((a) => a.id === (id ?? ALARM_SAMPLE_ID)) ?? state.agenda.find((a) => a.id === ALARM_SAMPLE_ID);
+  const toast = useSampleDispatch();
+  const { mode } = useApi();
+  const agenda = useAgenda();
+  const { id: param } = useLocalSearchParams<{ id?: string }>();
+  // Mode contoh tanpa id (dibuka dari menu uji): pengingat contoh. Mode server tanpa id: tidak ada yang dibunyikan.
+  const id = param ?? (mode === 'contoh' ? ALARM_SAMPLE_ID : undefined);
+  const [loaded, setLoaded] = useState<AgendaItem | null>(null);
+  const item = agenda.items.find((a) => a.id === id) ?? (loaded?.id === id ? loaded : null);
+  const { item: load } = agenda;
+  useEffect(() => {
+    if (!id || agenda.items.some((a) => a.id === id)) return;
+    let stale = false;
+    void load(id).then((found) => {
+      if (!stale) setLoaded(found);
+    });
+    return () => {
+      stale = true;
+    };
+  }, [id, load, agenda.items]);
 
   // Getar hanya selama layar ini terlihat dan aplikasi aktif; setelah pindah ke chat atau ke latar, berhenti.
   useEffect(() => {
@@ -39,8 +61,11 @@ export default function Alarm() {
   if (!item) return null;
   const isFlight = item.id === ALARM_SAMPLE_ID;
 
-  const snooze = () => {
-    dispatch({ type: 'snooze', id: item.id, until: addMinutes(item.time, 10) });
+  const snooze = async () => {
+    // Dari saat alarm ini berbunyi (atau jadwal tundaan sebelumnya), jadi menunda berkali-kali terus maju.
+    const base = Date.parse(item.snoozedUntil ?? item.at);
+    const failed = await agenda.snooze(item.id, new Date(base + SNOOZE_MINUTES * 60_000).toISOString());
+    if (failed) return toast({ type: 'showToast', text: failed });
     router.back();
   };
 
@@ -92,7 +117,7 @@ export default function Alarm() {
 
       <View style={{ position: 'absolute', left: 20, right: 20, bottom: Math.max(40, insets.bottom + 16), gap: 16 }}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <AlarmButton label="Tunda 10 menit" onPress={snooze} />
+          <AlarmButton label={`Tunda ${SNOOZE_MINUTES} menit`} onPress={() => void snooze()} />
           <AlarmButton label={`Tanya ${assistantName}`} onPress={() => router.replace('/chat')}>
             <Inti size={24} onDark paused />
           </AlarmButton>
