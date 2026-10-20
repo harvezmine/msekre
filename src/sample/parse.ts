@@ -1,5 +1,5 @@
 import { TODAY } from './agenda';
-import { addDays, dayLabel, isoDate } from './dates';
+import { addDays, dayLabel, daysInMonth, isoDate, parts } from './dates';
 import type { AgendaItem } from './types';
 
 export interface ParsedAgenda {
@@ -33,7 +33,7 @@ function hour24(h: number, part: string | undefined): number {
 }
 
 /**
- * Pengurai contoh sederhana untuk lembar Tambah (Fase 0b). Mengenali "ingatkan", "tanggal N" (Oktober),
+ * Pengurai contoh sederhana untuk lembar Tambah (Fase 0b). Mengenali "ingatkan", "tanggal N" (bulan contoh, Oktober),
  * "besok", "lusa", "hari ini", dan "jam N" / "jam N.MM" / "jam N:MM" dengan pagi/siang/sore/malam.
  * Pengurai sungguhan datang dari server di fase berikutnya.
  */
@@ -45,9 +45,10 @@ export function parseAgenda(input: string): ParsedAgenda | null {
   rest = rest.replace(/\bingatkan(\s+(saya|aku))?\b/gi, ' ');
 
   let date = TODAY;
+  const { y, m } = parts(TODAY);
   const tgl = /\b(?:(?:pada|di)\s+)?tanggal\s+(\d{1,2})\b/i.exec(rest);
-  if (tgl && Number(tgl[1]) >= 1 && Number(tgl[1]) <= 31) {
-    date = isoDate(2026, 10, Number(tgl[1]));
+  if (tgl && Number(tgl[1]) >= 1 && Number(tgl[1]) <= daysInMonth(y, m)) {
+    date = isoDate(y, m, Number(tgl[1]));
     rest = rest.replace(tgl[0], ' ');
   } else {
     const rel = /\b(besok|lusa|hari ini)\b/i.exec(rest);

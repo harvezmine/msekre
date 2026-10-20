@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { TODAY } from '@/sample/agenda';
-import { addDays, dayLabel } from '@/sample/dates';
+import { addDays, dayLabel, weekdayIndex } from '@/sample/dates';
 import type { AgendaItem as Item } from '@/sample/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Txt } from '../Txt';
@@ -11,8 +11,9 @@ export interface ItemHandlers {
   onLongPress: (id: string) => void;
 }
 
-/** Tujuh hari mulai Senin pekan ini (di data contoh hari ini adalah Senin). */
-export const WEEK_DAYS = Array.from({ length: 7 }, (_, i) => addDays(TODAY, i));
+/** Tujuh hari mulai Senin pekan ini (di data contoh: Senin 20 sampai Minggu 26 Okt 2025). */
+const MONDAY = addDays(TODAY, -weekdayIndex(TODAY));
+export const WEEK_DAYS = Array.from({ length: 7 }, (_, i) => addDays(MONDAY, i));
 
 const FREE_LINE = 'Longgar, belum ada rencana.';
 

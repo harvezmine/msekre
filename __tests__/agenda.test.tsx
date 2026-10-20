@@ -116,7 +116,7 @@ test('Minggu ini: tujuh hari Senin sampai Minggu, hari longgar punya kalimat ram
 test('Kalender: kisi Oktober mulai Senin, titik di hari beragenda, ketuk tanggal menampilkan itemnya', async () => {
   await renderWithProviders(<Agenda />);
   await fireEvent.press(screen.getByRole('tab', { name: 'Kalender' }));
-  expect(screen.getByText('Oktober 2026')).toBeOnTheScreen();
+  expect(screen.getByText('Oktober 2025')).toBeOnTheScreen();
   for (const d of ['Sn', 'Sl', 'Rb', 'Km', 'Jm', 'Sb', 'Mg']) expect(screen.getByText(d)).toBeOnTheScreen();
   expect(screen.getByTestId('titik-22')).toBeOnTheScreen();
   expect(screen.queryByTestId('titik-25')).toBeNull();
@@ -155,7 +155,7 @@ test('Tambah: Simpan nonaktif sampai ada teks, pratinjau dari teks, Simpan menam
   expect(screen.getByText('Jamnya saya tebak. Ketuk untuk mengubah.')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Simpan' }));
   expect(latest.agenda.find((a) => a.title === 'Bayar pajak motor')).toMatchObject({
-    date: '2026-10-25',
+    date: '2025-10-25',
     time: '09.00',
     kind: 'reminder',
     way: 'alarm',

@@ -288,19 +288,19 @@ test('addAgenda: id baru, tampil di tanggalnya, dicatat; hari ini masuk Beranda'
   const s = run([
     {
       type: 'addAgenda',
-      item: { date: '2026-10-25', time: '09.00', title: 'Beli kado ulang tahun', kind: 'reminder', way: 'alarm' },
+      item: { date: '2025-10-25', time: '09.00', title: 'Beli kado ulang tahun', kind: 'reminder', way: 'alarm' },
     },
-    { type: 'addAgenda', item: { date: '2026-10-20', time: '18.00', title: 'Telepon Ibu', kind: 'reminder' } },
+    { type: 'addAgenda', item: { date: '2025-10-20', time: '18.00', title: 'Telepon Ibu', kind: 'reminder' } },
   ]);
-  const added = agendaOn(s, '2026-10-25').find((a) => a.title === 'Beli kado ulang tahun')!;
+  const added = agendaOn(s, '2025-10-25').find((a) => a.title === 'Beli kado ulang tahun')!;
   expect(added.id).toBeTruthy();
   expect(new Set(s.agenda.map((a) => a.id)).size).toBe(s.agenda.length);
   expect(homeAgenda(s).some((a) => a.title === 'Telepon Ibu')).toBe(true);
   expect(homeAgenda(s).some((a) => a.id === added.id)).toBe(false);
   expect(init.agenda.every((a) => !('home' in a))).toBe(true);
   expect(s.history[0]).toMatchObject({ title: 'Menambah ke agenda', sub: 'Telepon Ibu · 18.00' });
-  expect(agendaOn(s, '2026-10-20').map((a) => a.time)).toEqual(
-    [...agendaOn(s, '2026-10-20').map((a) => a.time)].sort(),
+  expect(agendaOn(s, '2025-10-20').map((a) => a.time)).toEqual(
+    [...agendaOn(s, '2025-10-20').map((a) => a.time)].sort(),
   );
 });
 
@@ -317,7 +317,7 @@ test('snooze, toggleTask, finishLeftover', () => {
   const title = init.leftover!.title;
   s = run([{ type: 'finishLeftover', choice: 'today' }]);
   expect(s.leftover).toBeNull();
-  expect(agendaOn(s, '2026-10-20').some((a) => a.title === title && a.kind === 'task')).toBe(true);
+  expect(agendaOn(s, '2025-10-20').some((a) => a.title === title && a.kind === 'task')).toBe(true);
   // tugas kemarin yang dikerjakan hari ini juga tampil di Beranda
   expect(homeAgenda(s).some((a) => a.title === title)).toBe(true);
   s = run([{ type: 'finishLeftover', choice: 'drop' }]);

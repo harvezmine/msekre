@@ -115,7 +115,7 @@ test('cincin mengikuti layanan: memutus Imou menghapus simpul CCTV', async () =>
 test('agenda hari ini yang ditambah tampil di Beranda', async () => {
   await renderWithProviders(<Beranda />, {
     actions: [
-      { type: 'addAgenda', item: { date: '2026-10-20', time: '18.00', title: 'Telepon Ibu', kind: 'reminder' } },
+      { type: 'addAgenda', item: { date: '2025-10-20', time: '18.00', title: 'Telepon Ibu', kind: 'reminder' } },
     ],
   });
   expect(screen.getByText('Telepon Ibu')).toBeOnTheScreen();

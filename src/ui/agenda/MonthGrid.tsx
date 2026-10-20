@@ -1,11 +1,12 @@
 import { Pressable, View } from 'react-native';
 import { TODAY } from '@/sample/agenda';
-import { DAY_SHORT, daysInMonth, isoDate, weekdayIndex } from '@/sample/dates';
+import { DAY_SHORT, daysInMonth, isoDate, MONTH_NAMES, parts, weekdayIndex } from '@/sample/dates';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Txt } from '../Txt';
 
-const YEAR = 2026;
-const MONTH = 10;
+// Bulan contoh mengikuti "hari ini" contoh (Oktober 2025).
+const { y: YEAR, m: MONTH } = parts(TODAY);
+const MONTH_NAME = MONTH_NAMES[MONTH - 1];
 
 interface Props {
   selected: string;
@@ -14,7 +15,7 @@ interface Props {
   onSelect: (date: string) => void;
 }
 
-/** Kisi bulan Oktober 2026, mulai Senin. Titik hijau = ada agenda, lingkaran mint = hari ini. */
+/** Kisi bulan contoh (Oktober 2025), mulai Senin. Titik hijau = ada agenda, lingkaran mint = hari ini. */
 export function MonthGrid({ selected, marked, onSelect }: Props) {
   const { c } = useTheme();
   const total = daysInMonth(YEAR, MONTH);
@@ -39,7 +40,7 @@ export function MonthGrid({ selected, marked, onSelect }: Props) {
       }}
     >
       <Txt v="subtitle" style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 }} accessibilityRole="header">
-        Oktober 2026
+        {MONTH_NAME} {YEAR}
       </Txt>
       <View style={{ flexDirection: 'row' }}>
         {DAY_SHORT.map((d) => (
@@ -62,7 +63,7 @@ export function MonthGrid({ selected, marked, onSelect }: Props) {
               <Pressable
                 key={i}
                 accessibilityRole="button"
-                accessibilityLabel={`${day} Oktober${isToday ? ', hari ini' : ''}${has ? ', ada agenda' : ''}`}
+                accessibilityLabel={`${day} ${MONTH_NAME}${isToday ? ', hari ini' : ''}${has ? ', ada agenda' : ''}`}
                 accessibilityState={{ selected: isSel }}
                 onPress={() => onSelect(date)}
                 android_ripple={{ color: c.ripple, borderless: true, radius: 24 }}
