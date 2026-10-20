@@ -1,6 +1,8 @@
-import { act, fireEvent, render, renderHook, screen } from '@testing-library/react-native';
+import { act, fireEvent, renderHook, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import Suara from '../app/suara';
+import { renderWithProviders } from './helpers';
+import { useSample, type SampleState } from '@/sample/store';
 import { useTimeline } from '@/ui/useTimeline';
 
 async function advance(ms: number) {
@@ -12,7 +14,7 @@ async function advance(ms: number) {
 beforeEach(() => jest.clearAllMocks());
 
 test('mulai mendengar, tanpa balasan, dengan getar ringan', async () => {
-  await render(<Suara />);
+  await renderWithProviders(<Suara />);
   expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light);
   expect(screen.getByText('Mendengar')).toBeTruthy();
   expect(screen.getByText(/Matikan AC kamar/)).toBeTruthy();
@@ -22,7 +24,7 @@ test('mulai mendengar, tanpa balasan, dengan getar ringan', async () => {
 });
 
 test('2,2 detik: berpikir, ucapan lengkap; 3,4 detik: balasan tampil dan tetap setelah selesai bicara', async () => {
-  await render(<Suara />);
+  await renderWithProviders(<Suara />);
   await advance(2200);
   expect(screen.queryByText('Mendengar')).toBeNull();
   expect(screen.getByText('Matikan AC kamar.')).toBeTruthy();
@@ -39,7 +41,7 @@ test('2,2 detik: berpikir, ucapan lengkap; 3,4 detik: balasan tampil dan tetap s
 });
 
 test('Ulangi contoh mengulang dari mendengar', async () => {
-  await render(<Suara />);
+  await renderWithProviders(<Suara />);
   await advance(5000);
   await fireEvent.press(screen.getByRole('button', { name: 'Ulangi contoh' }));
   expect(screen.getByText('Mendengar')).toBeTruthy();
@@ -73,4 +75,28 @@ test('useTimeline: restart dan bersih saat dilepas', async () => {
   for (const id of last) expect(clear).toHaveBeenCalledWith(id);
   set.mockRestore();
   clear.mockRestore();
+});
+
+test('saat Nadia mulai berbicara, AC kamar mati di penyimpanan dan tercatat sekali', async () => {
+  let seen: SampleState | undefined;
+  function Probe() {
+    seen = useSample().state;
+    return null;
+  }
+  await renderWithProviders(
+    <>
+      <Suara />
+      <Probe />
+    </>,
+  );
+  expect(seen!.ac.on).toBe(true);
+  await advance(2200);
+  expect(seen!.ac.on).toBe(true);
+  await advance(1200);
+  expect(seen!.ac.on).toBe(false);
+  expect(seen!.history[0]).toMatchObject({ title: 'Mematikan AC kamar', sub: 'lewat suara · 10.41', kind: 'rumah' });
+  // Ulangi contoh: tidak mencatat dua kali.
+  await fireEvent.press(screen.getByRole('button', { name: 'Ulangi contoh' }));
+  await advance(3400);
+  expect(seen!.history.filter((h) => h.title === 'Mematikan AC kamar' && h.day === 'Hari ini')).toHaveLength(1);
 });

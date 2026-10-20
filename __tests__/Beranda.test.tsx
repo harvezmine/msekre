@@ -1,14 +1,14 @@
 import * as Haptics from 'expo-haptics';
 import { StyleSheet } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import { ThemeProvider } from '@/theme/ThemeProvider';
+import { renderWithProviders } from './helpers';
 import Beranda from '../app/(tabs)/index';
 
 beforeEach(() => jest.clearAllMocks());
 
 test('Beranda menampilkan isi desain 1a', async () => {
-  await render(<Beranda />);
+  await renderWithProviders(<Beranda />);
   expect(screen.getByText('Selamat pagi, Rina')).toBeTruthy();
   expect(screen.getByText('7 terhubung · CCTV tidak terjangkau')).toBeTruthy();
   expect(screen.getByText('Butuh persetujuan Anda')).toBeTruthy();
@@ -18,29 +18,25 @@ test('Beranda menampilkan isi desain 1a', async () => {
 });
 
 test('sakelar AC mengubah tulisannya', async () => {
-  await render(<Beranda />);
+  await renderWithProviders(<Beranda />);
   await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
   expect(screen.getByText('AC kamar mati')).toBeTruthy();
 });
 
 test('Lihat di kartu persetujuan membuka chat', async () => {
-  await render(<Beranda />);
+  await renderWithProviders(<Beranda />);
   await fireEvent.press(screen.getByRole('button', { name: 'Lihat' }));
   expect(router.navigate).toHaveBeenCalledWith('/chat');
 });
 
 test('mode gelap tetap menampilkan isi yang sama', async () => {
-  await render(
-    <ThemeProvider scheme="dark">
-      <Beranda />
-    </ThemeProvider>,
-  );
+  await renderWithProviders(<Beranda />, { scheme: 'dark' });
   expect(screen.getByText('Selamat pagi, Rina')).toBeTruthy();
   expect(StyleSheet.flatten(screen.getByText('Selamat pagi, Rina').props.style).color).toBe('#ECF2EA');
 });
 
 test('ketuk Inti membuka chat, tahan Inti membuka Mode Suara dengan getar', async () => {
-  await render(<Beranda />);
+  await renderWithProviders(<Beranda />);
   const inti = screen.getByRole('button', { name: 'Bicara dengan Nadia' });
   await fireEvent.press(inti);
   expect(router.navigate).toHaveBeenCalledWith('/chat');
@@ -50,7 +46,43 @@ test('ketuk Inti membuka chat, tahan Inti membuka Mode Suara dengan getar', asyn
 });
 
 test('Lihat semua membuka Agenda', async () => {
-  await render(<Beranda />);
+  await renderWithProviders(<Beranda />);
   await fireEvent.press(screen.getByRole('link', { name: 'Lihat semua' }));
   expect(router.navigate).toHaveBeenCalledWith('/agenda');
+});
+
+test('AC dimatikan di penyimpanan: Beranda menulis AC kamar mati', async () => {
+  await renderWithProviders(<Beranda />, { actions: [{ type: 'setAc', on: false }] });
+  expect(screen.getByText('AC kamar mati')).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'AC kamar' })).toBeOnTheScreen();
+});
+
+test('suhu AC datang dari penyimpanan', async () => {
+  await renderWithProviders(<Beranda />, { actions: [{ type: 'setAc', temp: 22 }] });
+  expect(screen.getByText('AC kamar nyala · 22°')).toBeOnTheScreen();
+});
+
+test('kartu persetujuan hilang setelah kiriman disetujui', async () => {
+  await renderWithProviders(<Beranda />, { actions: [{ type: 'sendDraft' }] });
+  expect(screen.queryByText('Butuh persetujuan Anda')).not.toBeOnTheScreen();
+});
+
+test('cincin dan agenda membaca penyimpanan: layanan baru jadi simpul kedelapan', async () => {
+  await renderWithProviders(<Beranda />, { actions: [{ type: 'connect', id: 'tiktok' }] });
+  expect(screen.getByText('8 terhubung · CCTV tidak terjangkau')).toBeOnTheScreen();
+});
+
+test('agenda hari ini yang ditambah tampil di Beranda', async () => {
+  await renderWithProviders(<Beranda />, {
+    actions: [
+      { type: 'addAgenda', item: { date: '2026-10-20', time: '18.00', title: 'Telepon Ibu', kind: 'reminder' } },
+    ],
+  });
+  expect(screen.getByText('Telepon Ibu')).toBeOnTheScreen();
+});
+
+test('tombol tempat membuka pemilih tempat', async () => {
+  await renderWithProviders(<Beranda />);
+  await fireEvent.press(screen.getByRole('button', { name: 'Tempat: Semua' }));
+  expect(router.push).toHaveBeenCalledWith('/tempat');
 });

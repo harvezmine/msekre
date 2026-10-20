@@ -8,7 +8,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SampleProvider } from '@/sample/store';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
+import { ToastHost } from '@/ui/Toast';
 
 // Tautan langsung ke /chat, /suara, /inti tetap punya tab di bawahnya.
 export const unstable_settings = { anchor: '(tabs)' };
@@ -28,7 +31,16 @@ function Navigator() {
         <Stack.Screen name="chat" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="suara" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="inti" />
+        <Stack.Screen
+          name="tempat"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'none',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
       </Stack>
+      <ToastHost />
     </>
   );
 }
@@ -45,8 +57,12 @@ export default function RootLayout() {
   }, [loaded, error]);
   if (!loaded && !error) return null;
   return (
-    <ThemeProvider>
-      <Navigator />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <SampleProvider>
+          <Navigator />
+        </SampleProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

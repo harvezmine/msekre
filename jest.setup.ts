@@ -1,6 +1,12 @@
+import 'react-native-gesture-handler/jestSetup';
 import { setUpTests } from 'react-native-reanimated';
 
 setUpTests();
+
+// Memasang pengikat ke runtime UI lewat timer mikro; di Jest worklets menolaknya dan merusak tes yang memajukan timer.
+jest.mock('react-native-gesture-handler/lib/module/handlers/gestures/installUIRuntimeBindings', () => ({
+  installUIRuntimeBindings: jest.fn(),
+}));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);

@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import Chat from '../app/chat';
 import Suara from '../app/suara';
+import { renderWithProviders } from './helpers';
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -16,7 +17,7 @@ test('chat kosong menawarkan empat saran dan bisa pindah ke Mode Suara', async (
 });
 
 test('Mode Suara: Selesai menutup, Pindah ke ketik membuka chat', async () => {
-  await render(<Suara />);
+  await renderWithProviders(<Suara />);
   await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
   expect(router.back).toHaveBeenCalled();
   await fireEvent.press(screen.getByRole('button', { name: 'Pindah ke ketik' }));
