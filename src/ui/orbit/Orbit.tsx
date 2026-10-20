@@ -48,7 +48,7 @@ export function Orbit({ nodes, intiState = 'idle', onPressInti, onLongPressInti,
   const iw = intiSize(intiPx).w;
 
   return (
-    <Pressable onPress={onPressRing} accessibilityRole="button" accessibilityLabel="Buka Terhubung" style={{ width: W, height: H }}>
+    <Pressable onPress={onPressRing} disabled={!onPressRing} accessible={false} testID="cincin" style={{ width: W, height: H }}>
       <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
         <Circle cx={layout.cx} cy={layout.cy} r={r} fill="none" stroke={c.sage} strokeOpacity={0.55} strokeWidth={1} />
         {layout.nodes.map((p, i) => (
@@ -76,6 +76,10 @@ export function Orbit({ nodes, intiState = 'idle', onPressInti, onLongPressInti,
         accessibilityRole="button"
         accessibilityLabel={`Bicara dengan ${DEFAULT_ASSISTANT}`}
         accessibilityHint="Ketuk untuk chat, tahan untuk bicara"
+        accessibilityActions={[{ name: 'longpress', label: 'Mode Suara' }]}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === 'longpress') onLongPressInti?.();
+        }}
         style={{ position: 'absolute', left: layout.cx - iw / 2, top: layout.cy - intiPx / 2 }}
       >
         <Inti size={intiPx} state={intiState} onDark={scheme === 'dark'} />
@@ -148,7 +152,17 @@ function FlowDot({ from, to }: { from: { x: number; y: number }; to: { x: number
       testID="aliran-titik"
       pointerEvents="none"
       style={[
-        { position: 'absolute', left: 0, top: 0, width: 8, height: 8, borderRadius: 4, backgroundColor: c.leaf, borderWidth: 2, borderColor: c.paper },
+        {
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: c.leaf,
+          borderWidth: 2,
+          borderColor: c.paper,
+        },
         style,
       ]}
     />

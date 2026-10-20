@@ -25,22 +25,23 @@ test('ketuk Inti, tahan Inti, dan ketuk cincin memanggil aksinya masing-masing',
   const inti = screen.getByRole('button', { name: 'Bicara dengan Nadia' });
   await fireEvent.press(inti);
   await fireEvent(inti, 'longPress');
-  await fireEvent.press(screen.getByRole('button', { name: 'Buka Terhubung' }));
+  await fireEvent.press(screen.getByTestId('cincin'));
   expect(onPressInti).toHaveBeenCalledTimes(1);
   expect(onLongPressInti).toHaveBeenCalledTimes(1);
   expect(onPressRing).toHaveBeenCalledTimes(1);
 });
 
 test('aliran titik muncul setelah jedanya lewat', async () => {
-  jest.useFakeTimers();
-  try {
-    await render(<Orbit nodes={nodes} flowEveryMs={3000} />);
-    expect(screen.queryByTestId('aliran-titik')).toBeNull();
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(3000);
-    });
-    expect(screen.getByTestId('aliran-titik')).toBeTruthy();
-  } finally {
-    jest.useRealTimers();
-  }
+  await render(<Orbit nodes={nodes} flowEveryMs={3000} />);
+  expect(screen.queryByTestId('aliran-titik')).toBeNull();
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(3000);
+  });
+  expect(screen.getByTestId('aliran-titik')).toBeTruthy();
+});
+
+test('cincin tidak dibaca sebagai tombol oleh pembaca layar', async () => {
+  await render(<Orbit nodes={nodes} flowEveryMs={0} onPressRing={jest.fn()} />);
+  expect(screen.queryByRole('button', { name: 'Buka Terhubung' })).toBeNull();
+  expect(screen.getAllByRole('button')).toHaveLength(1);
 });

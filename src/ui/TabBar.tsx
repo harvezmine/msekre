@@ -20,6 +20,11 @@ const TABS: Record<string, { label: string; icon: IconName }> = {
 export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const { c, scheme } = useTheme();
 
+  const openVoice = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.navigate('/suara');
+  };
+
   const tab = (index: number) => {
     const route = state.routes[index];
     const meta = route && TABS[route.name];
@@ -48,6 +53,7 @@ export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarPr
 
   return (
     <View
+      accessibilityRole="tablist"
       style={{
         height: 88 + insets.bottom,
         paddingBottom: insets.bottom,
@@ -60,36 +66,39 @@ export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarPr
     >
       {tab(0)}
       {tab(1)}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Bicara dengan ${DEFAULT_ASSISTANT}`}
-        accessibilityHint="Ketuk untuk chat, tahan untuk bicara"
-        onPress={() => router.push('/chat')}
-        onLongPress={() => {
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push('/suara');
-        }}
-        delayLongPress={450}
-        style={{ flex: 1, alignItems: 'center', gap: 4, marginTop: -26 }}
-      >
-        <View
-          style={{
-            width: 68,
-            height: 68,
-            borderRadius: 34,
-            backgroundColor: c.card,
-            borderWidth: 1,
-            borderColor: c.line,
-            alignItems: 'center',
-            justifyContent: 'center',
+      <View style={{ flex: 1, alignItems: 'center', marginTop: -26 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Bicara dengan ${DEFAULT_ASSISTANT}`}
+          accessibilityHint="Ketuk untuk chat, tahan untuk bicara"
+          accessibilityActions={[{ name: 'longpress', label: 'Mode Suara' }]}
+          onAccessibilityAction={(e) => {
+            if (e.nativeEvent.actionName === 'longpress') openVoice();
           }}
+          onPress={() => router.navigate('/chat')}
+          onLongPress={openVoice}
+          delayLongPress={450}
+          style={{ alignItems: 'center', gap: 4 }}
         >
-          <Inti size={50} onDark={scheme === 'dark'} />
-        </View>
-        <Txt v="caption" weight={600}>
-          {DEFAULT_ASSISTANT}
-        </Txt>
-      </Pressable>
+          <View
+            style={{
+              width: 68,
+              height: 68,
+              borderRadius: 34,
+              backgroundColor: c.card,
+              borderWidth: 1,
+              borderColor: c.line,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Inti size={50} onDark={scheme === 'dark'} />
+          </View>
+          <Txt v="caption" weight={600}>
+            {DEFAULT_ASSISTANT}
+          </Txt>
+        </Pressable>
+      </View>
       {tab(2)}
       {tab(3)}
     </View>

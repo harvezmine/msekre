@@ -45,8 +45,20 @@ test('ketuk Inti membuka chat, tahan Inti membuka Mode Suara dengan getar', asyn
   await setup();
   const inti = screen.getByRole('button', { name: 'Bicara dengan Nadia' });
   await fireEvent.press(inti);
-  expect(router.push).toHaveBeenCalledWith('/chat');
+  expect(router.navigate).toHaveBeenCalledWith('/chat');
   await fireEvent(inti, 'longPress');
   expect(Haptics.impactAsync).toHaveBeenCalled();
-  expect(router.push).toHaveBeenCalledWith('/suara');
+  expect(router.navigate).toHaveBeenCalledWith('/suara');
+});
+
+test('pembaca layar: aksi Mode Suara membuka Mode Suara', async () => {
+  await setup();
+  const inti = screen.getByRole('button', { name: 'Bicara dengan Nadia' });
+  await fireEvent(inti, 'accessibilityAction', { nativeEvent: { actionName: 'longpress' } });
+  expect(router.navigate).toHaveBeenCalledWith('/suara');
+});
+
+test('daftar tab dibaca sebagai tablist', async () => {
+  await setup();
+  expect(screen.getAllByRole('tab')[0]!.parent?.props.accessibilityRole).toBe('tablist');
 });
