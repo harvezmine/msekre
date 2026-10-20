@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useState, type Ref } from 'react';
 import { Keyboard, Pressable, TextInput, View, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DEFAULT_ASSISTANT } from '@/brand';
+import { useAssistantName } from '@/api/useProfile';
 import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
@@ -20,6 +20,7 @@ interface Props {
 
 /** Bilah ketik di bawah: lampiran, kolom teks, lalu mic (kosong) atau kirim (ada teks). */
 export function Composer({ value, onChangeText, onSend, inputRef, strongMic = false }: Props) {
+  const assistantName = useAssistantName();
   const { c } = useTheme();
   const dispatch = useSampleDispatch();
   const insets = useSafeAreaInsets();
@@ -60,8 +61,8 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
         onSubmitEditing={onSend}
         returnKeyType="send"
         submitBehavior="submit"
-        accessibilityLabel={`Tulis pesan untuk ${DEFAULT_ASSISTANT}`}
-        placeholder={`Tulis pesan untuk ${DEFAULT_ASSISTANT}`}
+        accessibilityLabel={`Tulis pesan untuk ${assistantName}`}
+        placeholder={`Tulis pesan untuk ${assistantName}`}
         placeholderTextColor={c.muted}
         cursorColor={c.green}
         selectionColor={c.green}

@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle, Line } from 'react-native-svg';
-import { DEFAULT_ASSISTANT } from '@/brand';
+import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
 import { Inti, type IntiState } from '@/ui/inti/Inti';
@@ -47,6 +47,7 @@ export function Orbit({
   paused = false,
   joinKey,
 }: Props) {
+  const assistantName = useAssistantName();
   const { c, scheme } = useTheme();
   const { width } = useWindowDimensions();
   // Desain 360 lebar di layar 412. Di layar 360, semuanya diperkecil kecuali simpul (tetap 44, mudah disentuh).
@@ -125,7 +126,7 @@ export function Orbit({
         onLongPress={onLongPressInti}
         delayLongPress={450}
         accessibilityRole="button"
-        accessibilityLabel={`Bicara dengan ${DEFAULT_ASSISTANT}`}
+        accessibilityLabel={`Bicara dengan ${assistantName}`}
         accessibilityHint="Ketuk untuk chat, tahan untuk bicara"
         accessibilityActions={[{ name: 'longpress', label: 'Mode Suara' }]}
         onAccessibilityAction={(e) => {

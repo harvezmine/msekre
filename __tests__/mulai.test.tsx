@@ -82,20 +82,23 @@ test('Ubah mengosongkan nomor', async () => {
   expect(screen.getByLabelText('Nomor WhatsApp').props.value).toBe('');
 });
 
-test('hitung mundur 42 detik lalu Kirim ulang kode memulai lagi', async () => {
+test('Kirim kode memulai hitung mundur dari jawaban server; Kirim ulang kode setelah habis', async () => {
   await withProbe(<Masuk />);
-  expect(screen.getByText('Kirim ulang kode dalam 00.42')).toBeTruthy();
+  expect(screen.queryByText(/Kirim ulang kode dalam/)).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode' }));
+  expect(latest.toast?.text).toBe('Kode dikirim lewat WhatsApp.');
+  expect(screen.getByText('Kirim ulang kode dalam 01.00')).toBeTruthy();
   await act(async () => {
     jest.advanceTimersByTime(2000);
   });
-  expect(screen.getByText('Kirim ulang kode dalam 00.40')).toBeTruthy();
+  expect(screen.getByText('Kirim ulang kode dalam 00.58')).toBeTruthy();
   await act(async () => {
-    jest.advanceTimersByTime(40000);
+    jest.advanceTimersByTime(58000);
   });
   expect(screen.queryByText(/Kirim ulang kode dalam/)).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim ulang kode' }));
   expect(latest.toast?.text).toBe('Kode baru dikirim lewat WhatsApp.');
-  expect(screen.getByText('Kirim ulang kode dalam 00.42')).toBeTruthy();
+  expect(screen.getByText('Kirim ulang kode dalam 01.00')).toBeTruthy();
 });
 
 test('layar 3: Jadwal dipilih lebih dulu, tombol mengikuti pilihan pertama', async () => {

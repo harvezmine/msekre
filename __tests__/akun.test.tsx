@@ -82,3 +82,9 @@ test('mode gelap memakai warna gelap', async () => {
   await show('dark');
   expect(screen.getByText('Rina Wulandari')).toHaveStyle({ color: dark.ink });
 });
+
+test('Keluar membuka lembar konfirmasi', async () => {
+  await show();
+  await fireEvent.press(row('Keluar'));
+  expect(router.push).toHaveBeenCalledWith('/keluar');
+});

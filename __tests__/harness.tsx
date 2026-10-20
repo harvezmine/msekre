@@ -10,6 +10,8 @@ import Akun from '../app/akun';
 import Alarm from '../app/alarm';
 import Chat from '../app/chat';
 import Inti from '../app/inti';
+import Keluar from '../app/keluar';
+import Mode from '../app/mode';
 import MulaiIndex from '../app/mulai/index';
 import MulaiMasuk from '../app/mulai/masuk';
 import MulaiPilih from '../app/mulai/pilih';
@@ -39,6 +41,8 @@ export const ROUTES: Record<string, ComponentType> = {
   '/alarm': Alarm,
   '/chat': Chat,
   '/inti': Inti,
+  '/keluar': Keluar,
+  '/mode': Mode,
   '/mulai': MulaiIndex,
   '/mulai/masuk': MulaiMasuk,
   '/mulai/pilih': MulaiPilih,

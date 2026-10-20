@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DEFAULT_ASSISTANT } from '@/brand';
+import { useAssistantName } from '@/api/useProfile';
 import { ALARM_SAMPLE_ID } from '@/sample/agenda';
 import { addMinutes, dayLabel } from '@/sample/dates';
 import { useSample } from '@/sample/store';
@@ -19,6 +19,7 @@ const BUZZ_MS = 2000;
 
 // Alarm layar penuh (desain 2l). Getarnya berpola dan berulang selama layar terbuka. Pengingat nyata datang di fase berikutnya.
 export default function Alarm() {
+  const assistantName = useAssistantName();
   const insets = useSafeAreaInsets();
   const live = useLive();
   const { state, dispatch } = useSample();
@@ -92,7 +93,7 @@ export default function Alarm() {
       <View style={{ position: 'absolute', left: 20, right: 20, bottom: Math.max(40, insets.bottom + 16), gap: 16 }}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <AlarmButton label="Tunda 10 menit" onPress={snooze} />
-          <AlarmButton label={`Tanya ${DEFAULT_ASSISTANT}`} onPress={() => router.replace('/chat')}>
+          <AlarmButton label={`Tanya ${assistantName}`} onPress={() => router.replace('/chat')}>
             <Inti size={24} onDark paused />
           </AlarmButton>
         </View>

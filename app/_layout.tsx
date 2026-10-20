@@ -9,6 +9,9 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ApiProvider } from '@/api/ApiProvider';
+import { AuthGate } from '@/api/AuthGate';
+import { AuthProvider } from '@/api/useAuth';
 import { SampleProvider } from '@/sample/store';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { ToastHost } from '@/ui/Toast';
@@ -55,6 +58,22 @@ function Navigator() {
         <Stack.Screen name="mulai/index" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="mulai/masuk" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="mulai/pilih" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen
+          name="keluar"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'none',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="mode"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'none',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
         <Stack.Screen name="terhubung/index" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="terhubung/[id]" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen
@@ -83,6 +102,7 @@ function Navigator() {
           }}
         />
       </Stack>
+      <AuthGate />
       <ToastHost />
     </>
   );
@@ -103,7 +123,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <SampleProvider>
-          <Navigator />
+          <ApiProvider>
+            <AuthProvider>
+              <Navigator />
+            </AuthProvider>
+          </ApiProvider>
         </SampleProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

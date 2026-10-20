@@ -4,6 +4,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { businessByPlace } from '@/sample/business';
 import { homeSummary, user } from '@/sample/profile';
+import { useProfile } from '@/api/useProfile';
 import { approvalText, homeAgenda, houseCard, pendingApproval, ringNodes, useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '@/ui/Card';
@@ -17,6 +18,7 @@ import { Toggle } from '@/ui/Toggle';
 import { Txt } from '@/ui/Txt';
 
 export default function Beranda() {
+  const { name } = useProfile();
   const { c } = useTheme();
   const live = useLive();
   const insets = useSafeAreaInsets();
@@ -66,7 +68,7 @@ export default function Beranda() {
         </View>
 
         <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 8 }}>
-          <Txt v="display">Selamat pagi, {user.name}</Txt>
+          <Txt v="display">Selamat pagi, {name}</Txt>
           <Txt v="subtitle" weight={400} color={c.muted}>
             {homeSummary}
           </Txt>

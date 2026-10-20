@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { useContext } from 'react';
 import { Pressable, View } from 'react-native';
-import { DEFAULT_ASSISTANT } from '@/brand';
+import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from './Icon';
 import type { IconName } from './icons';
@@ -20,6 +20,7 @@ const TABS: Record<string, { label: string; icon: IconName }> = {
 
 /** Beranda · Agenda · [Inti] · Perangkat · Usaha. Inti bukan tab: ketuk membuka chat, tahan membuka Mode Suara. */
 export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
+  const assistantName = useAssistantName();
   const { c, scheme } = useTheme();
   const live = useContext(TabsLiveContext);
 
@@ -72,7 +73,7 @@ export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarPr
       <View style={{ flex: 1, alignItems: 'center', marginTop: -26 }}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Bicara dengan ${DEFAULT_ASSISTANT}`}
+          accessibilityLabel={`Bicara dengan ${assistantName}`}
           accessibilityHint="Ketuk untuk chat, tahan untuk bicara"
           accessibilityActions={[{ name: 'longpress', label: 'Mode Suara' }]}
           onAccessibilityAction={(e) => {
@@ -98,7 +99,7 @@ export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarPr
             <Inti size={50} onDark={scheme === 'dark'} paused={!live} />
           </View>
           <Txt v="caption" weight={600}>
-            {DEFAULT_ASSISTANT}
+            {assistantName}
           </Txt>
         </Pressable>
       </View>

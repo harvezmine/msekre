@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DEFAULT_ASSISTANT } from '@/brand';
+import { useAssistantName } from '@/api/useProfile';
 import { VOICE_SAMPLE } from '@/sample/voice';
 import { MAIN_AC_ID, useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -18,6 +18,7 @@ import { useTimeline } from '@/ui/useTimeline';
 
 // Fase 0: isi contoh. Rekaman, teks langsung, dan suara balasan dibangun di Fase 6.
 export default function Suara() {
+  const assistantName = useAssistantName();
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const live = useLive();
@@ -73,7 +74,7 @@ export default function Suara() {
           {step.reply ? (
             <>
               <Txt v="caption" color={onForest.soft}>
-                {DEFAULT_ASSISTANT}
+                {assistantName}
               </Txt>
               <Txt
                 weight={600}

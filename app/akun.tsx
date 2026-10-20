@@ -1,5 +1,6 @@
 import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
+import { useApi } from '@/api/ApiProvider';
 import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
@@ -11,7 +12,7 @@ import { Wordmark } from '@/ui/Wordmark';
 interface Row {
   icon: IconName;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   /** Rute yang dibuka, atau teks toast bila layarnya belum dibangun. */
   go: { route: Href } | { toast: string };
 }
@@ -20,6 +21,7 @@ interface Row {
 export default function Akun() {
   const { c } = useTheme();
   const { state, dispatch } = useSample();
+  const { mode } = useApi();
   const toast = (text: string) => dispatch({ type: 'showToast', text });
 
   const sections: Row[][] = [
@@ -76,6 +78,7 @@ export default function Akun() {
       },
       { icon: 'history', title: 'Riwayat', subtitle: 'Semua yang sudah Nadia kerjakan', go: { route: '/riwayat' } },
     ],
+    [{ icon: 'logout', title: 'Keluar', go: { route: '/keluar' } }],
   ];
   const open = (r: Row) => ('route' in r.go ? router.push(r.go.route) : toast(r.go.toast));
 
@@ -162,6 +165,12 @@ export default function Akun() {
             </Txt>
             <ListGroup>
               <ListRow icon="auto" title="Layar pertama kali" onPress={() => router.push('/mulai')} />
+              <ListRow
+                icon="globe"
+                title="Mode data"
+                subtitle={mode === 'server' ? 'Server' : 'Contoh'}
+                onPress={() => router.push('/mode')}
+              />
               <ListRow icon="clock" title="Alarm" onPress={() => router.push('/alarm')} />
               <ListRow icon="info" title="Pemeriksa Inti" last onPress={() => router.push('/inti')} />
             </ListGroup>

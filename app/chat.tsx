@@ -12,7 +12,7 @@ import {
   type TextInputInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DEFAULT_ASSISTANT } from '@/brand';
+import { useAssistantName } from '@/api/useProfile';
 import { THINK_MS, typedReply } from '@/sample/chat';
 import { useSample, type ChatEntry } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -44,6 +44,7 @@ const SUGGESTIONS: { icon: IconName; text: string }[] = [
 
 // Fase 0b: utas dari penyimpanan contoh; pesan yang diketik hanya dijawab dengan jawaban contoh. Jawaban sungguhan dibangun di Fase 1.
 export default function Chat() {
+  const assistantName = useAssistantName();
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const live = useLive();
@@ -111,7 +112,7 @@ export default function Chat() {
         <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
         <Inti size={36} onDark={scheme === 'dark'} paused={!live} />
         <View style={{ flex: 1, marginLeft: 4 }}>
-          <Txt v="subtitle">{DEFAULT_ASSISTANT}</Txt>
+          <Txt v="subtitle">{assistantName}</Txt>
           <Txt v="caption" color={c.muted}>
             Siap membantu
           </Txt>
@@ -186,6 +187,7 @@ export default function Chat() {
 }
 
 function Note() {
+  const assistantName = useAssistantName();
   const { c } = useTheme();
   return (
     <Txt
@@ -193,7 +195,7 @@ function Note() {
       color={c.muted}
       style={{ alignSelf: 'center', maxWidth: 300, textAlign: 'center', paddingVertical: 4, paddingHorizontal: 8 }}
     >
-      {DEFAULT_ASSISTANT} ingat semua obrolan Anda, di aplikasi maupun di WhatsApp.
+      {assistantName} ingat semua obrolan Anda, di aplikasi maupun di WhatsApp.
     </Txt>
   );
 }
