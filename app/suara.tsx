@@ -12,12 +12,14 @@ import { Icon } from "@/ui/Icon";
 import type { IconName } from "@/ui/icons";
 import { Inti } from "@/ui/inti/Inti";
 import { Txt } from "@/ui/Txt";
+import { useLive } from "@/ui/useLive";
 import { useTimeline } from "@/ui/useTimeline";
 
 // Fase 0: isi contoh. Rekaman, teks langsung, dan suara balasan dibangun di Fase 6.
 export default function Suara() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
+  const live = useLive();
   const { step, restart } = useTimeline(VOICE_SAMPLE);
   useEffect(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -63,7 +65,7 @@ export default function Suara() {
             accessibilityLabel="Ulangi contoh"
             onPress={restart}
           >
-            <Inti size={200} state={step.state} onDark />
+            <Inti size={200} state={step.state} onDark paused={!live} />
           </Pressable>
           <Txt
             v="caption"

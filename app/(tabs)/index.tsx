@@ -9,12 +9,14 @@ import { Card } from '@/ui/Card';
 import { Icon } from '@/ui/Icon';
 import type { IconName } from '@/ui/icons';
 import { Orbit } from '@/ui/orbit/Orbit';
+import { useLive } from '@/ui/useLive';
 import { ringLabel } from '@/ui/orbit/label';
 import { Toggle } from '@/ui/Toggle';
 import { Txt } from '@/ui/Txt';
 
 export default function Beranda() {
   const { c } = useTheme();
+  const live = useLive();
   const insets = useSafeAreaInsets();
   const d = homeSample;
   const [acOn, setAcOn] = useState(d.house.acOn);
@@ -64,6 +66,7 @@ export default function Beranda() {
         <View style={{ paddingHorizontal: 20, paddingTop: 16, alignItems: 'center' }}>
           <Orbit
             nodes={d.nodes}
+            paused={!live}
             onPressInti={() => router.navigate('/chat')}
             onLongPressInti={() => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

@@ -8,6 +8,7 @@ import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
 import type { IconName } from '@/ui/icons';
 import { Inti } from '@/ui/inti/Inti';
+import { useLive } from '@/ui/useLive';
 import { Txt } from '@/ui/Txt';
 
 const SUGGESTIONS: { icon: IconName; text: string }[] = [
@@ -21,6 +22,7 @@ const SUGGESTIONS: { icon: IconName; text: string }[] = [
 export default function Chat() {
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
+  const live = useLive();
   return (
     <View style={{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top }}>
       <View
@@ -35,7 +37,7 @@ export default function Chat() {
         }}
       >
         <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
-        <Inti size={36} onDark={scheme === 'dark'} />
+        <Inti size={36} onDark={scheme === 'dark'} paused={!live} />
         <View style={{ flex: 1, marginLeft: 4 }}>
           <Txt v="subtitle">{DEFAULT_ASSISTANT}</Txt>
           <Txt v="caption" color={c.muted}>
@@ -54,7 +56,7 @@ export default function Chat() {
           {DEFAULT_ASSISTANT} ingat semua obrolan Anda, di aplikasi maupun di WhatsApp.
         </Txt>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24 }}>
-          <Inti size={104} onDark={scheme === 'dark'} />
+          <Inti size={104} onDark={scheme === 'dark'} paused={!live} />
           <Txt v="title" style={{ textAlign: 'center' }}>
             Mau saya bantu urus apa?
           </Txt>

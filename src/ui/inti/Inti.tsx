@@ -26,12 +26,14 @@ interface Props {
   state?: IntiState;
   /** Di latar gelap (mode gelap, Mode Suara, alarm) pitanya hijau muda supaya tetap terbaca. */
   onDark?: boolean;
+  /** Layar tak terlihat atau aplikasi di latar: semua gerak berhenti, tampilan diam tetap normal. */
+  paused?: boolean;
 }
 
 type Frame = { position: 'absolute'; left: number; top: number; width: number; height: number; borderRadius: number };
 
-export function Inti({ size, state = 'idle', onDark = false }: Props) {
-  const reduce = useReducedMotion();
+export function Inti({ size, state = 'idle', onDark = false, paused = false }: Props) {
+  const reduce = useReducedMotion() || paused;
   const { w, h, dot } = intiSize(size);
   const circle = (D: number): Frame => ({
     position: 'absolute',
@@ -49,7 +51,7 @@ export function Inti({ size, state = 'idle', onDark = false }: Props) {
           <Ring id={1} frame={circle(size * 1.48)} border={1.5} opacity={0.35} delay={250} reduce={reduce} />
         </>
       )}
-      {state === 'speak' && [0, 1, 2].map((i) => <Wave key={i} index={i} frame={circle(size * 1.08)} reduce={reduce} />)}
+      {state === 'speak' && [0, 1, 2].map((i) => <Wave key={i} index={i} frame={circle(size * 1.08)} reduce={reduce} paused={paused} />)}
       <View testID="inti-inti" style={[StyleSheet.absoluteFill, state === 'off' ? { opacity: 0.35, filter: [{ grayscale: 0.8 }] } : null]}>
         <Breath active={(state === 'idle' || state === 'speak') && !reduce}>
           <Image source={onDark ? RIBBON_LIGHT : RIBBON} style={{ width: w, height: h }} resizeMode="contain" />
@@ -81,7 +83,7 @@ function Breath({ active, children }: { active: boolean; children: ReactNode }) 
     );
   }, [active, s]);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: s.get() }] }));
-  return <Animated.View style={[StyleSheet.absoluteFill, { transformOrigin: '50% 55%' }, style]}>{children}</Animated.View>;
+  return <Animated.View testID="inti-napas" style={[StyleSheet.absoluteFill, { transformOrigin: '50% 55%' }, style]}>{children}</Animated.View>;
 }
 
 /** Berpikir: tiap titik naik dan terang bergantian, jeda 180 ms, satu siklus 1,2 detik. */
@@ -134,7 +136,7 @@ function Ring({ id, frame, border, opacity, delay, reduce }: { id: number; frame
 }
 
 /** Berbicara: gelombang membesar 1 → 1,5 dan memudar, 2,4 detik, jeda 0,8 detik antar gelombang. */
-function Wave({ index, frame, reduce }: { index: number; frame: Frame; reduce: boolean }) {
+function Wave({ index, frame, reduce, paused }: { index: number; frame: Frame; reduce: boolean; paused: boolean }) {
   // Mulai di 1 (tak terlihat) lalu direset ke 0 saat gilirannya tiba, supaya tak ada cincin diam sebelum itu.
   const t = useSharedValue(1);
   useEffect(() => {
@@ -152,7 +154,7 @@ function Wave({ index, frame, reduce }: { index: number; frame: Frame; reduce: b
   const first = index === 0;
   const style = useAnimatedStyle(() =>
     reduce
-      ? { opacity: first ? 0.4 : 0, transform: [{ scale: 1.2 }] }
+      ? { opacity: first && !paused ? 0.4 : 0, transform: [{ scale: 1.2 }] }
       : { opacity: 0.55 * (1 - t.get()), transform: [{ scale: 1 + 0.5 * t.get() }] },
   );
   return (

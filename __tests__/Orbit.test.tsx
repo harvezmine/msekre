@@ -45,3 +45,11 @@ test('cincin tidak dibaca sebagai tombol oleh pembaca layar', async () => {
   expect(screen.queryByRole('button', { name: 'Buka Terhubung' })).toBeNull();
   expect(screen.getAllByRole('button')).toHaveLength(1);
 });
+
+test('dijeda: aliran titik tidak pernah muncul', async () => {
+  await render(<Orbit nodes={nodes} flowEveryMs={3000} paused />);
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(9000);
+  });
+  expect(screen.queryByTestId('aliran-titik')).toBeNull();
+});

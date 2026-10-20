@@ -20,9 +20,11 @@ interface Props {
   onPressRing?: () => void;
   /** Jeda antar aliran titik. 0 mematikan aliran (dipakai tes). */
   flowEveryMs?: number;
+  /** Layar tak terlihat atau aplikasi di latar: tanpa aliran titik dan Inti diam. */
+  paused?: boolean;
 }
 
-export function Orbit({ nodes, intiState = 'idle', onPressInti, onLongPressInti, onPressRing, flowEveryMs = 3000 }: Props) {
+export function Orbit({ nodes, intiState = 'idle', onPressInti, onLongPressInti, onPressRing, flowEveryMs = 3000, paused = false }: Props) {
   const { c, scheme } = useTheme();
   const { width } = useWindowDimensions();
   // Desain 360 lebar di layar 412. Di layar 360, semuanya diperkecil kecuali simpul (tetap 44, mudah disentuh).
@@ -35,14 +37,14 @@ export function Orbit({ nodes, intiState = 'idle', onPressInti, onLongPressInti,
   const [flow, setFlow] = useState<{ node: number; tick: number } | null>(null);
 
   useEffect(() => {
-    if (!flowEveryMs) return;
+    if (!flowEveryMs || paused) return;
     const live = nodes.flatMap((n, i) => (n.offline ? [] : [i]));
     if (!live.length) return;
     const id = setInterval(() => {
       setFlow((f) => ({ node: live[Math.floor(Math.random() * live.length)]!, tick: (f?.tick ?? 0) + 1 }));
     }, flowEveryMs);
     return () => clearInterval(id);
-  }, [nodes, flowEveryMs]);
+  }, [nodes, flowEveryMs, paused]);
 
   const flowLine = flow ? layout.nodes[flow.node]?.line : undefined;
   const iw = intiSize(intiPx).w;
@@ -68,7 +70,7 @@ export function Orbit({ nodes, intiState = 'idle', onPressInti, onLongPressInti,
       {layout.nodes.map((p, i) => (
         <Node key={nodes[i]!.key} node={nodes[i]!} x={p.x} y={p.y} />
       ))}
-      {flow && flowLine && <FlowDot key={flow.tick} from={{ x: flowLine.x2, y: flowLine.y2 }} to={{ x: flowLine.x1, y: flowLine.y1 }} />}
+      {flow && flowLine && !paused && <FlowDot key={flow.tick} from={{ x: flowLine.x2, y: flowLine.y2 }} to={{ x: flowLine.x1, y: flowLine.y1 }} />}
       <Pressable
         onPress={onPressInti}
         onLongPress={onLongPressInti}
@@ -82,7 +84,7 @@ export function Orbit({ nodes, intiState = 'idle', onPressInti, onLongPressInti,
         }}
         style={{ position: 'absolute', left: layout.cx - iw / 2, top: layout.cy - intiPx / 2 }}
       >
-        <Inti size={intiPx} state={intiState} onDark={scheme === 'dark'} />
+        <Inti size={intiPx} state={intiState} onDark={scheme === 'dark'} paused={paused} />
       </Pressable>
     </Pressable>
   );

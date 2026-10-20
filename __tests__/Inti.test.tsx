@@ -66,3 +66,32 @@ test('warna titik: hijau muda di latar gelap, hijau tua di latar terang', async 
   await render(<Inti size={140} />);
   expect(StyleSheet.flatten(screen.getByTestId('inti-titik-0').props.style).backgroundColor).toBe('#2A8A5C');
 });
+
+test('dijeda: napas tetap skala 1, sedangkan tanpa jeda ia membesar', async () => {
+  const scale = () => getAnimatedStyle(screen.getByTestId('inti-napas')).transform?.[0]?.scale ?? 1;
+  await render(<Inti size={140} state="idle" />);
+  await act(async () => {
+    jest.advanceTimersByTime(2000);
+  });
+  expect(scale()).toBeGreaterThan(1.005);
+  await screen.rerender(<Inti size={140} state="idle" paused />);
+  await act(async () => {
+    jest.advanceTimersByTime(2000);
+  });
+  expect(scale()).toBe(1);
+});
+
+test('dijeda saat berpikir: titik tetap terang di tempat, saat berbicara: gelombang tersembunyi', async () => {
+  await render(<Inti size={140} state="think" paused />);
+  await act(async () => {
+    jest.advanceTimersByTime(300);
+  });
+  const dot = getAnimatedStyle(screen.getByTestId('inti-titik-0'));
+  expect(dot.opacity).toBe(1);
+  expect(dot.transform).toEqual([{ translateY: 0 }]);
+  await screen.rerender(<Inti size={140} state="speak" paused />);
+  await act(async () => {
+    jest.advanceTimersByTime(1000);
+  });
+  for (let i = 0; i < 3; i++) expect(getAnimatedStyle(screen.getByTestId(`inti-gelombang-${i}`)).opacity).toBe(0);
+});

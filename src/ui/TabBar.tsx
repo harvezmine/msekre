@@ -1,12 +1,14 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
+import { useContext } from 'react';
 import { Pressable, View } from 'react-native';
 import { DEFAULT_ASSISTANT } from '@/brand';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from './Icon';
 import type { IconName } from './icons';
 import { Inti } from './inti/Inti';
+import { TabsLiveContext } from './TabsLiveContext';
 import { Txt } from './Txt';
 
 const TABS: Record<string, { label: string; icon: IconName }> = {
@@ -19,6 +21,7 @@ const TABS: Record<string, { label: string; icon: IconName }> = {
 /** Beranda · Agenda · [Inti] · Perangkat · Usaha. Inti bukan tab: ketuk membuka chat, tahan membuka Mode Suara. */
 export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const { c, scheme } = useTheme();
+  const live = useContext(TabsLiveContext);
 
   const openVoice = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -92,7 +95,7 @@ export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarPr
               justifyContent: 'center',
             }}
           >
-            <Inti size={50} onDark={scheme === 'dark'} />
+            <Inti size={50} onDark={scheme === 'dark'} paused={!live} />
           </View>
           <Txt v="caption" weight={600}>
             {DEFAULT_ASSISTANT}
