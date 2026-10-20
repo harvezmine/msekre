@@ -24,7 +24,15 @@ export default function Beranda() {
   return (
     <View style={{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top }}>
       <ScrollView contentContainerStyle={{ paddingTop: 8, paddingBottom: 24 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 12, paddingRight: 16 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingLeft: 12,
+            paddingRight: 16,
+          }}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Tempat: ${d.place}`}
@@ -48,7 +56,14 @@ export default function Beranda() {
             accessibilityRole="button"
             accessibilityLabel="Akun"
             onLongPress={__DEV__ ? () => router.push('/inti') : undefined}
-            style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.mint, alignItems: 'center', justifyContent: 'center' }}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: c.mint,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
             <Txt weight={700} color={c.green} style={{ fontSize: 15 }}>
               {d.initials}
@@ -91,7 +106,13 @@ export default function Beranda() {
               accessibilityRole="button"
               accessibilityLabel="Lihat"
               onPress={() => router.navigate('/chat')}
-              style={{ height: 48, borderRadius: 24, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center' }}
+              style={{
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: c.green,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
               <Txt weight={600} color={c.onGreen}>
                 Lihat
@@ -100,7 +121,9 @@ export default function Beranda() {
           </View>
 
           <Card style={{ paddingBottom: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}
+            >
               <Txt v="subtitle">Agenda hari ini</Txt>
               <Pressable
                 accessibilityRole="link"

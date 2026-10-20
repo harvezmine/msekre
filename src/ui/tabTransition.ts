@@ -10,7 +10,9 @@ const SHIFT = 8;
 export const tabSceneInterpolator: BottomTabSceneStyleInterpolator = ({ current }) => ({
   sceneStyle: {
     opacity: current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange: [0, 1, 0] }),
-    transform: [{ translateX: current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange: [-SHIFT, 0, SHIFT] }) }],
+    transform: [
+      { translateX: current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange: [-SHIFT, 0, SHIFT] }) },
+    ],
   },
 });
 

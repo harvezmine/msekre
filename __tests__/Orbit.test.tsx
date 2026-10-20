@@ -20,7 +20,13 @@ test('ketuk Inti, tahan Inti, dan ketuk cincin memanggil aksinya masing-masing',
   const onLongPressInti = jest.fn();
   const onPressRing = jest.fn();
   await render(
-    <Orbit nodes={nodes} flowEveryMs={0} onPressInti={onPressInti} onLongPressInti={onLongPressInti} onPressRing={onPressRing} />,
+    <Orbit
+      nodes={nodes}
+      flowEveryMs={0}
+      onPressInti={onPressInti}
+      onLongPressInti={onLongPressInti}
+      onPressRing={onPressRing}
+    />,
   );
   const inti = screen.getByRole('button', { name: 'Bicara dengan Nadia' });
   await fireEvent.press(inti);

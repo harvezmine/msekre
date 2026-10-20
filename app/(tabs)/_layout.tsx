@@ -1,9 +1,9 @@
-import { Tabs } from "expo-router/js-tabs";
-import { useReducedMotion } from "react-native-reanimated";
-import { TabsLiveContext } from "@/ui/TabsLiveContext";
-import { useLive } from "@/ui/useLive";
-import { TabBar } from "@/ui/TabBar";
-import { tabSceneInterpolator, tabTransitionSpec } from "@/ui/tabTransition";
+import { Tabs } from 'expo-router/js-tabs';
+import { useReducedMotion } from 'react-native-reanimated';
+import { TabsLiveContext } from '@/ui/TabsLiveContext';
+import { useLive } from '@/ui/useLive';
+import { TabBar } from '@/ui/TabBar';
+import { tabSceneInterpolator, tabTransitionSpec } from '@/ui/tabTransition';
 
 export default function TabsLayout() {
   // Hapus Animasi dinyalakan: pindah tab tanpa gerak.
@@ -17,7 +17,7 @@ export default function TabsLayout() {
         screenOptions={{
           headerShown: false,
           ...(reduce
-            ? { animation: "none" as const }
+            ? { animation: 'none' as const }
             : {
                 sceneStyleInterpolator: tabSceneInterpolator,
                 transitionSpec: tabTransitionSpec,

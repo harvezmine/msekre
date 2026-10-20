@@ -49,7 +49,11 @@ test('Ulangi contoh mengulang dari mendengar', async () => {
 });
 
 test('useTimeline: restart dan bersih saat dilepas', async () => {
-  const steps = [{ at: 0, n: 0 }, { at: 100, n: 1 }, { at: 300, n: 2 }];
+  const steps = [
+    { at: 0, n: 0 },
+    { at: 100, n: 1 },
+    { at: 300, n: 2 },
+  ];
   const set = jest.spyOn(globalThis, 'setTimeout');
   const clear = jest.spyOn(globalThis, 'clearTimeout');
   const { result, unmount } = await renderHook(() => useTimeline(steps));

@@ -51,8 +51,12 @@ export function Inti({ size, state = 'idle', onDark = false, paused = false }: P
           <Ring id={1} frame={circle(size * 1.48)} border={1.5} opacity={0.35} delay={250} reduce={reduce} />
         </>
       )}
-      {state === 'speak' && [0, 1, 2].map((i) => <Wave key={i} index={i} frame={circle(size * 1.08)} reduce={reduce} paused={paused} />)}
-      <View testID="inti-inti" style={[StyleSheet.absoluteFill, state === 'off' ? { opacity: 0.35, filter: [{ grayscale: 0.8 }] } : null]}>
+      {state === 'speak' &&
+        [0, 1, 2].map((i) => <Wave key={i} index={i} frame={circle(size * 1.08)} reduce={reduce} paused={paused} />)}
+      <View
+        testID="inti-inti"
+        style={[StyleSheet.absoluteFill, state === 'off' ? { opacity: 0.35, filter: [{ grayscale: 0.8 }] } : null]}
+      >
         <Breath active={(state === 'idle' || state === 'speak') && !reduce}>
           <Image source={onDark ? RIBBON_LIGHT : RIBBON} style={{ width: w, height: h }} resizeMode="contain" />
           {DOT_X.map((x, i) => (
@@ -83,11 +87,29 @@ function Breath({ active, children }: { active: boolean; children: ReactNode }) 
     );
   }, [active, s]);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: s.get() }] }));
-  return <Animated.View testID="inti-napas" style={[StyleSheet.absoluteFill, { transformOrigin: '50% 55%' }, style]}>{children}</Animated.View>;
+  return (
+    <Animated.View testID="inti-napas" style={[StyleSheet.absoluteFill, { transformOrigin: '50% 55%' }, style]}>
+      {children}
+    </Animated.View>
+  );
 }
 
 /** Berpikir: tiap titik naik dan terang bergantian, jeda 180 ms, satu siklus 1,2 detik. */
-function Dot({ index, left, top, d, color, pulse }: { index: number; left: number; top: number; d: number; color: string; pulse: boolean }) {
+function Dot({
+  index,
+  left,
+  top,
+  d,
+  color,
+  pulse,
+}: {
+  index: number;
+  left: number;
+  top: number;
+  d: number;
+  color: string;
+  pulse: boolean;
+}) {
   const t = useSharedValue(0);
   useEffect(() => {
     t.set(
@@ -95,7 +117,11 @@ function Dot({ index, left, top, d, color, pulse }: { index: number; left: numbe
         ? withDelay(
             index * 180,
             withRepeat(
-              withSequence(withTiming(1, { duration: 420 }), withTiming(0, { duration: 420 }), withTiming(0, { duration: 360 })),
+              withSequence(
+                withTiming(1, { duration: 420 }),
+                withTiming(0, { duration: 420 }),
+                withTiming(0, { duration: 360 }),
+              ),
               -1,
             ),
           )
@@ -110,13 +136,30 @@ function Dot({ index, left, top, d, color, pulse }: { index: number; left: numbe
   return (
     <Animated.View
       testID={`inti-titik-${index}`}
-      style={[{ position: 'absolute', left, top, width: d, height: d, borderRadius: d / 2, backgroundColor: color }, style]}
+      style={[
+        { position: 'absolute', left, top, width: d, height: d, borderRadius: d / 2, backgroundColor: color },
+        style,
+      ]}
     />
   );
 }
 
 /** Mendengar: cincin berdenyut tak beraturan, satu siklus 1,4 detik. */
-function Ring({ id, frame, border, opacity, delay, reduce }: { id: number; frame: Frame; border: number; opacity: number; delay: number; reduce: boolean }) {
+function Ring({
+  id,
+  frame,
+  border,
+  opacity,
+  delay,
+  reduce,
+}: {
+  id: number;
+  frame: Frame;
+  border: number;
+  opacity: number;
+  delay: number;
+  reduce: boolean;
+}) {
   const s = useSharedValue(1);
   useEffect(() => {
     if (reduce) {
@@ -124,7 +167,12 @@ function Ring({ id, frame, border, opacity, delay, reduce }: { id: number; frame
       s.set(1);
       return;
     }
-    s.set(withDelay(delay, withRepeat(withSequence(...LISTEN_SCALE.map((v, i) => withTiming(v, { duration: LISTEN_MS[i] }))), -1)));
+    s.set(
+      withDelay(
+        delay,
+        withRepeat(withSequence(...LISTEN_SCALE.map((v, i) => withTiming(v, { duration: LISTEN_MS[i] }))), -1),
+      ),
+    );
   }, [reduce, delay, s]);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: s.get() }] }));
   return (
@@ -158,9 +206,6 @@ function Wave({ index, frame, reduce, paused }: { index: number; frame: Frame; r
       : { opacity: 0.55 * (1 - t.get()), transform: [{ scale: 1 + 0.5 * t.get() }] },
   );
   return (
-    <Animated.View
-      testID={`inti-gelombang-${index}`}
-      style={[frame, { borderWidth: 1.5, borderColor: SAGE }, style]}
-    />
+    <Animated.View testID={`inti-gelombang-${index}`} style={[frame, { borderWidth: 1.5, borderColor: SAGE }, style]} />
   );
 }

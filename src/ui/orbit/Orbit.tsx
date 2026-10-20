@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { DEFAULT_ASSISTANT } from '@/brand';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -24,7 +30,15 @@ interface Props {
   paused?: boolean;
 }
 
-export function Orbit({ nodes, intiState = 'idle', onPressInti, onLongPressInti, onPressRing, flowEveryMs = 3000, paused = false }: Props) {
+export function Orbit({
+  nodes,
+  intiState = 'idle',
+  onPressInti,
+  onLongPressInti,
+  onPressRing,
+  flowEveryMs = 3000,
+  paused = false,
+}: Props) {
   const { c, scheme } = useTheme();
   const { width } = useWindowDimensions();
   // Desain 360 lebar di layar 412. Di layar 360, semuanya diperkecil kecuali simpul (tetap 44, mudah disentuh).
@@ -50,7 +64,15 @@ export function Orbit({ nodes, intiState = 'idle', onPressInti, onLongPressInti,
   const iw = intiSize(intiPx).w;
 
   return (
-    <Pressable onPress={onPressRing} disabled={!onPressRing} accessible={false} focusable={false} importantForAccessibility="no" testID="cincin" style={{ width: W, height: H }}>
+    <Pressable
+      onPress={onPressRing}
+      disabled={!onPressRing}
+      accessible={false}
+      focusable={false}
+      importantForAccessibility="no"
+      testID="cincin"
+      style={{ width: W, height: H }}
+    >
       <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
         <Circle cx={layout.cx} cy={layout.cy} r={r} fill="none" stroke={c.sage} strokeOpacity={0.55} strokeWidth={1} />
         {layout.nodes.map((p, i) => (
@@ -70,7 +92,9 @@ export function Orbit({ nodes, intiState = 'idle', onPressInti, onLongPressInti,
       {layout.nodes.map((p, i) => (
         <Node key={nodes[i]!.key} node={nodes[i]!} x={p.x} y={p.y} />
       ))}
-      {flow && flowLine && !paused && <FlowDot key={flow.tick} from={{ x: flowLine.x2, y: flowLine.y2 }} to={{ x: flowLine.x1, y: flowLine.y1 }} />}
+      {flow && flowLine && !paused && (
+        <FlowDot key={flow.tick} from={{ x: flowLine.x2, y: flowLine.y2 }} to={{ x: flowLine.x1, y: flowLine.y1 }} />
+      )}
       <Pressable
         onPress={onPressInti}
         onLongPress={onLongPressInti}

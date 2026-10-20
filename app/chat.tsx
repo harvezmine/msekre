@@ -119,7 +119,14 @@ export default function Chat() {
           accessibilityRole="button"
           accessibilityLabel="Bicara"
           onPress={() => router.replace('/suara')}
-          style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center' }}
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 26,
+            backgroundColor: c.green,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
           <Icon name="mic" size={24} color={c.onGreen} />
         </Pressable>

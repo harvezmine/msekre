@@ -1,19 +1,19 @@
-import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
-import { useEffect } from "react";
-import { StatusBar } from "expo-status-bar";
-import { Pressable, ScrollView, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { DEFAULT_ASSISTANT } from "@/brand";
-import { VOICE_SAMPLE } from "@/sample/voice";
-import { useTheme } from "@/theme/ThemeProvider";
-import { onForest } from "@/theme/tokens";
-import { Icon } from "@/ui/Icon";
-import type { IconName } from "@/ui/icons";
-import { Inti } from "@/ui/inti/Inti";
-import { Txt } from "@/ui/Txt";
-import { useLive } from "@/ui/useLive";
-import { useTimeline } from "@/ui/useTimeline";
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { useEffect } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DEFAULT_ASSISTANT } from '@/brand';
+import { VOICE_SAMPLE } from '@/sample/voice';
+import { useTheme } from '@/theme/ThemeProvider';
+import { onForest } from '@/theme/tokens';
+import { Icon } from '@/ui/Icon';
+import type { IconName } from '@/ui/icons';
+import { Inti } from '@/ui/inti/Inti';
+import { Txt } from '@/ui/Txt';
+import { useLive } from '@/ui/useLive';
+import { useTimeline } from '@/ui/useTimeline';
 
 // Fase 0: isi contoh. Rekaman, teks langsung, dan suara balasan dibangun di Fase 6.
 export default function Suara() {
@@ -40,12 +40,7 @@ export default function Suara() {
           <Txt v="caption" color={onForest.soft}>
             Anda
           </Txt>
-          <Txt
-            weight={500}
-            color={onForest.text}
-            style={{ fontSize: 20, lineHeight: 28 }}
-            maxFontSizeMultiplier={1.4}
-          >
+          <Txt weight={500} color={onForest.text} style={{ fontSize: 20, lineHeight: 28 }} maxFontSizeMultiplier={1.4}>
             {step.you}
             {step.youRest ? <Text style={{ color: onForest.hint }}>{step.youRest}</Text> : null}
           </Txt>
@@ -55,24 +50,15 @@ export default function Suara() {
             flex: 1,
             minHeight: 240,
             maxHeight: 340,
-            alignItems: "center",
-            justifyContent: "center",
-            alignSelf: "stretch",
+            alignItems: 'center',
+            justifyContent: 'center',
+            alignSelf: 'stretch',
           }}
         >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Ulangi contoh"
-            onPress={restart}
-          >
+          <Pressable accessibilityRole="button" accessibilityLabel="Ulangi contoh" onPress={restart}>
             <Inti size={200} state={step.state} onDark paused={!live} />
           </Pressable>
-          <Txt
-            v="caption"
-            color={onForest.soft}
-            accessibilityLiveRegion="polite"
-            style={{ marginTop: 12 }}
-          >
+          <Txt v="caption" color={onForest.soft} accessibilityLiveRegion="polite" style={{ marginTop: 12 }}>
             {step.label}
           </Txt>
         </View>
@@ -97,8 +83,8 @@ export default function Suara() {
           style={{
             paddingHorizontal: 20,
             paddingTop: 24,
-            flexDirection: "row",
-            alignItems: "flex-start",
+            flexDirection: 'row',
+            alignItems: 'flex-start',
           }}
         >
           <RoundAction icon="micOff" label="Bisukan mic" />
@@ -111,7 +97,7 @@ export default function Suara() {
               paddingHorizontal: 40,
               borderRadius: 28,
               backgroundColor: onForest.strong,
-              justifyContent: "center",
+              justifyContent: 'center',
             }}
           >
             {/* warna forest di atas tombol terang, sama di dua mode */}
@@ -119,28 +105,16 @@ export default function Suara() {
               Selesai
             </Txt>
           </Pressable>
-          <RoundAction
-            icon="keyboard"
-            label="Pindah ke ketik"
-            onPress={() => router.replace("/chat")}
-          />
+          <RoundAction icon="keyboard" label="Pindah ke ketik" onPress={() => router.replace('/chat')} />
         </View>
       </ScrollView>
     </View>
   );
 }
 
-function RoundAction({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: IconName;
-  label: string;
-  onPress?: () => void;
-}) {
+function RoundAction({ icon, label, onPress }: { icon: IconName; label: string; onPress?: () => void }) {
   return (
-    <View style={{ flex: 1, alignItems: "center", gap: 8 }}>
+    <View style={{ flex: 1, alignItems: 'center', gap: 8 }}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -152,13 +126,13 @@ function RoundAction({
           borderWidth: 1,
           borderColor: onForest.buttonLine,
           backgroundColor: onForest.button,
-          alignItems: "center",
-          justifyContent: "center",
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         <Icon name={icon} size={24} color={onForest.text} />
       </Pressable>
-      <Txt v="caption" color={onForest.label} style={{ textAlign: "center" }}>
+      <Txt v="caption" color={onForest.label} style={{ textAlign: 'center' }}>
         {label}
       </Txt>
     </View>
