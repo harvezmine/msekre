@@ -1,19 +1,27 @@
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
+import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_ASSISTANT } from "@/brand";
+import { VOICE_SAMPLE } from "@/sample/voice";
 import { useTheme } from "@/theme/ThemeProvider";
 import { onForest } from "@/theme/tokens";
 import { Icon } from "@/ui/Icon";
 import type { IconName } from "@/ui/icons";
 import { Inti } from "@/ui/inti/Inti";
 import { Txt } from "@/ui/Txt";
+import { useTimeline } from "@/ui/useTimeline";
 
 // Fase 0: isi contoh. Rekaman, teks langsung, dan suara balasan dibangun di Fase 6.
 export default function Suara() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
+  const { step, restart } = useTimeline(VOICE_SAMPLE);
+  useEffect(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
   return (
     <View style={{ flex: 1, backgroundColor: c.voice }}>
       <StatusBar style="light" />
@@ -36,8 +44,8 @@ export default function Suara() {
             style={{ fontSize: 20, lineHeight: 28 }}
             maxFontSizeMultiplier={1.4}
           >
-            Matikan AC kamar dan ingatkan saya jam 7 pagi{" "}
-            <Text style={{ color: onForest.hint }}>berangkat ke bandara.</Text>
+            {step.you}
+            {step.youRest ? <Text style={{ color: onForest.hint }}>{step.youRest}</Text> : null}
           </Txt>
         </View>
         <View
@@ -50,20 +58,38 @@ export default function Suara() {
             alignSelf: "stretch",
           }}
         >
-          <Inti size={200} state="speak" onDark />
-        </View>
-        <View style={{ paddingHorizontal: 28, gap: 8 }}>
-          <Txt v="caption" color={onForest.soft}>
-            {DEFAULT_ASSISTANT}
-          </Txt>
-          <Txt
-            weight={600}
-            color={onForest.strong}
-            style={{ fontSize: 26, lineHeight: 34, letterSpacing: -0.26 }}
-            maxFontSizeMultiplier={1.4}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ulangi contoh"
+            onPress={restart}
           >
-            Siap. AC kamar sudah mati, dan alarm jam 07.00 sudah saya pasang.
+            <Inti size={200} state={step.state} onDark />
+          </Pressable>
+          <Txt
+            v="caption"
+            color={onForest.soft}
+            accessibilityLiveRegion="polite"
+            style={{ marginTop: 12 }}
+          >
+            {step.label}
           </Txt>
+        </View>
+        <View style={{ paddingHorizontal: 28, gap: 8, minHeight: 72 }}>
+          {step.reply ? (
+            <>
+              <Txt v="caption" color={onForest.soft}>
+                {DEFAULT_ASSISTANT}
+              </Txt>
+              <Txt
+                weight={600}
+                color={onForest.strong}
+                style={{ fontSize: 26, lineHeight: 34, letterSpacing: -0.26 }}
+                maxFontSizeMultiplier={1.4}
+              >
+                {step.reply}
+              </Txt>
+            </>
+          ) : null}
         </View>
         <View
           style={{
