@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSecurity } from '@/api/useSecurity';
 import { ROUTINES, routineActions, routineDone, type Routine } from '@/sample/routines';
 import { PLACES, useSample, type Device } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -24,6 +25,7 @@ export default function Perangkat() {
   const { width } = useWindowDimensions();
   const { state, dispatch } = useSample();
   const [picked, setPicked] = useState<string | null>(null);
+  const security = useSecurity({ load: false });
 
   const all = state.place === 'Semua';
   const placeDevices = state.devices.filter((d) => all || d.place === state.place);
@@ -31,16 +33,20 @@ export default function Perangkat() {
   const room = picked && rooms.includes(picked) ? picked : rooms[0]!;
   const tileWidth = (width - 32 - GAP) / 2;
 
-  const toggle = (d: Device, next: boolean) => {
-    if (!next && d.needsPin) router.push({ pathname: '/pin', params: { id: d.id } });
-    else dispatch({ type: 'toggleDevice', id: d.id, on: next });
+  const toggle = async (d: Device, next: boolean) => {
+    // PIN opsional (bawaan mati): aksi yang dijaga hanya minta PIN bila pemilik mengaktifkannya di Akun > Keamanan.
+    if (!next && d.needsPin && (await security.pinRequired())) {
+      router.push({ pathname: '/pin', params: { id: d.id } });
+    } else {
+      dispatch({ type: 'toggleDevice', id: d.id, on: next });
+    }
   };
   const tile = (d: Device) => (
     <DeviceTile
       key={d.id}
       device={d}
       width={tileWidth}
-      onToggle={(next) => toggle(d, next)}
+      onToggle={(next) => void toggle(d, next)}
       onOpen={d.kind === 'ac' ? () => router.push({ pathname: '/perangkat/[id]', params: { id: d.id } }) : undefined}
     />
   );

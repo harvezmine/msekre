@@ -17,7 +17,11 @@ import {
   MESSAGES_LIMIT,
   okResSchema,
   partSchema,
+  pinSetReqSchema,
+  pinVerifyReqSchema,
   pushTokenReqSchema,
+  securityResSchema,
+  securityUpdateReqSchema,
   sendMessageReqSchema,
   sendMessageResSchema,
   streamEventSchema,
@@ -275,6 +279,8 @@ test('error', () => {
     'status_draf',
     'sudah_dipilih',
     'diblokir',
+    'pin_salah',
+    'belum_terdaftar',
     'perlu_pembaruan',
     'terlalu_sering',
     'server',
@@ -283,6 +289,21 @@ test('error', () => {
     ok(apiErrorSchema, { error });
   ok(apiErrorSchema, { error: 'terlalu_sering', retryInSec: 42 });
   bad(apiErrorSchema, { error: 'terlalu_sering', retryInSec: -1 });
+  ok(apiErrorSchema, { error: 'belum_terdaftar', waNumber: '6281100002222' });
+  bad(apiErrorSchema, { error: 'belum_terdaftar', waNumber: 'bukan nomor' });
   bad(apiErrorSchema, { error: 'lain' });
   bad(apiErrorSchema, {});
+});
+
+test('keamanan: PIN opsional, 6 angka', () => {
+  ok(securityResSchema, { pinEnabled: false, hasPin: false });
+  bad(securityResSchema, { pinEnabled: false });
+  ok(securityUpdateReqSchema, { pinEnabled: true });
+  bad(securityUpdateReqSchema, { pinEnabled: true, pin: '123456' });
+  ok(pinSetReqSchema, { pin: '123456' });
+  ok(pinSetReqSchema, { pin: '123456', currentPin: '654321' });
+  for (const pin of ['12345', '1234567', 'abcdef', '12 456', 123456]) bad(pinSetReqSchema, { pin });
+  bad(pinSetReqSchema, { pin: '123456', currentPin: '1' });
+  ok(pinVerifyReqSchema, { pin: '000000' });
+  bad(pinVerifyReqSchema, { pin: '00000' });
 });

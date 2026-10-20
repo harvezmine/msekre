@@ -1,5 +1,14 @@
 import type { Message, StreamEvent } from '@/api/contract';
-import { BLOCKED_TEXT, ERROR_TEXT, friendlyError, UNAVAILABLE_TEXT, UPGRADE_TEXT, WRONG_CODE_TEXT } from '@/api/errors';
+import {
+  BLOCKED_TEXT,
+  ERROR_TEXT,
+  friendlyError,
+  NOT_REGISTERED_TEXT,
+  WRONG_PIN_TEXT,
+  UNAVAILABLE_TEXT,
+  UPGRADE_TEXT,
+  WRONG_CODE_TEXT,
+} from '@/api/errors';
 import { CONNECT_TIMEOUT_MS, HttpTransport, REQUEST_TIMEOUT_MS, STREAM_SILENCE_MS, type SocketLike } from '@/api/http';
 import { createMemorySession, type Session } from '@/api/session';
 import { ApiFailure, type ConnectionStatus } from '@/api/transport';
@@ -729,6 +738,75 @@ describe('kegagalan khusus', () => {
     expect(friendlyError(e)).toBe(BLOCKED_TEXT);
     expect(BLOCKED_TEXT).toBe('Akun ini sedang tidak aktif. Hubungi tim Sekretaris AI lewat WhatsApp.');
     expect(await session.get()).toBe('tok');
+  });
+
+  test('404 belum terdaftar dari auth/start: nomor WhatsApp dari isi jawaban, tanpa menyimpan sesi', async () => {
+    const { session, transport } = setup({
+      token: null,
+      reply: () => ({ status: 404, body: { error: 'belum_terdaftar', waNumber: '6281100002222' } }),
+    });
+    const e = await transport.authStart({ phone: '6281200000000' }).catch((x: unknown) => x);
+    expect(e).toMatchObject({
+      code: 'not_registered',
+      status: 404,
+      error: 'belum_terdaftar',
+      waNumber: '6281100002222',
+    });
+    expect(friendlyError(e)).toBe(NOT_REGISTERED_TEXT);
+    expect(await session.get()).toBeNull();
+  });
+
+  test('404 belum terdaftar tanpa nomor, atau dengan nomor rusak: waNumber kosong; 404 lain tetap kendala server', async () => {
+    for (const body of [{ error: 'belum_terdaftar' }, { error: 'belum_terdaftar', waNumber: 'abc' }]) {
+      const { transport } = setup({ token: null, reply: () => ({ status: 404, body }) });
+      const e = await transport.authStart({ phone: '6281200000000' }).catch((x: unknown) => x);
+      expect(e).toMatchObject({ code: 'not_registered', waNumber: undefined });
+    }
+    const other = setup({ reply: () => ({ status: 404, body: { error: 'tidak_ditemukan' } }) });
+    await expect(other.transport.me()).rejects.toMatchObject({ code: 'server', status: 404 });
+  });
+
+  test('keamanan: GET/PUT /account/security dan POST /account/pin dengan token', async () => {
+    const res = { pinEnabled: true, hasPin: true };
+    const { fetch, transport } = setup({ reply: () => ({ body: res }) });
+    expect(await transport.security()).toEqual(res);
+    expect(call(fetch, 0)).toMatchObject({ url: `${BASE}/app/v1/account/security`, method: 'GET' });
+    expect(await transport.setSecurity({ pinEnabled: true })).toEqual(res);
+    expect(call(fetch, 1)).toMatchObject({
+      url: `${BASE}/app/v1/account/security`,
+      method: 'PUT',
+      body: JSON.stringify({ pinEnabled: true }),
+    });
+    expect(call(fetch, 1).headers.Authorization).toBe('Bearer tok');
+    await transport.setPin({ pin: '654321', currentPin: '123456' });
+    expect(call(fetch, 2)).toMatchObject({
+      url: `${BASE}/app/v1/account/pin`,
+      method: 'POST',
+      body: JSON.stringify({ pin: '654321', currentPin: '123456' }),
+    });
+    await expect(setup({ reply: () => ({ body: { pinEnabled: 'ya' } }) }).transport.security()).rejects.toMatchObject({
+      code: 'server',
+    });
+  });
+
+  test('verifikasi PIN: ok = benar, 403 pin_salah = salah (sesi tetap, bukan diblokir), kendala lain dilempar', async () => {
+    const good = setup({ reply: () => ({ body: { ok: true } }) });
+    expect(await good.transport.verifyPin('123456')).toBe(true);
+    expect(call(good.fetch)).toMatchObject({
+      url: `${BASE}/app/v1/account/pin/verify`,
+      method: 'POST',
+      body: JSON.stringify({ pin: '123456' }),
+    });
+    const wrong = setup({ reply: () => ({ status: 403, body: { error: 'pin_salah' } }) });
+    expect(await wrong.transport.verifyPin('111111')).toBe(false);
+    expect(await wrong.session.get()).toBe('tok');
+    const change = await wrong.transport.setPin({ pin: '654321', currentPin: '111111' }).catch((x: unknown) => x);
+    expect(change).toMatchObject({ code: 'pin_wrong', status: 403, error: 'pin_salah' });
+    expect(friendlyError(change)).toBe(WRONG_PIN_TEXT);
+    const blocked = setup({ reply: () => ({ status: 403, body: { error: 'diblokir' } }) });
+    await expect(blocked.transport.verifyPin('123456')).rejects.toMatchObject({ code: 'blocked' });
+    const down = setup({ reply: () => ({ status: 500, body: { error: 'server' } }) });
+    await expect(down.transport.verifyPin('123456')).rejects.toMatchObject({ code: 'server' });
   });
 
   test('426 perlu pembaruan', async () => {

@@ -12,6 +12,8 @@ import {
   MESSAGES_LIMIT,
   MESSAGES_LIMIT_MAX,
   okResSchema,
+  securityResSchema,
+  waNumberSchema,
   WS_CLOSE_UNAUTHORIZED,
   type AuthStartReq,
   type AuthStartRes,
@@ -25,8 +27,11 @@ import {
   type Message,
   type MessagesPage,
   type MessagesChangedPage,
+  type PinSetReq,
   type PushTokenDeleteReq,
   type PushTokenReq,
+  type SecurityRes,
+  type SecurityUpdateReq,
   type SendMessageReq,
   type StreamEvent,
 } from './contract';
@@ -74,7 +79,7 @@ export interface HttpOptions {
   random?: () => number;
 }
 
-type Method = 'GET' | 'POST' | 'DELETE';
+type Method = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
 /** Transport ke server asli: HTTP `/app/v1/*` dan WebSocket `/app/v1/stream`. */
 export class HttpTransport implements Transport {
@@ -181,6 +186,28 @@ export class HttpTransport implements Transport {
 
   async unregisterPushToken(req: PushTokenDeleteReq): Promise<void> {
     await this.request('DELETE', '/push-tokens', okResSchema, { body: req, auth: false });
+  }
+
+  security(): Promise<SecurityRes> {
+    return this.request('GET', '/account/security', securityResSchema);
+  }
+
+  setSecurity(req: SecurityUpdateReq): Promise<SecurityRes> {
+    return this.request('PUT', '/account/security', securityResSchema, { body: req });
+  }
+
+  setPin(req: PinSetReq): Promise<SecurityRes> {
+    return this.request('POST', '/account/pin', securityResSchema, { body: req });
+  }
+
+  async verifyPin(pin: string): Promise<boolean> {
+    try {
+      await this.request('POST', '/account/pin/verify', okResSchema, { body: { pin } });
+      return true;
+    } catch (e) {
+      if (e instanceof ApiFailure && e.code === 'pin_wrong') return false;
+      throw e;
+    }
   }
 
   async controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard> {
@@ -493,11 +520,20 @@ function defaultSocket(url: string, headers: Record<string, string>): SocketLike
 function failureFor(status: number, data: unknown): ApiFailure {
   const error = errorCode(data);
   const details = { status, error };
+  if (status === 403 && error === 'pin_salah') return new ApiFailure('pin_wrong', details);
   if (status === 403) return new ApiFailure('blocked', details);
+  if (status === 404 && error === 'belum_terdaftar') {
+    return new ApiFailure('not_registered', { ...details, waNumber: waNumber(data) });
+  }
   if (status === 426) return new ApiFailure('upgrade_required', details);
   if (status === 429) return new ApiFailure('rate_limited', { ...details, retryInSec: retryInSec(data) });
   if (status === 501) return new ApiFailure('unavailable', details);
   return new ApiFailure(error === 'kode_salah' ? 'kode_salah' : 'server', details);
+}
+
+function waNumber(data: unknown): string | undefined {
+  const raw = (data as { waNumber?: unknown } | null | undefined)?.waNumber;
+  return typeof raw === 'string' && waNumberSchema.safeParse(raw).success ? raw : undefined;
 }
 
 function retryInSec(data: unknown): number | undefined {

@@ -1,3 +1,4 @@
+import * as Sharing from 'expo-sharing';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
@@ -290,15 +291,17 @@ test('pola QR contoh selalu sama dan punya tiga mata penjuru', () => {
   expect(a.length).toBeGreaterThan(150);
 });
 
-test('tidak ada tombol mati: Baca notulen, Buka, Bagikan, dan Lampiran memunculkan toast', async () => {
+test('tidak ada tombol mati: Baca notulen dan Lampiran memunculkan toast; Buka dan Bagikan mengunduh berkas contoh', async () => {
   await renderChat();
   await fireEvent.press(screen.getByRole('link', { name: 'Baca notulen' }));
   expect(latest.toast?.text).toBe('Notulen lengkap tampil di Fase 1.');
   await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
-  await advance(0);
-  expect(latest.toast?.text).toBe('Membuka berkas contoh.');
+  for (let i = 0; i < 6; i++) await advance(300);
+  // iOS (bawaan tes): berkas contoh dibuka lewat lembar bagikan.
+  expect(Sharing.shareAsync).toHaveBeenCalledTimes(1);
   await fireEvent.press(screen.getByRole('button', { name: 'Bagikan' }));
-  expect(latest.toast?.text).toBe('Berbagi berkas dibangun di Fase 1.');
+  for (let i = 0; i < 6; i++) await advance(300);
+  expect(Sharing.shareAsync).toHaveBeenCalledTimes(2);
   await fireEvent.press(screen.getByRole('button', { name: 'Lampiran' }));
   expect(latest.toast?.text).toBe('Lampiran dibangun di Fase 1.');
 });

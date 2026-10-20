@@ -1,5 +1,11 @@
 import { HELD_MINUTES, messageSchema, streamEventSchema, type Message, type StreamEvent } from '@/api/contract';
-import { FAKE_RESEND_SEC, FakeTransport, type FakeOptions } from '@/api/fake/FakeTransport';
+import {
+  FAKE_RESEND_SEC,
+  FAKE_UNREGISTERED_SUFFIX,
+  FAKE_WA_NUMBER,
+  FakeTransport,
+  type FakeOptions,
+} from '@/api/fake/FakeTransport';
 import { SAMPLE_FILE_MEDIA_ID } from '@/api/fake/history';
 import { QRIS_MINUTES } from '@/api/fake/scenario';
 import { createMemorySession } from '@/api/session';
@@ -298,6 +304,55 @@ describe('runId', () => {
 });
 
 describe('paritas dengan server', () => {
+  test('authStart nomor berakhiran 0000: 404 belum_terdaftar dengan nomor WhatsApp, tanpa kode dikirim', async () => {
+    const { transport } = setup();
+    expect(FAKE_UNREGISTERED_SUFFIX).toBe('0000');
+    const e = await transport.authStart({ phone: '6281200000000' }).catch((x: unknown) => x);
+    expect(e).toMatchObject({
+      code: 'not_registered',
+      status: 404,
+      error: 'belum_terdaftar',
+      waNumber: FAKE_WA_NUMBER,
+    });
+    // Tidak ada kode yang diminta, jadi masuk juga ditolak.
+    await expect(transport.authVerify({ phone: '6281200000000', code: '123456' })).rejects.toMatchObject({
+      code: 'kode_salah',
+    });
+    const quiet = setup({ waNumber: null });
+    await expect(quiet.transport.authStart({ phone: '6281200000000' })).rejects.toMatchObject({
+      code: 'not_registered',
+      waNumber: undefined,
+    });
+  });
+
+  test('keamanan: bawaan PIN mati dan belum ada PIN; hidupkan butuh PIN; ganti butuh PIN lama', async () => {
+    const { transport } = setup();
+    expect(await transport.security()).toEqual({ pinEnabled: false, hasPin: false });
+    await expect(transport.setSecurity({ pinEnabled: true })).rejects.toMatchObject({ error: 'tidak_valid' });
+    expect(await transport.verifyPin('123456')).toBe(false);
+    expect(await transport.setPin({ pin: '123456' })).toEqual({ pinEnabled: false, hasPin: true });
+    expect(await transport.setSecurity({ pinEnabled: true })).toEqual({ pinEnabled: true, hasPin: true });
+    expect(await transport.verifyPin('123456')).toBe(true);
+    expect(await transport.verifyPin('123450')).toBe(false);
+    // Ganti: PIN lama wajib dan harus benar.
+    await expect(transport.setPin({ pin: '654321' })).rejects.toMatchObject({ error: 'tidak_valid' });
+    await expect(transport.setPin({ pin: '654321', currentPin: '000000' })).rejects.toMatchObject({
+      code: 'pin_wrong',
+      status: 403,
+      error: 'pin_salah',
+    });
+    await transport.setPin({ pin: '654321', currentPin: '123456' });
+    expect(await transport.verifyPin('654321')).toBe(true);
+    expect(await transport.verifyPin('123456')).toBe(false);
+    await expect(transport.verifyPin('12')).rejects.toMatchObject({ error: 'tidak_valid' });
+  });
+
+  test('keamanan awal dari opsi', async () => {
+    const { transport } = setup({ security: { pinEnabled: true, pin: '111222' } });
+    expect(await transport.security()).toEqual({ pinEnabled: true, hasPin: true });
+    expect(await transport.verifyPin('111222')).toBe(true);
+  });
+
   test('authStart diulang sebelum resendInSec: 429 terlalu_sering dengan sisa detik', async () => {
     const { transport } = setup();
     await transport.authStart({ phone: '628122045' });

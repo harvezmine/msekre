@@ -11,6 +11,8 @@ import type { ExpoConfig } from 'expo/config';
 //   EAS mengisi variabel itu dengan jalur berkasnya saat build.
 // - Alamat server: variabel `EXPO_PUBLIC_API_URL` (contoh `https://app.sekertaris.com`) saat build/`expo start`;
 //   kosong berarti mode server tidak bisa dipilih (hanya mode contoh).
+// - Nomor WhatsApp Sekretaris AI: `EXPO_PUBLIC_WA_NUMBER` (contoh `6281100002222`), cadangan untuk tombol "Mulai lewat
+//   WhatsApp" bila server tidak menyebut nomornya.
 const localGoogleServices = './google-services.json';
 const googleServicesFile =
   process.env.GOOGLE_SERVICES_JSON ??
@@ -56,6 +58,7 @@ const config: ExpoConfig = {
     'expo-font',
     'expo-status-bar',
     'expo-secure-store',
+    'expo-sharing',
     [
       'expo-notifications',
       {
@@ -67,6 +70,8 @@ const config: ExpoConfig = {
   ],
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? '',
+    // Nomor WhatsApp Sekretaris AI (62812..., tanpa +): cadangan bila server tidak menyebutnya di `belum_terdaftar`.
+    waNumber: process.env.EXPO_PUBLIC_WA_NUMBER ?? '',
   },
   experiments: {
     typedRoutes: true,

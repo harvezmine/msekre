@@ -49,3 +49,33 @@ jest.mock('expo-notifications', () => ({
   useLastNotificationResponse: jest.fn(() => null),
   clearLastNotificationResponse: jest.fn(),
 }));
+// Berkas, pembuka, dan lembar bagikan tanpa modul native: tiruan di memori (tes dokumen mengatur hasilnya sendiri).
+jest.mock('expo-file-system', () => {
+  class Directory {
+    uri: string;
+    constructor(...parts: unknown[]) {
+      this.uri = parts.map((p) => (typeof p === 'string' ? p : (p as { uri: string }).uri)).join('/');
+    }
+    create = jest.fn();
+  }
+  class File {
+    uri: string;
+    constructor(...parts: unknown[]) {
+      this.uri = parts.map((p) => (typeof p === 'string' ? p : (p as { uri: string }).uri)).join('/');
+    }
+    create = jest.fn();
+    write = jest.fn(() => Promise.resolve());
+    static downloadFileAsync = jest.fn((_url: string, destination: { uri: string }) =>
+      Promise.resolve(new File(destination.uri)),
+    );
+  }
+  return { Directory, File, Paths: { cache: new Directory('file:///cache') } };
+});
+jest.mock('expo-file-system/legacy', () => ({
+  getContentUriAsync: jest.fn((uri: string) => Promise.resolve(uri.replace('file://', 'content://'))),
+}));
+jest.mock('expo-intent-launcher', () => ({ startActivityAsync: jest.fn(() => Promise.resolve({ resultCode: -1 })) }));
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: jest.fn(() => Promise.resolve(true)),
+  shareAsync: jest.fn(() => Promise.resolve()),
+}));

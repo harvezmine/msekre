@@ -5,7 +5,6 @@ import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
-  Linking,
   Pressable,
   View,
   type NativeScrollEvent,
@@ -14,7 +13,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '@/api/ApiProvider';
-import { ERROR_TEXT, FILE_UNAVAILABLE_TEXT } from '@/api/errors';
 import { formatFileMeta } from '@/api/format';
 import { setChatFocused } from '@/api/pushPresence';
 import { useAssistantName } from '@/api/useProfile';
@@ -238,7 +236,6 @@ const SOON = {
   attach: 'Lampiran segera hadir.',
   audio: 'Pemutar suara segera hadir.',
   notes: 'Notulen lengkap segera hadir.',
-  share: 'Berbagi berkas segera hadir.',
 };
 
 /** Keterangan di bawah nama asisten. Akun diblokir atau aplikasi perlu diperbarui: tanpa keterangan (banner yang bicara). */
@@ -408,9 +405,13 @@ function PartView({
     case 'document':
       return (
         <FileCard
-          file={{ name: part.name, meta: formatFileMeta(part.sizeBytes, part.mime) }}
-          onOpen={() => void openFile(actions, part.mediaId, toast, contoh)}
-          onShare={contoh ? undefined : () => toast(SOON.share)}
+          file={{
+            mediaId: part.mediaId,
+            name: part.name,
+            mime: part.mime,
+            meta: formatFileMeta(part.sizeBytes, part.mime),
+          }}
+          mediaUrl={actions.mediaUrl}
         />
       );
     case 'card': {
@@ -455,24 +456,5 @@ function PartView({
           return <QrisCard qris={card} mediaUrl={actions.mediaUrl} />;
       }
     }
-  }
-}
-
-/**
- * Buka berkas. Mode contoh: berkas contoh hanya memberi tahu bahwa ini contoh. Mode server: alamat `/media/:id` butuh
- * token di header, jadi tidak boleh dibuka lewat `Linking` (tanpa token ditolak, dan token tidak boleh ikut di alamat);
- * sampai ada alamat bertanda tangan (docs/api-v1.md §2.10), pengguna diarahkan ke WhatsApp.
- */
-async function openFile(actions: ChatActions, mediaId: string, toast: (text: string) => void, contoh: boolean) {
-  if (!contoh) {
-    toast(FILE_UNAVAILABLE_TEXT);
-    return;
-  }
-  try {
-    const source = await actions.mediaUrl(mediaId);
-    if (source.kind !== 'uri') toast('Membuka berkas contoh.');
-    else await Linking.openURL(source.uri);
-  } catch {
-    toast(ERROR_TEXT);
   }
 }

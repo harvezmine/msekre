@@ -7,6 +7,7 @@ import Perangkat from '../app/(tabs)/perangkat';
 import Usaha from '../app/(tabs)/usaha';
 import TambahAgenda from '../app/agenda/tambah';
 import Akun from '../app/akun';
+import Keamanan from '../app/akun/keamanan';
 import Alarm from '../app/alarm';
 import Chat from '../app/chat';
 import Inti from '../app/inti';
@@ -43,6 +44,7 @@ export const ROUTES: Record<string, ComponentType> = {
   '/usaha': Usaha,
   '/agenda/tambah': TambahAgenda,
   '/akun': Akun,
+  '/akun/keamanan': Keamanan,
   '/alarm': Alarm,
   '/chat': Chat,
   '/inti': Inti,

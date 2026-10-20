@@ -1,7 +1,10 @@
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Linking } from 'react-native';
+import { FlatList, Platform } from 'react-native';
+import { File } from 'expo-file-system';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as Sharing from 'expo-sharing';
 import Chat from '../app/chat';
 import { createTestApi, renderWithProviders } from './helpers';
 import { ChatController, THINKING_MAX_MS } from '@/api/chatController';
@@ -13,7 +16,8 @@ import {
   BLOCKED_TEXT,
   DRAFT_CHANGED_TEXT,
   DRAFT_SENT_TEXT,
-  FILE_UNAVAILABLE_TEXT,
+  FILE_DOWNLOAD_TEXT,
+  FILE_NO_APP_TEXT,
   UNAVAILABLE_TEXT,
   UPGRADE_TEXT,
 } from '@/api/errors';
@@ -654,31 +658,122 @@ describe('pengendali bersama (ChatProvider)', () => {
   });
 });
 
-describe('dokumen di mode server', () => {
-  test('Buka tidak membuka alamat media yang butuh token: toast, tanpa Linking', async () => {
-    const open = jest.spyOn(Linking, 'openURL').mockImplementation(async () => {});
-    await mount({
-      history: [
-        message(1, [
-          {
-            type: 'document',
-            mediaId: 'contoh-laporan',
-            name: 'Laporan.pdf',
-            mime: 'application/pdf',
-            sizeBytes: 1000,
-          },
-        ]),
-      ],
-    });
+describe('dokumen: unduh lalu buka atau bagikan', () => {
+  const doc = message(1, [
+    { type: 'document', mediaId: 'contoh-laporan', name: 'Laporan.pdf', mime: 'application/pdf', sizeBytes: 1000 },
+  ]);
+  const real = { kind: 'uri', uri: 'https://x.test/app/v1/media/lap', headers: { Authorization: 'Bearer t' } } as const;
+
+  beforeEach(() => {
+    jest.mocked(File.downloadFileAsync).mockClear();
+    jest.mocked(IntentLauncher.startActivityAsync).mockClear().mockResolvedValue({ resultCode: -1 });
+    jest.mocked(Sharing.isAvailableAsync).mockResolvedValue(true);
+    jest.mocked(Sharing.shareAsync).mockClear().mockResolvedValue();
+  });
+
+  test('Buka mengunduh dengan header token lalu membukanya di aplikasi bawaan (Android)', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    const { fake } = await mount({ history: [doc] });
+    jest.spyOn(fake, 'mediaUrl').mockResolvedValue(real);
     await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
-    await advance(0);
-    expect(latest.toast?.text).toBe(FILE_UNAVAILABLE_TEXT);
-    expect(open).not.toHaveBeenCalled();
+    await settle();
+    expect(File.downloadFileAsync).toHaveBeenCalledWith(
+      'https://x.test/app/v1/media/lap',
+      expect.objectContaining({ uri: expect.stringMatching(/\/contoh-laporan\/Laporan\.pdf$/) }),
+      { headers: { Authorization: 'Bearer t' }, idempotent: true },
+    );
+    expect(IntentLauncher.startActivityAsync).toHaveBeenCalledWith('android.intent.action.VIEW', {
+      data: expect.stringMatching(/^content:\/\/.*Laporan\.pdf$/),
+      type: 'application/pdf',
+      flags: 1,
+    });
+    expect(Sharing.shareAsync).not.toHaveBeenCalled();
+    expect(latest.toast).toBeNull();
+    jest.restoreAllMocks();
+  });
+
+  test('tidak ada aplikasi pembuka: jatuh ke lembar bagikan; tanpa itu pun, toast ramah', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    const { fake } = await mount({ history: [doc] });
+    jest.spyOn(fake, 'mediaUrl').mockResolvedValue(real);
+    jest.mocked(IntentLauncher.startActivityAsync).mockRejectedValue(new Error('ActivityNotFoundException'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
+    await settle();
+    expect(Sharing.shareAsync).toHaveBeenCalledWith(expect.stringMatching(/Laporan\.pdf$/), {
+      mimeType: 'application/pdf',
+      dialogTitle: 'Laporan.pdf',
+    });
+    expect(latest.toast).toBeNull();
+    jest.mocked(Sharing.isAvailableAsync).mockResolvedValue(false);
+    await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
+    await settle();
+    expect(latest.toast?.text).toBe(FILE_NO_APP_TEXT);
+    jest.restoreAllMocks();
+  });
+
+  test('Bagikan mengunduh lalu membuka lembar bagikan', async () => {
+    const { fake } = await mount({ history: [doc] });
+    jest.spyOn(fake, 'mediaUrl').mockResolvedValue(real);
     await fireEvent.press(screen.getByRole('button', { name: 'Bagikan' }));
-    expect(latest.toast?.text).toBe('Berbagi berkas segera hadir.');
+    await settle();
+    expect(File.downloadFileAsync).toHaveBeenCalledTimes(1);
+    expect(Sharing.shareAsync).toHaveBeenCalledWith(expect.stringMatching(/Laporan\.pdf$/), {
+      mimeType: 'application/pdf',
+      dialogTitle: 'Laporan.pdf',
+    });
+    expect(IntentLauncher.startActivityAsync).not.toHaveBeenCalled();
+  });
+
+  test('selagi mengunduh kedua tombol sibuk, lalu kembali', async () => {
+    const { fake } = await mount({ history: [doc] });
+    jest.spyOn(fake, 'mediaUrl').mockResolvedValue(real);
+    let finish: (f: File) => void = () => {};
+    jest.mocked(File.downloadFileAsync).mockReturnValueOnce(new Promise<File>((r) => (finish = r)));
+    await fireEvent.press(screen.getByRole('button', { name: 'Bagikan' }));
+    await settle();
+    expect(screen.getByRole('button', { name: 'Mengunduh…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Buka' })).toBeDisabled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
+    expect(File.downloadFileAsync).toHaveBeenCalledTimes(1);
+    await act(async () => finish(new File('file:///cache/berkas/x/Laporan.pdf')));
+    await settle();
+    expect(screen.getByRole('button', { name: 'Bagikan' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Buka' })).toBeEnabled();
+  });
+
+  test('unduhan gagal, atau media tidak ada: toast ramah dan tombol kembali', async () => {
+    const { fake } = await mount({ history: [doc] });
+    const media = jest.spyOn(fake, 'mediaUrl').mockResolvedValue(real);
+    jest.mocked(File.downloadFileAsync).mockRejectedValueOnce(new Error('UnableToDownload 404'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
+    await settle();
+    expect(latest.toast?.text).toBe(FILE_DOWNLOAD_TEXT);
+    expect(IntentLauncher.startActivityAsync).not.toHaveBeenCalled();
+    media.mockRejectedValue(new ApiFailure('network'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Bagikan' }));
+    await settle();
+    expect(latest.toast?.text).toBe(FILE_DOWNLOAD_TEXT);
+    expect(Sharing.shareAsync).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Buka' })).toBeEnabled();
+  });
+
+  test('server tiruan: berkas teks contoh ditulis ke cache, lalu dibuka', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    await mount({ history: [doc] });
+    await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
+    await settle();
+    expect(File.downloadFileAsync).not.toHaveBeenCalled();
+    expect(IntentLauncher.startActivityAsync).toHaveBeenCalledWith(
+      'android.intent.action.VIEW',
+      expect.objectContaining({ type: 'text/plain', data: expect.stringMatching(/Laporan \(contoh\)\.txt$/) }),
+    );
+    jest.restoreAllMocks();
+  });
+
+  test('Lampiran tetap "segera hadir"', async () => {
+    await mount({ history: [doc] });
     await fireEvent.press(screen.getByRole('button', { name: 'Lampiran' }));
     expect(latest.toast?.text).toBe('Lampiran segera hadir.');
-    open.mockRestore();
   });
 });
 

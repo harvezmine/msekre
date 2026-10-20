@@ -42,6 +42,7 @@ export const LAYAR: LayarKasus[] = [
   },
   { nama: 'Riwayat', Layar: ROUTES['/riwayat']! },
   { nama: 'Akun', Layar: ROUTES['/akun']! },
+  { nama: 'Keamanan', Layar: ROUTES['/akun/keamanan']! },
   { nama: 'Mulai (awal)', Layar: ROUTES['/mulai']! },
   { nama: 'Mulai (masuk)', Layar: ROUTES['/mulai/masuk']! },
   { nama: 'Mulai (pilih)', Layar: ROUTES['/mulai/pilih']! },

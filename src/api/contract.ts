@@ -19,6 +19,10 @@
  * | POST /drafts/:id               | DraftActionReq       | DraftActionRes                    |
  * | POST /push-tokens              | PushTokenReq         | OkRes                             |
  * | DELETE /push-tokens (tanpa token masuk) | PushTokenDeleteReq | OkRes                   |
+ * | GET  /account/security         | -                    | SecurityRes                       |
+ * | PUT  /account/security         | SecurityUpdateReq    | SecurityRes                       |
+ * | POST /account/pin              | PinSetReq            | SecurityRes                       |
+ * | POST /account/pin/verify       | PinVerifyReq         | OkRes (salah: 403 `pin_salah`)    |
  * | POST /home/devices/:id         | DeviceControlReq     | DeviceControlRes (Fase 3)         |
  * | GET  /media/:id                | -                    | berkasnya (gambar QRIS, dokumen)  |
  * | WS   /stream                   | -                    | StreamEvent, satu JSON per pesan  |
@@ -32,7 +36,11 @@
  * - 400 `kode_salah`: kode masuk salah, kedaluwarsa, atau belum diminta;
  * - 401 `tidak_masuk`: token tidak ada, salah, atau sudah keluar. Aplikasi menghapus sesi dan kembali ke layar masuk;
  * - 403 `diblokir`: akun dinonaktifkan atau diblokir di admin. Sesi tidak dihapus;
+ * - 403 `pin_salah`: PIN (atau PIN lama) tidak cocok. Berbeda dari `diblokir`: sesi tidak dihapus, akun tetap aktif;
  * - 404 `tidak_ditemukan`: id draf, pesan, atau media tidak ada (atau milik orang lain);
+ * - 404 `belum_terdaftar`: dari `auth/start`, nomor itu belum punya akun. Aplikasi ini add-on: akun dan masa coba
+ *   hanya dibuat lewat WhatsApp. Isinya membawa `waNumber` (nomor WhatsApp Sekretaris AI, E.164 tanpa "+") supaya
+ *   aplikasi bisa mengarahkan pengguna memulai lewat WhatsApp. Tidak ada kode yang dikirim;
  * - 409 `status_draf`: aksi draf tidak boleh dari status sekarang (lihat aturan draf);
  * - 409 `sudah_dipilih`: pilihan di pesan itu sudah diambil;
  * - 426 `perlu_pembaruan`: versi aplikasi terlalu lama (dari `X-App-Version` / `X-Contract-Version`);
@@ -134,6 +142,9 @@ const textSchema = z.string().trim().min(1).max(TEXT_MAX);
 
 // ---- Masuk ----
 
+/** Nomor WhatsApp Sekretaris AI (E.164 tanpa "+") untuk mengarahkan pengguna yang belum terdaftar. */
+export const waNumberSchema = z.string().regex(/^[1-9]\d{6,14}$/);
+
 export const authStartReqSchema = z.object({ phone: phoneSchema });
 /** Kode 6 angka dikirim lewat WhatsApp; `resendInSec` adalah jeda sebelum boleh minta kode lagi. */
 export const authStartResSchema = z.object({ resendInSec: z.number().int().nonnegative() });
@@ -152,6 +163,23 @@ export const meSchema = z.object({
 export const authVerifyResSchema = z.object({ token: z.string().min(1), user: meSchema });
 
 export const okResSchema = z.object({ ok: z.literal(true) });
+
+// ---- Keamanan (PIN opsional) ----
+
+/** Panjang PIN: 6 angka. */
+export const PIN_DIGITS = 6;
+const pinSchema = z.string().regex(/^\d{6}$/);
+
+/**
+ * `pinEnabled`: PIN diminta untuk kamera, alarm rumah, dan kunci pintu (bawaan mati). `hasPin`: PIN sudah dibuat.
+ * Pembayaran tidak pernah memakai PIN.
+ */
+export const securityResSchema = z.object({ pinEnabled: z.boolean(), hasPin: z.boolean() });
+/** `pinEnabled: true` tanpa PIN dibalas 400 `tidak_valid`: buat PIN dulu. */
+export const securityUpdateReqSchema = z.strictObject({ pinEnabled: z.boolean() });
+/** Buat PIN (belum ada) atau ganti PIN (`currentPin` wajib; salah: 403 `pin_salah`). */
+export const pinSetReqSchema = z.strictObject({ pin: pinSchema, currentPin: pinSchema.optional() });
+export const pinVerifyReqSchema = z.strictObject({ pin: pinSchema });
 
 // ---- Draf (kiriman ke orang lain) ----
 
@@ -389,6 +417,8 @@ export const apiErrorCodeSchema = z.enum([
   'status_draf',
   'sudah_dipilih',
   'diblokir',
+  'pin_salah',
+  'belum_terdaftar',
   'perlu_pembaruan',
   'terlalu_sering',
   'server',
@@ -398,6 +428,8 @@ export const apiErrorSchema = z.object({
   error: apiErrorCodeSchema,
   /** Hanya pada `terlalu_sering`: berapa detik lagi boleh mencoba. */
   retryInSec: z.number().int().nonnegative().optional(),
+  /** Hanya pada `belum_terdaftar`: nomor WhatsApp Sekretaris AI untuk memulai. */
+  waNumber: waNumberSchema.optional(),
 });
 
 // ---- Tipe ----
@@ -406,6 +438,10 @@ export type AuthStartReq = z.infer<typeof authStartReqSchema>;
 export type AuthStartRes = z.infer<typeof authStartResSchema>;
 export type AuthVerifyReq = z.infer<typeof authVerifyReqSchema>;
 export type AuthVerifyRes = z.infer<typeof authVerifyResSchema>;
+export type SecurityRes = z.infer<typeof securityResSchema>;
+export type SecurityUpdateReq = z.infer<typeof securityUpdateReqSchema>;
+export type PinSetReq = z.infer<typeof pinSetReqSchema>;
+export type PinVerifyReq = z.infer<typeof pinVerifyReqSchema>;
 export type OkRes = z.infer<typeof okResSchema>;
 export type Me = z.infer<typeof meSchema>;
 export type DraftStatus = z.infer<typeof draftStatusSchema>;

@@ -29,12 +29,14 @@ dimulai, supaya rinciannya selalu mengikuti kode terbaru.
 | 3 | Isi chat | Satu utas: chat di aplikasi menampilkan seluruh percakapan, dari WA maupun aplikasi. Pesan dari WA diberi tanda kecil "lewat WhatsApp" | Fase 1 |
 | 4 | Kanal balasan | Balasan dikirim ke kanal tempat pengguna terakhir menulis. Pesan proaktif (sapaan, pengingat, kabar rumah) dikirim lewat notifikasi aplikasi dulu, dan lewat WA kalau aplikasinya tidak terpasang atau tidak dibuka 3 hari | Fase 1 |
 | 5 | Batalkan kiriman | Pesan ke orang lain ditahan 5 menit sebelum dikirim, dan bisa dibatalkan selama itu. Pesan yang sudah terkirim tidak ditarik | Fase 5 |
-| 6 | PIN | Hanya untuk mematikan kamera atau alarm (memakai `home_pins` yang sudah ada). Pembayaran tidak memakai PIN | Fase 3 |
+| 6 | PIN | **Opsional, bawaan mati** (Akun > PIN). Kalau dihidupkan, diminta untuk mematikan kamera, mematikan alarm rumah, dan membuka kunci pintu (memakai `home_pins` yang sudah ada); kalau mati, aksi itu langsung jalan. Pembayaran tidak pernah memakai PIN | Diputuskan |
+| 8 | Akun dan percobaan | Aplikasi adalah add-on: tidak ada daftar dari aplikasi. Akun dan masa coba hanya lewat WhatsApp; nomor yang belum terdaftar diarahkan ke WhatsApp (`belum_terdaftar` + `waNumber`) | Diputuskan |
+| 9 | Dokumen | Diunduh biasa dengan token ke HP, lalu dibuka di penampil bawaan atau dibagikan; tanpa URL bertanda tangan | Diputuskan |
 | 7 | Kata panggil kotak | "Nadia" | K1 (di luar roadmap ini) |
 
 ### Pertanyaan terbuka untuk founder
 
-- **PIN membuka pintu.** Keputusan 6 menyebut PIN hanya untuk mematikan kamera atau alarm, tetapi aplikasi contoh (Fase 0b) juga meminta PIN untuk membuka kunci pintu depan (baris PIN di Akun: "...dan membuka pintu"). Perilakunya tidak diubah. Mohon putuskan sebelum Fase 3: PIN untuk pintu tetap ada (lalu perbarui keputusan 6), atau dibuang dari aplikasi.
+Tidak ada yang terbuka. (PIN membuka pintu diputuskan: PIN bersifat opsional dan bawaan mati, lihat keputusan 6.)
 
 ## Arsitektur singkat
 
@@ -205,7 +207,7 @@ pengaturan bawaan.
 - Masuk ke akun merek memakai halaman sambung yang sudah ada di server, dibuka lewat `expo-web-browser`, lalu
   kembali ke aplikasi lewat deep link.
 
-**Selesai bila:** AC dan lampu asli bisa dinyalakan/dimatikan dari aplikasi, dan mematikan kamera meminta PIN.
+**Selesai bila:** AC dan lampu asli bisa dinyalakan/dimatikan dari aplikasi, dan mematikan kamera meminta PIN bila PIN dihidupkan.
 
 **Catatan:**
 - Teks "perintah terakhir, bukan keadaan AC" hanya untuk perangkat inframerah. AC yang tersambung lewat LG ThinQ

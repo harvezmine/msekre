@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useEffect } from 'react';
 import Tambah from '../app/perangkat/tambah';
 import Perangkat from '../app/(tabs)/perangkat';
-import { renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders } from './helpers';
 import { dark } from '@/theme/tokens';
 import { deviceById, deviceStatus, houseCard, useSample, type SampleState } from '@/sample/store';
 
@@ -91,9 +91,34 @@ test('perangkat tidak terjangkau: abu-abu dengan titik clay dan tanpa sakelar', 
   expect(screen.getAllByRole('switch')).toHaveLength(3);
 });
 
-test('mematikan kamera membuka lembar PIN, bukan langsung mati', async () => {
+test('PIN mati (bawaan): kamera, alarm, dan pintu langsung dijalankan tanpa lembar PIN', async () => {
   await show();
   await fireEvent.press(screen.getByRole('switch', { name: /^Kamera ruang tamu, / }));
+  expect(router.push).not.toHaveBeenCalled();
+  expect(status('kamera-tamu')).toBe('Mati');
+  await fireEvent.press(screen.getByRole('switch', { name: /^Pintu depan, / }));
+  expect(router.push).not.toHaveBeenCalled();
+  expect(deviceById(latest, 'pintu-depan')!.on).toBe(false);
+});
+
+test('PIN dihidupkan: mematikan kamera membuka lembar PIN, bukan langsung mati', async () => {
+  const api = createTestApi({ security: { pinEnabled: true, pin: '123456' } });
+  await show({ actions: rumah, api });
+  await fireEvent.press(screen.getByRole('switch', { name: /^Kamera ruang tamu, / }));
+  await act(async () => {});
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'kamera-tamu' } });
+  expect(status('kamera-tamu')).toBe('Merekam');
+  // Perangkat yang tidak dijaga tetap langsung.
+  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu utama, Nyala · 80%' }));
+  expect(status('lampu-utama')).toBe('Mati');
+});
+
+test('PIN dihidupkan tapi keadaannya tak terbaca (tanpa sinyal): tetap minta PIN', async () => {
+  const api = createTestApi({ security: { pinEnabled: false } });
+  jest.spyOn(api.transport, 'security').mockRejectedValue(new Error('network'));
+  await show({ actions: rumah, api });
+  await fireEvent.press(screen.getByRole('switch', { name: /^Kamera ruang tamu, / }));
+  await act(async () => {});
   expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'kamera-tamu' } });
   expect(status('kamera-tamu')).toBe('Merekam');
 });

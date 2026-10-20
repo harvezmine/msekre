@@ -1,8 +1,11 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import { AccessibilityInfo, AppState, Text, TextInput } from 'react-native';
+import Constants from 'expo-constants';
+import { AccessibilityInfo, AppState, Linking, Text, TextInput } from 'react-native';
 import { canOpen, routeKind, type RouteKind } from '@/api/routeAccess';
-import { ERROR_TEXT, WRONG_CODE_TEXT } from '@/api/errors';
+import { ERROR_TEXT, NOT_REGISTERED_TEXT, WRONG_CODE_TEXT } from '@/api/errors';
+import { FAKE_WA_NUMBER } from '@/api/fake/FakeTransport';
+import { readWaNumber, waStartUrl } from '@/api/waNumber';
 import { ApiFailure } from '@/api/transport';
 import { useAuth, type AuthStatus } from '@/api/useAuth';
 import { TabBar } from '@/ui/TabBar';
@@ -102,6 +105,71 @@ describe('layar masuk', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Kirim ulang kode' }));
     expect(start).toHaveBeenCalledTimes(2);
     expect(screen.getByText('Kirim ulang kode dalam 01.00')).toBeTruthy();
+  });
+});
+
+describe('layar masuk: nomor belum terdaftar (aplikasi add-on)', () => {
+  const UNREGISTERED = '0812 0000 0000';
+  const WA_TEXT = 'Halo%2C%20saya%20mau%20coba%20Sekretaris%20AI.';
+
+  test('teks ramah dan tombol Mulai lewat WhatsApp membuka wa.me dengan nomor dari server', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockImplementation(async () => {});
+    const api = createTestApi();
+    await renderWithProviders(<Masuk />, { api });
+    await fireEvent.changeText(screen.getByLabelText('Nomor WhatsApp'), UNREGISTERED);
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode' }));
+    expect(
+      await screen.findByText('Nomor ini belum memakai Sekretaris AI. Mulai dulu lewat WhatsApp ya.'),
+    ).toBeTruthy();
+    expect(NOT_REGISTERED_TEXT).toBe('Nomor ini belum memakai Sekretaris AI. Mulai dulu lewat WhatsApp ya.');
+    // Tidak ada kode yang diminta: tombol masuk tetap mati dan tidak ada hitung mundur.
+    expect(screen.getByRole('button', { name: 'Masuk' })).toBeDisabled();
+    expect(screen.queryByText(/Kirim ulang kode dalam/)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Mulai lewat WhatsApp' }));
+    expect(open).toHaveBeenCalledWith(`https://wa.me/${FAKE_WA_NUMBER}?text=${WA_TEXT}`);
+    open.mockRestore();
+  });
+
+  test('server tidak menyebut nomor: cadangan dari konfigurasi; tanpa keduanya tombol tersembunyi', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockImplementation(async () => {});
+    const api = createTestApi({ waNumber: null });
+    await renderWithProviders(<Masuk />, { api });
+    await fireEvent.changeText(screen.getByLabelText('Nomor WhatsApp'), UNREGISTERED);
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode' }));
+    expect(await screen.findByText(NOT_REGISTERED_TEXT)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mulai lewat WhatsApp' })).toBeNull();
+
+    const config = Constants.expoConfig as { extra?: Record<string, unknown> };
+    config.extra = { waNumber: '+62 811-1000-3333' };
+    try {
+      await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode' }));
+      await fireEvent.press(await screen.findByRole('button', { name: 'Mulai lewat WhatsApp' }));
+      expect(open).toHaveBeenCalledWith(waStartUrl('6281110003333'));
+    } finally {
+      delete config.extra;
+    }
+    jest.restoreAllMocks();
+  });
+
+  test('mengubah nomor menyembunyikan ajakan; nomor terdaftar tetap mendapat kode', async () => {
+    const api = createTestApi();
+    await renderWithProviders(<Masuk />, { api });
+    await fireEvent.changeText(screen.getByLabelText('Nomor WhatsApp'), UNREGISTERED);
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode' }));
+    expect(await screen.findByRole('button', { name: 'Mulai lewat WhatsApp' })).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Nomor WhatsApp'), '0812 2045 7781');
+    expect(screen.queryByRole('button', { name: 'Mulai lewat WhatsApp' })).toBeNull();
+    expect(screen.queryByText(NOT_REGISTERED_TEXT)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode' }));
+    expect(await screen.findByText(/Kirim ulang kode dalam/)).toBeTruthy();
+  });
+
+  test('readWaNumber: hanya angka yang sah', () => {
+    expect(readWaNumber({ waNumber: '+62 811-1000-3333' })).toBe('6281110003333');
+    expect(readWaNumber({ waNumber: '' })).toBeNull();
+    expect(readWaNumber({ waNumber: '12' })).toBeNull();
+    expect(readWaNumber({})).toBeNull();
+    expect(readWaNumber(undefined)).toBeNull();
   });
 });
 

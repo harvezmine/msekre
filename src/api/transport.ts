@@ -11,8 +11,11 @@ import type {
   Message,
   MessagesPage,
   MessagesChangedPage,
+  PinSetReq,
   PushTokenDeleteReq,
   PushTokenReq,
+  SecurityRes,
+  SecurityUpdateReq,
   SendMessageReq,
   StreamEvent,
 } from './contract';
@@ -28,6 +31,9 @@ import type { DataMode } from './mode';
  * - `blocked`: akun dinonaktifkan atau diblokir (403 `diblokir`); sesi tidak dihapus;
  * - `rate_limited`: terlalu sering (429 `terlalu_sering`); `retryInSec` kalau server menyebutnya;
  * - `upgrade_required`: versi aplikasi terlalu lama (426 `perlu_pembaruan`);
+ * - `not_registered`: nomor belum punya akun (404 `belum_terdaftar` dari `auth/start`); `waNumber` kalau server
+ *   menyebutnya. Aplikasi adalah add-on, akun hanya dibuat lewat WhatsApp;
+ * - `pin_wrong`: PIN (atau PIN lama) tidak cocok (403 `pin_salah`); sesi dan akun tidak terpengaruh;
  * - `unavailable`: jalur belum diisi server (501 `belum_tersedia`);
  * - `server`: kendala lain, termasuk jawaban server yang bentuknya tidak sesuai kontrak.
  */
@@ -37,6 +43,8 @@ export type FailureCode =
   | 'unauthorized'
   | 'kode_salah'
   | 'blocked'
+  | 'not_registered'
+  | 'pin_wrong'
   | 'rate_limited'
   | 'upgrade_required'
   | 'unavailable'
@@ -50,10 +58,12 @@ export class ApiFailure extends Error {
   readonly error?: string;
   /** Detik sampai boleh mencoba lagi (429 `terlalu_sering`). */
   readonly retryInSec?: number;
+  /** Nomor WhatsApp Sekretaris AI dari jawaban `belum_terdaftar` (E.164 tanpa "+"). */
+  readonly waNumber?: string;
 
   constructor(
     code: FailureCode,
-    details: { status?: number; error?: string; retryInSec?: number; cause?: unknown } = {},
+    details: { status?: number; error?: string; retryInSec?: number; waNumber?: string; cause?: unknown } = {},
   ) {
     super(`api:${code}${details.status ? ` ${details.status}` : ''}${details.error ? ` ${details.error}` : ''}`, {
       cause: details.cause,
@@ -63,6 +73,7 @@ export class ApiFailure extends Error {
     this.status = details.status;
     this.error = details.error;
     this.retryInSec = details.retryInSec;
+    this.waNumber = details.waNumber;
   }
 }
 
@@ -134,6 +145,14 @@ export interface Transport {
    * `auth/logout` mungkin tidak sampai. Idempoten; token yang tidak dikenal juga berhasil.
    */
   unregisterPushToken(req: PushTokenDeleteReq): Promise<void>;
+  /** Keamanan akun (`GET /account/security`): PIN aktif atau tidak, dan sudah dibuat atau belum. */
+  security(): Promise<SecurityRes>;
+  /** Hidupkan atau matikan permintaan PIN (`PUT /account/security`). Menghidupkan tanpa PIN ditolak (`tidak_valid`). */
+  setSecurity(req: SecurityUpdateReq): Promise<SecurityRes>;
+  /** Buat PIN, atau ganti PIN dengan `currentPin` (`POST /account/pin`). `currentPin` salah: `pin_wrong`. */
+  setPin(req: PinSetReq): Promise<SecurityRes>;
+  /** Periksa PIN (`POST /account/pin/verify`): `true` kalau cocok, `false` kalau salah (403 `pin_salah`). */
+  verifyPin(pin: string): Promise<boolean>;
   /** Atur perangkat rumah dari kartu (`POST /home/devices/:id`). Fase 3; sebelum itu `unavailable`. */
   controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard>;
   /** Cara menampilkan media `mediaId`, dengan header token untuk server asli. */

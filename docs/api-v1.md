@@ -25,7 +25,8 @@ Catatan reviu yang lebih pendek ada di `docs/catatan-server-fase-1b.md`.
 - Nomor telepon: E.164 tanpa "+", pola `^[1-9]\d{8,14}$`, contoh `6281220457781`.
 - Id: string tak kosong, tak transparan bagi klien (boleh angka dalam bentuk string).
 - Teks pesan atau draf: dipotong spasi, 1 sampai 4096 karakter (`TEXT_MAX`).
-- Bentuk error: status 4xx/5xx dengan `{ "error": "<kode>" }`, dan `retryInSec` hanya pada `terlalu_sering`. Pasang
+- Bentuk error: status 4xx/5xx dengan `{ "error": "<kode>" }`, `retryInSec` hanya pada `terlalu_sering`, dan `waNumber`
+  hanya pada `belum_terdaftar`. Pasang
   error handler dan not-found handler Fastify sendiri supaya bentuk bawaan Fastify tidak bocor. Aplikasi tidak
   menampilkan kode error ke pengguna; ia menerjemahkannya ke kalimat biasa.
 
@@ -37,7 +38,9 @@ Catatan reviu yang lebih pendek ada di `docs/catatan-server-fase-1b.md`.
 | 400 | `kode_salah` | Kode masuk salah, kedaluwarsa, habis percobaan, atau belum diminta |
 | 401 | `tidak_masuk` | Token tidak ada, salah, kedaluwarsa, atau sudah keluar. Aplikasi menghapus sesi |
 | 403 | `diblokir` | Akun dinonaktifkan atau diblokir di admin. Sesi tidak dihapus |
+| 403 | `pin_salah` | PIN (atau PIN lama) tidak cocok. Bukan `diblokir`: sesi dan akun tidak terpengaruh |
 | 404 | `tidak_ditemukan` | Draf, pesan, atau media tidak ada atau milik orang lain (jangan bedakan) |
+| 404 | `belum_terdaftar` | Dari `auth/start` (dan `auth/verify`): nomor belum punya akun. Bawa `waNumber` |
 | 409 | `status_draf` | Aksi draf tidak boleh dari status sekarang |
 | 409 | `sudah_dipilih` | Pilihan di pesan itu sudah diambil |
 | 426 | `perlu_pembaruan` | Versi aplikasi atau kontrak terlalu lama |
@@ -67,10 +70,24 @@ Response 200 (`resendInSec`: jeda sebelum boleh meminta lagi):
 { "resendInSec": 60 }
 ```
 
-Error: 400 `tidak_valid` (nomor jelek), 403 `diblokir`, 426, 429 `terlalu_sering` (dengan `retryInSec`).
+Error: 400 `tidak_valid` (nomor jelek), 403 `diblokir`, **404 `belum_terdaftar`**, 426, 429 `terlalu_sering` (dengan
+`retryInSec`).
 
-Aturan: lihat bagian 4 (masa berlaku kode, batas percobaan, batas per nomor dan IP, template WABA). Balasan 200
-harus sama baik nomornya sudah terdaftar maupun belum (jangan membocorkan pendaftaran).
+`belum_terdaftar` (keputusan founder: aplikasi adalah add-on, akun dan masa coba hanya lewat WhatsApp): nomor yang belum
+punya akun dibalas SEBELUM kode dikirim, dengan nomor WhatsApp Sekretaris AI (E.164 tanpa "+") supaya aplikasi bisa
+mengarahkan pengguna memulai di sana:
+
+```json
+{ "error": "belum_terdaftar", "waNumber": "6281100002222" }
+```
+
+`waNumber` boleh dihilangkan; aplikasi lalu memakai nomor cadangan dari konfigurasinya (`EXPO_PUBLIC_WA_NUMBER`) atau,
+bila tidak ada juga, hanya menampilkan kalimat tanpa tombol. Aplikasi menampilkan "Nomor ini belum memakai Sekretaris
+AI. Mulai dulu lewat WhatsApp ya." dan tombol "Mulai lewat WhatsApp" yang membuka `https://wa.me/<waNumber>?text=Halo%2C%20saya%20mau%20coba%20Sekretaris%20AI.`
+Karena itu respons tidak lagi sama untuk nomor terdaftar dan belum: batasi laju per IP dan per nomor (bagian 4) supaya
+jalur ini tidak dipakai untuk menebak pelanggan.
+
+Aturan lain: lihat bagian 4 (masa berlaku kode, batas percobaan, batas per nomor dan IP, template WABA).
 
 ### 2.2 `POST /auth/verify`
 
@@ -95,7 +112,8 @@ Response 200 (`token` dipakai di `Authorization`; `user` sama dengan `GET /me`):
 }
 ```
 
-Error: 400 `tidak_valid` (kode bukan 6 angka), 400 `kode_salah`, 403 `diblokir`, 426, 429.
+Error: 400 `tidak_valid` (kode bukan 6 angka), 400 `kode_salah`, 403 `diblokir`, 404 `belum_terdaftar` (nomor yang
+tidak punya akun tidak pernah dibuatkan akun di sini; sama bentuknya dengan 2.1), 426, 429.
 
 ### 2.3 `POST /auth/logout`
 
@@ -351,23 +369,45 @@ Persyaratan:
   aplikasi menampilkan kendala biasa.
 - Otorisasi lewat `Authorization: Bearer`, sama dengan jalur lain.
 
-**Masalah terbuka (perlu keputusan sebelum Fase 1b selesai):** aplikasi memuat gambar (QRIS) lewat komponen gambar
-dengan header `Authorization`, tetapi membuka DOKUMEN lewat `Linking.openURL(uri)` (`app/chat.tsx`, `openFile`),
-yang tidak bisa membawa header. Artinya `GET /media/:id` untuk dokumen akan dibalas 401 di peramban/penampil luar.
-Usul: server menyediakan URL bertanda tangan berumur pendek, dan jalur media menerima `?sig=` sebagai pengganti
-header:
+**Dokumen dibuka lewat unduhan biasa (diputuskan founder, tanpa URL bertanda tangan).** Aplikasi mengunduh dokumen
+sendiri dengan header `Authorization: Bearer` ke cache HP (`GET /media/:id` apa adanya), lalu:
 
-- Cara paling kecil: `GET /media/:id` tetap menerima Bearer; ditambah `POST /media/:id/link` (Bearer) yang
-  membalas `{ "url": "https://.../app/v1/media/812?sig=<hmac>&exp=<epoch>" }` berlaku 5 menit.
-  `sig` = HMAC-SHA256 dari `id.exp.userId` dengan kunci rahasia server; `GET /media/:id?sig=&exp=` tanpa header
-  memeriksa tanda tangan dan masa berlaku.
-- Atau tanpa jalur baru: server menyisipkan URL bertanda tangan langsung di setiap pesan. Ini mengubah kontrak
-  (bentuk `mediaId`), jadi tidak dipilih kecuali diperlukan.
-- Pada kedua cara, URL bertanda tangan tidak boleh tercatat di log akses jangka panjang dan tidak berlaku untuk
-  pengguna lain (userId ikut dalam tanda tangan).
+- **Buka**: dibuka di aplikasi bawaan HP. Android: `ACTION_VIEW` dengan alamat `content://` dan izin baca
+  (`FLAG_GRANT_READ_URI_PERMISSION`); tanpa aplikasi yang bisa membukanya, jatuh ke lembar bagikan.
+- **Bagikan**: lembar bagikan sistem.
+- Selama mengunduh, kedua tombol sibuk ("Mengunduh…"). Gagal: "Berkasnya belum bisa diunduh. Coba lagi sebentar ya."
+  atau, bila tidak ada aplikasi pembuka dan lembar bagikan tidak tersedia, "Tidak ada aplikasi di HP ini yang bisa
+  membuka berkas ini."
 
-Pilihan pertama membutuhkan tambahan kecil di kontrak (satu jalur) dan di `HttpTransport.mediaUrl` untuk dokumen;
-sampai diputuskan, aplikasi apa adanya hanya benar untuk gambar dan audio.
+Karena itu server TIDAK perlu `POST /media/:id/link` atau `?sig=`; yang dibutuhkan hanya `Content-Type`,
+`Content-Disposition` dan `Content-Length` yang benar di atas (nama berkas dan jenisnya sudah ada di bagian `document`).
+Dokumen dibuang dari cache oleh sistem Android saat ruang HP sempit. Aplikasi mode contoh membuat berkas teks kecil
+sebagai contoh.
+
+### 2.11 `GET/PUT /account/security`, `POST /account/pin`, `POST /account/pin/verify`
+
+PIN opsional (keputusan founder): **bawaan mati**. Kalau pemilik menghidupkannya (Akun > PIN), aksi yang dijaga di
+Perangkat (mematikan kamera, mematikan alarm rumah, membuka kunci pintu) meminta PIN 6 angka; kalau mati, aksi itu
+langsung jalan. Pembayaran tidak pernah memakai PIN. Semua jalur ini memakai token.
+
+`GET /account/security` dan `PUT /account/security` membalas keadaan:
+
+```json
+{ "pinEnabled": false, "hasPin": false }
+```
+
+- `PUT` mengirim `{ "pinEnabled": true }` (objek ketat). `pinEnabled: true` tanpa PIN dibalas 400 `tidak_valid`: PIN
+  dibuat dulu lewat `POST /account/pin`. Mematikan tidak menghapus PIN-nya (`hasPin` tetap `true`). Aplikasi meminta
+  PIN lebih dulu sebelum mematikan (lewat `verify`); server boleh menambah aturannya sendiri.
+- `POST /account/pin` membuat atau mengganti PIN, membalas keadaan yang sama:
+  `{ "pin": "123456" }` (belum ada PIN) atau `{ "pin": "654321", "currentPin": "123456" }` (ganti). PIN harus 6 angka
+  (`^\d{6}$`, kalau tidak 400 `tidak_valid`). Sudah ada PIN tapi `currentPin` hilang: 400 `tidak_valid`; `currentPin`
+  salah: 403 `pin_salah`. Membuat PIN tidak menghidupkan permintaan PIN; aplikasi memanggil `PUT` sesudahnya.
+- `POST /account/pin/verify` dengan `{ "pin": "123456" }` membalas `{ "ok": true }`, atau 403 `pin_salah`. Aplikasi
+  memanggilnya sebelum mematikan kamera dan sejenisnya, dan sebelum mengganti PIN. Beri batas percobaan salah dengan
+  429 `terlalu_sering` (`retryInSec`).
+- Disimpan sebagai hash (memakai `home_pins` yang sudah ada); PIN tidak masuk log.
+- "Lupa PIN" (mengatur ulang tanpa PIN lama) belum ada di kontrak; aplikasi memberi tahu bahwa fiturnya segera hadir.
 
 ## 3. Bentuk pesan, bagian, dan kartu
 
@@ -440,8 +480,9 @@ Aturan kode:
   `kode_salah`, sama dengan kode salah biasa supaya tidak jadi petunjuk).
 - Batas laju: per nomor (usul: satu kode per `resendInSec` = 60 detik, maksimal 5 per jam) dan per IP (usul 20 per
   jam). Terlampaui: `429 terlalu_sering` dengan `retryInSec` yang benar. Meminta kode baru membatalkan kode lama.
-- Jangan membocorkan apakah nomor sudah terdaftar: respons dan waktunya sama. Untuk nomor yang belum pernah dikenal,
-  kirim kode juga (lihat akun baru di bawah).
+- Nomor yang belum punya akun dibalas 404 `belum_terdaftar` (dengan `waNumber`) tanpa mengirim kode; lihat akun baru di
+  bawah. Konsekuensinya jalur ini membuka petunjuk siapa yang sudah menjadi pelanggan, jadi batas laju per IP dan per
+  nomor dipegang ketat.
 - Pengiriman lewat kanal WhatsApp yang ada. Di WABA (nomor resmi), kode untuk nomor di luar jendela 24 jam butuh
   template kategori **autentikasi** (berbayar per pesan); di Fonnte cukup teks. Isi otomatis satu ketuk di
   Android (Autofill/SMS Retriever) butuh nama paket dan hash tanda tangan aplikasi, yang baru ada di Fase 7.
@@ -459,12 +500,11 @@ Token:
 - Akun yang `diblokir`/dinonaktifkan di admin: semua jalur terlindungi, termasuk `auth/verify` dan jabat tangan
   WebSocket, dibalas 403 `diblokir`. Sesi tidak dihapus (aplikasi menampilkan "Akun ini sedang tidak aktif").
 
-Akun baru dan percobaan 7 hari (KEPUTUSAN FOUNDER, belum jelas): di milo-ai, percakapan pertama dari nomor baru
-otomatis membuat akun dengan percobaan 7 hari yang hanya berlaku sekali seumur nomor. Pertanyaannya: apakah
-`auth/verify` untuk nomor yang belum punya akun (a) membuat akun dan memulai percobaan 7 hari, atau (b) menolak dan
-meminta pengguna memulai lewat WhatsApp dulu? Usul bawaan (a) karena paling sederhana untuk pengguna, dengan aturan
-"sekali seumur nomor" tetap dipegang tabel yang sama (nomor yang sudah pernah dapat percobaan tidak mendapat
-lagi). Mohon founder memutuskan sebelum `auth/verify` dibangun.
+Akun baru dan percobaan 7 hari (KEPUTUSAN FOUNDER, sudah diputuskan): aplikasi adalah add-on, jadi akun dan masa coba
+7 hari hanya dibuat lewat WhatsApp (percakapan pertama dari nomor baru di milo-ai). `auth/start` (dan `auth/verify`)
+tidak pernah membuat akun: nomor yang belum punya akun dibalas 404 `belum_terdaftar` dengan `waNumber`, dan aplikasi
+mengarahkan pengguna memulai lewat WhatsApp (bagian 2.1). Aturan "sekali seumur nomor" tetap di tabel percobaan yang
+sama dan tidak tersentuh aplikasi.
 
 ## 5. WebSocket `GET /stream`
 
@@ -695,11 +735,10 @@ Pembayaran:
 
 ## 10. Pertanyaan terbuka untuk founder
 
-1. Akun baru dari aplikasi: otomatis mulai percobaan 7 hari atau harus mulai lewat WhatsApp dulu (bagian 4)?
-2. URL dokumen: setuju dengan URL bertanda tangan `?sig=` (bagian 2.10), atau dokumen dibuka di dalam aplikasi
-   (mengunduh dengan header lalu berbagi lewat penampil)? Usulan ini menambah satu jalur ke kontrak. Sampai ini
-   diputuskan, aplikasi (mode server) tidak membuka alamat media lewat peramban, karena `GET /media/:id` butuh header
-   token; tombol Buka di dokumen memberi tahu pengguna untuk membukanya dari WhatsApp.
+1. ~~Akun baru dari aplikasi~~ **Diputuskan:** aplikasi add-on; akun dan trial hanya lewat WhatsApp. `auth/start`
+   membalas 404 `belum_terdaftar` dengan `waNumber` (bagian 2.1 dan 4).
+2. ~~URL dokumen~~ **Diputuskan:** dokumen dibuka lewat unduhan biasa dengan header token ke cache HP, lalu penampil
+   bawaan atau lembar bagikan (bagian 2.10). Tidak ada URL bertanda tangan.
 3. Jenis token push: token Expo atau token FCM native? Mempengaruhi `push.ts` dan apakah proyek Firebase wajib sejak
    awal. (Aplikasi sekarang memakai `expo-notifications`; `google-services.json` dari Firebase masih persiapan
    founder.)

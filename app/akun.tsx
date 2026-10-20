@@ -3,6 +3,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
 import { formatPhoneDisplay, formatTanggal } from '@/api/format';
 import { usePush, type PushPermission } from '@/api/usePush';
+import { useSecurity } from '@/api/useSecurity';
 import { useProfile, type Profile } from '@/api/useProfile';
 import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -53,6 +54,7 @@ export default function Akun() {
   const { mode } = useApi();
   const profile = useProfile();
   const { permission, canAskAgain } = usePush();
+  const security = useSecurity();
   const account = accountOf(profile);
   const toast = (text: string) => dispatch({ type: 'showToast', text });
 
@@ -69,8 +71,8 @@ export default function Akun() {
       {
         icon: 'lock',
         title: 'PIN',
-        subtitle: 'Diminta untuk mematikan kamera, alarm, dan membuka pintu',
-        go: { toast: 'Pengaturan PIN dibangun di Fase 3.' },
+        subtitle: security.state ? (security.state.pinEnabled ? 'Aktif' : 'Mati') : undefined,
+        go: { route: '/akun/keamanan' },
       },
       {
         icon: 'shield',

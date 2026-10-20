@@ -8,8 +8,11 @@ import {
   HELD_MINUTES,
   MESSAGES_LIMIT,
   MESSAGES_LIMIT_MAX,
+  pinSetReqSchema,
+  pinVerifyReqSchema,
   pushTokenDeleteReqSchema,
   pushTokenReqSchema,
+  securityUpdateReqSchema,
   sendMessageReqSchema,
   type AuthStartReq,
   type AuthStartRes,
@@ -24,8 +27,11 @@ import {
   type Message,
   type MessagesPage,
   type MessagesChangedPage,
+  type PinSetReq,
   type PushTokenDeleteReq,
   type PushTokenReq,
+  type SecurityRes,
+  type SecurityUpdateReq,
   type SendMessageReq,
   type StreamEvent,
 } from '../contract';
@@ -49,7 +55,16 @@ export const FAKE_RESEND_SEC = 60;
 /** Kode yang selalu dibalas `kode_salah`, untuk mencoba layar "kodenya belum cocok". Kode 6 angka lain diterima. */
 export const FAKE_WRONG_CODE = '000000';
 
+/** Nomor WhatsApp Sekretaris AI di server tiruan, untuk jawaban `belum_terdaftar`. */
+export const FAKE_WA_NUMBER = '6281100002222';
+/** Nomor berakhiran ini dianggap belum terdaftar (`auth/start` dibalas 404 `belum_terdaftar`). */
+export const FAKE_UNREGISTERED_SUFFIX = '0000';
+
 export interface FakeOptions {
+  /** Nomor WhatsApp Sekretaris AI yang disebut `belum_terdaftar`; `null` = tidak disebut. Bawaan {@link FAKE_WA_NUMBER}. */
+  waNumber?: string | null;
+  /** Keadaan awal PIN akun. Bawaan: tanpa PIN dan PIN mati. */
+  security?: { pinEnabled?: boolean; pin?: string };
   /** Hanya untuk tes: label mode transport ini. Bawaan `contoh`. */
   mode?: DataMode;
   /** Jeda dari `thinking on` sampai jawaban asisten. Bawaan 1,2 detik. */
@@ -75,6 +90,7 @@ const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const invalid = (cause?: unknown) => new ApiFailure('server', { status: 400, error: 'tidak_valid', cause });
 const notFound = () => new ApiFailure('server', { status: 404, error: 'tidak_ditemukan' });
 const wrongStatus = () => new ApiFailure('server', { status: 409, error: 'status_draf' });
+const wrongPin = () => new ApiFailure('pin_wrong', { status: 403, error: 'pin_salah' });
 const alreadyChosen = () => new ApiFailure('server', { status: 409, error: 'sudah_dipilih' });
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -116,6 +132,9 @@ export class FakeTransport implements Transport {
   private readonly requireSession: boolean;
   private readonly afterLimit: number;
   private readonly meValue: Me;
+  private readonly waNumber: string | null;
+  private pinEnabled: boolean;
+  private pinValue: string | null;
 
   /** Utas, dari yang terlama (juga urutan `seq`). Kartu draf di sini bisa usang; keadaan terbaru ada di `drafts`. */
   private readonly thread: Message[] = [];
@@ -158,6 +177,9 @@ export class FakeTransport implements Transport {
     this.requireSession = options.requireSession ?? false;
     this.afterLimit = options.afterLimit ?? MESSAGES_LIMIT_MAX;
     this.meValue = sampleMe(this.clock);
+    this.waNumber = options.waNumber === undefined ? FAKE_WA_NUMBER : options.waNumber;
+    this.pinValue = options.security?.pin ?? null;
+    this.pinEnabled = (options.security?.pinEnabled ?? false) && this.pinValue !== null;
     for (const message of copy(options.history ?? sampleHistory())) {
       this.msgSeq = Math.max(this.msgSeq, message.seq);
       this.msgRev = Math.max(this.msgRev, message.rev);
@@ -170,6 +192,14 @@ export class FakeTransport implements Transport {
   authStart(req: AuthStartReq): Promise<AuthStartRes> {
     return this.call(false, () => {
       const { phone } = parse(authStartReqSchema, req);
+      // Aplikasi adalah add-on: akun hanya dibuat lewat WhatsApp, jadi nomor asing ditolak sebelum kode dikirim.
+      if (phone.endsWith(FAKE_UNREGISTERED_SUFFIX)) {
+        throw new ApiFailure('not_registered', {
+          status: 404,
+          error: 'belum_terdaftar',
+          waNumber: this.waNumber ?? undefined,
+        });
+      }
       const last = this.codeRequests.get(phone);
       if (last !== undefined) {
         const left = Math.ceil((last + FAKE_RESEND_SEC * 1000 - this.clock.now()) / 1000);
@@ -335,6 +365,42 @@ export class FakeTransport implements Transport {
     return this.call(false, () => {
       this.unregisteredPushTokens.push(parse(pushTokenDeleteReqSchema, req).pushToken);
     });
+  }
+
+  security(): Promise<SecurityRes> {
+    return this.call(true, () => this.securityState());
+  }
+
+  setSecurity(req: SecurityUpdateReq): Promise<SecurityRes> {
+    return this.call(true, () => {
+      const { pinEnabled } = parse(securityUpdateReqSchema, req);
+      if (pinEnabled && this.pinValue === null) throw invalid();
+      this.pinEnabled = pinEnabled;
+      return this.securityState();
+    });
+  }
+
+  setPin(req: PinSetReq): Promise<SecurityRes> {
+    return this.call(true, () => {
+      const { pin, currentPin } = parse(pinSetReqSchema, req);
+      if (this.pinValue !== null) {
+        if (currentPin === undefined) throw invalid();
+        if (currentPin !== this.pinValue) throw wrongPin();
+      }
+      this.pinValue = pin;
+      return this.securityState();
+    });
+  }
+
+  verifyPin(pin: string): Promise<boolean> {
+    return this.call(true, () => {
+      const { pin: given } = parse(pinVerifyReqSchema, { pin });
+      return this.pinValue !== null && given === this.pinValue;
+    });
+  }
+
+  private securityState(): SecurityRes {
+    return { pinEnabled: this.pinEnabled, hasPin: this.pinValue !== null };
   }
 
   /** Kendali perangkat dari kartu adalah Fase 3: server tiruan, seperti server Fase 1b, menjawab 501. */

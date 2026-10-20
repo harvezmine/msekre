@@ -4,6 +4,7 @@ import {
   AccessibilityInfo,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Pressable,
   ScrollView,
   TextInput,
@@ -11,10 +12,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '@/api/ApiProvider';
-import { friendlyError } from '@/api/errors';
+import { ERROR_TEXT, friendlyError } from '@/api/errors';
 import { cleanPhone, groupPhone } from '@/api/format';
 import { isApiFailure } from '@/api/transport';
 import { useAuth } from '@/api/useAuth';
+import { readWaNumber, waStartUrl } from '@/api/waNumber';
 import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { IconButton } from '@/ui/IconButton';
@@ -49,6 +51,8 @@ export default function MulaiMasuk() {
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState<'start' | 'verify' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Nomor belum punya akun (aplikasi ini add-on): nomor WhatsApp untuk memulai, atau `null` bila tidak diketahui. */
+  const [startWa, setStartWa] = useState<{ number: string | null } | null>(null);
   const busyRef = useRef(false);
   const [focused, setFocused] = useState(false);
   const phoneRef = useRef<React.ComponentRef<typeof TextInput>>(null);
@@ -82,10 +86,14 @@ export default function MulaiMasuk() {
     busyRef.current = true;
     setBusy(kind);
     setError(null);
+    setStartWa(null);
     try {
       await job();
     } catch (e) {
       setError(friendlyError(e));
+      if (isApiFailure(e) && e.code === 'not_registered') {
+        setStartWa({ number: e.waNumber ?? readWaNumber() });
+      }
       // Terlalu sering berarti kode sudah pernah diminta; tunggu sesuai kata server.
       if (kind === 'start' && isApiFailure(e) && e.code === 'rate_limited') {
         waitFor(toE164(phone), e.retryInSec ?? 0);
@@ -172,6 +180,7 @@ export default function MulaiMasuk() {
                   setPhone(cleanPhone(t));
                   setNow(Date.now());
                   setError(null);
+                  setStartWa(null);
                 }}
                 keyboardType="number-pad"
                 textContentType="telephoneNumber"
@@ -186,6 +195,7 @@ export default function MulaiMasuk() {
                 onPress={() => {
                   setPhone('');
                   setError(null);
+                  setStartWa(null);
                   phoneRef.current?.focus();
                 }}
                 android_ripple={{ color: c.ripple }}
@@ -254,6 +264,26 @@ export default function MulaiMasuk() {
               <Txt v="caption" color={c.clay} accessibilityLiveRegion="polite">
                 {error}
               </Txt>
+            ) : null}
+            {startWa?.number ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Mulai lewat WhatsApp"
+                onPress={() => Linking.openURL(waStartUrl(startWa.number!)).catch(() => setError(ERROR_TEXT))}
+                android_ripple={{ color: c.ripple }}
+                style={{
+                  height: 48,
+                  borderRadius: 24,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: c.mint,
+                  marginTop: 4,
+                }}
+              >
+                <Txt weight={600} color={c.green}>
+                  Mulai lewat WhatsApp
+                </Txt>
+              </Pressable>
             ) : null}
             {counting ? (
               <Txt v="caption" color={c.muted} tabular>

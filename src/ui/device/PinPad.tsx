@@ -13,13 +13,24 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 
+/** Hasil memeriksa PIN: `true` diterima; `false` salah; teks = salah dengan pesan ini (menggantikan pesan bawaan). */
+export type PinVerdict = boolean | string;
+
 interface Props {
   subtitle: string;
-  /** Dipanggil saat enam angka terisi. `true` bila cocok; `false` menggetarkan titik dan mengosongkan isian. */
-  onSubmit: (pin: string) => boolean;
+  /** Judul di atas titik. Bawaan "Masukkan PIN". */
+  title?: string;
+  /**
+   * Dipanggil saat enam angka terisi. `true` bila diterima; `false` (atau teks pesan) menggetarkan titik dan mengosongkan
+   * isian. Boleh berupa janji: selagi menunggu, isian terkunci.
+   */
+  onSubmit: (pin: string) => PinVerdict | Promise<PinVerdict>;
   onCancel: () => void;
-  onForgot: () => void;
+  /** "Lupa PIN?" disembunyikan bila kosong. */
+  onForgot?: () => void;
 }
+
+const WRONG_PIN = 'PIN belum cocok, coba lagi.';
 
 const ROWS = [
   ['1', '2', '3'],
@@ -28,11 +39,11 @@ const ROWS = [
 ] as const;
 
 /** Isi lembar PIN (desain 2e): kunci, enam titik, tombol angka, Batal dan Hapus. */
-export function PinPad({ subtitle, onSubmit, onCancel, onForgot }: Props) {
+export function PinPad({ subtitle, title = 'Masukkan PIN', onSubmit, onCancel, onForgot }: Props) {
   const { c } = useTheme();
   const reduce = useReducedMotion();
   const [pin, setPin] = useState('');
-  const [wrong, setWrong] = useState(false);
+  const [wrong, setWrong] = useState<string | null>(null);
   const shake = useSharedValue(0);
 
   // Isian dilacak di ref supaya dua ketukan cepat sebelum render tidak saling menimpa; `pin` hanya untuk tampilan.
@@ -42,23 +53,11 @@ export function PinPad({ subtitle, onSubmit, onCancel, onForgot }: Props) {
     setPin(value);
   };
 
-  const press = (digit: string) => {
-    if (typed.current.length >= PIN_LENGTH) return;
-    void Haptics.selectionAsync();
-    const next = typed.current + digit;
-    if (next.length < PIN_LENGTH) {
-      setTyped(next);
-      setWrong(false);
-      return;
-    }
-    if (onSubmit(next)) {
-      setTyped(next);
-      return;
-    }
+  const reject = (message: string) => {
     setTyped('');
-    setWrong(true);
+    setWrong(message);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    AccessibilityInfo.announceForAccessibility('PIN belum cocok, coba lagi.');
+    AccessibilityInfo.announceForAccessibility(message);
     if (!reduce) {
       shake.set(
         withSequence(
@@ -71,7 +70,35 @@ export function PinPad({ subtitle, onSubmit, onCancel, onForgot }: Props) {
       );
     }
   };
-  const back = () => setTyped(typed.current.slice(0, -1));
+  const waiting = useRef(false);
+  const judge = (verdict: PinVerdict) => {
+    waiting.current = false;
+    if (verdict === true) return;
+    reject(typeof verdict === 'string' ? verdict : WRONG_PIN);
+  };
+
+  const press = (digit: string) => {
+    if (typed.current.length >= PIN_LENGTH) return;
+    void Haptics.selectionAsync();
+    const next = typed.current + digit;
+    if (next.length < PIN_LENGTH) {
+      setTyped(next);
+      setWrong(null);
+      return;
+    }
+    setTyped(next);
+    const verdict = onSubmit(next);
+    if (typeof verdict === 'object') {
+      // Janji: enam titik tetap terisi (terkunci) sampai jawabannya datang.
+      waiting.current = true;
+      verdict.then(judge, () => judge(false));
+    } else {
+      judge(verdict);
+    }
+  };
+  const back = () => {
+    if (!waiting.current) setTyped(typed.current.slice(0, -1));
+  };
 
   const dotsStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.get() }] }));
 
@@ -91,7 +118,7 @@ export function PinPad({ subtitle, onSubmit, onCancel, onForgot }: Props) {
       </View>
       <View style={{ alignItems: 'center', gap: 4 }}>
         <Txt v="title" accessibilityRole="header">
-          Masukkan PIN
+          {title}
         </Txt>
         <Txt color={c.muted} style={{ textAlign: 'center' }}>
           {subtitle}
@@ -119,7 +146,7 @@ export function PinPad({ subtitle, onSubmit, onCancel, onForgot }: Props) {
       </Animated.View>
       {wrong ? (
         <Txt accessibilityRole="alert" accessibilityLiveRegion="polite" color={c.clay} weight={600}>
-          PIN belum cocok, coba lagi.
+          {wrong}
         </Txt>
       ) : null}
       <View style={{ width: '100%', gap: 8 }}>
@@ -136,17 +163,19 @@ export function PinPad({ subtitle, onSubmit, onCancel, onForgot }: Props) {
           <Key label="Hapus" plain onPress={back} icon />
         </View>
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Lupa PIN?"
-        onPress={onForgot}
-        android_ripple={{ color: c.ripple }}
-        style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 12 }}
-      >
-        <Txt weight={600} color={c.green}>
-          Lupa PIN?
-        </Txt>
-      </Pressable>
+      {onForgot ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Lupa PIN?"
+          onPress={onForgot}
+          android_ripple={{ color: c.ripple }}
+          style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 12 }}
+        >
+          <Txt weight={600} color={c.green}>
+            Lupa PIN?
+          </Txt>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
