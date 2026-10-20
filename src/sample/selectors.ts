@@ -1,4 +1,5 @@
 import type { OrbitNode } from '@/ui/orbit/types';
+import { TODAY } from './agenda';
 import { HOME_CARD_DEVICES, houseLine } from './devices';
 import type { SampleState } from './reducer';
 import { RING_ORDER } from './services';
@@ -57,6 +58,11 @@ export function ringNodes(state: SampleState): OrbitNode[] {
 /** Agenda satu tanggal, urut jam. */
 export function agendaOn(state: SampleState, date: string): AgendaItem[] {
   return state.agenda.filter((a) => a.date === date).sort((a, b) => a.time.localeCompare(b.time));
+}
+
+/** Kartu "Agenda hari ini" di Beranda: semua item bertanggal hari ini, termasuk yang ditambah atau dipindah ke hari ini. */
+export function homeAgenda(state: SampleState): AgendaItem[] {
+  return agendaOn(state, TODAY);
 }
 
 /** Draf tertua yang masih menunggu persetujuan, untuk kartu "Butuh persetujuan Anda" di Beranda. */

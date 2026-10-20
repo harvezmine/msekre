@@ -4,6 +4,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { renderWithProviders } from './helpers';
 import Beranda from '../app/(tabs)/index';
+import { TODAY } from '@/sample/agenda';
 import { BUDI_DRAFT_ID, supplierOrderDraft } from '@/sample/outgoing';
 
 beforeEach(() => jest.clearAllMocks());
@@ -118,6 +119,28 @@ test('agenda hari ini yang ditambah tampil di Beranda', async () => {
     ],
   });
   expect(screen.getByText('Telepon Ibu')).toBeOnTheScreen();
+});
+
+test('Agenda hari ini memuat semua item hari ini, urut jam, dan item jam yang sama tidak bertabrakan', async () => {
+  const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  await renderWithProviders(<Beranda />, {
+    actions: [
+      { type: 'addAgenda', item: { date: TODAY, time: '09.00', title: 'Sarapan dengan Ibu', kind: 'reminder' } },
+      { type: 'finishLeftover', choice: 'today' },
+    ],
+  });
+  for (const t of [
+    'Rapat dengan supplier susu',
+    'Sarapan dengan Ibu',
+    'Bayar listrik Kedai Dago',
+    'Jemput Kayla les',
+    'Kirim penawaran katering ke Bu Sari',
+  ]) {
+    expect(screen.getByText(t)).toBeOnTheScreen();
+  }
+  expect(screen.getAllByText('09.00')).toHaveLength(2);
+  expect(spy.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false);
+  spy.mockRestore();
 });
 
 test('tombol tempat membuka pemilih tempat', async () => {

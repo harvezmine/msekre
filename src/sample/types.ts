@@ -89,8 +89,6 @@ export interface AgendaItem {
   done?: boolean;
   past?: boolean;
   snoozedUntil?: string;
-  /** Tampil di kartu "Agenda hari ini" di Beranda. */
-  home?: boolean;
 }
 
 export interface Leftover {

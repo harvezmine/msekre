@@ -13,7 +13,6 @@ export const initialAgenda: AgendaItem[] = [
     kind: 'meeting',
     note: 'Notulen siap',
     past: true,
-    home: true,
   },
   {
     id: 'a2',
@@ -22,7 +21,6 @@ export const initialAgenda: AgendaItem[] = [
     title: 'Bayar listrik Kedai Dago',
     kind: 'reminder',
     way: 'call',
-    home: true,
   },
   { id: 'a3', date: TODAY, time: '15.00', title: 'Cek stok Kedai Riau', kind: 'task' },
   {
@@ -33,7 +31,6 @@ export const initialAgenda: AgendaItem[] = [
     kind: 'recurring',
     way: 'alarm',
     repeat: 'Tiap Senin',
-    home: true,
   },
   {
     id: 'a5',

@@ -228,7 +228,7 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
 
     case 'addAgenda': {
       const id = `a-${state.seq + 1}`;
-      const item: AgendaItem = { ...action.item, id, home: action.item.date === TODAY };
+      const item: AgendaItem = { ...action.item, id };
       const next = { ...state, seq: state.seq + 1, agenda: [...state.agenda, item] };
       return withHistory(next, {
         time: NOW_APP,

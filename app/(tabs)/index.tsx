@@ -3,8 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { homeSummary, user } from '@/sample/profile';
-import { TODAY } from '@/sample/agenda';
-import { approvalText, houseCard, pendingApproval, ringNodes, useSample } from '@/sample/store';
+import { approvalText, homeAgenda, houseCard, pendingApproval, ringNodes, useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '@/ui/Card';
 import { Icon } from '@/ui/Icon';
@@ -23,9 +22,7 @@ export default function Beranda() {
   const { state, dispatch } = useSample();
   const approval = pendingApproval(state);
   const ring = ringNodes(state);
-  const homeAgenda = state.agenda
-    .filter((a) => a.date === TODAY && a.home)
-    .sort((a, b) => a.time.localeCompare(b.time));
+  const today = homeAgenda(state);
 
   return (
     <View style={{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top }}>
@@ -125,14 +122,14 @@ export default function Beranda() {
                 </Txt>
               </Pressable>
             </View>
-            {homeAgenda.map((a, i) => (
+            {today.map((a, i) => (
               <View
-                key={a.time}
+                key={a.id}
                 style={{
                   flexDirection: 'row',
                   gap: 16,
                   paddingVertical: 12,
-                  borderBottomWidth: i < homeAgenda.length - 1 ? 1 : 0,
+                  borderBottomWidth: i < today.length - 1 ? 1 : 0,
                   borderBottomColor: c.line,
                 }}
               >
