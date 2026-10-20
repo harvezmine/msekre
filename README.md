@@ -45,3 +45,10 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Build di cloud (EAS)
+
+Profil di `eas.json`: `development` (development client, APK), `preview` (APK internal), `production` (app bundle).
+Berkas yang tidak masuk git (`google-services.json`) tidak ikut terunggah ke EAS: simpan sebagai EAS file secret
+bernama `GOOGLE_SERVICES_JSON` (`app.config.ts` membacanya). Alamat server diisi lewat `EXPO_PUBLIC_API_URL`.
+Langkah lengkap ada di `docs/ROADMAP.md`, bagian "Build di cloud (EAS)".

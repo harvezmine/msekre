@@ -12,7 +12,7 @@ export const DATA_MODES: readonly DataMode[] = ['contoh', 'server'];
 const MODE_KEY = 'mode.data';
 
 /**
- * Alamat server dari `app.json` `expo.extra.apiUrl`: asal saja (contoh `https://app.sekertaris.com`), tanpa `/app/v1`
+ * Alamat server dari `app.config.ts` `extra.apiUrl` (dari `EXPO_PUBLIC_API_URL`): asal saja (contoh `https://app.sekertaris.com`), tanpa `/app/v1`
  * dan tanpa garis miring di akhir. `null` kalau kosong atau bukan alamat http(s).
  */
 export function readApiUrl(extra: Record<string, unknown> | undefined = Constants.expoConfig?.extra): string | null {

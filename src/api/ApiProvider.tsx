@@ -18,7 +18,7 @@ export interface Api {
 }
 
 export interface ApiValue extends Api {
-  /** Alamat server dari app.json, atau `null`. */
+  /** Alamat server dari app.config.ts (`extra.apiUrl`), atau `null`. */
   apiUrl: string | null;
   /** Mode `server` hanya bisa dipilih kalau `apiUrl` diisi. */
   canUseServer: boolean;
@@ -43,7 +43,7 @@ export const ApiContext = createContext<ApiValue | null>(null);
 
 interface ApiProviderProps {
   children: ReactNode;
-  /** Alamat server. Bawaannya dari app.json `expo.extra.apiUrl`. */
+  /** Alamat server. Bawaannya dari app.config.ts `extra.apiUrl`. */
   apiUrl?: string | null;
   /** Untuk tes: transport dan sesi yang sudah jadi. Pilihan mode yang tersimpan tidak dibaca. */
   initial?: Api;

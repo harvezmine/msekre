@@ -52,12 +52,12 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "eslint app src __tests__ jest.setup.ts scripts --no-error-on-unmatched-pattern && npm run format:check",
+    "lint": "eslint app src __tests__ jest.setup.ts app.config.ts scripts --no-error-on-unmatched-pattern && npm run format:check",
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/make-icons.mjs",
-    "format": "prettier --write \"app/**/*.{ts,tsx}\" \"src/**/*.{ts,tsx}\" \"__tests__/**/*.{ts,tsx}\" jest.setup.ts",
-    "format:check": "prettier --check \"app/**/*.{ts,tsx}\" \"src/**/*.{ts,tsx}\" \"__tests__/**/*.{ts,tsx}\" jest.setup.ts"
+    "format": "prettier --write \"app/**/*.{ts,tsx}\" \"src/**/*.{ts,tsx}\" \"__tests__/**/*.{ts,tsx}\" jest.setup.ts app.config.ts",
+    "format:check": "prettier --check \"app/**/*.{ts,tsx}\" \"src/**/*.{ts,tsx}\" \"__tests__/**/*.{ts,tsx}\" jest.setup.ts app.config.ts"
   },
   "private": true,
   "jest": {

@@ -66,7 +66,7 @@ export interface HttpOptions {
   socket?: (url: string, headers: Record<string, string>) => SocketLike;
   timeoutMs?: number;
   connectTimeoutMs?: number;
-  /** Isi header `X-App-Version`. Bawaan: versi dari app.json. */
+  /** Isi header `X-App-Version`. Bawaan: versi dari app.config.ts. */
   appVersion?: string;
   silenceMs?: number;
   /** 0..1, untuk goyangan jeda sambung ulang. */

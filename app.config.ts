@@ -3,10 +3,18 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExpoConfig } from 'expo/config';
 
-// Sama dengan app.json sebelumnya, ditambah notifikasi. FCM butuh `google-services.json` dari Firebase; berkasnya
-// dipakai hanya kalau ada, jadi build tetap jalan tanpa itu (notifikasi lokal tetap bisa dites).
-const googleServices = './google-services.json';
-const hasGoogleServices = existsSync(join(__dirname, googleServices));
+// Sama dengan app.json sebelumnya, ditambah notifikasi. FCM butuh `google-services.json` dari Firebase.
+// - Build di HP/laptop sendiri: berkas `./google-services.json` (tidak masuk git) dipakai hanya kalau ada, jadi build
+//   tetap jalan tanpa itu (notifikasi lokal tetap bisa dites).
+// - Build di cloud EAS: berkas yang tidak masuk git tidak ikut terunggah. Simpan sebagai EAS file secret bernama
+//   `GOOGLE_SERVICES_JSON` (expo.dev → proyek → Environment variables → jenis File, atau `npx eas-cli env:create`);
+//   EAS mengisi variabel itu dengan jalur berkasnya saat build.
+// - Alamat server: variabel `EXPO_PUBLIC_API_URL` (contoh `https://app.sekertaris.com`) saat build/`expo start`;
+//   kosong berarti mode server tidak bisa dipilih (hanya mode contoh).
+const localGoogleServices = './google-services.json';
+const googleServicesFile =
+  process.env.GOOGLE_SERVICES_JSON ??
+  (existsSync(join(__dirname, localGoogleServices)) ? localGoogleServices : undefined);
 
 const config: ExpoConfig = {
   name: 'Sekretaris AI',
@@ -25,7 +33,7 @@ const config: ExpoConfig = {
       monochromeImage: './assets/brand/icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
-    ...(hasGoogleServices ? { googleServicesFile: googleServices } : {}),
+    ...(googleServicesFile ? { googleServicesFile } : {}),
   },
   web: {
     output: 'server',
@@ -58,7 +66,7 @@ const config: ExpoConfig = {
     ],
   ],
   extra: {
-    apiUrl: '',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? '',
   },
   experiments: {
     typedRoutes: true,
