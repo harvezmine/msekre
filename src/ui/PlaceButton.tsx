@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { Pressable } from 'react-native';
+import { useHome } from '@/api/useHome';
 import type { Place } from '@/sample/types';
 import { useSampleState } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -10,7 +11,10 @@ import { Txt } from './Txt';
 export function PlaceButton({ labelFor }: { labelFor?: (place: Place) => string }) {
   const { c } = useTheme();
   const state = useSampleState();
-  const label = labelFor ? labelFor(state.place) : state.place;
+  // Tempat dari Beranda (`GET /home`); sebelum terisi, dari data contoh (di mode contoh keduanya sama).
+  const { home } = useHome();
+  const place = (home?.place ?? state.place) as Place;
+  const label = labelFor ? labelFor(place) : place;
   return (
     <Pressable
       accessibilityRole="button"

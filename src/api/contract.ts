@@ -23,6 +23,8 @@
  * | PUT  /account/security         | SecurityUpdateReq    | SecurityRes                       |
  * | POST /account/pin              | PinSetReq            | SecurityRes                       |
  * | POST /account/pin/verify       | PinVerifyReq         | OkRes (salah: 403 `pin_salah`)    |
+ * | GET  /home                     | -                    | Home (Beranda)                    |
+ * | PUT  /places/current           | PlaceReq             | Home                              |
  * | POST /home/devices/:id         | DeviceControlReq     | DeviceControlRes (Fase 3)         |
  * | GET  /media/:id                | -                    | berkasnya (gambar QRIS, dokumen)  |
  * | WS   /stream                   | -                    | StreamEvent, satu JSON per pesan  |
@@ -196,6 +198,8 @@ export const draftSchema = z
     status: draftStatusSchema,
     /** Diisi sejak `held`: batas waktu masih bisa dibatalkan (ISO 8601). */
     heldUntil: isoDateTimeSchema.optional(),
+    /** Hanya di `Home.approvals`: kalimat kartu "Butuh persetujuan Anda". Kosong = aplikasi menyusun kalimat sendiri. */
+    ask: z.string().min(1).optional(),
   })
   .refine((d) => d.status !== 'held' || d.heldUntil !== undefined, {
     path: ['heldUntil'],
@@ -393,6 +397,68 @@ export const deviceControlReqSchema = z
   });
 export const deviceControlResSchema = z.object({ card: deviceCardSchema });
 
+// ---- Beranda ----
+
+/** Satu baris "Agenda hari ini" di Beranda. Tugas tidak ikut (ada di layar Agenda). */
+export const HOME_AGENDA_MAX = 3;
+export const agendaSummarySchema = z.object({
+  id: idSchema,
+  /** Jam tampil, "HH.MM". */
+  time: z.string().min(1),
+  title: z.string().min(1),
+  /** `reminder`, `meeting`, `recurring`; jenis yang belum dikenal tetap ditampilkan sebagai baris biasa. */
+  kind: z.string().min(1),
+});
+
+/** Satu baris kartu Rumah. `on` ada kalau barisnya punya sakelar (AC); `switchable` = sakelarnya boleh diketuk. */
+export const houseLineSchema = z.object({
+  deviceId: idSchema,
+  /** Nama ikon; yang tidak dikenal aplikasi diganti ikon bawaan. */
+  icon: z.string().min(1),
+  text: z.string().min(1),
+  /** Nama perangkat untuk pembaca layar pada sakelar ("AC kamar"). Kosong = memakai `text`. */
+  label: z.string().min(1).optional(),
+  on: z.boolean().optional(),
+  switchable: z.boolean(),
+});
+
+/** Ringkasan usaha untuk tempat terpilih. Teks sudah jadi (mata uang dan keterangan perubahan). */
+export const businessSummarySchema = z.object({
+  source: z.string().min(1),
+  sales: z.string().min(1),
+  change: z.string().min(1),
+  /** Penjualan turun: keterangan perubahan diberi warna peringatan. */
+  down: z.boolean(),
+  alert: z.string().min(1).nullable(),
+});
+
+export const ringNodeSchema = z.object({
+  key: idSchema,
+  icon: z.string().min(1),
+  label: z.string().min(1),
+  /** Layanan atau perangkat sumbernya tidak terjangkau. */
+  reachable: z.boolean(),
+});
+
+export const homeSchema = z.object({
+  /** Tempat terpilih: `Semua` atau salah satu tempat pengguna. */
+  place: z.string().min(1),
+  /** Nama untuk sapaan, atau `null` (sapaan netral). */
+  greetingName: z.string().min(1).nullable(),
+  summary: z.string(),
+  /** Draf berstatus `draft` yang menunggu persetujuan, yang tertua dulu. */
+  approvals: z.array(draftSchema),
+  agendaToday: z.array(agendaSummarySchema).max(HOME_AGENDA_MAX),
+  house: z.object({ lines: z.array(houseLineSchema) }),
+  /** Usaha untuk tempat terpilih; `null` kalau pengguna tidak punya usaha. */
+  business: businessSummarySchema.nullable(),
+  ring: z.object({ nodes: z.array(ringNodeSchema) }),
+  /** Nomor perubahan Beranda per pengguna. Naik setiap isinya berubah; klien membuang yang lebih lama. */
+  rev: z.number().int().positive(),
+});
+
+export const placeReqSchema = z.strictObject({ place: z.string().min(1) });
+
 // ---- Stream ----
 
 export const streamEventSchema = z.discriminatedUnion('type', [
@@ -404,6 +470,8 @@ export const streamEventSchema = z.discriminatedUnion('type', [
    */
   z.object({ type: z.literal('draft'), draft: draftSchema, rev: z.number().int().positive() }),
   z.object({ type: z.literal('thinking'), runId: idSchema, on: z.boolean() }),
+  /** Beranda berubah: menggantikan `Home` di layar, kecuali `home.rev` lebih lama (upsert). */
+  z.object({ type: z.literal('home'), home: homeSchema }),
   z.object({ type: z.literal('ping') }),
 ]);
 
@@ -462,6 +530,12 @@ export type DraftActionReq = z.infer<typeof draftActionReqSchema>;
 export type DraftActionRes = z.infer<typeof draftActionResSchema>;
 export type PushTokenReq = z.infer<typeof pushTokenReqSchema>;
 export type PushTokenDeleteReq = z.infer<typeof pushTokenDeleteReqSchema>;
+export type AgendaSummary = z.infer<typeof agendaSummarySchema>;
+export type HouseLine = z.infer<typeof houseLineSchema>;
+export type BusinessSummary = z.infer<typeof businessSummarySchema>;
+export type RingNodeSummary = z.infer<typeof ringNodeSchema>;
+export type Home = z.infer<typeof homeSchema>;
+export type PlaceReq = z.infer<typeof placeReqSchema>;
 export type DeviceCard = z.infer<typeof deviceCardSchema>;
 export type DeviceControlReq = z.infer<typeof deviceControlReqSchema>;
 export type DeviceControlRes = z.infer<typeof deviceControlResSchema>;

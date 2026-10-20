@@ -63,3 +63,13 @@ export const ICON_PATHS = {
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;
+
+/** Nama ikon yang dikenal aplikasi. */
+export function isIconName(name: string): name is IconName {
+  return Object.prototype.hasOwnProperty.call(ICON_PATHS, name);
+}
+
+/** `name` bila dikenal, selain itu `fallback`: nama ikon dari server bisa lebih baru dari aplikasi. */
+export function iconOr(name: string, fallback: IconName): IconName {
+  return isIconName(name) ? name : fallback;
+}

@@ -12,12 +12,12 @@ import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AfterSignIn } from '@/api/AfterSignIn';
 import { ApiProvider, useApi } from '@/api/ApiProvider';
+import { ApiSampleProvider } from '@/api/ApiSampleProvider';
 import { ChatProvider } from '@/api/ChatProvider';
-import { ContohBridge } from '@/api/ContohBridge';
+import { HomeProvider } from '@/api/HomeProvider';
 import { canOpen } from '@/api/routeAccess';
 import { PushProvider, PushTapHandler } from '@/api/usePush';
 import { AuthProvider, useAuth } from '@/api/useAuth';
-import { SampleProvider } from '@/sample/store';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { ToastHost } from '@/ui/Toast';
 
@@ -167,18 +167,19 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
-        <SampleProvider>
-          <ApiProvider>
+        <ApiProvider>
+          <ApiSampleProvider>
             <AuthProvider>
               <ChatProvider>
-                <PushProvider>
-                  <Navigator />
-                </PushProvider>
+                <HomeProvider>
+                  <PushProvider>
+                    <Navigator />
+                  </PushProvider>
+                </HomeProvider>
               </ChatProvider>
-              <ContohBridge />
             </AuthProvider>
-          </ApiProvider>
-        </SampleProvider>
+          </ApiSampleProvider>
+        </ApiProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

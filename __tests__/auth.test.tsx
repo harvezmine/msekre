@@ -261,6 +261,10 @@ describe('profil di mode server', () => {
     const api = createTestApi({ mode: 'server', token: 'token', requireSession: true });
     const me = await api.transport.me();
     jest.spyOn(api.transport, 'me').mockResolvedValue({ ...me, ...patch });
+    // Sapaan Beranda datang dari server (`greetingName`), sama dengan nama akun.
+    const home = await api.transport.home();
+    const name = (patch as { name?: string | null }).name ?? null;
+    jest.spyOn(api.transport, 'home').mockResolvedValue({ ...home, greetingName: name });
     return api;
   };
 
@@ -541,6 +545,7 @@ describe('nama dari server', () => {
     const api = createTestApi({ token: 'token' });
     const me = await api.transport.me();
     jest.spyOn(api.transport, 'me').mockResolvedValue({ ...me, name: 'Budi', assistantName: 'Dewi' });
+    jest.spyOn(api.transport, 'home').mockResolvedValue({ ...(await api.transport.home()), greetingName: 'Budi' });
     return api;
   }
 

@@ -87,3 +87,22 @@ sisanya adalah aturan implementasi server. Kontrak lengkapnya ada di `src/api/co
   - Klien selalu mengirim `{}` untuk POST tanpa isi. Fastify menolak body JSON kosong, jadi aturan ini dipertahankan.
 - **Unggah media dari pengguna:** belum ada di kontrak v1. Tombol lampiran di aplikasi masih memunculkan toast; jalurnya
   menyusul.
+
+## Beranda (Fase 2a, Tugas 1)
+
+Kontrak ditambah (aditif, `CONTRACT_VERSION` tetap 1); uraian lengkap di `docs/api-v1.md` bagian 2.12.
+
+- `GET /home` → `Home`; `PUT /places/current { place }` → `Home`; event stream `home` (`{ type: 'home', home }`,
+  upsert menurut `rev`).
+- `Draft` mendapat bidang opsional `ask` (kalimat kartu persetujuan); hanya diisi pada `Home.approvals`.
+- Aturan server:
+  - `approvals` = draf berstatus `draft`, tertua dulu; `agendaToday` paling banyak 3 baris tanpa tugas;
+    `ring.nodes` dari layanan tersambung dan perangkat yang punya simpul cincin; `business` untuk tempat terpilih
+    (atau `null` bila tidak punya usaha).
+  - `rev` Beranda per pengguna, naik hanya bila isinya berubah; siarkan `home` ke semua koneksi pengguna, gabungkan
+    perubahan yang berdekatan (satu event per giliran sudah cukup).
+  - Sakelar AC di Beranda memanggil `POST /home/devices/:id` (Fase 3). Sebelum itu balas 501 dan aplikasi menampilkan
+    kalimat ramah; Beranda tetap bisa dibaca penuh.
+  - `PUT /places/current` menolak tempat yang bukan milik pengguna (400 `tidak_valid`).
+- Server tiruan (`FakeTransport`) kini memegang data contoh (`fake.sample`); Beranda dihitung dari data itu dengan
+  penyeleksi yang sama seperti layar 0b, sehingga perubahan dari layar mana pun ikut menyiarkan event `home`.

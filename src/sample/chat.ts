@@ -42,7 +42,7 @@ export const initialChat: ChatEntry[] = [
   { id: 't16', kind: 'thinking' },
 ];
 
-/** Kalimat asisten sebelum kartu draf baru (server tiruan dan ContohBridge): "Ini draf pesanannya. Saya kirim setelah Anda setuju." */
+/** Kalimat asisten sebelum kartu draf baru (server tiruan): "Ini draf pesanannya. Saya kirim setelah Anda setuju." */
 export const draftIntro = (what: string) => `Ini draf ${what}nya. Saya kirim setelah Anda setuju.`;
 
 export const THINK_MS = 1200;

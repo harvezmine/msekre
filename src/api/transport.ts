@@ -7,6 +7,7 @@ import type {
   DeviceControlReq,
   DraftActionReq,
   DraftActionRes,
+  Home,
   Me,
   Message,
   MessagesPage,
@@ -153,6 +154,10 @@ export interface Transport {
   setPin(req: PinSetReq): Promise<SecurityRes>;
   /** Periksa PIN (`POST /account/pin/verify`): `true` kalau cocok, `false` kalau salah (403 `pin_salah`). */
   verifyPin(pin: string): Promise<boolean>;
+  /** Beranda (`GET /home`): ringkasan untuk tempat terpilih. Perubahan berikutnya datang lewat event stream `home`. */
+  home(): Promise<Home>;
+  /** Pilih tempat (`PUT /places/current`); jawabannya Beranda untuk tempat itu. Tempat yang tidak dikenal: `tidak_valid`. */
+  setPlace(place: string): Promise<Home>;
   /** Atur perangkat rumah dari kartu (`POST /home/devices/:id`). Fase 3; sebelum itu `unavailable`. */
   controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard>;
   /** Cara menampilkan media `mediaId`, dengan header token untuk server asli. */

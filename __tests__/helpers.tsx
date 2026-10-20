@@ -2,12 +2,13 @@ import { render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { ApiProvider, type Api } from '@/api/ApiProvider';
 import { ChatProvider } from '@/api/ChatProvider';
-import { ContohBridge } from '@/api/ContohBridge';
+import { ApiSampleProvider } from '@/api/ApiSampleProvider';
+import { HomeProvider } from '@/api/HomeProvider';
 import { FakeTransport, type FakeOptions } from '@/api/fake/FakeTransport';
 import { createMemorySession } from '@/api/session';
 import { AuthProvider } from '@/api/useAuth';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { initialSampleState, SampleProvider, sampleReducer, type SampleAction, type SampleState } from '@/sample/store';
+import { initialSampleState, sampleReducer, type SampleAction, type SampleState } from '@/sample/store';
 import { ThemeProvider, type Scheme } from '@/theme/ThemeProvider';
 
 interface Options {
@@ -34,17 +35,20 @@ export function stateAfter(actions: SampleAction[], from: SampleState = initialS
 
 /** Render dengan tema dan penyimpanan contoh, seperti di akar aplikasi. */
 export async function renderWithProviders(ui: ReactElement, { state, actions = [], scheme, api }: Options = {}) {
+  // Mode contoh: keadaan awal dipasang di penyimpanan milik server tiruan (itu yang dilihat layar dan skenario).
+  const seeded = stateAfter(actions, state);
   return render(
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider scheme={scheme}>
-        <SampleProvider initial={stateAfter(actions, state)}>
-          <ApiProvider initial={api ?? createTestApi()} apiUrl={null}>
+        <ApiProvider initial={api ?? createTestApi({ sample: seeded })} apiUrl={null}>
+          <ApiSampleProvider initial={seeded}>
             <AuthProvider>
-              <ChatProvider>{ui}</ChatProvider>
-              <ContohBridge />
+              <ChatProvider>
+                <HomeProvider>{ui}</HomeProvider>
+              </ChatProvider>
             </AuthProvider>
-          </ApiProvider>
-        </SampleProvider>
+          </ApiSampleProvider>
+        </ApiProvider>
       </ThemeProvider>
     </GestureHandlerRootView>,
   );

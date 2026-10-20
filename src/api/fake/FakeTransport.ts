@@ -1,5 +1,12 @@
 import type { z } from 'zod';
-import { THINK_MS } from '@/sample/chat';
+import { draftIntro, THINK_MS } from '@/sample/chat';
+import { MAIN_AC_ID } from '@/sample/devices';
+import { initialOutgoing } from '@/sample/outgoing';
+import { user } from '@/sample/profile';
+import type { SampleState } from '@/sample/reducer';
+import { createSampleStore, type SampleStore } from '@/sample/sampleStore';
+import { deviceById } from '@/sample/selectors';
+import { PLACES } from '@/sample/types';
 import {
   authStartReqSchema,
   authVerifyReqSchema,
@@ -9,6 +16,7 @@ import {
   MESSAGES_LIMIT,
   MESSAGES_LIMIT_MAX,
   pinSetReqSchema,
+  placeReqSchema,
   pinVerifyReqSchema,
   pushTokenDeleteReqSchema,
   pushTokenReqSchema,
@@ -23,6 +31,7 @@ import {
   type Draft,
   type DraftActionReq,
   type DraftActionRes,
+  type Home,
   type Me,
   type Message,
   type MessagesPage,
@@ -47,8 +56,9 @@ import {
   type Unsubscribe,
 } from '../transport';
 import { FakeClock } from './clock';
-import { SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
-import { FakeScenario, sampleMe, type AcState } from './scenario';
+import { homeFrom } from './home';
+import { draftFromOutgoing, SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
+import { FakeScenario, sampleMe } from './scenario';
 
 /** Jeda minta kode lagi di server tiruan. */
 export const FAKE_RESEND_SEC = 60;
@@ -79,6 +89,8 @@ export interface FakeOptions {
   /** Riwayat awal, dari yang terlama, dengan `seq` naik. Bawaan utas contoh 0b. */
   history?: Message[];
   clock?: FakeClock;
+  /** Keadaan awal penyimpanan contoh milik server tiruan ({@link FakeTransport.sample}). Bawaan: keadaan awal contoh 0b. */
+  sample?: SampleState;
   /** Paling banyak pesan per `messagesChanged`, supaya `more` bisa dicoba. Bawaan batas kontrak. */
   afterLimit?: number;
 }
@@ -124,6 +136,12 @@ export class FakeTransport implements Transport {
   readonly registeredPushTokens: PushTokenReq[] = [];
   /** Token yang dicabut (`unregisterPushToken`), dari yang pertama. Hanya dicatat. */
   readonly unregisteredPushTokens: string[] = [];
+  /**
+   * Data contoh (agenda, perangkat, kiriman, layanan, riwayat, usaha, tempat) milik server tiruan. Skenario dan Beranda
+   * membaca dan menulis di sini; di mode contoh layar yang belum pindah ke kontrak melihat penyimpanan yang sama
+   * (`ApiSampleProvider`).
+   */
+  readonly sample: SampleStore;
 
   private readonly clock: FakeClock;
   private readonly scenario: FakeScenario;
@@ -152,7 +170,15 @@ export class FakeTransport implements Transport {
     start: () => this.connect(),
     stop: () => this.hub.setStatus('closed'),
   });
-  private readonly acListeners = new Set<(ac: AcState) => void>();
+  /** Id kiriman yang sudah punya kartu di chat, dan status terakhirnya (untuk menangkap perubahan dari layar lain). */
+  private readonly knownOutgoing = new Set<string>(Object.keys(initialOutgoing));
+  private readonly outgoingStatus = new Map<string, string>();
+  private readonly offSample: () => void;
+  private homeTimer: Promise<void> | null = null;
+  private homeSig = '';
+  private homeRev = 0;
+  /** `rev` Beranda terakhir yang disiarkan lewat stream (jawaban GET tidak menghitung: ia hanya membaca). */
+  private homeSent = 0;
   private readonly failures: SimulatedFailure[] = [];
   private offline = false;
   private restoreTimer: Timer | null = null;
@@ -185,6 +211,18 @@ export class FakeTransport implements Transport {
       this.msgRev = Math.max(this.msgRev, message.rev);
       this.store(message);
     }
+    this.sample = createSampleStore(options.sample);
+    // Keadaan AC yang sebenarnya ada di penyimpanan contoh, jadi "AC kamar gimana?" sama dengan Beranda.
+    this.scenario.setAcReader(() => {
+      const ac = deviceById(this.sample.getState(), MAIN_AC_ID);
+      return { on: ac?.on ?? false, temp: ac?.ac?.temp ?? 24 };
+    });
+    for (const o of Object.values(this.sample.getState().outgoing)) this.outgoingStatus.set(o.id, o.status);
+    this.offSample = this.sample.subscribe(() => this.onSampleChange());
+    // Kiriman yang sudah ada di penyimpanan awal tapi belum punya kartu di chat.
+    this.syncOutgoing();
+    this.currentHome();
+    this.homeSent = this.homeRev;
   }
 
   // ---- Jalur kontrak ----
@@ -316,7 +354,10 @@ export class FakeTransport implements Transport {
         const reply = this.scenario.reply({ text, choiceId });
         for (const draft of reply.drafts) this.drafts.set(draft.id, draft);
         for (const parts of reply.messages) this.receive({ from: 'assistant', via: 'app', parts });
-        if (reply.acChange) for (const l of [...this.acListeners]) l(reply.acChange);
+        if (reply.acChange) {
+          const { on, temp } = reply.acChange;
+          this.sample.dispatch({ type: 'setAc', deviceId: MAIN_AC_ID, on, temp, source: 'chat' });
+        }
         this.emit({ type: 'thinking', runId, on: false });
       });
       return this.present(message);
@@ -324,34 +365,49 @@ export class FakeTransport implements Transport {
   }
 
   draftAction(id: string, req: DraftActionReq): Promise<DraftActionRes> {
+    return this.call(true, () => this.runDraftAction(id, req));
+  }
+
+  private runDraftAction(id: string, req: DraftActionReq): DraftActionRes {
+    const action = parse(draftActionReqSchema, req);
+    const draft = this.drafts.get(id);
+    if (!draft) throw notFound();
+    let next: Draft;
+    switch (action.action) {
+      case 'send':
+        // `failed` boleh dikirim ulang ("Coba lagi"); `sent` dan `cancelled` tidak.
+        if (draft.status !== 'draft' && draft.status !== 'failed') throw wrongStatus();
+        next = { ...draft, status: 'held', heldUntil: this.clock.iso(HELD_MINUTES) };
+        this.hold(id);
+        break;
+      case 'cancel':
+        if (draft.status !== 'held') throw wrongStatus();
+        this.endHold(id);
+        next = { ...draft, status: 'cancelled' };
+        break;
+      case 'discard':
+        if (draft.status !== 'draft') throw wrongStatus();
+        next = { ...draft, status: 'cancelled' };
+        break;
+      case 'edit':
+        if (draft.status !== 'draft') throw wrongStatus();
+        next = { ...draft, text: action.text };
+        break;
+    }
+    const rev = this.changeDraft(next);
+    return { draft: copy(next), rev };
+  }
+
+  home(): Promise<Home> {
+    return this.call(true, () => this.currentHome());
+  }
+
+  setPlace(place: string): Promise<Home> {
     return this.call(true, () => {
-      const action = parse(draftActionReqSchema, req);
-      const draft = this.drafts.get(id);
-      if (!draft) throw notFound();
-      let next: Draft;
-      switch (action.action) {
-        case 'send':
-          // `failed` boleh dikirim ulang ("Coba lagi"); `sent` dan `cancelled` tidak.
-          if (draft.status !== 'draft' && draft.status !== 'failed') throw wrongStatus();
-          next = { ...draft, status: 'held', heldUntil: this.clock.iso(HELD_MINUTES) };
-          this.hold(id);
-          break;
-        case 'cancel':
-          if (draft.status !== 'held') throw wrongStatus();
-          this.endHold(id);
-          next = { ...draft, status: 'cancelled' };
-          break;
-        case 'discard':
-          if (draft.status !== 'draft') throw wrongStatus();
-          next = { ...draft, status: 'cancelled' };
-          break;
-        case 'edit':
-          if (draft.status !== 'draft') throw wrongStatus();
-          next = { ...draft, text: action.text };
-          break;
-      }
-      const rev = this.changeDraft(next);
-      return { draft: copy(next), rev };
+      const req = parse(placeReqSchema, { place });
+      if (!(PLACES as readonly string[]).includes(req.place)) throw invalid();
+      this.sample.dispatch({ type: 'setPlace', place: req.place as (typeof PLACES)[number] });
+      return this.currentHome();
     });
   }
 
@@ -427,6 +483,7 @@ export class FakeTransport implements Transport {
   }
 
   dispose() {
+    this.offSample();
     for (const t of this.timers) clearTimeout(t);
     this.timers.clear();
     this.holds.clear();
@@ -492,25 +549,93 @@ export class FakeTransport implements Transport {
     return target === undefined ? null : this.setQris(target, 'lunas');
   }
 
-  /**
-   * Mode contoh: pembaca keadaan AC yang sebenarnya (penyimpanan contoh), supaya jawaban "AC kamar gimana?" sesuai
-   * Beranda. Tanpa pembaca, skenario memakai keadaannya sendiri.
-   */
-  setAcReader(read: (() => AcState) | null) {
-    this.scenario.setAcReader(read);
-  }
-
-  /** Dipanggil saat permintaan pengguna di chat benar-benar mengubah AC (bukan saat hanya ditanya). */
-  onAcChange(listener: (ac: AcState) => void): Unsubscribe {
-    this.acListeners.add(listener);
-    return () => {
-      this.acListeners.delete(listener);
-    };
-  }
-
   /** Mulai sekarang, draf yang selesai ditahan menjadi `failed` (pengiriman gagal), bukan `sent`. */
   failHeldSends(on = true) {
     this.failHeld = on;
+  }
+
+  // ---- Penyimpanan contoh ----
+
+  /**
+   * Draf yang berubah di chat diteruskan ke kiriman yang sama di penyimpanan contoh (`sendDraft`, `markSent`,
+   * `cancelSend`, `discardDraft`, `editDraft`), jadi Riwayat dan Beranda ikut berubah. Draf tanpa kiriman di
+   * penyimpanan (balasan dari skenario) tidak diteruskan ke mana pun.
+   */
+  private mirrorDraft(draft: Draft) {
+    const o = this.sample.getState().outgoing[draft.id];
+    if (!o) return;
+    if (draft.status === 'held' && o.status === 'draft') {
+      this.sample.dispatch({ type: 'sendDraft', id: o.id });
+    } else if (draft.status === 'sent' && o.status === 'held') {
+      this.sample.dispatch({ type: 'markSent', id: o.id });
+    } else if (draft.status === 'cancelled' && o.status === 'held') {
+      this.sample.dispatch({ type: 'cancelSend', id: o.id });
+    } else if (draft.status === 'cancelled' && o.status === 'draft') {
+      this.sample.dispatch({ type: 'discardDraft', id: o.id });
+    } else if (draft.status === 'draft' && o.status === 'draft' && draft.text !== o.text) {
+      this.sample.dispatch({ type: 'editDraft', id: o.id, text: draft.text });
+    }
+  }
+
+  private onSampleChange() {
+    this.syncOutgoing();
+    this.scheduleHome();
+  }
+
+  /**
+   * Arah sebaliknya: kiriman baru dari layar lain ("Pesan lagi" di Usaha) menjadi pesan asisten berisi kartu draf, dan
+   * Batalkan di Riwayat membatalkan drafnya di chat.
+   */
+  private syncOutgoing() {
+    for (const o of Object.values(this.sample.getState().outgoing)) {
+      if (!this.knownOutgoing.has(o.id)) {
+        this.knownOutgoing.add(o.id);
+        this.receive({
+          from: 'assistant',
+          via: 'app',
+          parts: [
+            { type: 'text', text: draftIntro(o.what) },
+            { type: 'card', card: { kind: 'draft', draft: draftFromOutgoing(o) } },
+          ],
+        });
+      }
+      const before = this.outgoingStatus.get(o.id);
+      this.outgoingStatus.set(o.id, o.status);
+      if (before === 'held' && o.status === 'cancelled' && this.drafts.get(o.id)?.status === 'held') {
+        try {
+          this.runDraftAction(o.id, { action: 'cancel' });
+        } catch {
+          // Draf sudah berubah di tempat lain: tidak ada yang perlu dibatalkan.
+        }
+      }
+    }
+  }
+
+  // ---- Beranda ----
+
+  /** Beranda sekarang. `rev` naik hanya kalau isinya berbeda dari penghitungan sebelumnya. */
+  private currentHome(): Home {
+    const base = homeFrom(this.sample.getState(), user.name);
+    const sig = JSON.stringify(base);
+    if (sig !== this.homeSig) {
+      this.homeSig = sig;
+      this.homeRev += 1;
+    }
+    return copy({ ...base, rev: this.homeRev });
+  }
+
+  /** Perubahan penyimpanan dalam satu giliran digabung menjadi satu event `home` (hanya kalau Beranda berubah). */
+  private scheduleHome() {
+    if (this.homeTimer) return;
+    this.homeTimer = Promise.resolve().then(() => {
+      this.homeTimer = null;
+      const home = this.currentHome();
+      // Sudah dibaca lewat GET atau PUT pun tetap disiarkan, supaya koneksi lain (dan layar yang lain) ikut.
+      if (home.rev > this.homeSent) {
+        this.homeSent = home.rev;
+        this.emit({ type: 'home', home });
+      }
+    });
   }
 
   // ---- Dalaman ----
@@ -615,6 +740,7 @@ export class FakeTransport implements Transport {
   private changeDraft(next: Draft): number {
     this.drafts.set(next.id, next);
     const rev = this.touchDraft(next.id);
+    this.mirrorDraft(next);
     this.later(0, () => this.emit({ type: 'draft', draft: next, rev }));
     return rev;
   }
@@ -631,6 +757,7 @@ export class FakeTransport implements Transport {
         const done: Draft = { ...draft, status: this.failHeld ? 'failed' : 'sent' };
         this.drafts.set(id, done);
         const rev = this.touchDraft(id);
+        this.mirrorDraft(done);
         this.emit({ type: 'draft', draft: done, rev });
       }),
     );

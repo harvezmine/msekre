@@ -63,7 +63,7 @@ export type SampleAction =
     }
   | { type: 'toggleDevice'; id: string; on: boolean }
   | { type: 'setBoxMic'; on: boolean }
-  /** Draf baru (misalnya "Pesan lagi"). Kartunya di chat dibuat `ContohBridge` lewat server tiruan. */
+  /** Draf baru (misalnya "Pesan lagi"). Kartunya di chat dibuat server tiruan (`FakeTransport`) saat melihat kiriman baru. */
   | { type: 'addDraft'; draft: NewDraft }
   | { type: 'editDraft'; id: string; text: string }
   | { type: 'sendDraft'; id: string }

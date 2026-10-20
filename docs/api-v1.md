@@ -409,6 +409,68 @@ langsung jalan. Pembayaran tidak pernah memakai PIN. Semua jalur ini memakai tok
 - Disimpan sebagai hash (memakai `home_pins` yang sudah ada); PIN tidak masuk log.
 - "Lupa PIN" (mengatur ulang tanpa PIN lama) belum ada di kontrak; aplikasi memberi tahu bahwa fiturnya segera hadir.
 
+### 2.12 Beranda: `GET /home`, `PUT /places/current`, dan event `home`
+
+Beranda satu pandang. Server yang menyusun ringkasannya; aplikasi hanya menampilkan.
+
+`GET /home` → 200 `Home`:
+
+```json
+{
+  "place": "Semua",
+  "greetingName": "Rina",
+  "summary": "Ada 3 hal yang perlu Anda hari ini.",
+  "approvals": [
+    { "id": "d-17", "to": "Pak Budi", "channel": "whatsapp", "what": "balasan", "text": "...", "status": "draft",
+      "ask": "Balasan untuk Pak Budi soal harga sewa sudah siap. Kirim?" }
+  ],
+  "agendaToday": [{ "id": "a1", "time": "09.00", "title": "Rapat dengan supplier susu", "kind": "meeting" }],
+  "house": {
+    "lines": [
+      { "deviceId": "ac-kamar", "icon": "snow", "text": "AC kamar nyala · 24°", "label": "AC kamar", "on": true, "switchable": true },
+      { "deviceId": "pintu-depan", "icon": "lock", "text": "Pintu depan terkunci", "switchable": false }
+    ]
+  },
+  "business": { "source": "dari Moka", "sales": "Rp4.250.000", "change": "naik 12% dari Senin lalu", "down": false, "alert": "Susu UHT tinggal 6 karton" },
+  "ring": { "nodes": [{ "key": "wa", "icon": "chat", "label": "WhatsApp", "reachable": true }] },
+  "rev": 51
+}
+```
+
+`PUT /places/current` dengan `{ "place": "Kedai Dago" }` (objek ketat) → 200 `Home` untuk tempat itu. Tempat yang tidak
+dikenal pengguna: 400 `tidak_valid`. Pilihan tempat milik pengguna (dipakai juga oleh Perangkat dan Usaha), bukan milik
+satu perangkat; server mengirim event `home` ke semua koneksi pengguna.
+
+Aturan:
+
+- `place`: `Semua` atau salah satu tempat pengguna. Teks (`summary`, `text`, `sales`, `change`, `alert`) sudah jadi,
+  berbahasa Indonesia sehari-hari; aplikasi tidak menyusunnya.
+- `greetingName`: nama untuk sapaan, atau `null` (aplikasi menyapa "Selamat pagi" tanpa nama). Server asli tidak pernah
+  mengirim nama orang lain.
+- `approvals`: draf berstatus `draft` (menunggu persetujuan), yang tertua dulu. Isinya `Draft` yang sama dengan kartu di
+  chat, ditambah `ask` (opsional): kalimat kartu "Butuh persetujuan Anda". Tanpa `ask` aplikasi menyusun "{Jenis} untuk
+  {penerima} sudah siap. Kirim?". Aplikasi menampilkan satu kartu (yang pertama) dan tombol Lihat membuka chat. Draf yang
+  disetujui, dibuang, atau dibatalkan keluar dari daftar pada event `home` berikutnya.
+- `agendaToday`: paling banyak 3 baris (`HOME_AGENDA_MAX`), hari ini menurut jam, TANPA tugas (`kind: task`). `time`
+  berformat `HH.MM`; `kind` adalah `reminder`, `meeting`, atau `recurring` (jenis yang belum dikenal tetap tampil).
+- `house.lines`: baris kartu Rumah, berurutan. `icon` adalah nama ikon aplikasi; nama yang tidak dikenal diganti ikon
+  bawaan (jangan ditolak). `on` ada hanya pada baris yang punya sakelar (AC); `switchable` = sakelar boleh diketuk
+  (perangkat terjangkau). Sakelar memanggil `POST /home/devices/:id` (bagian 2.9) dengan `{ "on": true|false }`.
+  `label` (opsional) adalah nama perangkat untuk pembaca layar.
+- `business`: ringkasan usaha untuk tempat terpilih, atau `null` kalau pengguna tidak punya usaha (kartu Usaha tidak
+  tampil). `down: true` mewarnai `change` sebagai peringatan. `alert`: satu kalimat peringatan atau `null`. Tempat
+  tanpa usaha (misalnya Rumah) boleh memakai angka gabungan.
+- `ring.nodes`: simpul cincin Beranda dari layanan tersambung dan perangkat yang punya simpul cincin, berurutan.
+  `reachable: false` = layanan/perangkat sumbernya tidak terjangkau (simpul abu-abu, "CCTV tidak terjangkau").
+- `rev`: naik setiap isi Beranda berubah, per pengguna. Event `home` yang `rev`-nya lebih kecil dari yang dipegang
+  aplikasi dibuang. Beranda dimuat ulang dengan `GET /home` setiap koneksi stream terbuka (juga yang pertama), dan
+  jawaban `GET`/`PUT` selalu dipakai apa adanya.
+- Server menyiarkan `{ "type": "home", "home": Home }` setiap kali isinya berubah (draf, agenda, perangkat, layanan,
+  tempat, usaha); beberapa perubahan dalam satu giliran boleh digabung. Jangan siarkan kalau tidak ada yang berubah.
+- Pembacaan longgar (aplikasi): ikon yang tidak dikenal, bidang tambahan, dan baris yang rusak tidak menggagalkan
+  Beranda; baris rusak dibuang. Hanya `place` atau `rev` yang hilang membuat jawaban dianggap salah (kendala server).
+- Perubahan ini aditif; `CONTRACT_VERSION` tetap 1.
+
 ## 3. Bentuk pesan, bagian, dan kartu
 
 Pesan:
@@ -528,6 +590,7 @@ Event dari server:
 ```json
 { "type": "message", "message": { "id": "813", "seq": 813, "rev": 1407, "...": "..." } }
 { "type": "draft", "draft": { "id": "d-17", "status": "sent", "...": "..." }, "rev": 1409 }
+{ "type": "home", "home": { "place": "Semua", "rev": 52, "...": "..." } }
 { "type": "thinking", "runId": "r-91", "on": true }
 { "type": "ping" }
 ```
@@ -538,6 +601,8 @@ Event dari server:
   `id`.
 - `draft`: perubahan draf; menimpa kartu `draft` dengan `draft.id` yang sama, dengan `rev` baru pesan pembawa kartu
   (wajib; lihat bagian 2.7). Event `message` untuk pesan itu tidak wajib: `draft` saja sudah cukup bagi tampilan.
+- `home`: Beranda berubah (bagian 2.12); menggantikan `Home` di layar, kecuali `home.rev` lebih lama dari yang
+  dipegang aplikasi (upsert menurut `rev`). Tidak perlu `message` yang menyertainya.
 - `thinking`: `runId` unik per proses agen; `on: true` saat mulai, `on: false` saat selesai. Dua proses
   bersamaan (aplikasi dan WhatsApp) tidak saling menimpa; aplikasi menyimpan himpunan `runId` aktif.
 - `ping`: setiap 25 detik (`STREAM_PING_SEC`). Aplikasi menganggap koneksi mati bila 60 detik tanpa pesan apa pun.

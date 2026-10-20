@@ -23,15 +23,26 @@ function setup(options: FakeOptions & { token?: string | null } = {}) {
   const session = createMemorySession(token);
   const transport = new FakeTransport(session, rest);
   const events: StreamEvent[] = [];
+  /** Event `home` dipisah: ia menyertai setiap perubahan data contoh (lihat api-home.test.ts). */
+  const homeEvents: StreamEvent[] = [];
   const statuses: ConnectionStatus[] = [];
   let resyncs = 0;
   const listen = () =>
     transport.subscribe(
-      (e) => events.push(e),
+      (e) => (e.type === 'home' ? homeEvents : events).push(e),
       (s) => statuses.push(s),
       () => (resyncs += 1),
     );
-  return { session, transport, events, statuses, listen, resyncs: () => resyncs, last: () => statuses.at(-1) };
+  return {
+    session,
+    transport,
+    events,
+    homeEvents,
+    statuses,
+    listen,
+    resyncs: () => resyncs,
+    last: () => statuses.at(-1),
+  };
 }
 
 const after = (ms: number) => jest.advanceTimersByTimeAsync(ms);

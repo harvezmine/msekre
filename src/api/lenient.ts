@@ -1,15 +1,19 @@
 import { z } from 'zod';
 import {
+  businessSummarySchema,
+  HOME_AGENDA_MAX,
   isoDateTimeSchema,
   messageSchema,
   messagesPageSchema,
   messagesChangedPageSchema,
   draftActionResSchema,
   draftSchema,
+  homeSchema,
   partSchema,
   streamEventSchema,
   UNKNOWN_PART_NOTE,
   type DraftActionRes,
+  type Home,
   type Message,
   type MessagesPage,
   type MessagesChangedPage,
@@ -103,6 +107,10 @@ export function parseEventLenient(raw: unknown): StreamEvent | null {
   }
   const parsed = streamEventSchema.safeParse(raw);
   if (parsed.success) return parsed.data;
+  if ((raw as { type?: unknown }).type === 'home') {
+    const home = parseHomeLenient((raw as { home?: unknown }).home);
+    return home ? { type: 'home', home } : null;
+  }
   if ((raw as { type?: unknown }).type === 'draft') {
     // `rev` hilang atau rusak (server lama): drafnya tetap berlaku, `rev` 0 = tidak diketahui.
     const draft = draftSchema.safeParse((raw as { draft?: unknown }).draft);
@@ -117,4 +125,67 @@ export function parseDraftResLenient(raw: unknown): DraftActionRes | null {
   if (strict.success) return strict.data;
   const draft = draftSchema.safeParse((raw as { draft?: unknown } | null)?.draft);
   return draft.success ? { draft: draft.data, rev: 0 } : null;
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
+
+/**
+ * Beranda dari server. Yang sah dibaca apa adanya; kalau ada isi yang rusak (kontrak lebih baru, atau satu baris
+ * salah), baris itu dibuang atau diberi nilai bawaan, bukan menggagalkan seluruh Beranda. `null` hanya kalau `place`
+ * atau `rev` tidak ada. Nama ikon yang tidak dikenal lolos; layar menggantinya dengan ikon bawaan.
+ */
+export function parseHomeLenient(raw: unknown): Home | null {
+  const strict = homeSchema.safeParse(raw);
+  if (strict.success) return strict.data;
+  if (!isRecord(raw) || !nonEmpty(raw.place)) return null;
+  const rev = positiveInt.safeParse(raw.rev);
+  if (!rev.success) return null;
+  const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+  const approvals = list(raw.approvals).flatMap((d) => {
+    const draft = draftSchema.safeParse(d);
+    return draft.success ? [draft.data] : [];
+  });
+  const agendaToday = list(raw.agendaToday)
+    .flatMap((a) => {
+      const r = isRecord(a) ? a : {};
+      return nonEmpty(r.id) && nonEmpty(r.time) && nonEmpty(r.title)
+        ? [{ id: r.id, time: r.time, title: r.title, kind: nonEmpty(r.kind) ? r.kind : 'reminder' }]
+        : [];
+    })
+    .slice(0, HOME_AGENDA_MAX);
+  const lines = list(isRecord(raw.house) ? raw.house.lines : undefined).flatMap((l) => {
+    const r = isRecord(l) ? l : {};
+    return nonEmpty(r.deviceId) && nonEmpty(r.text)
+      ? [
+          {
+            deviceId: r.deviceId,
+            icon: nonEmpty(r.icon) ? r.icon : 'bulb',
+            text: r.text,
+            ...(nonEmpty(r.label) ? { label: r.label } : {}),
+            ...(typeof r.on === 'boolean' ? { on: r.on } : {}),
+            switchable: r.switchable === true,
+          },
+        ]
+      : [];
+  });
+  const business = businessSummarySchema.safeParse(raw.business);
+  const nodes = list(isRecord(raw.ring) ? raw.ring.nodes : undefined).flatMap((n) => {
+    const r = isRecord(n) ? n : {};
+    return nonEmpty(r.key) && nonEmpty(r.label)
+      ? [{ key: r.key, icon: nonEmpty(r.icon) ? r.icon : 'link', label: r.label, reachable: r.reachable !== false }]
+      : [];
+  });
+  const coerced = homeSchema.safeParse({
+    place: raw.place,
+    greetingName: nonEmpty(raw.greetingName) ? raw.greetingName : null,
+    summary: typeof raw.summary === 'string' ? raw.summary : '',
+    approvals,
+    agendaToday,
+    house: { lines },
+    business: business.success ? business.data : null,
+    ring: { nodes },
+    rev: rev.data,
+  });
+  return coerced.success ? coerced.data : null;
 }

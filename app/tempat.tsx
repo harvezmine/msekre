@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
+import { useHome } from '@/api/useHome';
 import { PLACES, useSample, type Place } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
@@ -18,8 +19,18 @@ export default function Tempat() {
 function Pilihan() {
   const { c } = useTheme();
   const { state, dispatch } = useSample();
+  const { home, setPlace } = useHome();
   const { close } = useSheet();
-  const pick = (place: Place) => close(() => dispatch({ type: 'setPlace', place }));
+  const current = home?.place ?? state.place;
+  const pick = (place: Place) =>
+    close(() => {
+      // Layar yang belum pindah ke kontrak (Perangkat, Usaha) membaca tempat dari data contoh, jadi ikut berubah
+      // saat itu juga; yang menentukan tetap server (`PUT /places/current`).
+      dispatch({ type: 'setPlace', place });
+      void setPlace(place).then((failed) => {
+        if (failed) dispatch({ type: 'showToast', text: failed });
+      });
+    });
   return (
     <>
       <Txt v="title" style={{ marginBottom: 8 }}>
@@ -27,7 +38,7 @@ function Pilihan() {
       </Txt>
       <View accessibilityRole="radiogroup">
         {PLACES.map((p, i) => {
-          const selected = p === state.place;
+          const selected = p === current;
           return (
             <Pressable
               key={p}

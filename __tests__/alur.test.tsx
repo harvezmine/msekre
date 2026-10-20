@@ -6,7 +6,7 @@ import { deviceById, MAIN_AC_ID } from '@/sample/store';
 import { advance, currentRoute, go, currentStack, mockParams, restoreParams, sampleState, showRoute } from './harness';
 
 // Alur prototipe dari rencana Fase 0b, masing-masing dalam satu penyimpanan contoh dan satu tumpukan navigasi.
-// Chat memakai server tiruan lewat useChat(); ContohBridge menjaga penyimpanan contoh (Beranda, Riwayat) tetap searah.
+// Chat memakai server tiruan lewat useChat(); server tiruan memegang penyimpanan contoh yang sama dengan Beranda dan Riwayat.
 
 /** Chat memuat riwayat dan kejadian stream berjalan lewat promise dan timer palsu. */
 async function settle() {

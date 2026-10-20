@@ -23,6 +23,7 @@ import {
   type DeviceControlReq,
   type DraftActionReq,
   type DraftActionRes,
+  type Home,
   type Me,
   type Message,
   type MessagesPage,
@@ -39,6 +40,7 @@ import {
   parseChangedPageLenient,
   parseDraftResLenient,
   parseEventLenient,
+  parseHomeLenient,
   parseMessageLenient,
   parsePageLenient,
 } from './lenient';
@@ -208,6 +210,14 @@ export class HttpTransport implements Transport {
       if (e instanceof ApiFailure && e.code === 'pin_wrong') return false;
       throw e;
     }
+  }
+
+  home(): Promise<Home> {
+    return this.request('GET', '/home', reader(parseHomeLenient));
+  }
+
+  setPlace(place: string): Promise<Home> {
+    return this.request('PUT', '/places/current', reader(parseHomeLenient), { body: { place } });
   }
 
   async controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard> {

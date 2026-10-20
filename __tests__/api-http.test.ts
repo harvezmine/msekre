@@ -951,3 +951,59 @@ describe('pembacaan longgar', () => {
     });
   });
 });
+
+describe('Beranda', () => {
+  const homeBody = {
+    place: 'Semua',
+    greetingName: 'Rina',
+    summary: 'Ada 3 hal yang perlu Anda hari ini.',
+    approvals: [],
+    agendaToday: [{ id: 'a1', time: '09.00', title: 'Rapat', kind: 'meeting' }],
+    house: { lines: [{ deviceId: 'ac/1', icon: 'snow', text: 'AC kamar nyala · 24°', on: true, switchable: true }] },
+    business: { source: 'dari Moka', sales: 'Rp4.250.000', change: 'naik 12%', down: false, alert: null },
+    ring: { nodes: [{ key: 'wa', icon: 'chat', label: 'WhatsApp', reachable: true }] },
+    rev: 4,
+  };
+
+  test('GET /home dan PUT /places/current memakai token dan isi yang tepat', async () => {
+    const { fetch, transport } = setup({ reply: () => ({ body: homeBody }) });
+    expect(await transport.home()).toEqual(homeBody);
+    expect(call(fetch, 0)).toMatchObject({ url: `${BASE}/app/v1/home`, method: 'GET' });
+    expect(call(fetch, 0).headers.Authorization).toBe('Bearer tok');
+    expect(await transport.setPlace('Kedai Dago')).toEqual(homeBody);
+    expect(call(fetch, 1)).toMatchObject({
+      url: `${BASE}/app/v1/places/current`,
+      method: 'PUT',
+      body: '{"place":"Kedai Dago"}',
+    });
+  });
+
+  test('isi yang lebih baru dari aplikasi tetap terbaca: ikon baru, bidang tambahan, baris rusak', async () => {
+    const odd = {
+      ...homeBody,
+      extra: true,
+      house: { lines: [{ deviceId: 'x', icon: 'ikon-baru', text: 'Sesuatu', switchable: false }, { text: 'rusak' }] },
+    };
+    const { transport } = setup({ reply: () => ({ body: odd }) });
+    const home = await transport.home();
+    expect(home.house.lines).toEqual([{ deviceId: 'x', icon: 'ikon-baru', text: 'Sesuatu', switchable: false }]);
+  });
+
+  test('jawaban tanpa tempat atau rev menjadi kendala server; 401 menghapus sesi', async () => {
+    const { transport } = setup({ reply: () => ({ body: { ...homeBody, rev: undefined } }) });
+    await expect(transport.home()).rejects.toMatchObject({ code: 'server' });
+    const out = setup({ reply: () => ({ status: 401, body: { error: 'tidak_masuk' } }) });
+    await expect(out.transport.home()).rejects.toMatchObject({ code: 'unauthorized' });
+    expect(await out.session.get()).toBeNull();
+  });
+
+  test('event home lewat stream diteruskan', async () => {
+    const { sockets, transport } = setup();
+    const l = listen(transport);
+    await flush();
+    sockets[0]!.open();
+    sockets[0]!.send({ type: 'home', home: homeBody });
+    sockets[0]!.send({ type: 'home', home: 5 });
+    expect(l.events).toEqual([{ type: 'home', home: homeBody }]);
+  });
+});

@@ -231,7 +231,7 @@ test('cancelSend hanya dari held: entri tercoret tanpa Batalkan, toast', () => {
   ).toEqual(s);
 });
 
-test('addDraft: draf kedua ke supplier dengan id baru (kartu di chat dibuat ContohBridge)', () => {
+test('addDraft: draf kedua ke supplier dengan id baru (kartu di chat dibuat server tiruan)', () => {
   const s = run([{ type: 'addDraft', draft: supplierOrderDraft }]);
   const d = draftFor(s, 'PT Sumber Susu')!;
   expect(d).toMatchObject({
