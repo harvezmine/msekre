@@ -60,13 +60,14 @@ Lokasi desain:
 | 2l | `/alarm` | `app/alarm.tsx` | layar penuh (`fullScreenModal`) |
 | 2c | tab Perangkat | `app/(tabs)/perangkat.tsx` | tab |
 | 2d | `/perangkat/[id]` | `app/perangkat/[id].tsx` | layar |
-| 2e | `/pin` | `app/pin.tsx` | lembar bawah. Parameter: `untuk` (nama perangkat), `aksi` |
+| 2e | `/pin` | `app/pin.tsx` | lembar bawah. Parameter: `?id=<deviceId>` (nama dan jenis perangkat dibaca dari penyimpanan) |
 | 2f | `/perangkat/tambah` | `app/perangkat/tambah.tsx` | layar |
 | 2g | tab Usaha | `app/(tabs)/usaha.tsx` | tab |
 | 2h | `/terhubung` | `app/terhubung/index.tsx` | layar |
 | 2i | `/terhubung/[id]` | `app/terhubung/[id].tsx` | layar |
 | 2j | `/terhubung/masuk` | `app/terhubung/masuk.tsx` | lembar bawah. Parameter: `id` |
 | 2k | `/terhubung/tersambung` | `app/terhubung/tersambung.tsx` | layar |
+| 2i (tambahan 0b) | `/terhubung/konfirmasi` | `app/terhubung/konfirmasi.tsx` | lembar bawah. Parameter: `id`, `aksi` (`lupa` atau `putus`). Konfirmasi hapus data dan putuskan |
 | 2m | `/riwayat` | `app/riwayat.tsx` | layar |
 | 2q | `/akun` | `app/akun.tsx` | layar |
 | 2n, 2o, 2p | `/mulai`, `/mulai/masuk`, `/mulai/pilih` | `app/mulai/*.tsx` | layar tanpa tab |
@@ -99,6 +100,8 @@ Semua rute baru didaftarkan di `app/_layout.tsx` dengan `presentation` yang sesu
 ---
 
 ## Tugas 1: Penyimpanan contoh dan komponen bersama
+
+**Status:** Selesai (67aaadf, lalu refactor 4388868..fe6942d).
 
 **File:**
 - `src/sample/store.tsx`, ditambah data contoh di `src/sample/*.ts`. `home.ts` yang lama dipindah ke sini.
@@ -161,6 +164,8 @@ Semua rute baru didaftarkan di `app/_layout.tsx` dengan `presentation` yang sesu
 
 ## Tugas 2: Chat dengan kartu (1b, 1c)
 
+**Status:** Selesai (caef2f3, 5f833d9, perbaikan b5d98c7).
+
 **Desain:** D1 baris 101–215.
 
 **File:** `app/chat.tsx`, `src/ui/chat/*` (Bubble, ConfirmSendCard, DeviceCard, NotesCard, FileCard, TokenCard,
@@ -198,6 +203,8 @@ QrisCard, Thinking), dan `src/sample/chat.ts`.
 - `?kosong=1` menampilkan keadaan kosong (tes Fase 0 tetap lulus).
 
 ## Tugas 3: Agenda, Tambah, dan Alarm (2a, 2b, 2l)
+
+**Status:** Selesai (0014bfc).
 
 **Desain:** D2 baris 17–83 dan 406–423.
 
@@ -265,6 +272,8 @@ data contoh `agenda.ts` untuk 7 hari. Judul hari dengan gaya subjudul, item deng
 
 ## Tugas 4: Perangkat, detail AC, PIN, Tambah perangkat (2c, 2d, 2e, 2f)
 
+**Status:** Selesai (6f850cd, putaran suhu bf936b4).
+
 **Desain:** D2 baris 88–257. Lihat juga `dial()` di bagian skrip D2 (baris sekitar 566–575).
 
 **File:**
@@ -283,6 +292,9 @@ data contoh `agenda.ts` untuk 7 hari. Judul hari dengan gaya subjudul, item deng
   - ubin yang tidak terjangkau berwarna abu dengan titik clay, tanpa sakelar;
   - mengetuk ubin AC membuka detail.
 - Rutinitas: ketuk "Jalankan" menerapkan perubahannya ke perangkat contoh, mencatat Riwayat, dan memunculkan toast.
+  "Tutup kedai" hanya menyentuh kedai yang dipilih bila tempatnya Kedai Dago atau Kedai Riau; di Semua atau Rumah
+  menyentuh kedua kedai. Toast menyebut tempatnya ("Rutinitas Tutup kedai dijalankan di Kedai Dago.", atau "di semua
+  kedai").
 - **PIN:** mematikan **kamera** membuka `/pin`. PIN contoh adalah 123456. PIN benar mematikan kamera; PIN salah
   menggetarkan titik dan menulis "PIN belum cocok, coba lagi.".
 - Data per tempat: Rumah memakai data 2c. Kedai Dago dan Kedai Riau punya 3–4 perangkat contoh (lampu, AC, CCTV
@@ -314,6 +326,8 @@ bersama kotaknya") dan daftar 9 merek dari `brands` di bagian skrip D2.
 
 ## Tugas 5: Usaha (2g)
 
+**Status:** Selesai (51552a0).
+
 **Desain:** D2 baris 259–322. Lihat juga `spark()` di bagian skrip D2.
 
 **File:** `app/(tabs)/usaha.tsx`, `src/ui/business/*` (SalesCard, Sparkline, MoneyInCard, StockCard, OrdersRow,
@@ -327,7 +341,7 @@ ReportCard), dan `src/sample/business.ts`.
   - "Pesan lagi" membuka chat dengan kartu konfirmasi draf pesanan ke supplier ("PT Sumber Susu");
   - tidak ada yang terkirim sebelum Kirim.
 - **Pesanan TikTok Shop** membuka toast "Daftar pesanan dibangun di Fase 4".
-- **Laporan:** tombol Buka memunculkan toast "File contoh".
+- **Laporan:** tombol Buka memunculkan toast "Membuka berkas contoh.".
 
 **Tes:**
 - angka per tempat;
@@ -337,15 +351,19 @@ ReportCard), dan `src/sample/business.ts`.
 
 ## Tugas 6: Terhubung, detail, masuk, tersambung (2h, 2i, 2j, 2k)
 
+**Status:** Selesai (ee7afa7, 991b1f6).
+
 **Desain:** D2 baris 324–404, ditambah `connected`/`groups` di bagian skrip D2, dan `sk-join` di SK.
 
 **File:** `app/terhubung/index.tsx`, `app/terhubung/[id].tsx`, `app/terhubung/masuk.tsx`,
-`app/terhubung/tersambung.tsx`, dan `src/sample/services.ts`.
+`app/terhubung/tersambung.tsx`, `app/terhubung/konfirmasi.tsx` (ditambahkan selama 0b), dan
+`src/sample/services.ts`.
 
 **Perilaku:**
 - **Daftar Terhubung (2h):**
   - layanan yang tersambung beserta statusnya; yang tidak terjangkau berwarna clay;
-  - kelompok Kerja dan Usaha dengan tombol Sambungkan, Rumah (ringkasan merek), dan Lainnya.
+  - kelompok Kerja dan Usaha dengan tombol Sambungkan, Rumah (ringkasan merek), dan Lainnya;
+  - kelompok "Pernah tersambung" memuat layanan awal yang sudah diputus, supaya bisa disambungkan lagi.
 - **Detail layanan (2i):**
   - isi "Yang bisa Nadia lakukan" per layanan;
   - izin radio "Hanya membaca" / "Boleh bertindak";
@@ -371,6 +389,8 @@ ReportCard), dan `src/sample/business.ts`.
 - simpul baru memakai animasi masuk (props `join`), kecuali saat gerak dikurangi.
 
 ## Tugas 7: Riwayat, Akun, layar pertama kali (2m, 2q, 2n–2p)
+
+**Status:** Selesai (41ef1f6).
 
 **Desain:** D2 baris 425–522, ditambah `akun` di bagian skrip D2.
 
