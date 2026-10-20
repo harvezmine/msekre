@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import { AccessibilityInfo, BackHandler, StyleSheet, Text } from 'react-native';
 import Tempat from '../app/tempat';
 import { useSample, type SampleState } from '@/sample/store';
@@ -11,6 +11,7 @@ import { shouldDismiss } from '@/ui/sheetMath';
 import { setTabBarShown } from '@/ui/tabBarShown';
 import { Toast, ToastHost } from '@/ui/Toast';
 import { renderWithProviders } from './helpers';
+import { Redraw, redraw } from './redraw';
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -55,6 +56,65 @@ test('Sheet: tombol kembali Android menutup', async () => {
   await advance(250);
   expect(onClose).toHaveBeenCalledTimes(1);
   spy.mockRestore();
+});
+
+test('Sheet: tombol kembali tidak dipegang saat layar lain menutupinya, dan dipasang lagi saat fokus kembali', async () => {
+  const handlers: (() => boolean)[] = [];
+  const remove = jest.fn();
+  const spy = jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_e, h) => {
+    handlers.push(h as () => boolean);
+    return { remove };
+  });
+  jest.mocked(useIsFocused).mockReturnValue(false);
+  try {
+    await renderWithProviders(
+      <Redraw>
+        {() => (
+          <Sheet onClose={jest.fn()}>
+            <Text>Isi</Text>
+          </Sheet>
+        )}
+      </Redraw>,
+    );
+    expect(handlers).toHaveLength(0);
+    jest.mocked(useIsFocused).mockReturnValue(true);
+    await redraw();
+    expect(handlers).toHaveLength(1);
+    jest.mocked(useIsFocused).mockReturnValue(false);
+    await redraw();
+    expect(remove).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.mocked(useIsFocused).mockReturnValue(true);
+    spy.mockRestore();
+  }
+});
+
+test('Sheet: layar lain naik di tengah gerak menutup membatalkan penutupan (onClose tidak dipanggil)', async () => {
+  const onClose = jest.fn();
+  await renderWithProviders(
+    <Redraw>
+      {() => (
+        <Sheet onClose={onClose}>
+          <Text>Isi</Text>
+        </Sheet>
+      )}
+    </Redraw>,
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Tutup' }));
+  jest.mocked(useIsFocused).mockReturnValue(false);
+  try {
+    await redraw();
+    await advance(300);
+    expect(onClose).not.toHaveBeenCalled();
+    // kembali fokus: bisa ditutup lagi
+    jest.mocked(useIsFocused).mockReturnValue(true);
+    await redraw();
+    await fireEvent.press(screen.getByRole('button', { name: 'Tutup' }));
+    await advance(300);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.mocked(useIsFocused).mockReturnValue(true);
+  }
 });
 
 test('Toast: tampil dengan teks dan sebagai pesan yang dibacakan', async () => {

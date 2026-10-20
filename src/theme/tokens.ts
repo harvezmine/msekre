@@ -28,6 +28,8 @@ export const light = {
   dotEmpty: '#9AA59F',
   /** Garis pemisah daftar stok di atas latar clay. */
   stockLine: '#EBD3C4',
+  /** Titik langkah yang belum dicapai. */
+  stepOff: '#D5DBD2',
 };
 
 export type Palette = Record<keyof typeof light, string>;
@@ -56,6 +58,7 @@ export const dark: Palette = {
   micSub: '#A9B8AE',
   dotEmpty: '#6F8A7D',
   stockLine: '#5A4033',
+  stepOff: '#2E5C4B',
 };
 
 /** Teks dan tombol di layar berlatar forest (Mode Suara, alarm). Sama di mode terang dan gelap. */

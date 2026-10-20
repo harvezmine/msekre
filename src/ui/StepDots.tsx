@@ -3,7 +3,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 
 /** Penanda 3 langkah layar pertama kali. `step` mulai dari 1. */
 export function StepDots({ step }: { step: 1 | 2 | 3 }) {
-  const { c, scheme } = useTheme();
+  const { c } = useTheme();
   return (
     <View
       accessible
@@ -18,7 +18,7 @@ export function StepDots({ step }: { step: 1 | 2 | 3 }) {
             width: 24,
             height: 4,
             borderRadius: 2,
-            backgroundColor: n <= step ? c.green : scheme === 'dark' ? c.track : '#D5DBD2',
+            backgroundColor: n <= step ? c.green : c.stepOff,
           }}
         />
       ))}

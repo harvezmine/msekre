@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { BackHandler, KeyboardAvoidingView, Pressable, useWindowDimensions, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
@@ -41,7 +42,7 @@ interface Props {
  * Dipakai di rute `transparentModal`; animasinya diurus di sini, bukan oleh Stack.
  */
 export function Sheet({ onClose, children, testID }: Props) {
-  const { c, scheme } = useTheme();
+  const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const reduce = useReducedMotion();
   const { height: screenH } = useWindowDimensions();
@@ -81,13 +82,24 @@ export function Sheet({ onClose, children, testID }: Props) {
   const closePlain = useCallback(() => close(), [close]);
   const controls = useMemo(() => ({ close }), [close]);
 
+  // Tombol kembali hanya dipegang selama lembar ini rute teratas; kalau layar lain menutupinya (Suara, chat), biarkan layar itu yang menanganinya.
+  const focused = useIsFocused();
   useEffect(() => {
+    if (!focused) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       closePlain();
       return true;
     });
     return () => sub.remove();
-  }, [closePlain]);
+  }, [focused, closePlain]);
+  // Kalau layar lain naik di tengah gerak menutup, batalkan: jangan memanggil onClose (router.back akan membuang layar yang salah) dan buka lagi lembarnya.
+  useEffect(() => {
+    if (focused || !closing.current) return;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    closing.current = false;
+    ty.set(withTiming(0, { duration: CLOSE_MS }));
+  }, [focused, ty]);
 
   const pan = usePanGesture({
     activeOffsetY: 10,
@@ -151,7 +163,7 @@ export function Sheet({ onClose, children, testID }: Props) {
               height: 4,
               borderRadius: 2,
               marginBottom: 16,
-              backgroundColor: scheme === 'dark' ? c.track : '#D5DBD2',
+              backgroundColor: c.stepOff,
             }}
           />
           <SheetContext value={controls}>{children}</SheetContext>
