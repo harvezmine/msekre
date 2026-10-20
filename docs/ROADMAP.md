@@ -306,3 +306,36 @@ Dijalankan di perangkat Android sungguhan sebelum Fase 1.
 8. **TalkBack.** Label cincin, ubin, dial (dapat disesuaikan), sakelar, pilihan radio, isi di belakang lembar tidak terbaca.
 9. **Mode gelap** diganti langsung, splash gelap, sudut riak pada tombol pil.
 10. **Getar** (Kirim, PIN salah, dial, alarm), serta jeda dan lanjut Orbit/Inti saat aplikasi ke latar lalu kembali.
+
+## Daftar uji di HP: Fase 1a
+
+Dijalankan di perangkat Android sungguhan (mode contoh dan mode server) setelah development build terpasang.
+
+### Chat (Fase 1a)
+
+1. **Buka dan gulir.** Buka chat, gulir ke riwayat lama: spinner muncul, utas tidak melompat saat halaman lama masuk.
+2. **Keyboard.** Navigasi gestur dan tiga tombol: kolom ketik tidak tertutup. Menyunting isi kartu draf (Ubah) dengan keyboard terbuka.
+3. **Mode pesawat.** Banner "tidak tersambung" muncul setelah 3 detik; Inti meredup; dua pesan yang diantre terkirim berurutan saat tersambung lagi; keluar dari chat sebelum tersambung lagi (pesan tetap terkirim); putus sebentar (di bawah 3 detik) tanpa banner.
+4. **Kirim gagal.** Coba lagi menghasilkan satu salinan pesan. Ketuk "Ya, benar" dua kali cepat: terkirim sekali. QRIS tetap berlatar putih di mode gelap dan tersembunyi saat kedaluwarsa.
+5. **Kartu draf.** Ubah → Simpan → Kirim; jam tampil di zona waktu HP (uji WIB dan WITA). Batalkan. Setelah 5 menit berubah jadi "Terkirim". Ketuk Kirim dua kali: sekali saja. Batalkan di menit 4:59.
+6. **Jembatan mode contoh.** Kirim membersihkan kartu di Beranda dan entri di Riwayat. Batalkan dari Riwayat mengubah kartu di chat. "Pesan lagi" di Usaha. Matikan AC lalu tanya "AC kamar gimana?": Beranda tidak berubah.
+7. **TalkBack** di daftar yang dibalik (pesan terbaru di bawah): urutan baca benar, kartu dapat dijangkau.
+8. **Tampilan.** Font terbesar di layar 360 dp; ganti mode gelap saat chat terbuka; ganti mode data (contoh/server) dengan chat masih ada di tumpukan layar.
+
+### Notifikasi (Fase 1a)
+
+1. **Lembar izin.** Android 13+: muncul sekali setelah pengenalan; Izinkan dan Nanti saja. Di bawah Android 13: tidak ada lembar.
+2. **Ditolak.** Tolak sekali: lembar/Akun masih menawarkan Izinkan (jendela sistem muncul lagi). Tolak lagi: tombol menjadi "Buka pengaturan". Kembali dari pengaturan: baris Notifikasi di Akun menyegarkan statusnya.
+3. **Saluran.** Pengaturan HP → Notifikasi aplikasi: ada "Pesan dari {nama asisten}" (nama ikut pengaturan asisten) dan "Pengingat", dengan tingkat penting dan suara sesuai; ikon kecil dan warna hijau benar.
+4. **Peredaman.** Beranda terbuka: notifikasi tampil. Chat terbuka: notifikasi pesan diredam. Pengingat selalu tampil, juga saat chat terbuka. Chat dengan lembar di atasnya: notifikasi tampil.
+5. **Ketukan.** Dari latar depan, latar belakang, dan aplikasi tertutup: membuka chat (setelah splash); kembali menuju Beranda. Sesi kedaluwarsa: membuka /mulai tanpa crash. `data.route` '/agenda' membuka Agenda. Muat ulang JS (atau pembaruan OTA) tidak memutar ketukan lama.
+6. **Token.** Terkirim sekali per pembukaan aplikasi; pasang ulang aplikasi memberi token baru yang terkirim; keluar lalu masuk mengirim lagi; keluar saat mode pesawat lalu online: token dicabut dari server (periksa tabel token di server) dan tidak ada notifikasi lagi.
+7. **Layar kunci.** Isi notifikasi pesan disembunyikan (privat) saat HP terkunci.
+
+### Build di cloud (EAS)
+
+1. `npx eas-cli login` (sekali).
+2. Simpan `google-services.json` sebagai EAS file secret bernama `GOOGLE_SERVICES_JSON` (expo.dev → proyek → Environment variables → jenis File, atau `npx eas-cli env:create`). `app.config.ts` membaca jalurnya dari variabel itu; berkas yang tidak masuk git tidak ikut terunggah.
+3. Isi `EXPO_PUBLIC_API_URL` (alamat server, contoh `https://app.sekertaris.com`) sebagai variabel EAS kalau mode server ingin bisa dipilih.
+4. `npx eas-cli build --profile development --platform android` (development client, APK). Profil lain: `preview` (APK internal) dan `production` (app bundle), semuanya di `eas.json`.
+5. Setelah selesai, EAS memberi tautan APK: buka di HP, izinkan pemasangan dari sumber ini, lalu pasang.

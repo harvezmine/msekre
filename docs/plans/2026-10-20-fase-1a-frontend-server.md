@@ -271,7 +271,7 @@ tumpukan tepat `[Beranda]`. Layar pembuka asli bertahan sampai huruf, mode tersi
 
 ## Tugas 5: Rapikan, dokumentasi, dan serah-terima ke Fase 1b
 
-**Status: selesai.** Dokumen: `docs/api-v1.md`, ROADMAP, dan rencana ini (lihat commit "docs: kontrak API v1 untuk server Fase 1b, status Fase 1a"). Review akhir dijalankan terpisah.
+**Status: selesai. Fase 1a lengkap.** Dokumen: `docs/api-v1.md`, ROADMAP, dan rencana ini (lihat commit "docs: kontrak API v1 untuk server Fase 1b, status Fase 1a"). Perbaikan hasil review: 840441f (chat: pengendali bersama, rev pada draf, kunci aksi kartu), lalu batch E2: b8e1968 (konfigurasi: google-services dan alamat server dari variabel lingkungan, `eas.json`) dan 7a1aebb (notifikasi: peredaman hanya pesan chat, nama saluran, token tiap mulai, ketukan dihapus, izin ditanya lagi, `DELETE /push-tokens`), serta commit dokumentasi daftar uji. Daftar uji perangkat: ROADMAP "Daftar uji di HP: Fase 1a".
 
 **Yang dikerjakan:**
 - `docs/api-v1.md`: kontrak dalam bahasa biasa untuk pembuat server, dengan contoh JSON dan aturan perilaku.
