@@ -116,7 +116,11 @@ export interface Service {
   ring?: RingNode;
 }
 
-export type HistoryKind = 'pesan' | 'rumah' | 'usaha' | 'pembelian';
+/**
+ * Jenis entri Riwayat, sama dengan filter 2m. `lainnya`: kejadian di luar empat filter itu (menyambung atau memutus
+ * layanan, mengubah izin, menghapus data, menambah agenda); hanya tampil di Semua.
+ */
+export type HistoryKind = 'pesan' | 'rumah' | 'usaha' | 'pembelian' | 'lainnya';
 export interface HistoryEntry {
   id: string;
   day: 'Hari ini' | 'Kemarin';

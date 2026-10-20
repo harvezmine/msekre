@@ -403,6 +403,32 @@ test('forget dan setPermission', () => {
   const p = run([{ type: 'setPermission', id: 'moka', permission: 'act' }]);
   expect(p.services.find((x) => x.id === 'moka')!.permission).toBe('act');
   expect(p.services.find((x) => x.id === 'gmail')).toEqual(init.services.find((x) => x.id === 'gmail'));
+  expect(p.history[0]).toMatchObject({ kind: 'lainnya', title: 'Mengubah izin Moka', sub: 'boleh bertindak · 10.43' });
+  const back = run([{ type: 'setPermission', id: 'moka', permission: 'read' }], p);
+  expect(back.history[0]).toMatchObject({ title: 'Mengubah izin Moka', sub: 'hanya membaca · 10.43' });
+  expect(run([{ type: 'setPermission', id: 'moka', permission: 'read' }])).toBe(init);
+  expect(run([{ type: 'setPermission', id: 'tidak-ada', permission: 'act' }])).toBe(init);
+});
+
+test('kejadian di luar filter masuk jenis lainnya: tidak tampil di Pesan, tetap di Semua', () => {
+  const s = run([
+    { type: 'connect', id: 'tiktok' },
+    { type: 'disconnect', id: 'gmail' },
+    { type: 'forget', id: 'moka' },
+    { type: 'setPermission', id: 'bca', permission: 'act' },
+    { type: 'addAgenda', item: { date: '2025-10-22', time: '10.00', title: 'Servis motor', kind: 'task' } },
+    { type: 'sendDraft', id: BUDI },
+  ]);
+  const added = s.history.slice(0, 6);
+  expect(added.map((h) => h.kind)).toEqual(['pesan', 'lainnya', 'lainnya', 'lainnya', 'lainnya', 'lainnya']);
+  expect(historyRows(s, 'pesan').map((h) => h.title)).toEqual([
+    'Mengirim balasan ke Pak Budi',
+    'Mencatat rapat supplier',
+    'Mengingatkan rapat dengan supplier susu',
+  ]);
+  expect(historyRows(s)).toHaveLength(init.history.length + 6);
+  // entri contoh tetap sama
+  expect(s.history.slice(6)).toEqual(init.history);
 });
 
 test('toast, onboarding', () => {

@@ -232,7 +232,7 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       const next = { ...state, seq: state.seq + 1, agenda: [...state.agenda, item] };
       return withHistory(next, {
         time: NOW_APP,
-        kind: 'pesan',
+        kind: 'lainnya',
         icon: item.kind === 'task' ? 'task' : 'bell',
         title: 'Menambah ke agenda',
         sub: `${item.title} · ${item.time}`,
@@ -278,7 +278,7 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
         { ...state, services: [...state.services, service] },
         {
           time: NOW_APP,
-          kind: 'pesan',
+          kind: 'lainnya',
           icon: 'link',
           title: `Menyambungkan ${service.name}`,
           sub: `baru tersambung · ${NOW_APP}`,
@@ -291,7 +291,7 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       if (!s) return state;
       return withHistory(
         { ...state, services: state.services.filter((x) => x.id !== s.id) },
-        { time: NOW_APP, kind: 'pesan', icon: 'link', title: `Memutus ${s.name}`, sub: `diputus Anda · ${NOW_APP}` },
+        { time: NOW_APP, kind: 'lainnya', icon: 'link', title: `Memutus ${s.name}`, sub: `diputus Anda · ${NOW_APP}` },
       ).state;
     }
 
@@ -302,7 +302,7 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
         { ...state, forgotten: [...state.forgotten, s.id] },
         {
           time: NOW_APP,
-          kind: 'pesan',
+          kind: 'lainnya',
           icon: 'trash',
           title: `Menghapus yang saya tahu dari ${s.name}`,
           sub: `atas permintaan Anda · ${NOW_APP}`,
@@ -310,11 +310,23 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       ).state;
     }
 
-    case 'setPermission':
-      return {
-        ...state,
-        services: state.services.map((s) => (s.id === action.id ? { ...s, permission: action.permission } : s)),
-      };
+    case 'setPermission': {
+      const s = state.services.find((x) => x.id === action.id);
+      if (!s || s.permission === action.permission) return state;
+      return withHistory(
+        {
+          ...state,
+          services: state.services.map((x) => (x.id === s.id ? { ...x, permission: action.permission } : x)),
+        },
+        {
+          time: NOW_APP,
+          kind: 'lainnya',
+          icon: 'shield',
+          title: `Mengubah izin ${s.name}`,
+          sub: `${action.permission === 'read' ? 'hanya membaca' : 'boleh bertindak'} · ${NOW_APP}`,
+        },
+      ).state;
+    }
 
     case 'showToast':
       return { ...state, toast: action.text };

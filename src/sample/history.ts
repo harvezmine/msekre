@@ -1,4 +1,13 @@
-import type { Business, HistoryEntry } from './types';
+import type { Business, HistoryEntry, HistoryKind } from './types';
+
+/** Filter Riwayat (desain 2m). Semua menampilkan semua jenis, termasuk `lainnya`. */
+export const HISTORY_FILTERS: { label: string; kind?: HistoryKind }[] = [
+  { label: 'Semua' },
+  { label: 'Pesan', kind: 'pesan' },
+  { label: 'Rumah', kind: 'rumah' },
+  { label: 'Usaha', kind: 'usaha' },
+  { label: 'Pembelian', kind: 'pembelian' },
+];
 
 /** Riwayat contoh, desain 2m. Yang terbaru di atas. Kiriman ke Pak Budi baru masuk setelah disetujui. */
 export const initialHistory: HistoryEntry[] = [
