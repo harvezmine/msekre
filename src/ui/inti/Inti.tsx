@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useReducedMotion,
@@ -116,7 +117,11 @@ function Dot({ index, left, top, d, color, pulse }: { index: number; left: numbe
 function Ring({ id, frame, border, opacity, delay, reduce }: { id: number; frame: Frame; border: number; opacity: number; delay: number; reduce: boolean }) {
   const s = useSharedValue(1);
   useEffect(() => {
-    if (reduce) return;
+    if (reduce) {
+      cancelAnimation(s);
+      s.set(1);
+      return;
+    }
     s.set(withDelay(delay, withRepeat(withSequence(...LISTEN_SCALE.map((v, i) => withTiming(v, { duration: LISTEN_MS[i] }))), -1)));
   }, [reduce, delay, s]);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: s.get() }] }));

@@ -4,9 +4,9 @@ import { getAnimatedStyle as animatedStyle } from 'react-native-reanimated';
 import { Inti } from '@/ui/inti/Inti';
 import { intiSize } from '@/ui/inti/size';
 
-type Animated = { opacity?: number; transform?: Record<string, number>[] };
+type AnimatedStyle = { opacity?: number; transform?: Record<string, number>[] };
 // Tipe resmi yang terpilih adalah stub web (tanpa argumen); di Jest yang berjalan versi native.
-const getAnimatedStyle = animatedStyle as unknown as (el: unknown) => Animated;
+const getAnimatedStyle = animatedStyle as unknown as (el: unknown) => AnimatedStyle;
 
 test('ukuran mengikuti rasio pita logo 282×310', () => {
   const s = intiSize(140);
@@ -43,8 +43,11 @@ test('berbicara: gelombang kedua dan ketiga tak terlihat sebelum gilirannya', as
 test('berpikir lalu diam: ketiga titik kembali ke posisi dan terang semula', async () => {
   await render(<Inti size={140} state="think" />);
   await act(async () => {
-    jest.advanceTimersByTime(500);
+    jest.advanceTimersByTime(300);
   });
+  const mid = getAnimatedStyle(screen.getByTestId('inti-titik-0'));
+  expect(mid.opacity).toBeGreaterThan(0.5);
+  expect(mid.transform?.[0]?.translateY).toBeLessThan(0);
   await screen.rerender(<Inti size={140} state="idle" />);
   await act(async () => {
     jest.advanceTimersByTime(2000);
