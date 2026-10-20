@@ -18,7 +18,12 @@ function Navigator() {
   return (
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.paper } }} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.paper } }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="chat" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="suara" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
+        <Stack.Screen name="inti" />
+      </Stack>
     </>
   );
 }
