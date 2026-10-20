@@ -1,22 +1,46 @@
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, TextInput, View } from 'react-native';
-import { useSample } from '@/sample/store';
+import { formatJam } from '@/api/format';
+import type { Draft } from '@/api/contract';
 import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
 import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 import { CardButton, ChatCard } from './ChatCard';
 
-/** Kartu konfirmasi kirim untuk satu kiriman: draf (Ubah, Kirim), tertahan 5 menit (Batalkan), atau dibatalkan. */
-export function ConfirmSendCard({ outgoingId }: { outgoingId: string }) {
+export interface DraftActions {
+  onSend: () => void;
+  onCancel: () => void;
+  onEdit: (text: string) => void;
+  onDiscard: () => void;
+}
+
+/**
+ * Kartu konfirmasi kirim untuk satu draf: draf (Ubah, Kirim, Buang), tertahan 5 menit (Batalkan), terkirim,
+ * dibatalkan, atau gagal (Coba lagi). Aksinya dikerjakan pemanggil lewat `POST /drafts/:id`.
+ */
+export function ConfirmSendCard({
+  draft: source,
+  onSend,
+  onCancel,
+  onEdit,
+  onDiscard,
+}: { draft: Draft } & DraftActions) {
   const { c } = useTheme();
-  const { state, dispatch } = useSample();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
-  const outgoing = state.outgoing[outgoingId];
-  if (!outgoing) return null;
-  const { id, to, channel, text, status, heldUntil } = outgoing;
+  const { to, text, status } = source;
+  const channel = source.channel === 'whatsapp' ? 'WhatsApp' : 'email';
+  const time = source.heldUntil ? formatJam(source.heldUntil) : '';
+  // Diumumkan ke pembaca layar saat kiriman baru ditahan (bukan saat layar dibuka dengan kartu yang sudah tertahan).
+  const last = useRef(status);
+  useEffect(() => {
+    if (last.current !== 'held' && status === 'held') {
+      AccessibilityInfo.announceForAccessibility(`Dikirim ${time}, bisa dibatalkan`);
+    }
+    last.current = status;
+  }, [status, time]);
   const initials = to
     .split(' ')
     .map((w) => w[0])
@@ -80,7 +104,8 @@ export function ConfirmSendCard({ outgoingId }: { outgoingId: string }) {
           label="Simpan"
           primary
           onPress={() => {
-            dispatch({ type: 'editDraft', id, text: draft });
+            const next = draft.trim();
+            if (next && next !== text) onEdit(next);
             setEditing(false);
           }}
         />
@@ -99,22 +124,34 @@ export function ConfirmSendCard({ outgoingId }: { outgoingId: string }) {
             primary
             onPress={() => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              dispatch({ type: 'sendDraft', id });
-              AccessibilityInfo.announceForAccessibility(`Dikirim ${heldUntil}, bisa dibatalkan`);
+              onSend();
             }}
           />
         </View>
+      )}
+      {status === 'draft' && !editing && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Buang draf"
+          onPress={onDiscard}
+          android_ripple={{ color: c.ripple }}
+          style={{ minHeight: 40, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Txt v="caption" weight={600} color={c.muted}>
+            Buang draf
+          </Txt>
+        </Pressable>
       )}
       {status === 'held' && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 }}>
           <Icon name="check" size={22} color={c.leafText} />
           <Txt weight={600} color={c.leafText} style={{ flex: 1 }}>
-            Dikirim {heldUntil}
+            Dikirim {time}
           </Txt>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Batalkan"
-            onPress={() => dispatch({ type: 'cancelSend', id })}
+            onPress={onCancel}
             android_ripple={{ color: c.ripple }}
             style={{ minHeight: 48, paddingHorizontal: 12, justifyContent: 'center' }}
           >
@@ -128,8 +165,27 @@ export function ConfirmSendCard({ outgoingId }: { outgoingId: string }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 }}>
           <Icon name="check" size={22} color={c.leafText} />
           <Txt weight={600} color={c.leafText}>
-            Terkirim {heldUntil}
+            {time ? `Terkirim ${time}` : 'Terkirim'}
           </Txt>
+        </View>
+      )}
+      {status === 'failed' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 }}>
+          <Icon name="x" size={22} color={c.clay} />
+          <Txt weight={600} color={c.clay} style={{ flex: 1 }}>
+            Gagal terkirim
+          </Txt>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Coba lagi"
+            onPress={onSend}
+            android_ripple={{ color: c.ripple }}
+            style={{ minHeight: 48, paddingHorizontal: 12, justifyContent: 'center' }}
+          >
+            <Txt weight={600} color={c.green}>
+              · Coba lagi
+            </Txt>
+          </Pressable>
         </View>
       )}
       {status === 'cancelled' && (

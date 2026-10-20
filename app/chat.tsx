@@ -1,30 +1,40 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  FlatList,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Pressable,
-  ScrollView,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  type ScrollViewInstance,
   type TextInputInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useApi } from '@/api/ApiProvider';
+import { ERROR_TEXT } from '@/api/errors';
+import { formatFileMeta } from '@/api/format';
 import { useAssistantName } from '@/api/useProfile';
-import { THINK_MS, typedReply } from '@/sample/chat';
-import { useSample, type ChatEntry } from '@/sample/store';
+import type { Message, Part } from '@/api/contract';
+import { useChat, type Chat as ChatApi } from '@/api/useChat';
+import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
-import { AssistantLine, UserBubble } from '@/ui/chat/Bubble';
+import { AssistantLine, UserBubble, ViaTag } from '@/ui/chat/Bubble';
+import { AudioRow } from '@/ui/chat/AudioRow';
+import { ChoicesCard } from '@/ui/chat/ChoicesCard';
 import { Composer } from '@/ui/chat/Composer';
+import { bannerText, ConnectionBanner, useLateOffline } from '@/ui/chat/ConnectionBanner';
 import { ConfirmSendCard } from '@/ui/chat/ConfirmSendCard';
-import { DeviceCard } from '@/ui/chat/DeviceCard';
+import { DeviceCard, DeviceCardView } from '@/ui/chat/DeviceCard';
 import { FileCard } from '@/ui/chat/FileCard';
+import { ImageCard } from '@/ui/chat/ImageCard';
 import { NotesCard } from '@/ui/chat/NotesCard';
+import { PaymentCard } from '@/ui/chat/PaymentCard';
 import { QrisCard } from '@/ui/chat/QrisCard';
+import { buildRows, type Row } from '@/ui/chat/rows';
 import { Thinking } from '@/ui/chat/Thinking';
-import { TokenCard } from '@/ui/chat/TokenCard';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
 import type { IconName } from '@/ui/icons';
@@ -42,58 +52,49 @@ const SUGGESTIONS: { icon: IconName; text: string }[] = [
   { icon: 'bolt', text: 'Beli token listrik' },
 ];
 
-// Fase 0b: utas dari penyimpanan contoh; pesan yang diketik hanya dijawab dengan jawaban contoh. Jawaban sungguhan dibangun di Fase 1.
+// Utas dari useChat(): server tiruan di mode contoh, server asli di mode server. Daftarnya terbalik (pesan terbaru di
+// bawah); menggulir ke atas memuat pesan yang lebih lama.
 export default function Chat() {
   const assistantName = useAssistantName();
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const live = useLive();
   const { kosong } = useLocalSearchParams<{ kosong?: string }>();
-  const { state, dispatch } = useSample();
+  const { mode } = useApi();
+  const dispatch = useSampleDispatch();
+  const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const chat = useChat({ onError: toast });
   const [text, setText] = useState('');
-  // Baris yang sudah ada saat layar dibuka. `?kosong=1` hanya menampilkan baris yang datang sesudahnya.
-  const [shownAtOpen] = useState(() => new Set(state.chat.map((e) => e.id)));
-  const [waitingFor, setWaitingFor] = useState<number | null>(null);
-  const seq = useRef(0);
   const input = useRef<TextInputInstance>(null);
-  const scroll = useRef<ScrollViewInstance>(null);
-  // Auto-gulir hanya saat jumlah baris bertambah, atau saat keyboard muncul dan pengguna memang sudah di dasar utas.
-  const lastCount = useRef(-1);
+  const list = useRef<FlatList<Row>>(null);
+  // Di dasar utas = offset 0 (daftar terbalik). Keyboard yang muncul menggulir ke dasar hanya bila pengguna memang di sana.
   const nearBottom = useRef(true);
   useEffect(() => {
     const sub = Keyboard.addListener('keyboardDidShow', () => {
-      if (nearBottom.current) scroll.current?.scrollToEnd({ animated: true });
+      if (nearBottom.current) list.current?.scrollToOffset({ offset: 0, animated: true });
     });
     return () => sub.remove();
   }, []);
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    nearBottom.current = contentSize.height - (contentOffset.y + layoutMeasurement.height) < NEAR_BOTTOM;
+    nearBottom.current = e.nativeEvent.contentOffset.y < NEAR_BOTTOM;
   };
 
-  // Jawaban contoh muncul 1,2 detik setelah pesan terakhir; mengirim lagi sebelum itu membatalkan yang lama.
-  useEffect(() => {
-    if (waitingFor === null) return;
-    const id = setTimeout(() => {
-      dispatch({ type: 'addChatMessage', from: 'assistant', text: typedReply });
-      setWaitingFor(null);
-    }, THINK_MS);
-    return () => clearTimeout(id);
-  }, [waitingFor, dispatch]);
+  const late = useLateOffline(chat.connection);
+  const banner = bannerText(chat.connection, late);
+  const intiOff = banner !== null;
 
   const send = () => {
     const value = text.trim();
     if (!value) return;
-    seq.current += 1;
-    dispatch({ type: 'addChatMessage', from: 'user', text: value });
+    chat.send(value);
     setText('');
-    setWaitingFor(seq.current);
+    nearBottom.current = true;
   };
 
-  const fresh = state.chat.filter((e) => !shownAtOpen.has(e.id));
-  const entries = kosong === '1' ? fresh : state.chat;
-  const showEmpty = kosong === '1' && fresh.length === 0;
-  const thread: ChatEntry[] = waitingFor !== null ? [...entries, { id: 'berpikir', kind: 'thinking' }] : entries;
+  const rows = buildRows(chat, { onlyNew: kosong === '1' });
+  const showEmpty = kosong === '1' && rows.length === 0;
+  // Daftar terbalik: yang terbaru dulu.
+  const data = [...rows].reverse();
 
   return (
     // Edge-to-edge (SDK 58): jendela tidak lagi mengecil saat keyboard muncul, jadi 'padding' menaikkan kolom ketik setinggi keyboard di Android dan iOS.
@@ -110,7 +111,7 @@ export default function Chat() {
         }}
       >
         <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
-        <Inti size={36} onDark={scheme === 'dark'} paused={!live} />
+        <Inti size={36} state={intiOff ? 'off' : 'idle'} onDark={scheme === 'dark'} paused={!live} />
         <View style={{ flex: 1, marginLeft: 4 }}>
           <Txt v="subtitle">{assistantName}</Txt>
           <Txt v="caption" color={c.muted}>
@@ -119,12 +120,13 @@ export default function Chat() {
         </View>
         <IconButton icon="wave" label="Mode Suara" tinted onPress={() => router.replace('/suara')} />
       </View>
+      <ConnectionBanner text={banner} />
 
       {showEmpty ? (
         <View style={{ flex: 1, paddingHorizontal: 20, paddingVertical: 16 }}>
           <Note />
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24 }}>
-            <Inti size={104} onDark={scheme === 'dark'} paused={!live} />
+            <Inti size={104} state={intiOff ? 'off' : 'idle'} onDark={scheme === 'dark'} paused={!live} />
             <Txt v="title" style={{ textAlign: 'center' }}>
               Mau saya bantu urus apa?
             </Txt>
@@ -158,31 +160,63 @@ export default function Chat() {
           </View>
         </View>
       ) : (
-        <ScrollView
-          ref={scroll}
+        <FlatList
+          ref={list}
           testID="utas"
+          inverted
+          data={data}
+          keyExtractor={(row) => row.key}
+          renderItem={({ item }) => (
+            <ThreadRow row={item} chat={chat} contoh={mode !== 'server'} toast={toast} paused={!live} />
+          )}
+          ItemSeparatorComponent={Gap}
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 16, paddingBottom: 20, gap: 12 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
+          initialNumToRender={30}
           keyboardShouldPersistTaps="handled"
           scrollEventThrottle={64}
           onScroll={onScroll}
-          onContentSizeChange={() => {
-            if (lastCount.current === thread.length) return;
-            const first = lastCount.current === -1;
-            lastCount.current = thread.length;
-            nearBottom.current = true;
-            scroll.current?.scrollToEnd({ animated: !first });
-          }}
-        >
-          <Note />
-          {thread.map((item, i) => (
-            <ThreadRow key={item.id} item={item} prev={thread[i - 1]} paused={!live} />
-          ))}
-        </ScrollView>
+          onEndReached={() => void chat.loadOlder()}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            <View style={{ gap: 12 }}>
+              {chat.loadingOlder && (
+                <ActivityIndicator testID="memuat-lama" size="small" color={c.muted} style={{ paddingTop: 8 }} />
+              )}
+              {chat.loadFailed && !chat.loaded && <LoadFailed onRetry={() => void chat.loadInitial()} />}
+              <Note />
+            </View>
+          }
+        />
       )}
 
       <Composer value={text} onChangeText={setText} onSend={send} inputRef={input} strongMic={showEmpty} />
     </KeyboardAvoidingView>
+  );
+}
+
+function Gap() {
+  return <View style={{ height: 12 }} />;
+}
+
+function LoadFailed({ onRetry }: { onRetry: () => void }) {
+  const { c } = useTheme();
+  return (
+    <View style={{ alignItems: 'center', gap: 4 }}>
+      <Txt color={c.muted} style={{ textAlign: 'center' }}>
+        Obrolan belum bisa dimuat.
+      </Txt>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Muat lagi"
+        onPress={onRetry}
+        style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 16 }}
+      >
+        <Txt weight={600} color={c.green}>
+          Muat lagi
+        </Txt>
+      </Pressable>
+    </View>
   );
 }
 
@@ -200,26 +234,149 @@ function Note() {
   );
 }
 
-function ThreadRow({ item, prev, paused }: { item: ChatEntry; prev?: ChatEntry; paused: boolean }) {
-  switch (item.kind) {
-    case 'user':
-      // Awal tukar-pesan baru: jarak ekstra. Balasan atas pertanyaan kartu token ("Sudah benar?") masih tukar-pesan yang sama.
-      return <UserBubble text={item.text} startsExchange={!!prev && prev.kind !== 'user' && prev.kind !== 'token'} />;
-    case 'assistant':
-      return <AssistantLine text={item.text} />;
-    case 'device':
-      return <DeviceCard deviceId={item.deviceId} />;
-    case 'confirm':
-      return <ConfirmSendCard outgoingId={item.outgoingId} />;
-    case 'notes':
-      return <NotesCard notes={item} />;
-    case 'file':
-      return <FileCard file={item} />;
-    case 'token':
-      return <TokenCard token={item} />;
-    case 'qris':
-      return <QrisCard qris={item} />;
-    case 'thinking':
-      return <Thinking paused={paused} />;
+function ThreadRow({
+  row,
+  chat,
+  contoh,
+  toast,
+  paused,
+}: {
+  row: Row;
+  chat: ChatApi;
+  contoh: boolean;
+  toast: (text: string) => void;
+  paused: boolean;
+}) {
+  if (row.kind === 'thinking') return <Thinking paused={paused} />;
+  if (row.kind === 'pending') {
+    const { pending } = row;
+    return (
+      <UserBubble
+        text={pending.text}
+        startsExchange={row.startsExchange}
+        status={pending.status}
+        onRetry={() => chat.retry(pending.clientId)}
+      />
+    );
+  }
+  const { message, part } = row;
+  const content = (
+    <PartView
+      part={part}
+      message={message}
+      startsExchange={row.startsExchange}
+      chosenId={row.chosenId}
+      chat={chat}
+      contoh={contoh}
+      toast={toast}
+    />
+  );
+  if (!row.tag) return content;
+  return (
+    <View style={{ gap: 4 }}>
+      {content}
+      <ViaTag align={message.from === 'user' ? 'right' : 'left'} />
+    </View>
+  );
+}
+
+function PartView({
+  part,
+  message,
+  startsExchange,
+  chosenId,
+  chat,
+  contoh,
+  toast,
+}: {
+  part: Part;
+  message: Message;
+  startsExchange: boolean;
+  chosenId?: string;
+  chat: ChatApi;
+  contoh: boolean;
+  toast: (text: string) => void;
+}) {
+  switch (part.type) {
+    case 'text':
+      return message.from === 'user' ? (
+        <UserBubble text={part.text} startsExchange={startsExchange} />
+      ) : (
+        <AssistantLine text={part.text} />
+      );
+    case 'unknown':
+      return <AssistantLine text={part.note} />;
+    case 'choices':
+      return (
+        <ChoicesCard
+          prompt={part.prompt}
+          choices={part.choices}
+          chosenId={chosenId}
+          onChoose={(choiceId) => chat.choose(message.id, choiceId)}
+        />
+      );
+    case 'image':
+      return <ImageCard image={part} mediaUrl={chat.mediaUrl} />;
+    case 'audio':
+      return <AudioRow audio={part} onPlay={() => toast('Pemutar suara dibangun di Fase 6.')} />;
+    case 'document':
+      return (
+        <FileCard
+          file={{ name: part.name, meta: formatFileMeta(part.sizeBytes, part.mime) }}
+          onOpen={() => void openFile(chat, part.mediaId, toast)}
+        />
+      );
+    case 'card': {
+      const { card } = part;
+      switch (card.kind) {
+        case 'draft': {
+          const { id } = card.draft;
+          return (
+            <ConfirmSendCard
+              draft={card.draft}
+              onSend={() => void chat.draftAction(id, 'send')}
+              onCancel={() => void chat.draftAction(id, 'cancel')}
+              onEdit={(next) => void chat.draftAction(id, 'edit', next)}
+              onDiscard={() => void chat.draftAction(id, 'discard')}
+            />
+          );
+        }
+        case 'device':
+          if (contoh) return <DeviceCard deviceId={card.deviceId} />;
+          return (
+            <DeviceCardView
+              name={card.name}
+              on={card.on}
+              temp={card.temp}
+              status={card.on ? `Nyala${card.mode ? ` · ${card.mode}` : ''}` : 'Mati'}
+              footer={[
+                card.temp !== undefined ? `Perintah terakhir: ${card.temp}°${card.mode ? ` ${card.mode}` : ''}` : null,
+                card.note ?? null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              onToggle={(next) => void chat.controlDevice(card.deviceId, { on: next })}
+              onTemp={(temp) => void chat.controlDevice(card.deviceId, { temp })}
+            />
+          );
+        case 'notes':
+          return <NotesCard notes={card} />;
+        case 'payment':
+          return <PaymentCard payment={card} />;
+        case 'qris':
+          return <QrisCard qris={card} mediaUrl={chat.mediaUrl} />;
+      }
+    }
+  }
+}
+
+/** Buka berkas lewat alamat dari server; berkas contoh hanya memberi tahu bahwa ini contoh. */
+async function openFile(chat: ChatApi, mediaId: string, toast: (text: string) => void) {
+  try {
+    const source = await chat.mediaUrl(mediaId);
+    if (source.kind !== 'uri') toast('Membuka berkas contoh.');
+    else await Linking.openURL(source.uri);
+  } catch {
+    toast(ERROR_TEXT);
   }
 }

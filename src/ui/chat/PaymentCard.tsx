@@ -1,17 +1,19 @@
 import { View } from 'react-native';
-import type { TokenInfo } from '@/sample/types';
+import { formatRupiah } from '@/api/format';
+import type { Card } from '@/api/contract';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 import { ChatCard } from './ChatCard';
 
-/** Kartu pembelian token listrik yang menunggu "Sudah benar?". */
-export function TokenCard({ token }: { token: TokenInfo }) {
+type Payment = Extract<Card, { kind: 'payment' }>;
+
+/** Kartu pembayaran yang menunggu jawaban (contoh: pembelian token listrik, "Sudah benar?"). */
+export function PaymentCard({ payment }: { payment: Payment }) {
   const { c } = useTheme();
   const rows: [string, string, boolean][] = [
-    ['Nominal', token.amount, true],
-    ['No. meter', token.meter, false],
-    ['Atas nama', token.owner, false],
+    ['Nominal', formatRupiah(payment.amountRp), true],
+    ...payment.lines.map((l): [string, string, boolean] => [l.label, l.value, false]),
   ];
   return (
     <ChatCard>
@@ -28,7 +30,7 @@ export function TokenCard({ token }: { token: TokenInfo }) {
         >
           <Icon name="bolt" size={22} color={c.green} />
         </View>
-        <Txt weight={600}>{token.title}</Txt>
+        <Txt weight={600}>{payment.title}</Txt>
       </View>
       <View style={{ gap: 6 }}>
         {rows.map(([k, v, strong]) => (
@@ -41,7 +43,7 @@ export function TokenCard({ token }: { token: TokenInfo }) {
         ))}
       </View>
       <View style={{ borderTopWidth: 1, borderTopColor: c.line, paddingTop: 12 }}>
-        <Txt color={c.muted}>Sudah benar?</Txt>
+        <Txt color={c.muted}>{payment.ask}</Txt>
       </View>
     </ChatCard>
   );

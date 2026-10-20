@@ -1,10 +1,15 @@
 import { Pressable, View } from 'react-native';
 import { useSampleDispatch } from '@/sample/store';
-import type { NotesInfo } from '@/sample/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 import { ChatCard } from './ChatCard';
+
+export interface NotesInfo {
+  title: string;
+  when: string;
+  decisions: string[];
+}
 
 /** Kartu notulen rapat: tiga keputusan dan tautan Baca notulen (layar notulen menyusul di tugas lain). */
 export function NotesCard({ notes, onOpen }: { notes: NotesInfo; onOpen?: () => void }) {

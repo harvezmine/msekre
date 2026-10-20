@@ -1,17 +1,27 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Txt } from '../Txt';
 
-/** Gelembung pengguna: hijau, rata kanan, sudut kanan bawah lancip. `startsExchange`: awal tukar-pesan baru, jarak atas ekstra 8. */
-export function UserBubble({ text, startsExchange = false }: { text: string; startsExchange?: boolean }) {
+interface UserBubbleProps {
+  text: string;
+  /** Awal tukar-pesan baru: jarak atas ekstra 8. */
+  startsExchange?: boolean;
+  /** Pesan optimistis: `sending` ("mengirim…") atau `failed` ("Belum terkirim · Coba lagi"). Tersimpan: kosong. */
+  status?: 'sending' | 'failed';
+  onRetry?: () => void;
+}
+
+/** Gelembung pengguna: hijau, rata kanan, sudut kanan bawah lancip. */
+export function UserBubble({ text, startsExchange = false, status, onRetry }: UserBubbleProps) {
   const { c } = useTheme();
-  return (
+  const bubble = (
     <View
       style={{
         alignSelf: 'flex-end',
         maxWidth: '78%',
         marginTop: startsExchange ? 8 : 0,
         backgroundColor: c.green,
+        opacity: status === 'sending' ? 0.7 : 1,
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         borderBottomLeftRadius: 20,
@@ -23,6 +33,29 @@ export function UserBubble({ text, startsExchange = false }: { text: string; sta
       <Txt color={c.onGreen}>{text}</Txt>
     </View>
   );
+  if (!status) return bubble;
+  return (
+    <View style={{ alignSelf: 'stretch', alignItems: 'flex-end', gap: 2 }}>
+      {bubble}
+      {status === 'sending' ? (
+        <Txt v="caption" color={c.muted} style={{ paddingHorizontal: 4 }}>
+          mengirim…
+        </Txt>
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Coba lagi"
+          onPress={onRetry}
+          hitSlop={{ top: 8, bottom: 8, left: 8 }}
+          style={{ minHeight: 32, justifyContent: 'center', paddingHorizontal: 4 }}
+        >
+          <Txt v="caption" weight={600} color={c.clay}>
+            Belum terkirim · Coba lagi
+          </Txt>
+        </Pressable>
+      )}
+    </View>
+  );
 }
 
 /** Jawaban asisten: teks polos tanpa gelembung. */
@@ -31,5 +64,19 @@ export function AssistantLine({ text }: { text: string }) {
     <View style={{ alignSelf: 'flex-start', maxWidth: '86%', paddingHorizontal: 4 }}>
       <Txt>{text}</Txt>
     </View>
+  );
+}
+
+/** Tanda kecil di bawah pesan yang ditulis atau dijawab lewat WhatsApp. */
+export function ViaTag({ align }: { align: 'left' | 'right' }) {
+  const { c } = useTheme();
+  return (
+    <Txt
+      v="caption"
+      color={c.muted}
+      style={{ alignSelf: align === 'right' ? 'flex-end' : 'flex-start', paddingHorizontal: 4 }}
+    >
+      lewat WhatsApp
+    </Txt>
   );
 }

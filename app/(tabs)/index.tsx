@@ -19,12 +19,13 @@ import { Initials } from '@/ui/Initials';
 import { Txt } from '@/ui/Txt';
 
 export default function Beranda() {
-  const { name } = useProfile();
+  const { name, sample } = useProfile();
   const { c } = useTheme();
   const live = useLive();
   const insets = useSafeAreaInsets();
   const { state, dispatch } = useSample();
-  const approval = pendingApproval(state);
+  // Kartu persetujuan dari penyimpanan contoh; mode server menyembunyikannya sampai Fase 2 menyambung /home.
+  const approval = sample ? pendingApproval(state) : null;
   // Kartu Usaha mengikuti tempat terpilih; Rumah tidak punya usaha, jadi memakai angka Semua.
   const sales =
     (state.place === 'Kedai Dago' || state.place === 'Kedai Riau' ? businessByPlace[state.place] : undefined) ??

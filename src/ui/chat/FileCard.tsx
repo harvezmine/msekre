@@ -1,10 +1,14 @@
 import { View } from 'react-native';
 import { useSampleDispatch } from '@/sample/store';
-import type { FileInfo } from '@/sample/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 import { CardButton, ChatCard } from './ChatCard';
+
+export interface FileInfo {
+  name: string;
+  meta: string;
+}
 
 /** Kartu berkas hasil kerja: nama, ukuran, tombol Buka dan Bagikan (contoh: keduanya hanya menampilkan toast). */
 export function FileCard({ file, onOpen, onShare }: { file: FileInfo; onOpen?: () => void; onShare?: () => void }) {
