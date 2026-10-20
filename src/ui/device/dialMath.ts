@@ -26,19 +26,54 @@ export function arcPath(a0: number, a1: number): string {
   return `M${p0.x} ${p0.y}A${DIAL.radius} ${DIAL.radius} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${p1.x} ${p1.y}`;
 }
 
-/**
- * Suhu (bulat, 16–30) untuk sentuhan di titik (x, y) pada kotak putaran. `prev` mencegah loncat dari 30 ke 16
- * (atau sebaliknya) saat jari melewati celah di bawah: suhu tertahan di ujung terdekat.
- */
-export function pointToTemp(x: number, y: number, prev: number): number {
+/** Lebar pita cincin yang bisa disentuh: jari-jari ± ini. Di luar pita (angka tengah, sudut kotak) sentuhan diabaikan. */
+export const RING_BAND = 28;
+
+/** Sudut sentuhan (derajat, 0 = kanan, searah jarum jam) terhadap pusat putaran. */
+export function angleOf(x: number, y: number): number {
   'worklet';
   const c = DIAL.size / 2;
-  const deg = (Math.atan2(y - c, x - c) * 180) / Math.PI;
-  // 0 di awal busur (kiri bawah), naik searah jarum jam sampai 270 di ujung (kanan bawah); 270..360 = celah.
-  const rel = (((deg - DIAL.start) % 360) + 360) % 360;
-  const gapMid = DIAL.sweep + (360 - DIAL.sweep) / 2;
-  const frac = rel <= DIAL.sweep ? rel / DIAL.sweep : rel >= gapMid ? 0 : 1;
-  const next = Math.round(AC_MIN + frac * SPAN);
-  if (Math.abs(next - prev) > SPAN / 2) return prev > (AC_MIN + AC_MAX) / 2 ? AC_MAX : AC_MIN;
-  return next;
+  return (Math.atan2(y - c, x - c) * 180) / Math.PI;
+}
+
+/** Apakah sentuhan jatuh di pita cincin (bukan di angka tengah atau sudut kotak). */
+export function onRing(x: number, y: number): boolean {
+  'worklet';
+  const c = DIAL.size / 2;
+  return Math.abs(Math.hypot(x - c, y - c) - DIAL.radius) <= RING_BAND;
+}
+
+/** Posisi busur 0–270 (0 = 16° di 135°) untuk sudut; null bila sudut jatuh di celah 90° di bawah. */
+export function arcPosFromAngle(angleDeg: number): number | null {
+  'worklet';
+  const rel = (((angleDeg - DIAL.start) % 360) + 360) % 360;
+  return rel <= DIAL.sweep ? rel : null;
+}
+
+/** Selisih sudut terpendek bertanda, dinormalkan ke (−180, 180]. */
+function shortestDelta(from: number, to: number): number {
+  'worklet';
+  let d = (((to - from) % 360) + 360) % 360;
+  if (d > 180) d -= 360;
+  return d;
+}
+
+/** Geser posisi busur sebesar selisih sudut terpendek sejak sentuhan sebelumnya, ditahan di 0–270. */
+export function stepArc(pos: number, prevAngle: number, angle: number): number {
+  'worklet';
+  return Math.min(DIAL.sweep, Math.max(0, pos + shortestDelta(prevAngle, angle)));
+}
+
+/** Suhu bulat 16–30 untuk posisi busur. */
+export function tempFromArc(pos: number): number {
+  'worklet';
+  const p = Math.min(DIAL.sweep, Math.max(0, pos));
+  return Math.round(AC_MIN + (p / DIAL.sweep) * SPAN);
+}
+
+/** Posisi busur 0–270 untuk suhu (ditahan di 16–30). */
+export function arcFromTemp(temp: number): number {
+  'worklet';
+  const t = Math.min(AC_MAX, Math.max(AC_MIN, temp));
+  return ((t - AC_MIN) / SPAN) * DIAL.sweep;
 }

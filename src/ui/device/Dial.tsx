@@ -1,14 +1,25 @@
 import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import { View } from 'react-native';
-import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
+import { GestureDetector, GestureStateManager, usePanGesture } from 'react-native-gesture-handler';
 import { useSharedValue } from 'react-native-reanimated';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
 import { AC_MAX, AC_MIN } from '@/sample/devices';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Txt } from '../Txt';
-import { arcPath, DIAL, pointAt, pointToTemp, tempToAngle } from './dialMath';
+import {
+  angleOf,
+  arcFromTemp,
+  arcPath,
+  arcPosFromAngle,
+  DIAL,
+  onRing,
+  pointAt,
+  stepArc,
+  tempFromArc,
+  tempToAngle,
+} from './dialMath';
 
 interface Props {
   name: string;
@@ -26,32 +37,61 @@ interface Props {
  */
 export function Dial({ name, temp, caption, dimmed = false, onChange }: Props) {
   const { c } = useTheme();
-  // Suhu terakhir yang dikirim geseran: nilai bersama, karena worklet tidak boleh membaca ref atau objek React.
-  const last = useSharedValue(temp);
+  // Semua nilai yang dibaca worklet berupa nilai bersama (worklet tidak boleh menangkap ref atau objek biasa).
+  const last = useSharedValue(temp); // suhu terakhir yang dikirim
+  const pos = useSharedValue(arcFromTemp(temp)); // posisi busur 0–270 yang sedang dilacak
+  const prevAngle = useSharedValue(0);
+  const dragging = useSharedValue(false);
+  // Selama jari di putaran, nilai prop tidak boleh menimpa pelacakan (menghindari kiriman dobel).
   useEffect(() => {
+    if (dragging.get()) return;
     last.set(temp);
-  }, [temp, last]);
+    pos.set(arcFromTemp(temp));
+  }, [temp, last, pos, dragging]);
 
   const emit = (t: number) => {
     void Haptics.selectionAsync();
     onChange(t);
   };
-  const drag = (x: number, y: number) => {
+  const publish = () => {
     'worklet';
-    const t = pointToTemp(x, y, last.get());
+    const t = tempFromArc(pos.get());
     if (t === last.get()) return;
     last.set(t);
     scheduleOnRN(emit, t);
   };
+  // Aktivasi manual: hanya sentuhan di pita cincin yang mengambil gestur; selain itu ScrollView/anak-anaknya yang memegang.
   const pan = usePanGesture({
-    minDistance: 2,
-    onBegin: (e) => {
+    manualActivation: true,
+    onTouchesDown: (e) => {
       'worklet';
-      drag(e.x, e.y);
+      const t = e.changedTouches[0];
+      if (!t || !onRing(t.x, t.y)) {
+        GestureStateManager.fail(e.handlerTag);
+        return;
+      }
+      const angle = angleOf(t.x, t.y);
+      const jump = arcPosFromAngle(angle);
+      // Mengetuk cincin = langsung ke titik itu; di celah bawah tidak loncat, lanjut dari posisi sekarang.
+      pos.set(jump ?? arcFromTemp(last.get()));
+      prevAngle.set(angle);
+      dragging.set(true);
+      GestureStateManager.activate(e.handlerTag);
+    },
+    onActivate: () => {
+      'worklet';
+      publish();
     },
     onUpdate: (e) => {
       'worklet';
-      drag(e.x, e.y);
+      const angle = angleOf(e.x, e.y);
+      pos.set(stepArc(pos.get(), prevAngle.get(), angle));
+      prevAngle.set(angle);
+      publish();
+    },
+    onFinalize: () => {
+      'worklet';
+      dragging.set(false);
     },
   });
 

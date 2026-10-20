@@ -4,7 +4,18 @@ import { useEffect } from 'react';
 import DetailAc from '../app/perangkat/[id]';
 import { renderWithProviders } from './helpers';
 import { deviceById, initialSampleState, MAIN_AC_ID, useSample, type SampleState } from '@/sample/store';
-import { arcPath, DIAL, pointAt, pointToTemp, tempToAngle } from '@/ui/device/dialMath';
+import {
+  angleOf,
+  arcFromTemp,
+  arcPath,
+  arcPosFromAngle,
+  DIAL,
+  onRing,
+  pointAt,
+  stepArc,
+  tempFromArc,
+  tempToAngle,
+} from '@/ui/device/dialMath';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -44,24 +55,73 @@ describe('dialMath', () => {
     expect(tempToAngle(99)).toBe(405);
   });
 
+  // Simulasi sentuhan seperti Dial: awal sentuh (lompat bila di pita, bukan di celah), lalu geser relatif.
+  const start = (temp: number, x: number, y: number) => {
+    const angle = angleOf(x, y);
+    const jump = arcPosFromAngle(angle);
+    return { pos: jump ?? arcFromTemp(temp), angle, ok: onRing(x, y) };
+  };
+  const at = (temp: number) => pointAt(tempToAngle(temp));
+
   test('titik pada busur memberi suhu yang sama dengan sudutnya', () => {
     for (let t = 16; t <= 30; t++) {
-      const p = pointAt(tempToAngle(t));
-      expect(pointToTemp(p.x, p.y, t)).toBe(t);
+      const p = at(t);
+      expect(tempFromArc(arcPosFromAngle(angleOf(p.x, p.y))!)).toBe(t);
+      expect(tempFromArc(arcFromTemp(t))).toBe(t);
     }
   });
 
-  test('sentuhan di atas pusat = 23, kiri bawah = 16, kanan bawah = 30', () => {
-    const c = DIAL.size / 2;
-    expect(pointToTemp(c, 0, 23)).toBe(23);
-    expect(pointToTemp(40, 240, 16)).toBe(16);
-    expect(pointToTemp(240, 240, 30)).toBe(30);
+  test('dari 24 mengetuk titik 16 memberi 16, bukan 30', () => {
+    const p = at(16);
+    const s = start(24, p.x, p.y);
+    expect(s.ok).toBe(true);
+    expect(tempFromArc(s.pos)).toBe(16);
   });
 
-  test('melewati celah di bawah tidak meloncat dari 30 ke 16', () => {
+  test('dari 22 mengetuk titik 30 memberi 30', () => {
+    const p = at(30);
+    expect(tempFromArc(start(22, p.x, p.y).pos)).toBe(30);
+  });
+
+  test('menggeser dari 29 searah jarum jam melewati 30 tertahan di 30, lalu balik tidak macet', () => {
+    let pos = arcFromTemp(29);
+    let prev = tempToAngle(29);
+    for (const a of [tempToAngle(30), 430, 470, 500]) {
+      pos = stepArc(pos, prev, a);
+      prev = a;
+      expect(tempFromArc(pos)).toBe(30);
+    }
+    pos = stepArc(pos, prev, 400);
+    prev = 400;
+    expect(tempFromArc(pos)).toBeLessThan(30);
+    pos = stepArc(pos, prev, 330);
+    expect(tempFromArc(pos)).toBeLessThan(29);
+  });
+
+  test('satu geseran cepat 60 derajat memindah sekitar 3 derajat Celsius ke arah yang benar', () => {
+    const up = stepArc(arcFromTemp(22), 250, 310);
+    expect(tempFromArc(up)).toBe(25);
+    const down = stepArc(arcFromTemp(22), 310, 250);
+    expect(tempFromArc(down)).toBe(19);
+    // melewati sudut 360 -> 0 tetap selisih terpendek
+    expect(stepArc(100, 350, 10) - 100).toBeCloseTo(20);
+  });
+
+  test('sentuhan di angka tengah atau sudut kotak bukan cincin', () => {
     const c = DIAL.size / 2;
-    expect(pointToTemp(c - 5, 270, 30)).toBe(30);
-    expect(pointToTemp(c + 5, 270, 16)).toBe(16);
+    expect(onRing(c, c)).toBe(false);
+    expect(onRing(8, 8)).toBe(false);
+    expect(onRing(c, c - DIAL.radius)).toBe(true);
+  });
+
+  test('sentuhan di celah bawah tidak meloncat: lanjut dari posisi sekarang', () => {
+    const c = DIAL.size / 2;
+    const x = c;
+    const y = c + DIAL.radius; // tepat di bawah = tengah celah
+    expect(arcPosFromAngle(angleOf(x, y))).toBeNull();
+    const s = start(24, x, y);
+    expect(s.ok).toBe(true);
+    expect(tempFromArc(s.pos)).toBe(24);
   });
 
   test('busur memakai bendera sudut besar di atas 180 derajat', () => {
@@ -151,4 +211,11 @@ test('id tidak dikenal: pesan ramah dan tombol kembali', async () => {
   expect(screen.getByText(/tidak ditemukan/)).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Kembali ke Perangkat' }));
   expect(router.back).toHaveBeenCalled();
+});
+
+test('AC mati: kartu inframerah menyebut perintah terakhir', async () => {
+  await show();
+  await fireEvent.press(screen.getByRole('button', { name: 'Matikan AC' }));
+  expect(screen.getByText(/^AC mati · perintah terakhir: 24° Dingin/)).toBeOnTheScreen();
+  expect(screen.getByText(/lewat inframerah/)).toBeOnTheScreen();
 });

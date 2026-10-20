@@ -94,7 +94,7 @@ export default function DetailAc() {
             </View>
             <View style={{ flex: 1, gap: 4 }}>
               <Txt weight={500}>
-                Perintah terakhir: {temp}° {mode}
+                {on ? 'Perintah terakhir' : 'AC mati · perintah terakhir'}: {temp}° {mode}
                 {roomTemp !== undefined ? ` · suhu ruangan sekarang ${roomTemp}°` : ''}
               </Txt>
               <Txt v="caption" color={c.muted}>
@@ -238,6 +238,7 @@ function RoundButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       android_ripple={{ color: c.ripple, borderless: true, radius: 28 }}
       style={{
