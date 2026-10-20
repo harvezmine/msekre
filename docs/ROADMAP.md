@@ -81,6 +81,20 @@ Rincian: `docs/plans/2026-10-19-fase-0-fondasi.md`.
 - **Selesai bila:** di HP Android, Beranda terlihat sama dengan desain 1a dan 1f (ikut mode gelap HP), Inti bernapas,
   titik mengalir di cincin, ketuk Inti membuka Chat, dan tahan Inti membuka Mode Suara dengan getar.
 
+### Fase 0b: Semua layar dengan data contoh (±1–2 minggu)
+
+Rincian: `docs/plans/2026-10-20-fase-0b-semua-layar.md`. Ditambahkan 20 Okt 2026 atas pilihan founder: semua layar
+dibuat dulu supaya bisa dicoba dan dikoreksi di HP.
+
+- Semua 23 layar desain dibuat dengan data contoh dan mode gelap, termasuk Minggu ini/Kalender di Agenda yang tidak ada
+  di desain.
+- Ada penyimpanan contoh bersama, jadi aksi di satu layar terlihat di layar lain.
+- Empat alur prototipe bisa diklik: bicara mematikan AC, kirim lalu batalkan, tunda alarm, dan menyambungkan layanan
+  baru.
+- **Server:** belum ada perubahan.
+- **Akibat ke fase berikutnya:** di Fase 1–5, bagian "Aplikasi" berarti menyambungkan layar yang sudah ada ke data
+  asli. Membuat layar dari nol tidak diperlukan lagi.
+
 ### Fase 1: Masuk dan Chat (±2 minggu)
 
 **Server (milo-ai):**
@@ -212,13 +226,13 @@ ke orang lain bisa dibatalkan dalam 5 menit.
 ## Urutan dan jalur paralel
 
 ```
-Fase 0 ─► Fase 1 ─┬─► Fase 2 ─┐
-                  ├─► Fase 3 ─┼─► Fase 6 ─► Fase 7
-                  ├─► Fase 4 ─┤
-                  └─► Fase 5 ─┘
+Fase 0 ─► Fase 0b ─► Fase 1 ─┬─► Fase 2 ─┐
+                             ├─► Fase 3 ─┼─► Fase 6 ─► Fase 7
+                             ├─► Fase 4 ─┤
+                             └─► Fase 5 ─┘
 ```
 
-- Fase 0 dan 1 harus berurutan. Fase 2–5 boleh ditukar urutannya sesuai prioritas bisnis. Fase 6 butuh chat dan
+- Fase 0, 0b, dan 1 harus berurutan. Fase 2–5 boleh ditukar urutannya sesuai prioritas bisnis. Fase 6 butuh chat dan
   kartu konfirmasi dari Fase 1.
 - **Mulai hari ini, berjalan paralel karena butuh waktu tunggu:**
   1. Akun Play Console organisasi dan D-U-N-S (bisa berminggu-minggu).
