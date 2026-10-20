@@ -22,7 +22,7 @@ export function ListRow({ icon, title, subtitle, onPress, warn = false, last = f
   const { c } = useTheme();
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
       onPress={onPress}
       android_ripple={{ color: c.ripple }}

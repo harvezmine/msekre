@@ -10,13 +10,14 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useTabBarShown } from './tabBarShown';
 import { Txt } from './Txt';
 
 export const TOAST_MS = 2600;
-/** Tinggi tab bar tanpa bagian bawah layar, supaya toast duduk 16 dp di atasnya. */
+/** Tinggi tab bar tanpa bagian bawah layar; toast duduk 16 dp di atasnya bila tab bar terlihat. */
 const TAB_BAR = 88;
 
-/** Bilah gelap di bawah, muncul memudar sambil naik 8 dp (sk-toast). Dibaca pembaca layar dengan sopan. */
+/** Bilah gelap di bawah, muncul memudar sambil naik 8 dp (sk-toast). Dibaca pembaca layar lewat pengumuman di ToastHost (satu kali). */
 export function Toast({ text }: { text: string }) {
   const { c } = useTheme();
   const reduce = useReducedMotion();
@@ -28,7 +29,6 @@ export function Toast({ text }: { text: string }) {
   return (
     <Animated.View
       testID="toast"
-      accessibilityLiveRegion="polite"
       accessibilityRole="alert"
       style={[
         {
@@ -57,6 +57,7 @@ export function Toast({ text }: { text: string }) {
 export function ToastHost() {
   const { state, dispatch } = useSample();
   const insets = useSafeAreaInsets();
+  const tabBar = useTabBarShown();
   const id = state.toast?.id;
   const text = state.toast?.text;
   useEffect(() => {
@@ -69,7 +70,7 @@ export function ToastHost() {
   return (
     <Animated.View
       pointerEvents="none"
-      style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + TAB_BAR + 16 }}
+      style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 16 + (tabBar ? TAB_BAR : 0) }}
     >
       <Toast key={id} text={text} />
     </Animated.View>
