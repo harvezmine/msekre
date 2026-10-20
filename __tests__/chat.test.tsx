@@ -4,7 +4,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import Chat from '../app/chat';
 import { renderWithProviders } from './helpers';
-import { useSample, type SampleState } from '@/sample/store';
+import { BUDI_DRAFT_ID as BUDI, supplierOrderDraft } from '@/sample/outgoing';
+import { historyRows, useSample, type SampleState } from '@/sample/store';
 import { QR_SIZE, qrCells } from '@/ui/chat/qrPattern';
 
 let latest: SampleState;
@@ -16,12 +17,13 @@ function Probe() {
   return null;
 }
 
-async function renderChat() {
+async function renderChat(options?: Parameters<typeof renderWithProviders>[1]) {
   return renderWithProviders(
     <>
       <Chat />
       <Probe />
     </>,
+    options,
   );
 }
 
@@ -45,6 +47,7 @@ test('utas contoh menampilkan semua pesan dan kartu berurutan', async () => {
     'Balas Pak Budi, harga sewa bisa Rp15 juta',
     'Ini draf balasannya. Saya kirim setelah Anda setuju.',
     'lewat WhatsApp',
+    'Selamat siang, Pak Budi. Untuk sewa tempatnya, kami bisa di harga Rp15 juta. Terima kasih.',
     'Rapat dengan supplier susu sudah saya catat.',
     'Harga susu UHT tetap sampai Desember.',
     'Baca notulen',
@@ -72,19 +75,21 @@ test('utas contoh menampilkan semua pesan dan kartu berurutan', async () => {
 
 test('Kirim menahan kiriman dan mencatat Riwayat; Batalkan membatalkannya', async () => {
   await renderChat();
-  expect(latest.outgoing.status).toBe('draft');
+  expect(latest.outgoing[BUDI]!.status).toBe('draft');
   const before = latest.history.length;
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
   expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light);
   expect(screen.getByText('Dikirim 10.47')).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Kirim' })).toBeNull();
-  expect(latest.outgoing.status).toBe('held');
+  expect(latest.outgoing[BUDI]!.status).toBe('held');
   expect(latest.history.length).toBe(before + 1);
+  expect(historyRows(latest)[0]).toMatchObject({ title: 'Mengirim balasan ke Pak Budi', undoable: true });
   await fireEvent.press(screen.getByRole('button', { name: 'Batalkan' }));
   expect(screen.getByText('Dibatalkan · tidak jadi terkirim')).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Batalkan' })).toBeNull();
-  expect(latest.outgoing.status).toBe('cancelled');
+  expect(latest.outgoing[BUDI]!.status).toBe('cancelled');
   expect(latest.toast).toBe('Kiriman ke Pak Budi dibatalkan.');
+  expect(historyRows(latest)[0]).toMatchObject({ struck: true, undoable: false });
 });
 
 test('Ubah membuka kolom teks dan Simpan menyimpan isi baru', async () => {
@@ -93,7 +98,7 @@ test('Ubah membuka kolom teks dan Simpan menyimpan isi baru', async () => {
   const box = screen.getByLabelText('Isi pesan');
   await fireEvent.changeText(box, 'Baik Pak, Rp15 juta ya.');
   await fireEvent.press(screen.getByRole('button', { name: 'Simpan' }));
-  expect(latest.outgoing.text).toBe('Baik Pak, Rp15 juta ya.');
+  expect(latest.outgoing[BUDI]!.text).toBe('Baik Pak, Rp15 juta ya.');
   expect(screen.getByText('Baik Pak, Rp15 juta ya.')).toBeTruthy();
   expect(screen.queryByLabelText('Isi pesan')).toBeNull();
   expect(screen.getByRole('button', { name: 'Kirim' })).toBeTruthy();
@@ -127,6 +132,35 @@ test('mengetik lalu kirim menambah gelembung, tanda berpikir, dan jawaban setela
   await advance(100);
   expect(screen.getByText('Ini masih contoh. Mulai Fase 1 saya menjawab sungguhan.')).toBeTruthy();
   expect(screen.queryByTestId('berpikir')).toBeNull();
+});
+
+test('pesan yang diketik dan jawabannya tersimpan di penyimpanan, tanda berpikir contoh hilang', async () => {
+  await renderChat();
+  await fireEvent.changeText(screen.getByLabelText('Tulis pesan untuk Nadia'), 'Halo Nadia');
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim pesan' }));
+  expect(latest.chat.at(-1)).toMatchObject({ kind: 'user', text: 'Halo Nadia' });
+  expect(latest.chat.some((e) => e.kind === 'thinking')).toBe(false);
+  await advance(1200);
+  expect(latest.chat.at(-1)).toMatchObject({
+    kind: 'assistant',
+    text: 'Ini masih contoh. Mulai Fase 1 saya menjawab sungguhan.',
+  });
+});
+
+test('draf kedua dari layar lain tampil sebagai kartu sendiri; Kirim hanya mengubah draf itu', async () => {
+  await renderChat({ actions: [{ type: 'addDraft', draft: supplierOrderDraft }] });
+  expect(screen.getByText('PT Sumber Susu')).toBeOnTheScreen();
+  expect(screen.getByText('Ini draf pesanannya. Saya kirim setelah Anda setuju.')).toBeOnTheScreen();
+  expect(screen.getByText(supplierOrderDraft.text)).toBeOnTheScreen();
+  expect(screen.queryByTestId('berpikir')).toBeNull();
+  const kirim = screen.getAllByRole('button', { name: 'Kirim' });
+  expect(kirim).toHaveLength(2);
+  await fireEvent.press(kirim[1]!);
+  expect(screen.getByText('Dikirim 10.48')).toBeOnTheScreen();
+  expect(screen.getAllByRole('button', { name: 'Kirim' })).toHaveLength(1);
+  const supplier = Object.values(latest.outgoing).find((o) => o.to === 'PT Sumber Susu')!;
+  expect(supplier.status).toBe('held');
+  expect(latest.outgoing[BUDI]!.status).toBe('draft');
 });
 
 test('kolom ketik kosong: tombol mic membuka Mode Suara', async () => {

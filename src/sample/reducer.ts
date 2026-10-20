@@ -2,7 +2,9 @@ import type { OrbitNode } from '@/ui/orbit/types';
 import { initialAgenda, initialLeftover, TODAY } from './agenda';
 import { deviceStatus, initialDevices } from './devices';
 import { initialBusiness, initialHistory } from './history';
-import { initialOutgoing } from './profile';
+import { draftIntro, initialChat } from './chat';
+import { addMinutes } from './dates';
+import { initialOutgoing } from './outgoing';
 import { initialRing, initialServices, serviceCatalog } from './services';
 import type {
   AcFan,
@@ -10,9 +12,12 @@ import type {
   AcState,
   AgendaItem,
   Business,
+  ChatEntry,
   Device,
   HistoryEntry,
   Leftover,
+  NewChatEntry,
+  NewDraft,
   Outgoing,
   Permission,
   Place,
@@ -25,10 +30,10 @@ export interface SampleState {
   place: Place;
   ac: AcState;
   devices: Device[];
-  approvalPending: boolean;
-  outgoing: Outgoing;
-  /** Id entri Riwayat dari kiriman yang tertahan, supaya bisa dicoret saat dibatalkan. */
-  sentHistoryId: string | null;
+  /** Kiriman per id: draf, tertahan, terkirim, dibatalkan. Urutan sisip = urutan dibuat. */
+  outgoing: Record<string, Outgoing>;
+  /** Utas chat. Kartu konfirmasi dan perangkat menunjuk ke `outgoing` dan `devices` lewat id. */
+  chat: ChatEntry[];
   agenda: AgendaItem[];
   leftover: Leftover | null;
   ring: OrbitNode[];
@@ -51,9 +56,11 @@ export type SampleAction =
   | { type: 'setPlace'; place: Place }
   | { type: 'setAc'; on?: boolean; temp?: number; mode?: AcMode; fan?: AcFan; source?: ActionSource }
   | { type: 'toggleDevice'; id: string; on: boolean }
-  | { type: 'sendDraft' }
-  | { type: 'cancelSend' }
-  | { type: 'editDraft'; text: string }
+  | { type: 'addDraft'; draft: NewDraft }
+  | { type: 'editDraft'; id: string; text: string }
+  | { type: 'sendDraft'; id: string }
+  | { type: 'cancelSend'; id: string }
+  | { type: 'addChatMessage'; from: 'user' | 'assistant'; text: string }
   | { type: 'addAgenda'; item: Omit<AgendaItem, 'id'> }
   | { type: 'snooze'; id: string; until: string }
   | { type: 'finishLeftover'; choice: 'today' | 'drop' }
@@ -70,9 +77,8 @@ export const initialSampleState: SampleState = {
   place: 'Semua',
   ac: { on: true, temp: 24, mode: 'Dingin', fan: 'Otomatis' },
   devices: initialDevices,
-  approvalPending: true,
   outgoing: initialOutgoing,
-  sentHistoryId: null,
+  chat: initialChat,
   agenda: initialAgenda,
   leftover: initialLeftover,
   ring: initialRing,
@@ -97,6 +103,17 @@ function withHistory(state: SampleState, entry: Omit<HistoryEntry, 'id' | 'day'>
     id,
     state: { ...state, seq: state.seq + 1, history: [{ ...entry, id, day: 'Hari ini' }, ...state.history] },
   };
+}
+
+/** Menambah baris ke utas. Tanda berpikir hanya berlaku di ujung utas, jadi baris baru menggantikannya. */
+function withChat(state: SampleState, entries: NewChatEntry[]): SampleState {
+  let seq = state.seq;
+  const added = entries.map((e): ChatEntry => ({ ...e, id: `c-${++seq}` }));
+  return { ...state, seq, chat: [...state.chat.filter((e) => e.kind !== 'thinking'), ...added] };
+}
+
+function setOutgoing(state: SampleState, id: string, patch: Partial<Outgoing>): SampleState {
+  return { ...state, outgoing: { ...state.outgoing, [id]: { ...state.outgoing[id]!, ...patch } } };
 }
 
 function setDevice(devices: Device[], id: string, patch: Partial<Device>): Device[] {
@@ -175,35 +192,45 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       }).state;
     }
 
-    case 'editDraft':
-      if (state.outgoing.status !== 'draft') return state;
-      return { ...state, outgoing: { ...state.outgoing, text: action.text } };
+    case 'addDraft': {
+      const id = `o-${state.seq + 1}`;
+      const sentAt = action.draft.sentAt ?? NOW_APP;
+      const draft: Outgoing = { ...action.draft, id, status: 'draft', sentAt, heldUntil: addMinutes(sentAt, 5) };
+      return withChat({ ...state, seq: state.seq + 1, outgoing: { ...state.outgoing, [id]: draft } }, [
+        { kind: 'assistant', text: draftIntro(draft.what) },
+        { kind: 'confirm', outgoingId: id },
+      ]);
+    }
+
+    case 'editDraft': {
+      const o = state.outgoing[action.id];
+      const text = action.text.trim();
+      if (o?.status !== 'draft' || !text || text === o.text) return state;
+      return setOutgoing(state, o.id, { text });
+    }
 
     case 'sendDraft': {
-      if (state.outgoing.status !== 'draft') return state;
-      const { sentAt, to } = state.outgoing;
-      const r = withHistory(
-        { ...state, approvalPending: false, outgoing: { ...state.outgoing, status: 'held' } },
-        {
-          time: sentAt,
-          kind: 'pesan',
-          icon: 'chat',
-          title: `Mengirim balasan ke ${to}`,
-          sub: `disetujui Anda ${sentAt}`,
-          undoable: true,
-        },
-      );
-      return { ...r.state, sentHistoryId: r.id };
+      const o = state.outgoing[action.id];
+      if (o?.status !== 'draft') return state;
+      return withHistory(setOutgoing(state, o.id, { status: 'held' }), {
+        time: o.sentAt,
+        kind: o.what === 'pesanan' ? 'usaha' : 'pesan',
+        icon: 'chat',
+        title: `Mengirim ${o.what} ke ${o.to}`,
+        sub: `disetujui Anda ${o.sentAt}`,
+        outgoingId: o.id,
+      }).state;
     }
 
     case 'cancelSend': {
-      if (state.outgoing.status !== 'held') return state;
-      return {
-        ...state,
-        outgoing: { ...state.outgoing, status: 'cancelled' },
-        toast: `Kiriman ke ${state.outgoing.to} dibatalkan.`,
-        history: state.history.map((h) => (h.id === state.sentHistoryId ? { ...h, undoable: false, struck: true } : h)),
-      };
+      const o = state.outgoing[action.id];
+      if (o?.status !== 'held') return state;
+      return { ...setOutgoing(state, o.id, { status: 'cancelled' }), toast: `Kiriman ke ${o.to} dibatalkan.` };
+    }
+
+    case 'addChatMessage': {
+      const text = action.text.trim();
+      return text ? withChat(state, [{ kind: action.from, text }]) : state;
     }
 
     case 'addAgenda': {

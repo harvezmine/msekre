@@ -4,6 +4,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { renderWithProviders } from './helpers';
 import Beranda from '../app/(tabs)/index';
+import { BUDI_DRAFT_ID, supplierOrderDraft } from '@/sample/outgoing';
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -12,6 +13,7 @@ test('Beranda menampilkan isi desain 1a', async () => {
   expect(screen.getByText('Selamat pagi, Rina')).toBeTruthy();
   expect(screen.getByText('7 terhubung · CCTV tidak terjangkau')).toBeTruthy();
   expect(screen.getByText('Butuh persetujuan Anda')).toBeTruthy();
+  expect(screen.getByText('Balasan untuk Pak Budi soal harga sewa sudah siap. Kirim?')).toBeTruthy();
   expect(screen.getByText('Bayar listrik Kedai Dago')).toBeTruthy();
   expect(screen.getByText('Rp4.250.000')).toBeTruthy();
   expect(screen.getByText('Susu UHT tinggal 6 karton')).toBeTruthy();
@@ -63,8 +65,19 @@ test('suhu AC datang dari penyimpanan', async () => {
 });
 
 test('kartu persetujuan hilang setelah kiriman disetujui', async () => {
-  await renderWithProviders(<Beranda />, { actions: [{ type: 'sendDraft' }] });
+  await renderWithProviders(<Beranda />, { actions: [{ type: 'sendDraft', id: BUDI_DRAFT_ID }] });
   expect(screen.queryByText('Butuh persetujuan Anda')).not.toBeOnTheScreen();
+});
+
+test('kartu persetujuan menanyakan draf berikutnya yang belum disetujui', async () => {
+  await renderWithProviders(<Beranda />, {
+    actions: [
+      { type: 'addDraft', draft: supplierOrderDraft },
+      { type: 'sendDraft', id: BUDI_DRAFT_ID },
+    ],
+  });
+  expect(screen.getByText('Butuh persetujuan Anda')).toBeOnTheScreen();
+  expect(screen.getByText('Pesanan untuk PT Sumber Susu sudah siap. Kirim?')).toBeOnTheScreen();
 });
 
 test('cincin dan agenda membaca penyimpanan: layanan baru jadi simpul kedelapan', async () => {

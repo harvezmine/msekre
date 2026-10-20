@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { sampleQris } from '@/sample/chat';
+import type { QrisInfo } from '@/sample/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Txt } from '../Txt';
 import { ChatCard } from './ChatCard';
@@ -12,7 +12,7 @@ const QR_PATH = qrCells()
   .join('');
 
 /** Kartu bayar QRIS dengan pola QR contoh (bukan kode sungguhan). Kotak putih tetap putih di mode gelap supaya terpindai. */
-export function QrisCard() {
+export function QrisCard({ qris }: { qris: QrisInfo }) {
   const { c } = useTheme();
   return (
     <ChatCard style={{ alignItems: 'center' }}>
@@ -37,10 +37,10 @@ export function QrisCard() {
         </Svg>
       </View>
       <Txt style={{ fontSize: 28, lineHeight: 36 }} weight={600} tabular>
-        {sampleQris.amount}
+        {qris.amount}
       </Txt>
       <Txt color={c.muted} style={{ textAlign: 'center' }}>
-        Pindai dari aplikasi bank atau dompet digital. Berlaku sampai {sampleQris.until}.
+        Pindai dari aplikasi bank atau dompet digital. Berlaku sampai {qris.until}.
       </Txt>
     </ChatCard>
   );

@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_ASSISTANT } from '@/brand';
-import { sampleThread, THINK_MS, typedReply, type ThreadItem } from '@/sample/chat';
+import { THINK_MS, typedReply } from '@/sample/chat';
+import { useSample, type ChatEntry } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { AssistantLine, UserBubble } from '@/ui/chat/Bubble';
 import { Composer } from '@/ui/chat/Composer';
@@ -35,14 +36,16 @@ const SUGGESTIONS: { icon: IconName; text: string }[] = [
   { icon: 'bolt', text: 'Beli token listrik' },
 ];
 
-// Fase 0b: utas contoh dan kartunya; pesan yang diketik hanya dijawab dengan jawaban contoh. Jawaban sungguhan dibangun di Fase 1.
+// Fase 0b: utas dari penyimpanan contoh; pesan yang diketik hanya dijawab dengan jawaban contoh. Jawaban sungguhan dibangun di Fase 1.
 export default function Chat() {
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const live = useLive();
   const { kosong } = useLocalSearchParams<{ kosong?: string }>();
+  const { state, dispatch } = useSample();
   const [text, setText] = useState('');
-  const [typed, setTyped] = useState<ThreadItem[]>([]);
+  // Baris yang sudah ada saat layar dibuka. `?kosong=1` hanya menampilkan baris yang datang sesudahnya.
+  const [shownAtOpen] = useState(() => new Set(state.chat.map((e) => e.id)));
   const [waitingFor, setWaitingFor] = useState<number | null>(null);
   const seq = useRef(0);
   const input = useRef<TextInputInstance>(null);
@@ -52,25 +55,25 @@ export default function Chat() {
   useEffect(() => {
     if (waitingFor === null) return;
     const id = setTimeout(() => {
-      setTyped((t) => [...t, { id: `j${waitingFor}`, kind: 'assistant', text: typedReply }]);
+      dispatch({ type: 'addChatMessage', from: 'assistant', text: typedReply });
       setWaitingFor(null);
     }, THINK_MS);
     return () => clearTimeout(id);
-  }, [waitingFor]);
+  }, [waitingFor, dispatch]);
 
   const send = () => {
     const value = text.trim();
     if (!value) return;
     seq.current += 1;
-    setTyped((t) => [...t, { id: `u${seq.current}`, kind: 'user', text: value }]);
+    dispatch({ type: 'addChatMessage', from: 'user', text: value });
     setText('');
     setWaitingFor(seq.current);
   };
 
-  const showEmpty = kosong === '1' && typed.length === 0;
-  // Tanda berpikir contoh di ujung utas hilang setelah pengguna mengetik sendiri.
-  const base = kosong === '1' ? [] : sampleThread.filter((i) => i.kind !== 'thinking' || typed.length === 0);
-  const thread = [...base, ...typed, ...(waitingFor !== null ? [{ id: 'berpikir', kind: 'thinking' as const }] : [])];
+  const fresh = state.chat.filter((e) => !shownAtOpen.has(e.id));
+  const entries = kosong === '1' ? fresh : state.chat;
+  const showEmpty = kosong === '1' && fresh.length === 0;
+  const thread: ChatEntry[] = waitingFor !== null ? [...entries, { id: 'berpikir', kind: 'thinking' }] : entries;
 
   return (
     // Edge-to-edge (SDK 58): jendela tidak lagi mengecil saat keyboard muncul, jadi 'padding' menaikkan kolom ketik setinggi keyboard di Android dan iOS.
@@ -141,7 +144,7 @@ export default function Chat() {
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 16, paddingBottom: 20, gap: 12 }}
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: typed.length > 0 })}
+          onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: fresh.length > 0 })}
         >
           <Note />
           {thread.map((item) => (
@@ -168,24 +171,24 @@ function Note() {
   );
 }
 
-function ThreadRow({ item, paused }: { item: ThreadItem; paused: boolean }) {
+function ThreadRow({ item, paused }: { item: ChatEntry; paused: boolean }) {
   switch (item.kind) {
     case 'user':
       return <UserBubble text={item.text} />;
     case 'assistant':
       return <AssistantLine text={item.text} />;
     case 'device':
-      return <DeviceCard />;
+      return <DeviceCard deviceId={item.deviceId} />;
     case 'confirm':
-      return <ConfirmSendCard />;
+      return <ConfirmSendCard outgoingId={item.outgoingId} />;
     case 'notes':
-      return <NotesCard />;
+      return <NotesCard notes={item} />;
     case 'file':
-      return <FileCard />;
+      return <FileCard file={item} />;
     case 'token':
-      return <TokenCard />;
+      return <TokenCard token={item} />;
     case 'qris':
-      return <QrisCard />;
+      return <QrisCard qris={item} />;
     case 'thinking':
       return <Thinking paused={paused} />;
   }

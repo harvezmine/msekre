@@ -1,7 +1,12 @@
+import { BUDI_DRAFT_ID as BUDI, supplierOrderDraft } from '@/sample/outgoing';
 import {
   initialSampleState as init,
   sampleReducer as reduce,
   agendaOn,
+  approvalText,
+  draftFor,
+  historyRows,
+  pendingApproval,
   type SampleAction,
   type SampleState,
 } from '@/sample/store';
@@ -12,14 +17,19 @@ test('keadaan awal sama dengan desain', () => {
   expect(init.place).toBe('Semua');
   expect(init.ac).toEqual({ on: true, temp: 24, mode: 'Dingin', fan: 'Otomatis' });
   expect(init.ring).toHaveLength(7);
-  expect(init.approvalPending).toBe(true);
-  expect(init.outgoing).toMatchObject({
+  expect(pendingApproval(init)?.id).toBe(BUDI);
+  expect(init.outgoing[BUDI]).toEqual({
+    id: BUDI,
     to: 'Pak Budi',
     channel: 'WhatsApp',
+    what: 'balasan',
+    text: 'Selamat siang, Pak Budi. Untuk sewa tempatnya, kami bisa di harga Rp15 juta. Terima kasih.',
     status: 'draft',
+    ask: 'Balasan untuk Pak Budi soal harga sewa sudah siap. Kirim?',
     heldUntil: '10.47',
     sentAt: '10.42',
   });
+  expect(init.chat.find((e) => e.kind === 'confirm')).toMatchObject({ outgoingId: BUDI });
   expect(init.toast).toBeNull();
   expect(new Set(init.devices.map((d) => d.place))).toEqual(new Set(['Rumah', 'Kedai Dago', 'Kedai Riau']));
   for (const k of ['Kedai Dago', 'Kedai Riau']) {
@@ -73,32 +83,114 @@ test('toggleDevice: lampu, kunci, AC, dan perangkat tak terjangkau', () => {
   expect(run([{ type: 'toggleDevice', id: 'tidak-ada', on: true }])).toBe(init);
 });
 
-test('sendDraft: tertahan, kartu persetujuan hilang, entri Riwayat bisa dibatalkan', () => {
-  const s = run([{ type: 'sendDraft' }]);
-  expect(s.outgoing.status).toBe('held');
-  expect(s.approvalPending).toBe(false);
-  expect(s.history[0]).toMatchObject({
+test('sendDraft: tertahan, kartu persetujuan hilang, entri Riwayat bisa dibatalkan sampai 10.47', () => {
+  const s = run([{ type: 'sendDraft', id: BUDI }]);
+  expect(s.outgoing[BUDI]!.status).toBe('held');
+  expect(pendingApproval(s)).toBeNull();
+  expect(s.history[0]).toEqual({
+    id: expect.any(String),
+    day: 'Hari ini',
+    time: '10.42',
     kind: 'pesan',
+    icon: 'chat',
     title: 'Mengirim balasan ke Pak Budi',
     sub: 'disetujui Anda 10.42',
-    undoable: true,
+    outgoingId: BUDI,
   });
-  expect(run([{ type: 'sendDraft' }, { type: 'sendDraft' }]).history).toHaveLength(s.history.length);
+  expect(historyRows(s)[0]).toMatchObject({ undoable: true, struck: false, until: '10.47' });
+  expect(
+    historyRows(s)
+      .slice(1)
+      .every((h) => !h.undoable && !h.struck),
+  ).toBe(true);
+  expect(
+    run([
+      { type: 'sendDraft', id: BUDI },
+      { type: 'sendDraft', id: BUDI },
+    ]).history,
+  ).toHaveLength(s.history.length);
+  expect(run([{ type: 'sendDraft', id: 'tidak-ada' }])).toBe(init);
 });
 
-test('editDraft hanya saat masih draf', () => {
-  expect(run([{ type: 'editDraft', text: 'Halo' }]).outgoing.text).toBe('Halo');
-  const sent = run([{ type: 'sendDraft' }, { type: 'editDraft', text: 'Lain' }]);
-  expect(sent.outgoing.text).toBe(init.outgoing.text);
+test('editDraft hanya saat masih draf; teks kosong diabaikan', () => {
+  expect(run([{ type: 'editDraft', id: BUDI, text: '  Halo  ' }]).outgoing[BUDI]!.text).toBe('Halo');
+  expect(run([{ type: 'editDraft', id: BUDI, text: '   ' }])).toBe(init);
+  const sent = run([
+    { type: 'sendDraft', id: BUDI },
+    { type: 'editDraft', id: BUDI, text: 'Lain' },
+  ]);
+  expect(sent.outgoing[BUDI]!.text).toBe(init.outgoing[BUDI]!.text);
 });
 
-test('cancelSend hanya dari held: mencoret entri, toast', () => {
-  expect(run([{ type: 'cancelSend' }])).toBe(init);
-  const s = run([{ type: 'sendDraft' }, { type: 'cancelSend' }]);
-  expect(s.outgoing.status).toBe('cancelled');
+test('cancelSend hanya dari held: entri tercoret tanpa Batalkan, toast', () => {
+  expect(run([{ type: 'cancelSend', id: BUDI }])).toBe(init);
+  const s = run([
+    { type: 'sendDraft', id: BUDI },
+    { type: 'cancelSend', id: BUDI },
+  ]);
+  expect(s.outgoing[BUDI]!.status).toBe('cancelled');
   expect(s.toast).toBe('Kiriman ke Pak Budi dibatalkan.');
-  expect(s.history[0]).toMatchObject({ struck: true, undoable: false, title: 'Mengirim balasan ke Pak Budi' });
-  expect(run([{ type: 'sendDraft' }, { type: 'cancelSend' }, { type: 'cancelSend' }])).toEqual(s);
+  expect(historyRows(s)[0]).toMatchObject({ struck: true, undoable: false, title: 'Mengirim balasan ke Pak Budi' });
+  expect(historyRows(s)[0]!.until).toBeUndefined();
+  expect(
+    run([
+      { type: 'sendDraft', id: BUDI },
+      { type: 'cancelSend', id: BUDI },
+      { type: 'cancelSend', id: BUDI },
+    ]),
+  ).toEqual(s);
+});
+
+test('addDraft: draf kedua ke supplier dengan id baru, kalimat asisten, dan kartu konfirmasi di chat', () => {
+  const s = run([{ type: 'addDraft', draft: supplierOrderDraft }]);
+  const d = draftFor(s, 'PT Sumber Susu')!;
+  expect(d).toMatchObject({
+    to: 'PT Sumber Susu',
+    what: 'pesanan',
+    status: 'draft',
+    sentAt: '10.43',
+    heldUntil: '10.48',
+    text: supplierOrderDraft.text,
+  });
+  expect(d.id).not.toBe(BUDI);
+  expect(Object.keys(s.outgoing)).toEqual([BUDI, d.id]);
+  expect(s.chat.slice(-2)).toEqual([
+    { id: expect.any(String), kind: 'assistant', text: 'Ini draf pesanannya. Saya kirim setelah Anda setuju.' },
+    { id: expect.any(String), kind: 'confirm', outgoingId: d.id },
+  ]);
+  // tanda berpikir contoh di ujung utas digantikan baris baru
+  expect(s.chat.some((e) => e.kind === 'thinking')).toBe(false);
+  expect(new Set(s.chat.map((e) => e.id)).size).toBe(s.chat.length);
+  // tidak ada yang terkirim sebelum Kirim
+  expect(s.history).toBe(init.history);
+  // Beranda tetap menanyakan Pak Budi lebih dulu; setelah itu draf supplier
+  expect(pendingApproval(s)?.id).toBe(BUDI);
+  const next = run([{ type: 'sendDraft', id: BUDI }], s);
+  expect(approvalText(pendingApproval(next)!)).toBe('Pesanan untuk PT Sumber Susu sudah siap. Kirim?');
+
+  const sent = run([{ type: 'sendDraft', id: d.id }], s);
+  expect(sent.history[0]).toMatchObject({
+    title: 'Mengirim pesanan ke PT Sumber Susu',
+    kind: 'usaha',
+    outgoingId: d.id,
+  });
+  expect(draftFor(sent, 'PT Sumber Susu')).toBeNull();
+  // kiriman lain tidak ikut berubah
+  expect(sent.outgoing[BUDI]).toBe(init.outgoing[BUDI]);
+});
+
+test('addChatMessage: pesan pengguna dan asisten masuk utas, teks kosong diabaikan', () => {
+  const s = run([
+    { type: 'addChatMessage', from: 'user', text: ' Halo Nadia ' },
+    { type: 'addChatMessage', from: 'assistant', text: 'Halo juga.' },
+  ]);
+  expect(s.chat.slice(-2)).toEqual([
+    { id: expect.any(String), kind: 'user', text: 'Halo Nadia' },
+    { id: expect.any(String), kind: 'assistant', text: 'Halo juga.' },
+  ]);
+  expect(s.chat.some((e) => e.kind === 'thinking')).toBe(false);
+  expect(s.chat).toHaveLength(init.chat.length - 1 + 2);
+  expect(run([{ type: 'addChatMessage', from: 'user', text: '  ' }])).toBe(init);
 });
 
 test('addAgenda: id baru, tampil di tanggalnya, dicatat; hari ini masuk Beranda', () => {

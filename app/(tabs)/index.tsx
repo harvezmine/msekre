@@ -2,9 +2,9 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { approvalText, homeSummary, houseOthers, user } from '@/sample/profile';
+import { homeSummary, houseOthers, user } from '@/sample/profile';
 import { TODAY } from '@/sample/agenda';
-import { useSample } from '@/sample/store';
+import { approvalText, pendingApproval, useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '@/ui/Card';
 import { Icon } from '@/ui/Icon';
@@ -21,6 +21,7 @@ export default function Beranda() {
   const live = useLive();
   const insets = useSafeAreaInsets();
   const { state, dispatch } = useSample();
+  const approval = pendingApproval(state);
   const homeAgenda = state.agenda
     .filter((a) => a.date === TODAY && a.home)
     .sort((a, b) => a.time.localeCompare(b.time));
@@ -83,12 +84,12 @@ export default function Beranda() {
         </View>
 
         <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
-          {state.approvalPending ? (
+          {approval ? (
             <View style={{ backgroundColor: c.mint, borderRadius: 24, padding: 20, gap: 16 }}>
               <Txt v="caption" weight={600} color={c.green}>
                 Butuh persetujuan Anda
               </Txt>
-              <Txt>{approvalText}</Txt>
+              <Txt>{approvalText(approval)}</Txt>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Lihat"

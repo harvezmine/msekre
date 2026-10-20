@@ -12,9 +12,10 @@ const MIN = 16;
 const MAX = 30;
 
 /** Kartu AC kamar di chat: sakelar yang sama dengan Beranda dan pengatur suhu 16–30. */
-export function DeviceCard() {
+export function DeviceCard({ deviceId }: { deviceId: string }) {
   const { c } = useTheme();
   const { state, dispatch } = useSample();
+  const name = state.devices.find((d) => d.id === deviceId)?.name ?? 'AC';
   const { on, temp, mode } = state.ac;
   const step = (d: number) => {
     const next = Math.min(MAX, Math.max(MIN, temp + d));
@@ -38,16 +39,12 @@ export function DeviceCard() {
           <Icon name="snow" size={22} color={c.green} />
         </View>
         <View style={{ flex: 1 }}>
-          <Txt weight={600}>AC kamar</Txt>
+          <Txt weight={600}>{name}</Txt>
           <Txt v="caption" color={c.muted}>
             {on ? `Nyala · ${mode}` : 'Mati'}
           </Txt>
         </View>
-        <Toggle
-          label="AC kamar"
-          value={on}
-          onChange={(next) => dispatch({ type: 'setAc', on: next, source: 'chat' })}
-        />
+        <Toggle label={name} value={on} onChange={(next) => dispatch({ type: 'setAc', on: next, source: 'chat' })} />
       </View>
       <View
         style={{

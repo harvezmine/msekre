@@ -1,17 +1,17 @@
 import { View } from 'react-native';
-import { sampleToken } from '@/sample/chat';
+import type { TokenInfo } from '@/sample/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 import { ChatCard } from './ChatCard';
 
 /** Kartu pembelian token listrik yang menunggu "Sudah benar?". */
-export function TokenCard() {
+export function TokenCard({ token }: { token: TokenInfo }) {
   const { c } = useTheme();
   const rows: [string, string, boolean][] = [
-    ['Nominal', sampleToken.amount, true],
-    ['No. meter', sampleToken.meter, false],
-    ['Atas nama', sampleToken.owner, false],
+    ['Nominal', token.amount, true],
+    ['No. meter', token.meter, false],
+    ['Atas nama', token.owner, false],
   ];
   return (
     <ChatCard>
@@ -28,7 +28,7 @@ export function TokenCard() {
         >
           <Icon name="bolt" size={22} color={c.green} />
         </View>
-        <Txt weight={600}>{sampleToken.title}</Txt>
+        <Txt weight={600}>{token.title}</Txt>
       </View>
       <View style={{ gap: 6 }}>
         {rows.map(([k, v, strong]) => (

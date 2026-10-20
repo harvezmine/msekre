@@ -8,13 +8,15 @@ import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 import { CardButton, ChatCard } from './ChatCard';
 
-/** Kartu konfirmasi kirim: draf (Ubah, Kirim), tertahan 5 menit (Batalkan), atau dibatalkan. */
-export function ConfirmSendCard() {
+/** Kartu konfirmasi kirim untuk satu kiriman: draf (Ubah, Kirim), tertahan 5 menit (Batalkan), atau dibatalkan. */
+export function ConfirmSendCard({ outgoingId }: { outgoingId: string }) {
   const { c } = useTheme();
   const { state, dispatch } = useSample();
-  const { to, channel, text, status, heldUntil } = state.outgoing;
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(text);
+  const [draft, setDraft] = useState('');
+  const outgoing = state.outgoing[outgoingId];
+  if (!outgoing) return null;
+  const { id, to, channel, text, status, heldUntil } = outgoing;
   const initials = to
     .split(' ')
     .map((w) => w[0])
@@ -78,7 +80,7 @@ export function ConfirmSendCard() {
           label="Simpan"
           primary
           onPress={() => {
-            dispatch({ type: 'editDraft', text: draft.trim() || text });
+            dispatch({ type: 'editDraft', id, text: draft });
             setEditing(false);
           }}
         />
@@ -97,7 +99,7 @@ export function ConfirmSendCard() {
             primary
             onPress={() => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              dispatch({ type: 'sendDraft' });
+              dispatch({ type: 'sendDraft', id });
             }}
           />
         </View>
@@ -111,7 +113,7 @@ export function ConfirmSendCard() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Batalkan"
-            onPress={() => dispatch({ type: 'cancelSend' })}
+            onPress={() => dispatch({ type: 'cancelSend', id })}
             android_ripple={{ color: c.ripple }}
             style={{ minHeight: 48, paddingHorizontal: 12, justifyContent: 'center' }}
           >
@@ -119,6 +121,14 @@ export function ConfirmSendCard() {
               · Batalkan
             </Txt>
           </Pressable>
+        </View>
+      )}
+      {status === 'sent' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 }}>
+          <Icon name="check" size={22} color={c.leafText} />
+          <Txt weight={600} color={c.leafText}>
+            Terkirim {heldUntil}
+          </Txt>
         </View>
       )}
       {status === 'cancelled' && (
