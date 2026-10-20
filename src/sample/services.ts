@@ -161,12 +161,12 @@ export const serviceInfo: Record<string, ServiceInfo> = {
     mono: 'Gm',
     domain: 'mail.google.com',
     can: [
-      'Membaca surel masuk dan memberi tahu yang penting.',
-      'Meringkas surel yang panjang.',
+      'Membaca email masuk dan memberi tahu yang penting.',
+      'Meringkas email yang panjang.',
       'Menyiapkan balasan untuk Anda setujui.',
     ],
     act: 'Nadia boleh mengirim balasan, selalu dengan persetujuan Anda.',
-    joined: 'Mulai sekarang saya kabari surel yang penting.',
+    joined: 'Mulai sekarang saya kabari email yang penting.',
   },
   wa: {
     mono: 'WA',
@@ -198,7 +198,7 @@ export const serviceInfo: Record<string, ServiceInfo> = {
       'Memberi tahu Anda kalau ada pembayaran besar yang masuk.',
       'Mencocokkan pembayaran dengan pesanan.',
     ],
-    act: 'Nadia boleh menyiapkan pembayaran, selalu dengan persetujuan dan PIN Anda.',
+    act: 'Nadia boleh menyiapkan pembayaran, selalu dengan persetujuan Anda.',
     joined: 'Mulai sekarang saya kabari uang yang masuk.',
   },
   kotak: {
@@ -227,12 +227,12 @@ export const serviceInfo: Record<string, ServiceInfo> = {
     mono: 'M',
     domain: 'login.microsoftonline.com',
     can: [
-      'Membaca surel dan jadwal Outlook Anda.',
-      'Memberi tahu Anda surel dan undangan yang penting.',
+      'Membaca email dan jadwal Outlook Anda.',
+      'Memberi tahu Anda email dan undangan yang penting.',
       'Menyiapkan balasan untuk Anda setujui.',
     ],
-    act: 'Nadia boleh membalas surel dan menjawab undangan, selalu dengan persetujuan Anda.',
-    joined: 'Mulai sekarang saya kabari surel dan undangan yang penting.',
+    act: 'Nadia boleh membalas email dan menjawab undangan, selalu dengan persetujuan Anda.',
+    joined: 'Mulai sekarang saya kabari email dan undangan yang penting.',
   },
   notion: {
     mono: 'N',

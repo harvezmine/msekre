@@ -15,10 +15,6 @@ export const ROUTINES: Routine[] = [
   { id: 'tidur', name: 'Tidur', sub: 'Lampu mati, AC kamar 26°, pintu dikunci', icon: 'moon' },
 ];
 
-/**
- * Aksi penyimpanan untuk satu rutinitas, dari perangkat yang ada. Perangkat yang tidak terjangkau dilewati oleh
- * reducer sendiri, dan perangkat yang sudah pada keadaan itu tidak mencatat apa-apa.
- */
 /** Tutup kedai hanya menyentuh kedai yang dipilih; di Semua atau Rumah, kedua kedai. */
 const kedaiTarget = (state: SampleState, d: SampleState['devices'][number]) =>
   state.place === 'Kedai Dago' || state.place === 'Kedai Riau' ? d.place === state.place : d.place !== 'Rumah';
@@ -30,6 +26,10 @@ export function routineDone(routine: Routine, state: SampleState): string {
   return `Rutinitas ${routine.name} dijalankan di ${where}.`;
 }
 
+/**
+ * Aksi penyimpanan untuk satu rutinitas, dari perangkat yang ada. Perangkat yang tidak terjangkau dilewati oleh
+ * reducer sendiri, dan perangkat yang sudah pada keadaan itu tidak mencatat apa-apa.
+ */
 export function routineActions(routine: Routine, state: SampleState): SampleAction[] {
   const pick = (pred: (d: SampleState['devices'][number]) => boolean) => state.devices.filter(pred);
   const acts: SampleAction[] = [];

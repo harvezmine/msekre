@@ -32,6 +32,10 @@ dimulai, supaya rinciannya selalu mengikuti kode terbaru.
 | 6 | PIN | Hanya untuk mematikan kamera atau alarm (memakai `home_pins` yang sudah ada). Pembayaran tidak memakai PIN | Fase 3 |
 | 7 | Kata panggil kotak | "Nadia" | K1 (di luar roadmap ini) |
 
+### Pertanyaan terbuka untuk founder
+
+- **PIN membuka pintu.** Keputusan 6 menyebut PIN hanya untuk mematikan kamera atau alarm, tetapi aplikasi contoh (Fase 0b) juga meminta PIN untuk membuka kunci pintu depan (baris PIN di Akun: "...dan membuka pintu"). Perilakunya tidak diubah. Mohon putuskan sebelum Fase 3: PIN untuk pintu tetap ada (lalu perbarui keputusan 6), atau dibuang dari aplikasi.
+
 ## Arsitektur singkat
 
 ```
@@ -260,3 +264,18 @@ Fase 0 ─► Fase 0b ─► Fase 1 ─┬─► Fase 2 ─┐
    development build.
 4. **Commit kecil per langkah** di repo masing-masing. Tidak ada commit gabungan lintas repo.
 5. **Akhir fase**: founder mencoba di HP sesuai kriteria "selesai bila". Temuan dicatat sebelum fase berikutnya.
+
+## Daftar uji di HP: Fase 0b
+
+Dijalankan di perangkat Android sungguhan sebelum Fase 1.
+
+1. **Lembar dan tombol kembali Android.** Tempat, Tambah, PIN, masuk, konfirmasi: kembali, ketuk latar, geser pelan, sentak cepat. Agenda → + → mikrofon → kembali. Suara → Pindah ke ketik → kembali.
+2. **Keyboard.** Tambah, kolom chat (navigasi gestur dan tiga tombol), kode di layar pertama kali.
+3. **Dial.** Seret, lewat 30 lalu balik, ketuk di cincin, ketuk di celah, getar tiap derajat, menggulir dari cincin dibanding dari tengah.
+4. **Alarm.** Geser lebih dari 80% mematikan, yang lebih pendek kembali; getar tiap 2 detik berhenti saat keluar; Tanya Nadia; kembali.
+5. **Alur 4.** Animasi simpul bergabung, Selesai ke Beranda dengan 8 simpul, kembali di Tersambung.
+6. **Layar pertama kali** lewat Akun → Coba: 6 kotak kode, tempel, isi otomatis, hitung mundur dan kirim ulang, Lewati dulu lalu kembali.
+7. **HP sempit dan font terbesar.** Cincin, Riwayat, Akun, lembar tinggi, Tersambung, Mulai.
+8. **TalkBack.** Label cincin, ubin, dial (dapat disesuaikan), sakelar, pilihan radio, isi di belakang lembar tidak terbaca.
+9. **Mode gelap** diganti langsung, splash gelap, sudut riak pada tombol pil.
+10. **Getar** (Kirim, PIN salah, dial, alarm), serta jeda dan lanjut Orbit/Inti saat aplikasi ke latar lalu kembali.
