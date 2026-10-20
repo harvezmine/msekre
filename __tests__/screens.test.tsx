@@ -1,13 +1,18 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { router } from 'expo-router';
+import { fireEvent, screen } from '@testing-library/react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 import Chat from '../app/chat';
 import Suara from '../app/suara';
 import { renderWithProviders } from './helpers';
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.mocked(useLocalSearchParams).mockReturnValue({ kosong: '1' });
+});
+
+afterEach(() => jest.mocked(useLocalSearchParams).mockReturnValue({}));
 
 test('chat kosong menawarkan empat saran dan bisa pindah ke Mode Suara', async () => {
-  await render(<Chat />);
+  await renderWithProviders(<Chat />);
   expect(screen.getByText('Mau saya bantu urus apa?')).toBeTruthy();
   for (const s of ['Ringkas email hari ini', 'Matikan semua lampu', 'Cek stok kedai', 'Beli token listrik']) {
     expect(screen.getByRole('button', { name: s })).toBeTruthy();
