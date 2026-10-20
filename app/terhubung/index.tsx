@@ -103,7 +103,7 @@ export default function Terhubung() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Sambungkan ${name}`}
-                      onPress={() => router.push(`/terhubung/masuk?id=${id}`)}
+                      onPress={() => router.push(id === 'kotak' ? '/perangkat/tambah' : `/terhubung/masuk?id=${id}`)}
                       android_ripple={{ color: c.ripple }}
                       style={{ height: 48, paddingHorizontal: 12, justifyContent: 'center' }}
                     >

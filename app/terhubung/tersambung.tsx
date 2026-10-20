@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { serviceInfo } from '@/sample/services';
 import { ringNodes, useSample } from '@/sample/store';
@@ -31,10 +31,10 @@ export default function Tersambung() {
   }
   const name = service.name.replace(' & Tokopedia', '');
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: c.paper,
+    <ScrollView
+      style={{ backgroundColor: c.paper }}
+      contentContainerStyle={{
+        flexGrow: 1,
         paddingTop: insets.top + 72,
         paddingBottom: Math.max(32, insets.bottom + 16),
         paddingHorizontal: 24,
@@ -103,6 +103,6 @@ export default function Tersambung() {
           Selesai
         </Txt>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }

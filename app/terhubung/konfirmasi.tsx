@@ -28,7 +28,9 @@ function Isi({ id, putus }: { id: string; putus: boolean }) {
       if (putus) {
         dispatch({ type: 'disconnect', id });
         dispatch({ type: 'showToast', text: `${service.name} diputuskan.` });
-        router.dismissTo('/terhubung');
+        // Tumpukan bisa berisi Tersambung/detail layanan yang kini tak ada; mulai dari Beranda supaya "kembali" tak mendarat di "tidak ditemukan".
+        router.dismissTo('/');
+        router.push('/terhubung');
       } else {
         dispatch({ type: 'forget', id });
         dispatch({ type: 'showToast', text: `Yang Nadia tahu dari ${service.name} sudah dihapus.` });

@@ -103,7 +103,7 @@ export const sampleState = () => latest;
 
 /**
  * Tumpukan navigasi tiruan: push/navigate menambah (navigate kembali ke rute yang sudah ada), replace mengganti,
- * back membuang, dismissTo kembali ke rute yang sudah ada atau menaruhnya di atas.
+ * back membuang, dismissTo kembali ke rute yang sudah ada atau, bila tak ada, mengganti rute sekarang.
  */
 function Rute({ start }: { start: string }) {
   const [, setTick] = useState(0);
@@ -113,6 +113,11 @@ function Rute({ start }: { start: string }) {
       const i = stack.map((s) => s.path).lastIndexOf(e.path);
       if (i >= 0) stack = [...stack.slice(0, i), e];
       else stack = [...stack, e];
+    };
+    // Seperti expo-router: bila tujuan tidak ada di tumpukan, rute sekarang diganti (bukan ditambah).
+    const dismissTo = (e: Entry) => {
+      const i = stack.map((s) => s.path).lastIndexOf(e.path);
+      stack = i >= 0 ? [...stack.slice(0, i), e] : [...stack.slice(0, -1), e];
     };
     jest.mocked(router.push).mockImplementation((h) => {
       stack = [...stack, parseRoute(h)];
@@ -127,7 +132,7 @@ function Rute({ start }: { start: string }) {
       redraw();
     });
     jest.mocked(router.dismissTo).mockImplementation((h) => {
-      popTo(parseRoute(h));
+      dismissTo(parseRoute(h));
       redraw();
     });
     jest.mocked(router.back).mockImplementation(() => {

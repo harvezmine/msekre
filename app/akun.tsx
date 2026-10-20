@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -13,7 +13,7 @@ interface Row {
   title: string;
   subtitle: string;
   /** Rute yang dibuka, atau teks toast bila layarnya belum dibangun. */
-  go: { route: string } | { toast: string };
+  go: { route: Href } | { toast: string };
 }
 
 // Akun (desain 2q). Baris yang layarnya belum ada memunculkan toast dengan nama fasenya.
@@ -77,7 +77,7 @@ export default function Akun() {
       { icon: 'history', title: 'Riwayat', subtitle: 'Semua yang sudah Nadia kerjakan', go: { route: '/riwayat' } },
     ],
   ];
-  const open = (r: Row) => ('route' in r.go ? router.push(r.go.route as never) : toast(r.go.toast));
+  const open = (r: Row) => ('route' in r.go ? router.push(r.go.route) : toast(r.go.toast));
 
   return (
     <View style={{ flex: 1, backgroundColor: c.paper }}>

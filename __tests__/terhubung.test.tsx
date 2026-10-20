@@ -2,7 +2,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import Beranda from '../app/(tabs)/index';
 import Terhubung from '../app/terhubung/index';
-import { advance, mockParams, restoreParams, sampleState, showRoute } from './harness';
+import { advance, currentStack, go, mockParams, restoreParams, sampleState, showRoute } from './harness';
 import { renderWithProviders } from './helpers';
 
 async function show(start = '/terhubung') {
@@ -138,11 +138,31 @@ test('Putuskan: konfirmasi, simpul hilang dari cincin Beranda, kembali ke Terhub
   await advance(250);
   expect(sampleState().services.some((s) => s.id === 'moka')).toBe(false);
   expect(sampleState().toast?.text).toBe('Moka diputuskan.');
-  expect(router.dismissTo).toHaveBeenCalledWith('/terhubung');
+  expect(router.dismissTo).toHaveBeenCalledWith('/');
+  expect(router.push).toHaveBeenLastCalledWith('/terhubung');
   // Moka bisa disambungkan lagi dari daftar.
   expect(screen.getByRole('button', { name: 'Sambungkan Moka' })).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Sambungkan Moka' }));
   expect(router.push).toHaveBeenCalledWith('/terhubung/masuk?id=moka');
+});
+
+test('Putuskan dari Ubah di Tersambung: tumpukan bersih, kembali ke Beranda tanpa "tidak ditemukan"', async () => {
+  await show('/');
+  await go('/terhubung/tersambung?id=moka');
+  await go('/terhubung/moka');
+  await go('/terhubung/konfirmasi?id=moka&aksi=putus');
+  await fireEvent.press(screen.getByRole('button', { name: 'Ya, putuskan' }));
+  await advance(250);
+  expect(currentStack()).toEqual(['/', '/terhubung']);
+  await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
+  expect(currentStack()).toEqual(['/']);
+  expect(screen.queryByText('Layanan ini tidak ditemukan.')).toBeNull();
+});
+
+test('Kotak Sekretaris AI di "Pernah tersambung" disambungkan lewat Tambah perangkat, bukan lembar masuk web', async () => {
+  await renderWithProviders(<Terhubung />, { actions: [{ type: 'disconnect', id: 'kotak' }] });
+  await fireEvent.press(screen.getByRole('button', { name: 'Sambungkan Kotak Sekretaris AI' }));
+  expect(router.push).toHaveBeenCalledWith('/perangkat/tambah');
 });
 
 test('Beranda: tulisan di bawah cincin dan cincinnya membuka Terhubung', async () => {
