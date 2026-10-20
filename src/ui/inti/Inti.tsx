@@ -188,7 +188,11 @@ function Wave({ index, frame, reduce, paused }: { index: number; frame: Frame; r
   // Mulai di 1 (tak terlihat) lalu direset ke 0 saat gilirannya tiba, supaya tak ada cincin diam sebelum itu.
   const t = useSharedValue(1);
   useEffect(() => {
-    if (reduce) return;
+    if (reduce || paused) {
+      cancelAnimation(t);
+      t.set(1);
+      return;
+    }
     t.set(
       withDelay(
         index * 800,
@@ -198,7 +202,7 @@ function Wave({ index, frame, reduce, paused }: { index: number; frame: Frame; r
         ),
       ),
     );
-  }, [reduce, index, t]);
+  }, [reduce, paused, index, t]);
   const first = index === 0;
   const style = useAnimatedStyle(() =>
     reduce

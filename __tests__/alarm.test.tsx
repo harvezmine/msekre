@@ -1,10 +1,11 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import Agenda from '../app/(tabs)/agenda';
 import Alarm from '../app/alarm';
 import { renderWithProviders } from './helpers';
+import { Redraw, redraw } from './redraw';
 import { useSample, type SampleState } from '@/sample/store';
 
 beforeEach(() => jest.clearAllMocks());
@@ -61,10 +62,24 @@ test('Tunda 10 menit kembali ke Agenda, yang menulis "Ditunda sampai 07.10"', as
   expect(screen.getByText('Ditunda sampai 07.10')).toBeOnTheScreen();
 });
 
-test('Tanya Nadia membuka chat', async () => {
+test('Tanya Nadia menggantikan alarm dengan chat', async () => {
   await renderWithProviders(<Alarm />);
   await fireEvent.press(screen.getByRole('button', { name: 'Tanya Nadia' }));
-  expect(router.navigate).toHaveBeenCalledWith('/chat');
+  expect(router.replace).toHaveBeenCalledWith('/chat');
+});
+
+test('getar berhenti saat layar alarm tidak lagi terlihat (tertutup layar lain)', async () => {
+  await renderWithProviders(<Redraw>{() => <Alarm />}</Redraw>);
+  await advance(2000);
+  jest.mocked(useIsFocused).mockReturnValue(false);
+  try {
+    await redraw();
+    jest.mocked(Haptics.notificationAsync).mockClear();
+    await advance(10000);
+    expect(Haptics.notificationAsync).not.toHaveBeenCalled();
+  } finally {
+    jest.mocked(useIsFocused).mockReturnValue(true);
+  }
 });
 
 test('aksi pembaca layar "Matikan" mematikan alarm dan kembali', async () => {

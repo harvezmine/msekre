@@ -26,12 +26,14 @@ export default function Alarm() {
   const item =
     state.agenda.find((a) => a.id === (id ?? ALARM_SAMPLE_ID)) ?? state.agenda.find((a) => a.id === ALARM_SAMPLE_ID);
 
+  // Getar hanya selama layar ini terlihat dan aplikasi aktif; setelah pindah ke chat atau ke latar, berhenti.
   useEffect(() => {
+    if (!live) return;
     const buzz = () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     buzz();
     const t = setInterval(buzz, BUZZ_MS);
     return () => clearInterval(t);
-  }, []);
+  }, [live]);
 
   if (!item) return null;
   const isFlight = item.id === ALARM_SAMPLE_ID;
@@ -90,7 +92,7 @@ export default function Alarm() {
       <View style={{ position: 'absolute', left: 20, right: 20, bottom: Math.max(40, insets.bottom + 16), gap: 16 }}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <AlarmButton label="Tunda 10 menit" onPress={snooze} />
-          <AlarmButton label={`Tanya ${DEFAULT_ASSISTANT}`} onPress={() => router.navigate('/chat')}>
+          <AlarmButton label={`Tanya ${DEFAULT_ASSISTANT}`} onPress={() => router.replace('/chat')}>
             <Inti size={24} onDark paused />
           </AlarmButton>
         </View>
