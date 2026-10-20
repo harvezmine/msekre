@@ -11,6 +11,7 @@ import type {
   Message,
   MessagesPage,
   MessagesChangedPage,
+  PushTokenDeleteReq,
   PushTokenReq,
   SendMessageReq,
   StreamEvent,
@@ -128,6 +129,11 @@ export interface Transport {
   draftAction(id: string, req: DraftActionReq): Promise<DraftActionRes>;
   /** Daftarkan token notifikasi HP (`POST /push-tokens`). */
   registerPushToken(req: PushTokenReq): Promise<void>;
+  /**
+   * Cabut token notifikasi HP (`DELETE /push-tokens`), tanpa token masuk: dipakai setelah keluar, saat pemberitahuan
+   * `auth/logout` mungkin tidak sampai. Idempoten; token yang tidak dikenal juga berhasil.
+   */
+  unregisterPushToken(req: PushTokenDeleteReq): Promise<void>;
   /** Atur perangkat rumah dari kartu (`POST /home/devices/:id`). Fase 3; sebelum itu `unavailable`. */
   controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard>;
   /** Cara menampilkan media `mediaId`, dengan header token untuk server asli. */

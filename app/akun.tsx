@@ -52,7 +52,7 @@ export default function Akun() {
   const { state, dispatch } = useSample();
   const { mode } = useApi();
   const profile = useProfile();
-  const { permission } = usePush();
+  const { permission, canAskAgain } = usePush();
   const account = accountOf(profile);
   const toast = (text: string) => dispatch({ type: 'showToast', text });
 
@@ -83,7 +83,7 @@ export default function Akun() {
       {
         icon: 'bell',
         title: 'Notifikasi',
-        subtitle: NOTIF_STATUS[permission],
+        subtitle: NOTIF_STATUS[permission === 'denied' && canAskAgain ? 'undetermined' : permission],
         go: { route: '/izin-notifikasi' },
       },
     ],

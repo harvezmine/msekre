@@ -25,6 +25,7 @@ import {
   type Message,
   type MessagesPage,
   type MessagesChangedPage,
+  type PushTokenDeleteReq,
   type PushTokenReq,
   type SendMessageReq,
   type StreamEvent,
@@ -73,7 +74,7 @@ export interface HttpOptions {
   random?: () => number;
 }
 
-type Method = 'GET' | 'POST';
+type Method = 'GET' | 'POST' | 'DELETE';
 
 /** Transport ke server asli: HTTP `/app/v1/*` dan WebSocket `/app/v1/stream`. */
 export class HttpTransport implements Transport {
@@ -176,6 +177,10 @@ export class HttpTransport implements Transport {
 
   async registerPushToken(req: PushTokenReq): Promise<void> {
     await this.request('POST', '/push-tokens', okResSchema, { body: req });
+  }
+
+  async unregisterPushToken(req: PushTokenDeleteReq): Promise<void> {
+    await this.request('DELETE', '/push-tokens', okResSchema, { body: req, auth: false });
   }
 
   async controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard> {

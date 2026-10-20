@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import { AndroidImportance } from 'expo-notifications';
+import { AndroidImportance, AndroidNotificationVisibility } from 'expo-notifications';
 import { router, type Href } from 'expo-router';
 import {
   createContext,
@@ -24,9 +24,14 @@ export type PushPermission = 'undetermined' | 'granted' | 'denied';
 
 export interface Push {
   permission: PushPermission;
+  /**
+   * Apakah sistem masih mau menampilkan jendela izin. Android 13+: penolakan pertama masih boleh ditanya lagi
+   * (`denied` dengan `canAskAgain`); setelah itu hanya pengaturan HP yang bisa menyalakannya.
+   */
+  canAskAgain: boolean;
   /** Minta izin notifikasi ke sistem (Android 13+: POST_NOTIFICATIONS). Hasilnya status terbaru. */
   ask(): Promise<PushPermission>;
-  /** Buka pengaturan notifikasi aplikasi di HP (untuk izin yang sudah ditolak). */
+  /** Buka pengaturan notifikasi aplikasi di HP (untuk izin yang sudah ditolak dan tidak bisa ditanya lagi). */
   openSettings(): void;
   /**
    * Dipanggil sekali selesai pengenalan: membuka lembar ajakan izin kalau belum pernah ditanya dan belum pernah
@@ -37,6 +42,7 @@ export interface Push {
 
 const INERT: Push = {
   permission: 'undetermined',
+  canAskAgain: true,
   ask: () => Promise.resolve('undetermined'),
   openSettings: () => {},
   offerAfterOnboarding: () => Promise.resolve(),
@@ -44,29 +50,81 @@ const INERT: Push = {
 
 export const PushContext = createContext<Push>(INERT);
 
-/** Saluran Android. Dibuat sekali; pembuatan ulang dengan id yang sama tidak mengubah pilihan pengguna. */
+/**
+ * Saluran Android. Dibuat tiap aplikasi mulai; pembuatan ulang dengan id yang sama hanya memperbarui nama (pilihan
+ * pengguna seperti suara tidak berubah). Jenis notifikasi dari server: `data.kind` = `pesan` (balasan asisten) atau
+ * `pengingat`; tanpa `data.kind`, saluran notifikasinya yang menentukan.
+ */
 export const CHANNEL_PESAN = 'pesan';
 export const CHANNEL_PENGINGAT = 'pengingat';
 
 const ASKED_KEY = 'push.ditawari';
+/** Token terakhir yang terkirim ke server, per mode. */
 const tokenKey = (mode: string) => `push.token.${mode}`;
-/** Layar yang boleh dibuka dari `data.route` di notifikasi. Selain ini membuka chat. */
-const TAP_ROUTES = ['/chat', '/agenda', '/riwayat', '/akun', '/terhubung', '/perangkat'];
+/** Token yang harus dicabut dari server (daftar JSON), per mode: keluar saat tidak ada sinyal, dicoba lagi nanti. */
+const pendingKey = (mode: string) => `push.cabut.${mode}`;
+/** Layar yang boleh dibuka dari `data.route` di notifikasi, persis seperti tertulis. Selain ini membuka chat. */
+const TAP_ROUTES: readonly string[] = ['/chat', '/agenda', '/riwayat', '/akun', '/terhubung', '/perangkat'];
 
-function toPermission(res: Notifications.NotificationPermissionsStatus): PushPermission {
-  if (res.granted) return 'granted';
-  return res.status === 'denied' ? 'denied' : 'undetermined';
+interface PermissionState {
+  permission: PushPermission;
+  canAskAgain: boolean;
 }
 
-/** Tujuan ketukan: `data.route` kalau layar aplikasi yang dikenal, selain itu chat. */
+function toState(res: Notifications.NotificationPermissionsStatus): PermissionState {
+  const permission: PushPermission = res.granted ? 'granted' : res.status === 'denied' ? 'denied' : 'undetermined';
+  return { permission, canAskAgain: res.canAskAgain !== false };
+}
+
+/**
+ * Tujuan ketukan: `data.route` kalau persis salah satu layar aplikasi yang diizinkan, selain itu chat. Jalur dengan
+ * `..`, `//`, garis miring terbalik, query, hash, atau karakter di luar huruf kecil dan `/` ditolak.
+ */
 export function tapTarget(data: unknown): Href {
   const route = (data as { route?: unknown } | null | undefined)?.route;
-  if (typeof route === 'string' && route.startsWith('/') && !route.startsWith('//')) {
-    const path = route.split(/[?#]/)[0]!.replace(/\/+$/, '');
-    const known = TAP_ROUTES.some((r) => path === r || path.startsWith(`${r}/`));
-    if (known && routeKind(path) === 'app') return route as Href;
+  if (
+    typeof route === 'string' &&
+    /^\/[a-z/]*$/.test(route) &&
+    !route.includes('..') &&
+    !route.includes('//') &&
+    TAP_ROUTES.includes(route) &&
+    routeKind(route) === 'app'
+  ) {
+    return route as Href;
   }
   return '/chat';
+}
+
+/** Apakah ini pesan chat (bukan pengingat): `data.kind` kalau ada, selain itu saluran notifikasinya. */
+function isChatMessage(notification: Notifications.Notification | undefined): boolean {
+  const request = notification?.request;
+  const kind = (request?.content?.data as { kind?: unknown } | null | undefined)?.kind;
+  if (typeof kind === 'string') return kind === 'pesan';
+  const trigger = request?.trigger as
+    { channelId?: unknown; remoteMessage?: { notification?: { channelId?: unknown } } } | null | undefined;
+  return (trigger?.channelId ?? trigger?.remoteMessage?.notification?.channelId) === CHANNEL_PESAN;
+}
+
+async function readList(key: string): Promise<string[]> {
+  try {
+    const parsed: unknown = JSON.parse((await readSecure(key)) ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter((t): t is string => typeof t === 'string' && t !== '') : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeList(key: string, list: string[]) {
+  await writeSecure(key, list.length ? JSON.stringify(list) : null);
+}
+
+/** Lupakan jawaban terakhir di sistem, supaya muat ulang JS atau pembaruan OTA tidak memutarnya lagi. */
+function clearTapResponse() {
+  try {
+    Notifications.clearLastNotificationResponse();
+  } catch {
+    // Modul lama tanpa fungsi ini: `handledTap` tetap mencegah pengulangan selama proses hidup.
+  }
 }
 
 /** Ketukan yang sudah ditangani, supaya jawaban terakhir yang sama tidak membuka layar dua kali. */
@@ -81,25 +139,31 @@ let offered: boolean | null = null;
  */
 export function PushProvider({ children }: { children: ReactNode }) {
   const { mode, transport } = useApi();
-  const { status: authStatus } = useAuth();
-  const [permission, setPermission] = useState<PushPermission>('undetermined');
+  const { status: authStatus, me } = useAuth();
+  const [state, setState] = useState<PermissionState>({ permission: 'undetermined', canAskAgain: true });
+  const { permission } = state;
+  const assistantName = me?.assistantName?.trim() || 'Nadia';
 
-  // Saluran dan penangan tampil: sekali.
+  // Saluran: tiap aplikasi mulai, dan nama saluran pesan mengikuti nama asisten (Android boleh mengubah nama saluran).
   useEffect(() => {
-    if (Platform.OS === 'android') {
-      void Notifications.setNotificationChannelAsync(CHANNEL_PESAN, {
-        name: 'Pesan dari Nadia',
-        importance: AndroidImportance.HIGH,
-      }).catch(() => {});
-      void Notifications.setNotificationChannelAsync(CHANNEL_PENGINGAT, {
-        name: 'Pengingat',
-        importance: AndroidImportance.HIGH,
-        sound: 'default',
-      }).catch(() => {});
-    }
+    if (Platform.OS !== 'android') return;
+    void Notifications.setNotificationChannelAsync(CHANNEL_PESAN, {
+      name: `Pesan dari ${assistantName}`,
+      importance: AndroidImportance.HIGH,
+      lockscreenVisibility: AndroidNotificationVisibility.PRIVATE,
+    }).catch(() => {});
+    void Notifications.setNotificationChannelAsync(CHANNEL_PENGINGAT, {
+      name: 'Pengingat',
+      importance: AndroidImportance.HIGH,
+      sound: 'default',
+    }).catch(() => {});
+  }, [assistantName]);
+
+  // Penangan tampil: sekali. Selagi chat terbuka hanya pesan chat yang diredam; pengingat selalu tampil.
+  useEffect(() => {
     Notifications.setNotificationHandler({
-      handleNotification: async () => {
-        const quiet = isChatFocused();
+      handleNotification: async (notification) => {
+        const quiet = isChatFocused() && isChatMessage(notification);
         return { shouldShowBanner: !quiet, shouldShowList: !quiet, shouldPlaySound: !quiet, shouldSetBadge: false };
       },
     });
@@ -111,7 +175,7 @@ export function PushProvider({ children }: { children: ReactNode }) {
     let alive = true;
     const read = () =>
       Notifications.getPermissionsAsync()
-        .then((res) => alive && setPermission(toPermission(res)))
+        .then((res) => alive && setState(toState(res)))
         .catch(() => {});
     void read();
     const sub = AppState.addEventListener('change', (next) => {
@@ -123,15 +187,10 @@ export function PushProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Token ke server: setelah izin ada dan (mode server) sudah masuk; sekali per perubahan token. Token terakhir yang
-  // terkirim diingat per mode. Keluar menghapus ingatannya, karena server mencabut token saat keluar.
+  // Token ke server: setelah izin ada dan (mode server) sudah masuk. Dikirim sekali per proses aplikasi (setiap mulai
+  // dari keadaan mati, supaya pendaftaran yang hilang pulih) dan tiap token berubah; `sent` mencegah kiriman berulang
+  // selama aplikasi hidup. Token terakhir juga disimpan di HP, hanya untuk dicabut saat keluar.
   const sent = useRef(new Map<string, string>());
-  useEffect(() => {
-    if (mode === 'server' && authStatus === 'signedOut') {
-      sent.current.delete(tokenKey(mode));
-      void writeSecure(tokenKey(mode), null);
-    }
-  }, [mode, authStatus]);
   useEffect(() => {
     if (permission !== 'granted') return;
     if (mode === 'server' && authStatus !== 'signedIn') return;
@@ -144,8 +203,15 @@ export function PushProvider({ children }: { children: ReactNode }) {
       try {
         const token = await Notifications.getDevicePushTokenAsync();
         if (!alive || (token.type !== 'android' && token.type !== 'ios') || typeof token.data !== 'string') return;
-        const last = sent.current.get(key) ?? (await readSecure(key));
-        if (!alive || last === token.data) return;
+        if (sent.current.get(key) === token.data) return;
+        // Token yang akan didaftarkan tidak boleh ikut dicabut oleh sisa keluar sebelumnya.
+        const pending = await readList(pendingKey(mode));
+        if (pending.includes(token.data))
+          await writeList(
+            pendingKey(mode),
+            pending.filter((t) => t !== token.data),
+          );
+        if (!alive) return;
         await transport.registerPushToken({ pushToken: token.data, platform: token.type });
         sent.current.set(key, token.data);
         await writeSecure(key, token.data);
@@ -167,11 +233,56 @@ export function PushProvider({ children }: { children: ReactNode }) {
     };
   }, [permission, mode, authStatus, transport]);
 
+  // Keluar (mode server): token yang tadi terkirim dicabut dari server. Pemberitahuan `auth/logout` bisa tidak sampai
+  // (tanpa sinyal), jadi tokennya dicatat dulu sebagai "belum dicabut" dan dicoba lagi tiap aplikasi dibuka atau
+  // kembali aktif selama masih keluar, sampai server menjawab.
+  useEffect(() => {
+    if (mode !== 'server' || authStatus !== 'signedOut') return;
+    const key = tokenKey(mode);
+    const pend = pendingKey(mode);
+    let running = false;
+    const flush = async () => {
+      if (running) return;
+      running = true;
+      try {
+        const last = sent.current.get(key) ?? (await readSecure(key));
+        sent.current.delete(key);
+        const list = await readList(pend);
+        if (last) {
+          if (!list.includes(last)) list.push(last);
+          await writeList(pend, list);
+          await writeSecure(key, null);
+        }
+        const failed: string[] = [];
+        for (const pushToken of list) {
+          try {
+            await transport.unregisterPushToken({ pushToken });
+          } catch {
+            failed.push(pushToken);
+          }
+        }
+        // Yang berhasil dicabut dihapus; token yang baru ditambahkan selama menunggu (masuk lagi) tidak ikut terhapus.
+        const now = await readList(pend);
+        await writeList(
+          pend,
+          now.filter((t) => failed.includes(t) || !list.includes(t)),
+        );
+      } finally {
+        running = false;
+      }
+    };
+    void flush();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void flush();
+    });
+    return () => sub.remove();
+  }, [mode, authStatus, transport]);
+
   const ask = useCallback(async () => {
     try {
-      const next = toPermission(await Notifications.requestPermissionsAsync());
-      setPermission(next);
-      return next;
+      const next = toState(await Notifications.requestPermissionsAsync());
+      setState(next);
+      return next.permission;
     } catch {
       return 'denied' as const;
     }
@@ -180,22 +291,22 @@ export function PushProvider({ children }: { children: ReactNode }) {
   const offerAfterOnboarding = useCallback(async () => {
     if (offered === null) offered = (await readSecure(ASKED_KEY)) !== null;
     if (offered) return;
-    let now: PushPermission;
+    let now: PermissionState;
     try {
-      now = toPermission(await Notifications.getPermissionsAsync());
+      now = toState(await Notifications.getPermissionsAsync());
     } catch {
       return;
     }
-    setPermission(now);
-    if (now !== 'undetermined') return;
+    setState(now);
+    if (now.permission !== 'undetermined') return;
     offered = true;
     void writeSecure(ASKED_KEY, '1');
     router.push('/izin-notifikasi');
   }, []);
 
   const value = useMemo<Push>(
-    () => ({ permission, ask, openSettings, offerAfterOnboarding }),
-    [permission, ask, openSettings, offerAfterOnboarding],
+    () => ({ permission, canAskAgain: state.canAskAgain, ask, openSettings, offerAfterOnboarding }),
+    [permission, state.canAskAgain, ask, openSettings, offerAfterOnboarding],
   );
   return createElement(PushContext, { value }, children);
 }
@@ -220,13 +331,14 @@ export function useNotificationTap() {
     const id = `${response.notification.request.identifier}@${response.notification.date}`;
     if (handledTap === id) return;
     handledTap = id;
-    if (!canOpen('app', mode, status)) return;
+    if (!canOpen('app', mode, status)) return clearTapResponse();
     const target = tapTarget(response.notification.request.content.data);
     // Setelah navigator selesai dipasang (ketukan yang membuka aplikasi dingin tiba bersamaan dengan pemasangannya).
     let fired = false;
     const t = setTimeout(() => {
       fired = true;
       router.navigate(target);
+      clearTapResponse();
     }, 0);
     return () => {
       if (fired) return;

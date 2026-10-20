@@ -468,6 +468,16 @@ test('pendaftaran token notifikasi hanya dicatat', async () => {
   });
 });
 
+test('pencabutan token notifikasi dicatat, tanpa perlu sesi, dan gagal saat putus', async () => {
+  const { transport } = setup();
+  await transport.unregisterPushToken({ pushToken: 'p1' });
+  expect(transport.unregisteredPushTokens).toEqual(['p1']);
+  await expect(transport.unregisterPushToken({ pushToken: '' })).rejects.toMatchObject({ error: 'tidak_valid' });
+  transport.drop();
+  await expect(transport.unregisterPushToken({ pushToken: 'p2' })).rejects.toMatchObject({ code: 'network' });
+  expect(transport.unregisteredPushTokens).toEqual(['p1']);
+});
+
 test('riwayat contoh tidak berubah oleh transport', async () => {
   const before = sampleHistory();
   const { transport } = setup();

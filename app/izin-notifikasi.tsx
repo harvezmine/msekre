@@ -20,11 +20,12 @@ export default function IzinNotifikasi() {
 
 function Isi() {
   const { c, scheme } = useTheme();
-  const { permission, ask, openSettings } = usePush();
+  const { permission, canAskAgain, ask, openSettings } = usePush();
   const { close } = useSheet();
   const busy = useRef(false);
-  // Yang ditolak tidak bisa ditanya lagi lewat jendela sistem: arahkan ke pengaturan HP.
-  const denied = permission === 'denied';
+  // Ditolak sekali masih boleh ditanya lagi lewat jendela sistem (Android 13+); baru setelah sistem tidak mau
+  // menanyakannya lagi, arahkan ke pengaturan HP.
+  const denied = permission === 'denied' && !canAskAgain;
   const granted = permission === 'granted';
   const title = granted
     ? 'Notifikasi sudah aktif'

@@ -2,7 +2,7 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Platform } from 'react-native';
+import { AppState, Linking, Platform } from 'react-native';
 import Akun from '../app/akun';
 import Chat from '../app/chat';
 import IzinNotifikasi from '../app/izin-notifikasi';
@@ -27,6 +27,7 @@ jest.mock('@/api/secureStore', () => ({
 const N = jest.mocked(Notifications);
 const GRANTED = { granted: true, status: 'granted', canAskAgain: true } as never;
 const DENIED = { granted: false, status: 'denied', canAskAgain: false } as never;
+const DENIED_ASK = { granted: false, status: 'denied', canAskAgain: true } as never;
 const UNDETERMINED = { granted: false, status: 'undetermined', canAskAgain: true } as never;
 
 async function advance(ms: number) {
@@ -92,12 +93,41 @@ describe('saluran dan penangan', () => {
   test('Android: saluran Pesan dari Nadia dan Pengingat dibuat, keduanya penting', async () => {
     jest.replaceProperty(Platform, 'OS', 'android');
     await mount();
-    expect(N.setNotificationChannelAsync).toHaveBeenCalledWith('pesan', { name: 'Pesan dari Nadia', importance: 6 });
+    expect(N.setNotificationChannelAsync).toHaveBeenCalledWith('pesan', {
+      name: 'Pesan dari Nadia',
+      importance: 6,
+      lockscreenVisibility: 2,
+    });
     expect(N.setNotificationChannelAsync).toHaveBeenCalledWith('pengingat', {
       name: 'Pengingat',
       importance: 6,
       sound: 'default',
     });
+  });
+
+  test('nama saluran pesan mengikuti nama asisten, juga saat berubah', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    const api = createTestApi({ token: 't' });
+    const meSpy = jest.spyOn(api.transport, 'me');
+    meSpy.mockResolvedValue({ id: 'u', name: 'Rina', assistantName: 'Sari', plan: null, phone: '6281' } as never);
+    await mount(<></>, api);
+    expect(N.setNotificationChannelAsync).toHaveBeenCalledWith(
+      'pesan',
+      expect.objectContaining({ name: 'Pesan dari Sari' }),
+    );
+    meSpy.mockResolvedValue({ id: 'u', name: 'Rina', assistantName: 'Dewi', plan: null, phone: '6281' } as never);
+    await act(async () => {
+      await auth.refreshMe();
+    });
+    await settle();
+    expect(N.setNotificationChannelAsync).toHaveBeenLastCalledWith(
+      'pengingat',
+      expect.objectContaining({ name: 'Pengingat' }),
+    );
+    expect(N.setNotificationChannelAsync).toHaveBeenCalledWith(
+      'pesan',
+      expect.objectContaining({ name: 'Pesan dari Dewi' }),
+    );
   });
 
   test('iOS: tidak ada saluran', async () => {
@@ -109,7 +139,7 @@ describe('saluran dan penangan', () => {
   test('notifikasi tampil bila chat tidak terbuka dan diredam selagi chat terbuka', async () => {
     await mount();
     const handler = N.setNotificationHandler.mock.calls[0]![0]!;
-    const behavior = () => handler.handleNotification({} as never);
+    const behavior = () => handler.handleNotification({ request: { content: { data: { kind: 'pesan' } } } } as never);
     expect(await behavior()).toEqual({
       shouldShowBanner: true,
       shouldShowList: true,
@@ -118,6 +148,29 @@ describe('saluran dan penangan', () => {
     });
     setChatFocused(true);
     expect(await behavior()).toMatchObject({ shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false });
+  });
+
+  test('selagi chat terbuka hanya pesan chat yang diredam; pengingat selalu tampil', async () => {
+    await mount();
+    const handler = N.setNotificationHandler.mock.calls[0]![0]!;
+    const behave = (data: Record<string, unknown>, trigger?: unknown) =>
+      handler.handleNotification({ request: { content: { data }, trigger } } as never);
+    const shown = { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true };
+    const muted = { shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false };
+    setChatFocused(true);
+    expect(await behave({ kind: 'pesan' })).toMatchObject(muted);
+    expect(await behave({}, { type: 'push', remoteMessage: { notification: { channelId: 'pesan' } } })).toMatchObject(
+      muted,
+    );
+    expect(await behave({}, { type: 'channel', channelId: 'pesan' })).toMatchObject(muted);
+    expect(await behave({ kind: 'pengingat' })).toMatchObject(shown);
+    expect(
+      await behave({}, { type: 'push', remoteMessage: { notification: { channelId: 'pengingat' } } }),
+    ).toMatchObject(shown);
+    // Pengingat di saluran pesan tetap tampil kalau ditandai pengingat.
+    expect(await behave({ kind: 'pengingat' }, { type: 'channel', channelId: 'pesan' })).toMatchObject(shown);
+    setChatFocused(false);
+    expect(await behave({ kind: 'pesan' })).toMatchObject(shown);
   });
 
   test('layar chat menandai dirinya terbuka, dan berhenti saat tidak terlihat atau ditutup', async () => {
@@ -161,9 +214,49 @@ describe('ketukan notifikasi', () => {
     expect(tapTarget({ route: '/mulai/masuk' })).toBe('/chat');
     expect(tapTarget({ route: 'https://contoh.com' })).toBe('/chat');
     expect(tapTarget({ route: '//contoh.com' })).toBe('/chat');
+    for (const bad of [
+      '/agenda/../mulai/masuk',
+      '/agenda/..',
+      '/agenda//x',
+      '/agenda\\..\\masuk',
+      '/agenda?x=1',
+      '/agenda#x',
+      '/agenda/',
+      '/agenda/detail',
+      '/%2e%2e/agenda',
+      '/Agenda',
+      ' /agenda',
+      '/agenda ',
+    ]) {
+      expect(tapTarget({ route: bad })).toBe('/chat');
+    }
+    for (const ok of ['/chat', '/agenda', '/riwayat', '/akun', '/terhubung', '/perangkat']) {
+      expect(tapTarget({ route: ok })).toBe(ok);
+    }
     expect(tapTarget({ route: '/rahasia' })).toBe('/chat');
     expect(tapTarget({ route: 42 })).toBe('/chat');
     expect(tapTarget(undefined)).toBe('/chat');
+  });
+
+  test('ketukan yang sudah ditangani dihapus dari sistem, supaya muat ulang tidak memutarnya lagi', async () => {
+    N.useLastNotificationResponse.mockReturnValue(response());
+    await mount();
+    expect(router.navigate).toHaveBeenCalledWith('/chat');
+    expect(N.clearLastNotificationResponse).toHaveBeenCalledTimes(1);
+  });
+
+  test('ketukan yang dibuang (belum masuk) juga dihapus; yang ditahan belum', async () => {
+    N.useLastNotificationResponse.mockReturnValue(response());
+    await mount(<></>, createTestApi({ mode: 'server', token: 't', latencyMs: 50 }));
+    expect(N.clearLastNotificationResponse).not.toHaveBeenCalled();
+    await advance(100);
+    await settle();
+    expect(N.clearLastNotificationResponse).toHaveBeenCalledTimes(1);
+    N.clearLastNotificationResponse.mockClear();
+    resetPushForTests();
+    await mount(<></>, createTestApi({ mode: 'server' }));
+    expect(router.navigate).toHaveBeenCalledTimes(1);
+    expect(N.clearLastNotificationResponse).toHaveBeenCalledTimes(1);
   });
 
   test('aksi selain ketukan biasa diabaikan', async () => {
@@ -197,7 +290,7 @@ describe('token', () => {
     const api = await mount();
     const fake = api.transport as FakeTransport;
     expect(fake.registeredPushTokens).toEqual([{ pushToken: 'token-1', platform: 'android' }]);
-    // Aplikasi dibuka kembali dengan token yang sama: tidak dikirim lagi.
+    // Aplikasi dibuka kembali dari latar depan dengan token yang sama (selama proses hidup): tidak dikirim lagi.
     await act(async () => kick());
     await settle();
     expect(fake.registeredPushTokens).toHaveLength(1);
@@ -223,12 +316,14 @@ describe('token', () => {
     expect(fake.registeredPushTokens.map((t) => t.pushToken)).toEqual(['token-1', 'token-2']);
   });
 
-  test('token yang sudah terkirim diingat antar pemasangan', async () => {
+  test('setiap mulai dari keadaan mati token dikirim lagi, walau tidak berubah', async () => {
     N.getPermissionsAsync.mockResolvedValue(GRANTED);
     const first = await mount();
     expect((first.transport as FakeTransport).registeredPushTokens).toHaveLength(1);
     const second = await mount();
-    expect((second.transport as FakeTransport).registeredPushTokens).toEqual([]);
+    expect((second.transport as FakeTransport).registeredPushTokens).toEqual([
+      { pushToken: 'token-1', platform: 'android' },
+    ]);
   });
 
   test('gagal mengirim: dicoba lagi lain kali, tidak dilempar', async () => {
@@ -270,6 +365,96 @@ describe('token', () => {
   });
 });
 
+describe('mencabut token saat keluar', () => {
+  const signIn = async () => {
+    await act(async () => {
+      await auth.start('6281220457781');
+      await auth.verify('6281220457781', '123456');
+    });
+    await settle();
+  };
+  const signOut = async () => {
+    await act(async () => {
+      await auth.logout();
+    });
+    await settle();
+  };
+
+  test('keluar dengan sinyal: token dicabut dari server dan dilupakan di HP', async () => {
+    N.getPermissionsAsync.mockResolvedValue(GRANTED);
+    const api = await mount(<></>, createTestApi({ mode: 'server' }));
+    const fake = api.transport as FakeTransport;
+    await signIn();
+    expect(mockStore.get('push.token.server')).toBe('token-1');
+    await signOut();
+    expect(fake.unregisteredPushTokens).toEqual(['token-1']);
+    expect(mockStore.has('push.token.server')).toBe(false);
+    expect(mockStore.has('push.cabut.server')).toBe(false);
+  });
+
+  test('keluar tanpa sinyal: dicatat, lalu dicabut saat aplikasi dibuka lagi', async () => {
+    N.getPermissionsAsync.mockResolvedValue(GRANTED);
+    const first = await mount(<></>, createTestApi({ mode: 'server' }));
+    const fake = first.transport as FakeTransport;
+    await signIn();
+    fake.drop();
+    await signOut();
+    expect(auth.status).toBe('signedOut');
+    expect(fake.unregisteredPushTokens).toEqual([]);
+    expect(JSON.parse(mockStore.get('push.cabut.server')!)).toEqual(['token-1']);
+    // Aplikasi dimulai lagi, sinyal ada: dicabut.
+    const second = await mount(<></>, createTestApi({ mode: 'server' }));
+    expect((second.transport as FakeTransport).unregisteredPushTokens).toEqual(['token-1']);
+    expect(mockStore.has('push.cabut.server')).toBe(false);
+  });
+
+  test('masih tanpa sinyal: tetap dicatat; dicoba lagi saat aplikasi kembali aktif', async () => {
+    N.getPermissionsAsync.mockResolvedValue(GRANTED);
+    const listeners: ((s: string) => void)[] = [];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_t, l) => {
+      const listener = l as (s: string) => void;
+      listeners.push(listener);
+      return { remove: () => void listeners.splice(listeners.indexOf(listener), 1) };
+    });
+    const api = await mount(<></>, createTestApi({ mode: 'server' }));
+    const fake = api.transport as FakeTransport;
+    await signIn();
+    fake.drop();
+    await signOut();
+    await act(async () => listeners.forEach((l) => l('active')));
+    await settle();
+    expect(fake.unregisteredPushTokens).toEqual([]);
+    expect(mockStore.has('push.cabut.server')).toBe(true);
+    fake.restore();
+    await act(async () => listeners.forEach((l) => l('active')));
+    await settle();
+    expect(fake.unregisteredPushTokens).toEqual(['token-1']);
+    expect(mockStore.has('push.cabut.server')).toBe(false);
+  });
+
+  test('masuk lagi dengan token yang sama: tidak lagi dicabut', async () => {
+    N.getPermissionsAsync.mockResolvedValue(GRANTED);
+    const api = await mount(<></>, createTestApi({ mode: 'server' }));
+    const fake = api.transport as FakeTransport;
+    await signIn();
+    fake.drop();
+    await signOut();
+    fake.restore();
+    expect(mockStore.has('push.cabut.server')).toBe(true);
+    await signIn();
+    expect(fake.registeredPushTokens).toHaveLength(2);
+    expect(mockStore.has('push.cabut.server')).toBe(false);
+    expect(fake.unregisteredPushTokens).toEqual([]);
+  });
+
+  test('mode contoh: tidak ada pencabutan', async () => {
+    N.getPermissionsAsync.mockResolvedValue(GRANTED);
+    const api = await mount();
+    expect((api.transport as FakeTransport).unregisteredPushTokens).toEqual([]);
+    expect(mockStore.has('push.cabut.contoh')).toBe(false);
+  });
+});
+
 describe('lembar izin', () => {
   test('Izinkan meminta izin ke sistem lalu menutup', async () => {
     await mount(<IzinNotifikasi />);
@@ -299,6 +484,20 @@ describe('lembar izin', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Buka pengaturan' }));
     expect(open).toHaveBeenCalledTimes(1);
     expect(N.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  test('ditolak tapi masih boleh ditanya lagi (Android 13+): tombol meminta izin lagi, bukan membuka pengaturan', async () => {
+    N.getPermissionsAsync.mockResolvedValue(DENIED_ASK);
+    N.requestPermissionsAsync.mockResolvedValue(GRANTED);
+    const open = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+    await mount(<IzinNotifikasi />);
+    expect(screen.queryByText('Notifikasi sedang dimatikan')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Buka pengaturan' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Izinkan' }));
+    expect(N.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(open).not.toHaveBeenCalled();
+    await advance(300);
+    expect(router.back).toHaveBeenCalledTimes(1);
   });
 
   test('sudah aktif: hanya memberi tahu', async () => {
@@ -355,6 +554,7 @@ describe('Akun', () => {
     [UNDETERMINED, 'Belum diizinkan'],
     [GRANTED, 'Aktif'],
     [DENIED, 'Dimatikan di pengaturan HP'],
+    [DENIED_ASK, 'Belum diizinkan'],
   ])('baris Notifikasi menyebut keadaannya (%#)', async (permission, text) => {
     N.getPermissionsAsync.mockResolvedValue(permission);
     await mount(<Akun />);

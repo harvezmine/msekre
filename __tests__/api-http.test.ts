@@ -310,6 +310,26 @@ describe('HTTP', () => {
   });
 });
 
+describe('mencabut token notifikasi', () => {
+  test('DELETE /push-tokens tanpa token masuk, dengan token di isi', async () => {
+    const { fetch, transport } = setup({ token: null, reply: () => ({ body: { ok: true } }) });
+    await transport.unregisterPushToken({ pushToken: 'p1' });
+    const sent = call(fetch);
+    expect(sent).toMatchObject({ url: `${BASE}/app/v1/push-tokens`, method: 'DELETE', body: '{"pushToken":"p1"}' });
+    expect(sent.headers.Authorization).toBeUndefined();
+  });
+
+  test('gagal jaringan dilempar sebagai ApiFailure', async () => {
+    const { transport } = setup({
+      token: null,
+      reply: () => {
+        throw new Error('putus');
+      },
+    });
+    await expect(transport.unregisterPushToken({ pushToken: 'p1' })).rejects.toMatchObject({ code: 'network' });
+  });
+});
+
 describe('WebSocket', () => {
   test('tersambung dengan token, event diteruskan, ping dan event rusak dilewati', async () => {
     const { sockets, transport } = setup();

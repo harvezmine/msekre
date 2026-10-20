@@ -8,6 +8,7 @@ import {
   HELD_MINUTES,
   MESSAGES_LIMIT,
   MESSAGES_LIMIT_MAX,
+  pushTokenDeleteReqSchema,
   pushTokenReqSchema,
   sendMessageReqSchema,
   type AuthStartReq,
@@ -23,6 +24,7 @@ import {
   type Message,
   type MessagesPage,
   type MessagesChangedPage,
+  type PushTokenDeleteReq,
   type PushTokenReq,
   type SendMessageReq,
   type StreamEvent,
@@ -104,6 +106,8 @@ export class FakeTransport implements Transport {
   readonly mode: DataMode;
   /** Setiap pendaftaran token notifikasi, dari yang pertama. Hanya dicatat, tidak dikirim ke mana pun. */
   readonly registeredPushTokens: PushTokenReq[] = [];
+  /** Token yang dicabut (`unregisterPushToken`), dari yang pertama. Hanya dicatat. */
+  readonly unregisteredPushTokens: string[] = [];
 
   private readonly clock: FakeClock;
   private readonly scenario: FakeScenario;
@@ -324,6 +328,12 @@ export class FakeTransport implements Transport {
   registerPushToken(req: PushTokenReq): Promise<void> {
     return this.call(true, () => {
       this.registeredPushTokens.push(parse(pushTokenReqSchema, req));
+    });
+  }
+
+  unregisterPushToken(req: PushTokenDeleteReq): Promise<void> {
+    return this.call(false, () => {
+      this.unregisteredPushTokens.push(parse(pushTokenDeleteReqSchema, req).pushToken);
     });
   }
 

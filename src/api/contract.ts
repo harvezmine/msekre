@@ -18,6 +18,7 @@
  * | POST /messages                 | SendMessageReq       | SendMessageRes                    |
  * | POST /drafts/:id               | DraftActionReq       | DraftActionRes                    |
  * | POST /push-tokens              | PushTokenReq         | OkRes                             |
+ * | DELETE /push-tokens (tanpa token masuk) | PushTokenDeleteReq | OkRes                   |
  * | POST /home/devices/:id         | DeviceControlReq     | DeviceControlRes (Fase 3)         |
  * | GET  /media/:id                | -                    | berkasnya (gambar QRIS, dokumen)  |
  * | WS   /stream                   | -                    | StreamEvent, satu JSON per pesan  |
@@ -347,6 +348,9 @@ export const pushTokenReqSchema = z.object({
   platform: z.enum(['android', 'ios']),
 });
 
+/** `DELETE /push-tokens`: dicabut lewat tokennya sendiri, tanpa token masuk (HP bisa sudah keluar dari akun). */
+export const pushTokenDeleteReqSchema = z.object({ pushToken: z.string().min(1) });
+
 // ---- Perangkat rumah (Fase 3; Fase 1b boleh 501 `belum_tersedia`) ----
 
 export const deviceControlReqSchema = z
@@ -421,6 +425,7 @@ export type SendMessageRes = z.infer<typeof sendMessageResSchema>;
 export type DraftActionReq = z.infer<typeof draftActionReqSchema>;
 export type DraftActionRes = z.infer<typeof draftActionResSchema>;
 export type PushTokenReq = z.infer<typeof pushTokenReqSchema>;
+export type PushTokenDeleteReq = z.infer<typeof pushTokenDeleteReqSchema>;
 export type DeviceCard = z.infer<typeof deviceCardSchema>;
 export type DeviceControlReq = z.infer<typeof deviceControlReqSchema>;
 export type DeviceControlRes = z.infer<typeof deviceControlResSchema>;

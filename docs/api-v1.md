@@ -278,7 +278,7 @@ Mesin status (`draft.status`: `draft`, `held`, `sent`, `cancelled`, `failed`):
   sendiri walaupun agen "yakin".
 - 404 `tidak_ditemukan` kalau draf tidak ada atau milik orang lain.
 
-### 2.8 `POST /push-tokens`
+### 2.8 `POST /push-tokens` dan `DELETE /push-tokens`
 
 Request:
 
@@ -289,10 +289,27 @@ Request:
 Response `{ "ok": true }`. `platform`: `android` atau `ios`.
 
 - Simpan per sesi (token → `app_sessions`), upsert: token yang sama dari sesi lain memindahkan kepemilikannya
-  (satu perangkat fisik = satu pemilik pada satu waktu). Aplikasi mengirim ulang hanya bila token berubah.
+  (satu perangkat fisik = satu pemilik pada satu waktu). Aplikasi mengirim ulang setiap kali dibuka dari keadaan
+  mati (satu kali per proses) dan saat token berubah, jadi pendaftaran yang hilang pulih sendiri.
 - Logout menghapus token push sesi itu. Token yang ditolak FCM (`UNREGISTERED`) dihapus server.
 - Jenis token yang dikirim aplikasi bergantung pada pembangunan push (Expo push atau token FCM native); putuskan
   bersama saat mengisi `push.ts`, lihat pertanyaan terbuka di bagian 10.
+
+`DELETE /push-tokens` (mencabut token):
+
+```json
+{ "pushToken": "token FCM yang tadi didaftarkan" }
+```
+
+Response `{ "ok": true }`.
+
+- **Tanpa `Authorization`**: dipanggil setelah pengguna keluar, dan keluar di HP tidak menunggu server. Token FCM
+  panjang dan acak, jadi tokennya sendiri yang menjadi bukti kepemilikan. Kalau `Authorization` ikut dikirim, tidak
+  dipakai.
+- Idempoten: token yang tidak dikenal (sudah dihapus oleh `auth/logout` atau FCM) tetap `{ "ok": true }`. 400
+  `tidak_valid` kalau `pushToken` kosong atau bukan string.
+- Alasannya: `auth/logout` di latar belakang bisa tidak pernah sampai (mode pesawat). Aplikasi menyimpan token yang
+  belum dicabut dan mengulang `DELETE` tiap aplikasi dibuka atau kembali aktif sampai berhasil.
 
 ### 2.9 `POST /home/devices/:id` (Fase 3)
 
@@ -739,6 +756,7 @@ Media dan push:
 - `GET /media/:id`: `Content-Type`, `Content-Disposition`, `Range` (206), cache privat, milik orang lain → 404;
 - (bila diputuskan) URL bertanda tangan: sah, kedaluwarsa, salah pengguna, tanda tangan diubah;
 - `POST /push-tokens`: upsert, pemindahan kepemilikan token, dihapus saat logout, token ditolak FCM dihapus;
+- `DELETE /push-tokens`: tanpa `Authorization` berhasil, token tidak dikenal tetap `ok`, `pushToken` kosong 400;
 - `501 belum_tersedia` untuk `POST /home/devices/:id`.
 
 Kanal:
