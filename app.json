@@ -36,8 +36,12 @@
         }
       ],
       "expo-font",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-secure-store"
     ],
+    "extra": {
+      "apiUrl": ""
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
