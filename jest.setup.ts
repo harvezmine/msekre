@@ -2,6 +2,7 @@ import { setUpTests } from 'react-native-reanimated';
 
 setUpTests();
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
 // Only provides `router` for screen/component tests. Tests that need real router components must
 // mock per file (do not spread requireActual globally: it makes each test file ~9x slower).
