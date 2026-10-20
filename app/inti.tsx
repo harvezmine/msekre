@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +17,7 @@ const STATES: { state: IntiState; name: string; desc: string }[] = [
 
 export default function IntiPreview() {
   const insets = useSafeAreaInsets();
+  if (!__DEV__) return <Redirect href="/" />;
   return (
     <View style={{ flex: 1, backgroundColor: '#0E3A2C', paddingTop: insets.top }}>
       <StatusBar style="light" />

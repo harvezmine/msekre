@@ -10,6 +10,9 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
+// Tautan langsung ke /chat, /suara, /inti tetap punya tab di bawahnya.
+export const unstable_settings = { anchor: '(tabs)' };
+
 SplashScreen.preventAutoHideAsync();
 
 function Navigator() {
