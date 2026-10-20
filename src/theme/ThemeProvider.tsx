@@ -9,8 +9,12 @@ export interface Theme {
   c: Palette;
 }
 
+const LIGHT: Theme = { scheme: 'light', c: light };
+const DARK: Theme = { scheme: 'dark', c: dark };
+
+/** Objek tema tetap, supaya nilai context tidak berganti di tiap render. */
 export function themeFor(scheme: Scheme): Theme {
-  return { scheme, c: scheme === 'dark' ? dark : light };
+  return scheme === 'dark' ? DARK : LIGHT;
 }
 
 const ThemeContext = createContext<Theme>(themeFor('light'));
