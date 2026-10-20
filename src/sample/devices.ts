@@ -247,3 +247,23 @@ export function houseLine(d: Device): string {
       return `${name} ${d.on ? 'nyala' : 'mati'}`;
   }
 }
+
+/** Isi kartu Kotak Sekretaris AI di Perangkat (Ruang tamu, Rumah): data contoh. */
+export const BOX = { speaker: 'JBL Ruang Tamu', temp: 27, humidity: 68 } as const;
+
+/** Merek di "Tambah perangkat" (desain 2f): monogram dan nama. */
+export const BRANDS = [
+  { m: 'LG', n: 'LG' },
+  { m: 'S', n: 'Samsung SmartThings' },
+  { m: 'Hue', n: 'Philips Hue' },
+  { m: 'A', n: 'Aqara' },
+  { m: 'eW', n: 'eWeLink / Sonoff' },
+  { m: 'I', n: 'Imou' },
+  { m: 'EZ', n: 'EZVIZ' },
+  { m: 'T', n: 'Tuya' },
+  { m: 'HA', n: 'Home Assistant' },
+] as const;
+
+/** PIN contoh Fase 0b. PIN sungguhan diatur dan diperiksa di Fase 3. */
+export const SAMPLE_PIN = '123456';
+export const PIN_LENGTH = 6;

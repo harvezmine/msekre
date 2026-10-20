@@ -29,6 +29,8 @@ export interface SampleState {
   place: Place;
   /** Semua perangkat semua tempat, dengan keadaan terstruktur. Tulisan keadaan dibuat `deviceStatus`. */
   devices: Device[];
+  /** Mikrofon Kotak Sekretaris AI menyala (kartu Kotak di Perangkat). */
+  boxMic: boolean;
   /** Kiriman per id: draf, tertahan, terkirim, dibatalkan. Urutan sisip = urutan dibuat. */
   outgoing: Record<string, Outgoing>;
   /** Utas chat. Kartu konfirmasi dan perangkat menunjuk ke `outgoing` dan `devices` lewat id. */
@@ -65,6 +67,7 @@ export type SampleAction =
       source?: ActionSource;
     }
   | { type: 'toggleDevice'; id: string; on: boolean }
+  | { type: 'setBoxMic'; on: boolean }
   | { type: 'addDraft'; draft: NewDraft }
   | { type: 'editDraft'; id: string; text: string }
   | { type: 'sendDraft'; id: string }
@@ -86,6 +89,7 @@ export type SampleAction =
 export const initialSampleState: SampleState = {
   place: 'Semua',
   devices: initialDevices,
+  boxMic: true,
   outgoing: initialOutgoing,
   chat: initialChat,
   agenda: initialAgenda,
@@ -190,6 +194,9 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
         },
       ).state;
     }
+
+    case 'setBoxMic':
+      return state.boxMic === action.on ? state : { ...state, boxMic: action.on };
 
     case 'addDraft': {
       const id = `o-${state.seq + 1}`;

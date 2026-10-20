@@ -40,6 +40,16 @@ function Navigator() {
             contentStyle: { backgroundColor: 'transparent' },
           }}
         />
+        <Stack.Screen name="perangkat/[id]" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="perangkat/tambah" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen
+          name="pin"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'none',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
         <Stack.Screen
           name="tempat"
           options={{
