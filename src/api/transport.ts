@@ -102,7 +102,8 @@ export interface Transport {
   ): Unsubscribe;
   /**
    * Hentikan koneksi dan timer milik transport ini, misalnya saat mode data diganti. Pendengar menerima status
-   * `closed`. Transport yang sudah dilepas tidak dipakai lagi.
+   * `closed`. Pendengar yang datang sesudahnya membuka koneksi baru, tapi biasanya transport yang dilepas tidak dipakai
+   * lagi.
    */
   dispose(): void;
 }
