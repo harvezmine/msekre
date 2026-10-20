@@ -1,9 +1,17 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { wibIso } from '@/api/fake/clock';
+import { formatJam } from '@/api/format';
 import { deviceById, MAIN_AC_ID } from '@/sample/store';
 import { advance, currentRoute, go, currentStack, mockParams, restoreParams, sampleState, showRoute } from './harness';
 
-// Empat alur prototipe dari rencana Fase 0b, masing-masing dalam satu penyimpanan contoh dan satu tumpukan navigasi.
+// Alur prototipe dari rencana Fase 0b, masing-masing dalam satu penyimpanan contoh dan satu tumpukan navigasi.
+// Chat memakai server tiruan lewat useChat(); ContohBridge menjaga penyimpanan contoh (Beranda, Riwayat) tetap searah.
+
+/** Chat memuat riwayat dan kejadian stream berjalan lewat promise dan timer palsu. */
+async function settle() {
+  for (let i = 0; i < 3; i++) await advance(0);
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -41,8 +49,10 @@ test('alur 2: Lihat, Kirim, Dikirim 10.47, Batalkan di Riwayat dengan toast dan 
 
   await fireEvent.press(screen.getByRole('button', { name: 'Lihat' }));
   expect(currentRoute()).toBe('/chat');
+  await settle();
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
-  expect(screen.getByText('Dikirim 10.47')).toBeOnTheScreen();
+  await advance(1);
+  expect(screen.getByText(`Dikirim ${formatJam(wibIso(10, 20, '10.47'))}`)).toBeOnTheScreen();
   expect(screen.getByRole('button', { name: 'Batalkan' })).toBeOnTheScreen();
 
   await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
@@ -56,6 +66,42 @@ test('alur 2: Lihat, Kirim, Dikirim 10.47, Batalkan di Riwayat dengan toast dan 
   expect(screen.getByText('Kiriman ke Pak Budi dibatalkan.')).toBeOnTheScreen();
   expect(screen.queryByText('sampai 10.47')).toBeNull();
   expect(screen.getByText('Mengirim balasan ke Pak Budi')).toHaveStyle({ textDecorationLine: 'line-through' });
+
+  // Batalkan di Riwayat sampai ke server tiruan: kartu di chat ikut dibatalkan.
+  await advance(1);
+  await go('/chat');
+  await settle();
+  expect(screen.getByText('Dibatalkan · tidak jadi terkirim')).toBeOnTheScreen();
+  expect(screen.queryByRole('button', { name: 'Batalkan' })).toBeNull();
+});
+
+test('alur 2b: Batalkan di chat juga membatalkan di Riwayat (sampai ke penyimpanan contoh)', async () => {
+  await showRoute('/chat');
+  await settle();
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
+  await advance(1);
+  expect(sampleState().outgoing['o-budi']!.status).toBe('held');
+  await fireEvent.press(screen.getByRole('button', { name: 'Batalkan' }));
+  await advance(1);
+  expect(sampleState().outgoing['o-budi']!.status).toBe('cancelled');
+  await go('/riwayat');
+  expect(screen.getByText('Mengirim balasan ke Pak Budi')).toHaveStyle({ textDecorationLine: 'line-through' });
+});
+
+test('alur Usaha: Pesan lagi membuka chat dengan kartu draf pesanan; Kirim tampil di Riwayat', async () => {
+  await showRoute('/usaha');
+  await fireEvent.press(screen.getByRole('button', { name: 'Pesan lagi' }));
+  expect(currentRoute()).toBe('/chat');
+  await settle();
+  expect(screen.getByText('PT Sumber Susu')).toBeOnTheScreen();
+  expect(screen.getByText('Ini draf pesanannya. Saya kirim setelah Anda setuju.')).toBeOnTheScreen();
+  // yang terbaru lebih dulu di pohon: draf supplier, lalu draf Pak Budi
+  await fireEvent.press(screen.getAllByRole('button', { name: 'Kirim' })[0]!);
+  await advance(1);
+  expect(sampleState().outgoing['o-budi']!.status).toBe('draft');
+  await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
+  await go('/riwayat');
+  expect(screen.getByText('Mengirim pesanan ke PT Sumber Susu')).toBeOnTheScreen();
 });
 
 test('alur 3: alarm Tunda 10 menit, kembali ke Agenda, item ditunda sampai 07.10', async () => {

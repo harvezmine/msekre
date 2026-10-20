@@ -1,7 +1,6 @@
 import { initialAgenda, initialLeftover, TODAY } from './agenda';
 import { clampTemp, initialDevices, MAIN_AC_ID } from './devices';
 import { initialBusiness, initialHistory } from './history';
-import { draftIntro, initialChat } from './chat';
 import { addMinutes } from './dates';
 import { initialOutgoing } from './outgoing';
 import { initialServices, serviceCatalog } from './services';
@@ -11,11 +10,9 @@ import type {
   AcSettings,
   AgendaItem,
   Business,
-  ChatEntry,
   Device,
   HistoryEntry,
   Leftover,
-  NewChatEntry,
   NewDraft,
   Outgoing,
   Permission,
@@ -33,8 +30,6 @@ export interface SampleState {
   boxMic: boolean;
   /** Kiriman per id: draf, tertahan, terkirim, dibatalkan. Urutan sisip = urutan dibuat. */
   outgoing: Record<string, Outgoing>;
-  /** Utas chat. Kartu konfirmasi dan perangkat menunjuk ke `outgoing` dan `devices` lewat id. */
-  chat: ChatEntry[];
   agenda: AgendaItem[];
   leftover: Leftover | null;
   /** Layanan tersambung. Cincin Beranda diturunkan dari sini dan dari perangkat (`ringNodes`). */
@@ -68,11 +63,13 @@ export type SampleAction =
     }
   | { type: 'toggleDevice'; id: string; on: boolean }
   | { type: 'setBoxMic'; on: boolean }
+  /** Draf baru (misalnya "Pesan lagi"). Kartunya di chat dibuat `ContohBridge` lewat server tiruan. */
   | { type: 'addDraft'; draft: NewDraft }
   | { type: 'editDraft'; id: string; text: string }
   | { type: 'sendDraft'; id: string }
   | { type: 'cancelSend'; id: string }
-  | { type: 'addChatMessage'; from: 'user' | 'assistant'; text: string }
+  /** Draf yang belum disetujui dibuang (tombol "Buang draf" di chat). */
+  | { type: 'discardDraft'; id: string }
   | { type: 'addAgenda'; item: Omit<AgendaItem, 'id'> }
   | { type: 'snooze'; id: string; until: string }
   | { type: 'finishLeftover'; choice: 'today' | 'drop' }
@@ -91,7 +88,6 @@ export const initialSampleState: SampleState = {
   devices: initialDevices,
   boxMic: true,
   outgoing: initialOutgoing,
-  chat: initialChat,
   agenda: initialAgenda,
   leftover: initialLeftover,
   services: initialServices,
@@ -119,13 +115,6 @@ function withHistory(state: SampleState, entry: Omit<HistoryEntry, 'id' | 'day'>
 
 function withToast(state: SampleState, text: string): SampleState {
   return { ...state, seq: state.seq + 1, toast: { id: state.seq + 1, text } };
-}
-
-/** Menambah baris ke utas. Tanda berpikir hanya berlaku di ujung utas, jadi baris baru menggantikannya. */
-function withChat(state: SampleState, entries: NewChatEntry[]): SampleState {
-  let seq = state.seq;
-  const added = entries.map((e): ChatEntry => ({ ...e, id: `c-${++seq}` }));
-  return { ...state, seq, chat: [...state.chat.filter((e) => e.kind !== 'thinking'), ...added] };
 }
 
 function setOutgoing(state: SampleState, id: string, patch: Partial<Outgoing>): SampleState {
@@ -212,10 +201,7 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       const id = `o-${state.seq + 1}`;
       const sentAt = action.draft.sentAt ?? NOW_APP;
       const draft: Outgoing = { ...action.draft, id, status: 'draft', sentAt, heldUntil: addMinutes(sentAt, 5) };
-      return withChat({ ...state, seq: state.seq + 1, outgoing: { ...state.outgoing, [id]: draft } }, [
-        { kind: 'assistant', text: draftIntro(draft.what) },
-        { kind: 'confirm', outgoingId: id },
-      ]);
+      return { ...state, seq: state.seq + 1, outgoing: { ...state.outgoing, [id]: draft } };
     }
 
     case 'editDraft': {
@@ -244,9 +230,9 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       return withToast(setOutgoing(state, o.id, { status: 'cancelled' }), `Kiriman ke ${o.to} dibatalkan.`);
     }
 
-    case 'addChatMessage': {
-      const text = action.text.trim();
-      return text ? withChat(state, [{ kind: action.from, text }]) : state;
+    case 'discardDraft': {
+      const o = state.outgoing[action.id];
+      return o?.status === 'draft' ? setOutgoing(state, o.id, { status: 'cancelled' }) : state;
     }
 
     case 'addAgenda': {

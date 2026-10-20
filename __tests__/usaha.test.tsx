@@ -2,7 +2,7 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import Usaha from '../app/(tabs)/usaha';
-import { renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders } from './helpers';
 import { useSample, type SampleState } from '@/sample/store';
 import { dark } from '@/theme/tokens';
 
@@ -66,22 +66,34 @@ test('Rumah: keterangan ramah dan tombol membuka pemilih tempat', async () => {
   expect(router.push).toHaveBeenCalledWith('/tempat');
 });
 
-test('Pesan lagi menambah kartu konfirmasi di chat dan membuka chat, sekali saja', async () => {
-  await show();
-  const confirms = () => latest.chat.filter((e) => e.kind === 'confirm').length;
-  const before = confirms();
+test('Pesan lagi menambah draf, mengirim kartunya ke server tiruan, dan membuka chat, sekali saja', async () => {
+  const api = createTestApi();
+  await renderWithProviders(
+    <>
+      <Usaha />
+      <Probe />
+    </>,
+    { api },
+  );
+  const suppliers = async () => {
+    const page = await api.transport.messages();
+    return page.items.flatMap((m) =>
+      m.parts.flatMap((p) =>
+        p.type === 'card' && p.card.kind === 'draft' && p.card.draft.to === 'PT Sumber Susu' ? [p.card.draft] : [],
+      ),
+    );
+  };
   await fireEvent.press(screen.getByRole('button', { name: 'Pesan lagi' }));
   expect(router.push).toHaveBeenCalledWith('/chat');
-  expect(confirms()).toBe(before + 1);
-  expect(latest.chat.at(-2)).toMatchObject({ kind: 'assistant' });
-  const confirm = latest.chat.at(-1)!;
-  expect(confirm.kind).toBe('confirm');
-  const o = latest.outgoing[(confirm as { outgoingId: string }).outgoingId]!;
+  const [draft, ...rest] = await suppliers();
+  expect(rest).toHaveLength(0);
+  expect(draft).toMatchObject({ status: 'draft', what: 'pesanan' });
+  const o = latest.outgoing[draft!.id]!;
   expect(o).toMatchObject({ to: 'PT Sumber Susu', status: 'draft' });
 
   await fireEvent.press(screen.getByRole('button', { name: 'Pesan lagi' }));
   expect(router.push).toHaveBeenCalledTimes(2);
-  expect(confirms()).toBe(before + 1);
+  expect(await suppliers()).toHaveLength(1);
   expect(Object.values(latest.outgoing).filter((x) => x.to === 'PT Sumber Susu')).toHaveLength(1);
 });
 

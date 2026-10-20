@@ -4,9 +4,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { AccessibilityInfo } from 'react-native';
 import Chat from '../app/chat';
-import { renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders } from './helpers';
+import { formatJam } from '@/api/format';
+import { wibIso } from '@/api/fake/clock';
 import { BUDI_DRAFT_ID as BUDI, supplierOrderDraft } from '@/sample/outgoing';
-import { deviceById, historyRows, initialSampleState, useSample, type SampleState } from '@/sample/store';
+import { deviceById, historyRows, useSample, type SampleState } from '@/sample/store';
 import { QR_SIZE, qrCells } from '@/ui/chat/qrPattern';
 
 let latest: SampleState;
@@ -18,14 +20,17 @@ function Probe() {
   return null;
 }
 
+/** Layar chat; riwayat dari server tiruan sudah dimuat. */
 async function renderChat(options?: Parameters<typeof renderWithProviders>[1]) {
-  return renderWithProviders(
+  const view = await renderWithProviders(
     <>
       <Chat />
       <Probe />
     </>,
     options,
   );
+  for (let i = 0; i < 3; i++) await advance(0);
+  return view;
 }
 
 /** Isi tiap elemen Text pada pohon yang tampil, menurut urutan pohon (anak-anaknya digabung). */
@@ -45,6 +50,7 @@ function textsInOrder(): string[] {
   };
   const tree = screen.toJSON();
   (Array.isArray(tree) ? tree : [tree]).forEach(walk);
+  // Daftar chat terbalik: yang terbaru lebih dulu di pohon.
   return out;
 }
 
@@ -54,49 +60,58 @@ async function advance(ms: number) {
   });
 }
 
+/** Jam "HH.MM" WIB 20 Okt pada jam HP, seperti yang tampil di kartu. */
+const jam = (hhmm: string) => formatJam(wibIso(10, 20, hhmm));
+
 beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(useLocalSearchParams).mockReturnValue({});
 });
 
-test('utas contoh menampilkan semua pesan dan kartu berurutan', async () => {
+test('utas contoh menampilkan semua pesan dan kartu, terbaru di bawah', async () => {
   await renderChat();
+  // Satu teks per baris, dari yang terlama; daftar terbalik jadi urutan di pohon menurun.
   const order = [
     'Nyalakan AC kamar 24 derajat',
     'Sudah. AC kamar nyala di 24°.',
     'Perintah terakhir: 24° Dingin · suhu ruangan sekarang 27°',
     'Balas Pak Budi, harga sewa bisa Rp15 juta',
     'Ini draf balasannya. Saya kirim setelah Anda setuju.',
-    'lewat WhatsApp',
     'Selamat siang, Pak Budi. Untuk sewa tempatnya, kami bisa di harga Rp15 juta. Terima kasih.',
     'Rapat dengan supplier susu sudah saya catat.',
     'Harga susu UHT tetap sampai Desember.',
-    'Baca notulen',
     'Laporan yang Anda minta sudah jadi.',
     'Laporan penjualan Oktober.xlsx',
-    '48 KB · Excel',
     'Beli token listrik 100 ribu',
     'Token listrik PLN',
-    'Sudah benar?',
-    'Ya, benar',
     'Bayar dengan QRIS',
-    'Pindai dari aplikasi bank atau dompet digital. Berlaku sampai 10.15.',
     'Cek stok kedai',
   ];
-  for (const t of order) expect(screen.getByText(t)).toBeTruthy();
-  // urutan di utas: setiap teks muncul setelah yang sebelumnya
+  for (const t of order) expect(screen.getAllByText(t).length).toBeGreaterThan(0);
   const shown = textsInOrder();
   const at = order.map((t) => shown.indexOf(t));
   expect(at.every((i) => i >= 0)).toBe(true);
-  expect(at).toEqual([...at].sort((a, b) => a - b));
+  expect(at).toEqual([...at].sort((a, b) => b - a));
+  for (const t of [
+    '48 KB · Excel',
+    'Sudah benar?',
+    `Pindai dari aplikasi bank atau dompet digital. Berlaku sampai ${jam('10.15')}.`,
+  ]) {
+    expect(screen.getByText(t)).toBeTruthy();
+  }
   expect(screen.getByText('Nadia ingat semua obrolan Anda, di aplikasi maupun di WhatsApp.')).toBeTruthy();
   expect(screen.getByText('Nyala · Dingin')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Buka' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Bagikan' })).toBeTruthy();
   expect(screen.queryByText(/Anda menjawab/)).toBeNull();
   expect(screen.getByTestId('qris-kode')).toBeTruthy();
-  expect(screen.getByTestId('berpikir')).toBeTruthy();
+  // "Ya, benar" sudah diambil: hanya pilihan itu yang tampil, terkunci
+  expect(screen.queryByRole('button', { name: 'Batal' })).toBeNull();
+  expect(screen.getAllByRole('button', { name: 'Ya, benar' })[0]!.props.accessibilityState.disabled).toBe(true);
+  expect(screen.queryByTestId('berpikir')).toBeNull();
   expect(screen.queryByText('Mau saya bantu urus apa?')).toBeNull();
+  // dua pesan semalam lewat WhatsApp
+  expect(screen.getAllByText('lewat WhatsApp').length).toBeGreaterThanOrEqual(2);
 });
 
 test('Kirim menahan kiriman dan mencatat Riwayat; Batalkan membatalkannya', async () => {
@@ -104,18 +119,29 @@ test('Kirim menahan kiriman dan mencatat Riwayat; Batalkan membatalkannya', asyn
   expect(latest.outgoing[BUDI]!.status).toBe('draft');
   const before = latest.history.length;
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
+  await advance(1);
   expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light);
-  expect(screen.getByText('Dikirim 10.47')).toBeTruthy();
+  expect(screen.getByText(`Dikirim ${jam('10.47')}`)).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Kirim' })).toBeNull();
   expect(latest.outgoing[BUDI]!.status).toBe('held');
   expect(latest.history.length).toBe(before + 1);
   expect(historyRows(latest)[0]).toMatchObject({ title: 'Mengirim balasan ke Pak Budi', undoable: true });
   await fireEvent.press(screen.getByRole('button', { name: 'Batalkan' }));
+  await advance(1);
   expect(screen.getByText('Dibatalkan · tidak jadi terkirim')).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Batalkan' })).toBeNull();
   expect(latest.outgoing[BUDI]!.status).toBe('cancelled');
   expect(latest.toast?.text).toBe('Kiriman ke Pak Budi dibatalkan.');
   expect(historyRows(latest)[0]).toMatchObject({ struck: true, undoable: false });
+});
+
+test('Buang draf membatalkan draf yang belum disetujui; Beranda tidak menanyakannya lagi', async () => {
+  await renderChat();
+  await fireEvent.press(screen.getByRole('button', { name: 'Buang draf' }));
+  await advance(1);
+  expect(screen.getByText('Dibatalkan · tidak jadi terkirim')).toBeTruthy();
+  expect(latest.outgoing[BUDI]!.status).toBe('cancelled');
+  expect(latest.history.length).toBe(6);
 });
 
 test('Ubah membuka kolom teks dan Simpan menyimpan isi baru', async () => {
@@ -124,6 +150,7 @@ test('Ubah membuka kolom teks dan Simpan menyimpan isi baru', async () => {
   const box = screen.getByLabelText('Isi pesan');
   await fireEvent.changeText(box, 'Baik Pak, Rp15 juta ya.');
   await fireEvent.press(screen.getByRole('button', { name: 'Simpan' }));
+  await advance(1);
   expect(latest.outgoing[BUDI]!.text).toBe('Baik Pak, Rp15 juta ya.');
   expect(screen.getByText('Baik Pak, Rp15 juta ya.')).toBeTruthy();
   expect(screen.queryByLabelText('Isi pesan')).toBeNull();
@@ -152,18 +179,30 @@ test('mengetik lalu kirim menambah gelembung, tanda berpikir, dan jawaban setela
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim pesan' }));
   expect(screen.getByText('Halo Nadia')).toBeTruthy();
   expect(screen.getByLabelText('Tulis pesan untuk Nadia').props.value).toBe('');
+  await advance(1);
   expect(screen.getAllByTestId('berpikir')).toHaveLength(1);
   await advance(1100);
-  expect(screen.queryByText(/Ini masih contoh/)).toBeNull();
+  expect(screen.queryByText(/Ini jawaban contoh/)).toBeNull();
   await advance(100);
-  expect(screen.getByText('Ini masih contoh. Mulai Fase 1 saya menjawab sungguhan.')).toBeTruthy();
+  expect(screen.getByText('Ini jawaban contoh. Begitu tersambung ke server, saya menjawab sungguhan.')).toBeTruthy();
   expect(screen.queryByTestId('berpikir')).toBeNull();
 });
 
-test('kartu perangkat membaca AC yang ditunjuk barisnya', async () => {
-  await renderChat({
-    state: { ...initialSampleState, chat: [{ id: 'x1', kind: 'device', deviceId: 'dago-ac' }] },
+test('kartu perangkat membaca AC yang ditunjuk pesannya', async () => {
+  const api = createTestApi({
+    history: [
+      {
+        id: 'x1',
+        seq: 1,
+        rev: 1,
+        at: wibIso(10, 20, '10.00'),
+        from: 'assistant',
+        via: 'app',
+        parts: [{ type: 'card', card: { kind: 'device', deviceId: 'dago-ac', name: 'AC kedai', on: true, temp: 23 } }],
+      },
+    ],
   });
+  await renderChat({ api });
   expect(screen.getByText('AC kedai')).toBeOnTheScreen();
   expect(screen.getByText('23°')).toBeOnTheScreen();
   expect(screen.getByText('Perintah terakhir: 23° Dingin · suhu ruangan sekarang 28°')).toBeOnTheScreen();
@@ -175,17 +214,15 @@ test('kartu perangkat membaca AC yang ditunjuk barisnya', async () => {
   expect(deviceById(latest, 'ac-kamar')!.on).toBe(true);
 });
 
-test('pesan yang diketik dan jawabannya tersimpan di penyimpanan, tanda berpikir contoh hilang', async () => {
+test('permintaan AC lewat chat mengatur AC yang sama di penyimpanan contoh', async () => {
   await renderChat();
-  await fireEvent.changeText(screen.getByLabelText('Tulis pesan untuk Nadia'), 'Halo Nadia');
+  await fireEvent.changeText(screen.getByLabelText('Tulis pesan untuk Nadia'), 'AC kamar 22 derajat');
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim pesan' }));
-  expect(latest.chat.at(-1)).toMatchObject({ kind: 'user', text: 'Halo Nadia' });
-  expect(latest.chat.some((e) => e.kind === 'thinking')).toBe(false);
-  await advance(1200);
-  expect(latest.chat.at(-1)).toMatchObject({
-    kind: 'assistant',
-    text: 'Ini masih contoh. Mulai Fase 1 saya menjawab sungguhan.',
-  });
+  await advance(1300);
+  await advance(1);
+  expect(screen.getByText('Sudah. AC kamar nyala di 22°.')).toBeTruthy();
+  expect(deviceById(latest, 'ac-kamar')!.ac!.temp).toBe(22);
+  expect(screen.getAllByText('22°').length).toBeGreaterThan(0);
 });
 
 test('draf kedua dari layar lain tampil sebagai kartu sendiri; Kirim hanya mengubah draf itu', async () => {
@@ -196,8 +233,10 @@ test('draf kedua dari layar lain tampil sebagai kartu sendiri; Kirim hanya mengu
   expect(screen.queryByTestId('berpikir')).toBeNull();
   const kirim = screen.getAllByRole('button', { name: 'Kirim' });
   expect(kirim).toHaveLength(2);
-  await fireEvent.press(kirim[1]!);
-  expect(screen.getByText('Dikirim 10.48')).toBeOnTheScreen();
+  // yang terbaru lebih dulu di pohon
+  await fireEvent.press(kirim[0]!);
+  await advance(1);
+  expect(screen.getByText(`Dikirim ${jam('10.47')}`)).toBeOnTheScreen();
   expect(screen.getAllByRole('button', { name: 'Kirim' })).toHaveLength(1);
   const supplier = Object.values(latest.outgoing).find((o) => o.to === 'PT Sumber Susu')!;
   expect(supplier.status).toBe('held');
@@ -256,6 +295,7 @@ test('tidak ada tombol mati: Baca notulen, Buka, Bagikan, dan Lampiran memunculk
   await fireEvent.press(screen.getByRole('link', { name: 'Baca notulen' }));
   expect(latest.toast?.text).toBe('Notulen lengkap tampil di Fase 1.');
   await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
+  await advance(0);
   expect(latest.toast?.text).toBe('Membuka berkas contoh.');
   await fireEvent.press(screen.getByRole('button', { name: 'Bagikan' }));
   expect(latest.toast?.text).toBe('Berbagi berkas dibangun di Fase 1.');
@@ -284,7 +324,8 @@ test('Kirim diumumkan ke pembaca layar; pengatur suhu bisa disetel dengan aksi n
   const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
   await renderChat();
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
-  expect(announce).toHaveBeenCalledWith('Dikirim 10.47, bisa dibatalkan');
+  await advance(1);
+  expect(announce).toHaveBeenCalledWith(`Dikirim ${jam('10.47')}, bisa dibatalkan`);
   announce.mockRestore();
   const stepper = screen.getByRole('adjustable');
   expect(stepper.props.accessibilityValue).toEqual({ text: '24 derajat' });
@@ -296,10 +337,13 @@ test('Kirim diumumkan ke pembaca layar; pengatur suhu bisa disetel dengan aksi n
 
 test('gelembung pengguna yang membuka tukar-pesan baru diberi jarak atas 8', async () => {
   await renderChat();
-  const first = screen.getByText('Nyalakan AC kamar 24 derajat');
-  const second = screen.getByText('Balas Pak Budi, harga sewa bisa Rp15 juta');
-  const reply = screen.getByText('Ya, benar');
-  expect(first.parent).toHaveStyle({ marginTop: 0 });
-  expect(second.parent).toHaveStyle({ marginTop: 8 });
-  expect(reply.parent).toHaveStyle({ marginTop: 0 });
+  const margin = (text: string) =>
+    screen
+      .getAllByText(text)
+      .map((n) => Object.assign({}, ...[n.parent?.props.style].flat(5)).marginTop)
+      .find((m) => m !== undefined);
+  expect(margin('Nyalakan AC kamar 24 derajat')).toBe(8);
+  expect(margin('Balas Pak Budi, harga sewa bisa Rp15 juta')).toBe(8);
+  // jawaban atas tombol pilihan masih tukar-pesan yang sama
+  expect(margin('Ya, benar')).toBe(0);
 });

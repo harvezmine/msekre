@@ -2,7 +2,10 @@ import { MAIN_AC_ID } from './devices';
 import { BUDI_DRAFT_ID } from './outgoing';
 import type { ChatEntry } from './types';
 
-/** Utas chat contoh Fase 0b (desain 1b dan 1c), awal `state.chat`. Di Fase 1 diganti riwayat sungguhan. */
+/**
+ * Utas chat contoh Fase 0b (desain 1b dan 1c). Bukan lagi bagian penyimpanan contoh: hanya bahan riwayat server tiruan
+ * (`src/api/fake/history.ts`), yang menyajikannya lewat kontrak API.
+ */
 export const initialChat: ChatEntry[] = [
   { id: 't1', kind: 'user', text: 'Nyalakan AC kamar 24 derajat' },
   { id: 't2', kind: 'assistant', text: 'Sudah. AC kamar nyala di 24°.' },
@@ -39,8 +42,7 @@ export const initialChat: ChatEntry[] = [
   { id: 't16', kind: 'thinking' },
 ];
 
-/** Kalimat asisten sebelum kartu konfirmasi draf baru: "Ini draf pesanannya. Saya kirim setelah Anda setuju." */
+/** Kalimat asisten sebelum kartu draf baru (server tiruan dan ContohBridge): "Ini draf pesanannya. Saya kirim setelah Anda setuju." */
 export const draftIntro = (what: string) => `Ini draf ${what}nya. Saya kirim setelah Anda setuju.`;
 
-export const typedReply = 'Ini masih contoh. Mulai Fase 1 saya menjawab sungguhan.';
 export const THINK_MS = 1200;
