@@ -37,3 +37,25 @@ export function formatTanggal(iso: string): string | null {
 export function cleanPhone(text: string): string {
   return text.replace(/\D/g, '').replace(/^62/, '').replace(/^0+/, '').slice(0, 13);
 }
+
+/** 100000 -> "Rp100.000" (titik pemisah ribuan, tanpa Intl). */
+export function formatRupiah(amount: number): string {
+  const digits = String(Math.max(0, Math.round(amount)));
+  return `Rp${digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+}
+
+/** "48 KB · Excel" dari ukuran berkas dan jenis (mime). */
+export function formatFileMeta(sizeBytes: number, mime: string): string {
+  let size: string;
+  if (sizeBytes < 1024) size = `${sizeBytes} B`;
+  else if (sizeBytes < 1024 * 1024) size = `${Math.round(sizeBytes / 1024)} KB`;
+  else size = `${(sizeBytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
+  let kind = 'Berkas';
+  if (/spreadsheet|excel/.test(mime)) kind = 'Excel';
+  else if (/wordprocessing|msword/.test(mime)) kind = 'Word';
+  else if (/presentation|powerpoint/.test(mime)) kind = 'PowerPoint';
+  else if (mime === 'application/pdf') kind = 'PDF';
+  else if (mime.startsWith('image/')) kind = 'Gambar';
+  else if (mime.startsWith('audio/')) kind = 'Suara';
+  return `${size} · ${kind}`;
+}
