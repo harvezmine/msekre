@@ -99,10 +99,11 @@ export class FakeScenario {
       const amount = this.pendingPaymentRp;
       if (choiceId === 'ya') {
         this.pendingPaymentRp = null;
+        const untilIso = this.clock.iso(QRIS_MINUTES);
         const until = this.clock.hhmm(QRIS_MINUTES);
         return one(
           { type: 'text', text: `Silakan bayar lewat QRIS ini sebelum jam ${until}.` },
-          { type: 'card', card: qrisCard(amount, until) },
+          { type: 'card', card: qrisCard(amount, untilIso) },
         );
       }
       if (choiceId === 'batal') {

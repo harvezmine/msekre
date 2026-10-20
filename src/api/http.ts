@@ -1,37 +1,45 @@
-import type { z } from 'zod';
 import { backoffDelay } from './backoff';
 import {
   API_PREFIX,
   apiErrorSchema,
+  APP_VERSION_HEADER,
   authStartResSchema,
   authVerifyResSchema,
+  CONTRACT_VERSION,
+  CONTRACT_VERSION_HEADER,
+  deviceControlResSchema,
   draftActionResSchema,
   meSchema,
-  messagesPageSchema,
   MESSAGES_LIMIT,
+  MESSAGES_LIMIT_MAX,
   okResSchema,
-  sendMessageResSchema,
-  streamEventSchema,
   WS_CLOSE_UNAUTHORIZED,
   type AuthStartReq,
   type AuthStartRes,
   type AuthVerifyReq,
   type AuthVerifyRes,
-  type DeviceRegisterReq,
+  type DeviceCard,
+  type DeviceControlReq,
   type Draft,
   type DraftActionReq,
   type Me,
   type Message,
   type MessagesPage,
+  type MessagesSincePage,
+  type PushTokenReq,
   type SendMessageReq,
   type StreamEvent,
 } from './contract';
+import { parseEventLenient, parseMessageLenient, parsePageLenient, parseSincePageLenient } from './lenient';
 import { StreamHub } from './hub';
 import type { Session } from './session';
 import { ApiFailure, type ConnectionStatus, type MediaSource, type Transport, type Unsubscribe } from './transport';
+import { appVersion } from './version';
 
 /** Batas waktu satu request HTTP, termasuk membaca isinya. */
 export const REQUEST_TIMEOUT_MS = 15_000;
+/** Soket yang tidak kunjung terbuka selama ini dianggap macet dan dicoba lagi dengan jeda bertingkat. */
+export const CONNECT_TIMEOUT_MS = 15_000;
 /** Tanpa pesan apa pun (server mengirim `ping` tiap 25 detik) selama ini, koneksi dianggap mati dan disambung ulang. */
 export const STREAM_SILENCE_MS = 60_000;
 
@@ -46,8 +54,12 @@ export interface SocketLike {
 
 export interface HttpOptions {
   fetch?: typeof fetch;
-  socket?: (url: string) => SocketLike;
+  /** Membuat soket ke `url` dengan `headers` jabat tangan (token ada di `Authorization`, bukan di URL). */
+  socket?: (url: string, headers: Record<string, string>) => SocketLike;
   timeoutMs?: number;
+  connectTimeoutMs?: number;
+  /** Isi header `X-App-Version`. Bawaan: versi dari app.json. */
+  appVersion?: string;
   silenceMs?: number;
   /** 0..1, untuk goyangan jeda sambung ulang. */
   random?: () => number;
@@ -60,8 +72,10 @@ export class HttpTransport implements Transport {
   readonly mode = 'server' as const;
   private readonly base: string;
   private readonly fetchFn: typeof fetch;
-  private readonly socketFn: (url: string) => SocketLike;
+  private readonly socketFn: (url: string, headers: Record<string, string>) => SocketLike;
   private readonly timeoutMs: number;
+  private readonly connectTimeoutMs: number;
+  private readonly appVersionValue: string;
   private readonly silenceMs: number;
   private readonly random: () => number;
 
@@ -70,10 +84,11 @@ export class HttpTransport implements Transport {
   /** Naik setiap koneksi dibuka atau ditutup, supaya langkah async yang sudah usang berhenti. */
   private generation = 0;
   private attempt = 0;
-  /** Ada kemungkinan event terlewat (koneksi pernah putus atau gagal): setelah tersambung, minta resync. */
-  private missed = false;
+  /** Token yang dipakai soket yang sedang berjalan, untuk memeriksa 4401 yang usang. */
+  private wsToken: string | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private silenceTimer: ReturnType<typeof setTimeout> | null = null;
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     baseUrl: string,
@@ -82,8 +97,10 @@ export class HttpTransport implements Transport {
   ) {
     this.base = `${baseUrl.replace(/\/+$/, '')}${API_PREFIX}`;
     this.fetchFn = options.fetch ?? ((input, init) => fetch(input, init));
-    this.socketFn = options.socket ?? ((url) => new WebSocket(url) as unknown as SocketLike);
+    this.socketFn = options.socket ?? defaultSocket;
     this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+    this.connectTimeoutMs = options.connectTimeoutMs ?? CONNECT_TIMEOUT_MS;
+    this.appVersionValue = options.appVersion ?? appVersion();
     this.silenceMs = options.silenceMs ?? STREAM_SILENCE_MS;
     this.random = options.random ?? Math.random;
   }
@@ -116,21 +133,41 @@ export class HttpTransport implements Transport {
     return this.request('GET', '/me', meSchema);
   }
 
-  messages(before?: string): Promise<MessagesPage> {
-    const query = `limit=${MESSAGES_LIMIT}${before ? `&before=${encodeURIComponent(before)}` : ''}`;
-    return this.request('GET', `/messages?${query}`, messagesPageSchema);
+  async messages(before?: number): Promise<MessagesPage> {
+    const query = `limit=${MESSAGES_LIMIT}${before === undefined ? '' : `&before=${before}`}`;
+    const page = await this.request('GET', `/messages?${query}`, reader(parsePageLenient));
+    // Halaman terbaru berisi ujung utas; halaman lama tidak mengubah apa yang sudah dikenal.
+    if (before === undefined) this.noteSeqs(page.items);
+    return page;
   }
 
-  async send(req: SendMessageReq): Promise<Message> {
-    return (await this.request('POST', '/messages', sendMessageResSchema, { body: req })).message;
+  async messagesAfter(after: number): Promise<MessagesSincePage> {
+    const page = await this.request(
+      'GET',
+      `/messages?limit=${MESSAGES_LIMIT_MAX}&after=${after}`,
+      reader(parseSincePageLenient),
+    );
+    this.noteSeqs(page.items);
+    return page;
+  }
+
+  send(req: SendMessageReq): Promise<Message> {
+    return this.request('POST', '/messages', reader(parseSendRes), { body: req });
   }
 
   async draftAction(id: string, req: DraftActionReq): Promise<Draft> {
     return (await this.request('POST', `/drafts/${encodeURIComponent(id)}`, draftActionResSchema, { body: req })).draft;
   }
 
-  async registerDevice(req: DeviceRegisterReq): Promise<void> {
-    await this.request('POST', '/devices', okResSchema, { body: req });
+  async registerPushToken(req: PushTokenReq): Promise<void> {
+    await this.request('POST', '/push-tokens', okResSchema, { body: req });
+  }
+
+  async controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard> {
+    const res = await this.request('POST', `/home/devices/${encodeURIComponent(deviceId)}`, deviceControlResSchema, {
+      body: req,
+    });
+    return res.card;
   }
 
   async mediaUrl(mediaId: string): Promise<MediaSource> {
@@ -147,15 +184,25 @@ export class HttpTransport implements Transport {
     this.closeStream();
   }
 
+  private noteSeqs(items: Message[]) {
+    for (const m of items) this.hub.noteSeq(m.seq);
+  }
+
+  /** Header di setiap request HTTP dan jabat tangan WebSocket. */
+  private baseHeaders(): Record<string, string> {
+    return { [APP_VERSION_HEADER]: this.appVersionValue, [CONTRACT_VERSION_HEADER]: String(CONTRACT_VERSION) };
+  }
+
   private async request<T>(
     method: Method,
     path: string,
-    schema: z.ZodType<T>,
+    schema: Reader<T>,
     { body, auth = true }: { body?: unknown; auth?: boolean } = {},
   ): Promise<T> {
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = { Accept: 'application/json', ...this.baseHeaders() };
+    let token: string | null = null;
     if (auth) {
-      const token = await this.session.get();
+      token = await this.session.get();
       if (!token) throw new ApiFailure('unauthorized');
       headers.Authorization = `Bearer ${token}`;
     }
@@ -189,21 +236,24 @@ export class HttpTransport implements Transport {
 
     const { status, ok, data } = reply;
     if (status === 401) {
-      await this.unauthorized();
+      await this.unauthorized(token);
       throw new ApiFailure('unauthorized', { status, error: errorCode(data) });
     }
-    if (!ok) {
-      const error = errorCode(data);
-      throw new ApiFailure(error === 'kode_salah' ? 'kode_salah' : 'server', { status, error });
-    }
+    if (!ok) throw failureFor(status, data);
     const parsed = schema.safeParse(data);
     if (!parsed.success) throw new ApiFailure('server', { status, cause: parsed.error });
     return parsed.data;
   }
 
-  private async unauthorized() {
+  /**
+   * Server menolak `failedToken`. Sesi hanya dihapus kalau itu masih token sekarang: 401 yang datang terlambat untuk
+   * token lama (sudah keluar lalu masuk lagi) tidak boleh mengeluarkan sesi yang baru. `true` kalau sesi dihapus.
+   */
+  private async unauthorized(failedToken: string | null): Promise<boolean> {
+    if (failedToken === null || (await this.session.get()) !== failedToken) return false;
     await this.session.clear();
     this.closeStream();
+    return true;
   }
 
   // ---- Stream ----
@@ -211,14 +261,13 @@ export class HttpTransport implements Transport {
   subscribe(
     onEvent: (event: StreamEvent) => void,
     onStatus: (status: ConnectionStatus) => void,
-    onResync?: () => void,
+    onResync?: (lastSeq: number | undefined) => void,
   ): Unsubscribe {
     return this.hub.add({ onEvent, onStatus, onResync });
   }
 
   private startStream() {
     this.attempt = 0;
-    this.missed = false;
     void this.openSocket();
   }
 
@@ -234,21 +283,25 @@ export class HttpTransport implements Transport {
     }
     let ws: SocketLike;
     try {
-      ws = this.socketFn(`${this.base.replace(/^http/, 'ws')}/stream?token=${encodeURIComponent(token)}`);
+      ws = this.socketFn(`${this.base.replace(/^http/, 'ws')}/stream`, {
+        ...this.baseHeaders(),
+        Authorization: `Bearer ${token}`,
+      });
     } catch {
       this.retry();
       return;
     }
     this.ws = ws;
+    this.wsToken = token;
+    this.armConnect(ws);
     ws.onopen = () => {
       if (ws !== this.ws) return;
       this.attempt = 0;
+      this.clearConnect();
       this.hub.setStatus('open');
       this.armSilence();
-      if (this.missed) {
-        this.missed = false;
-        this.hub.resync();
-      }
+      // Setiap koneksi baru mengambil pesan yang terlewat, juga yang pertama (riwayat bisa lebih tua dari stream).
+      this.hub.resync();
     };
     ws.onmessage = (ev) => {
       if (ws !== this.ws) return;
@@ -263,15 +316,36 @@ export class HttpTransport implements Transport {
     ws.onclose = (ev) => {
       if (ws !== this.ws) return;
       this.ws = null;
-      if (ev?.code === WS_CLOSE_UNAUTHORIZED) void this.unauthorized();
-      else this.retry();
+      this.clearConnect();
+      if (ev?.code !== WS_CLOSE_UNAUTHORIZED) return this.retry();
+      // 4401 untuk token yang sudah diganti: sambung lagi dengan token sekarang, jangan hapus sesi baru.
+      void this.unauthorized(this.wsToken).then((cleared) => {
+        if (!cleared) this.retry();
+      });
     };
+  }
+
+  /** Soket yang terlalu lama `connecting` dibuang lalu dicoba lagi dengan jeda bertingkat. */
+  private armConnect(ws: SocketLike) {
+    this.clearConnect();
+    this.connectTimer = setTimeout(() => {
+      this.connectTimer = null;
+      if (ws !== this.ws) return;
+      this.ws = null;
+      detach(ws);
+      ws.close();
+      this.retry();
+    }, this.connectTimeoutMs);
+  }
+
+  private clearConnect() {
+    if (this.connectTimer) clearTimeout(this.connectTimer);
+    this.connectTimer = null;
   }
 
   /** Koneksi putus atau gagal: coba lagi setelah jeda bertingkat, selama masih ada yang mendengarkan. */
   private retry() {
     this.clearTimers();
-    this.missed = true;
     if (!this.hub.active) return;
     this.hub.setStatus('connecting');
     const delay = backoffDelay(this.attempt, this.random);
@@ -309,6 +383,7 @@ export class HttpTransport implements Transport {
   private clearTimers() {
     if (this.retryTimer) clearTimeout(this.retryTimer);
     if (this.silenceTimer) clearTimeout(this.silenceTimer);
+    this.clearConnect();
     this.retryTimer = null;
     this.silenceTimer = null;
   }
@@ -319,6 +394,50 @@ function detach(ws: SocketLike) {
   ws.onmessage = null;
   ws.onerror = null;
   ws.onclose = null;
+}
+
+/** Pembaca jawaban: bentuk `safeParse` zod, supaya skema zod dan pembacaan longgar bisa dipakai bergantian. */
+interface Reader<T> {
+  safeParse(data: unknown): { success: true; data: T } | { success: false; error?: unknown };
+}
+
+function reader<T>(parse: (data: unknown) => T | null): Reader<T> {
+  return {
+    safeParse(data) {
+      const value = parse(data);
+      return value === null ? { success: false } : { success: true, data: value };
+    },
+  };
+}
+
+function parseSendRes(data: unknown): Message | null {
+  return parseMessageLenient((data as { message?: unknown } | null | undefined)?.message);
+}
+
+function defaultSocket(url: string, headers: Record<string, string>): SocketLike {
+  // React Native menerima `{ headers }` sebagai argumen ketiga; tipe WebSocket standar tidak mengenalnya.
+  const Native = WebSocket as unknown as new (
+    url: string,
+    protocols: undefined,
+    options: { headers: object },
+  ) => SocketLike;
+  return new Native(url, undefined, { headers });
+}
+
+/** Kegagalan untuk jawaban non-2xx (selain 401, yang diurus tersendiri). */
+function failureFor(status: number, data: unknown): ApiFailure {
+  const error = errorCode(data);
+  const details = { status, error };
+  if (status === 403) return new ApiFailure('blocked', details);
+  if (status === 426) return new ApiFailure('upgrade_required', details);
+  if (status === 429) return new ApiFailure('rate_limited', { ...details, retryInSec: retryInSec(data) });
+  if (status === 501) return new ApiFailure('unavailable', details);
+  return new ApiFailure(error === 'kode_salah' ? 'kode_salah' : 'server', details);
+}
+
+function retryInSec(data: unknown): number | undefined {
+  const raw = (data as { retryInSec?: unknown } | null | undefined)?.retryInSec;
+  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? Math.ceil(raw) : undefined;
 }
 
 /** Kode `error` dari isi jawaban gagal (`ApiError`). Kode yang belum dikenal tetap diteruskan untuk catatan. */
@@ -339,7 +458,5 @@ function parseJson(text: string): unknown {
 }
 
 function parseEvent(data: unknown): StreamEvent | null {
-  if (typeof data !== 'string') return null;
-  const parsed = streamEventSchema.safeParse(parseJson(data));
-  return parsed.success ? parsed.data : null;
+  return typeof data === 'string' ? parseEventLenient(parseJson(data)) : null;
 }

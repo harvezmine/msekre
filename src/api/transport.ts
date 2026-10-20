@@ -3,12 +3,15 @@ import type {
   AuthStartRes,
   AuthVerifyReq,
   AuthVerifyRes,
-  DeviceRegisterReq,
+  DeviceCard,
+  DeviceControlReq,
   Draft,
   DraftActionReq,
   Me,
   Message,
   MessagesPage,
+  MessagesSincePage,
+  PushTokenReq,
   SendMessageReq,
   StreamEvent,
 } from './contract';
@@ -21,9 +24,22 @@ import type { DataMode } from './mode';
  * - `timeout`: server tidak menjawab dalam batas waktu;
  * - `unauthorized`: sesi tidak ada atau ditolak server (401). Sesi sudah dihapus saat error ini dilempar;
  * - `kode_salah`: kode masuk salah;
+ * - `blocked`: akun dinonaktifkan atau diblokir (403 `diblokir`); sesi tidak dihapus;
+ * - `rate_limited`: terlalu sering (429 `terlalu_sering`); `retryInSec` kalau server menyebutnya;
+ * - `upgrade_required`: versi aplikasi terlalu lama (426 `perlu_pembaruan`);
+ * - `unavailable`: jalur belum diisi server (501 `belum_tersedia`);
  * - `server`: kendala lain, termasuk jawaban server yang bentuknya tidak sesuai kontrak.
  */
-export type FailureCode = 'network' | 'timeout' | 'unauthorized' | 'kode_salah' | 'server';
+export type FailureCode =
+  | 'network'
+  | 'timeout'
+  | 'unauthorized'
+  | 'kode_salah'
+  | 'blocked'
+  | 'rate_limited'
+  | 'upgrade_required'
+  | 'unavailable'
+  | 'server';
 
 export class ApiFailure extends Error {
   readonly code: FailureCode;
@@ -31,8 +47,13 @@ export class ApiFailure extends Error {
   readonly status?: number;
   /** Kode `error` dari isi jawaban server (`ApiError`), kalau ada. Contoh: `status_draf` untuk aksi draf yang telat. */
   readonly error?: string;
+  /** Detik sampai boleh mencoba lagi (429 `terlalu_sering`). */
+  readonly retryInSec?: number;
 
-  constructor(code: FailureCode, details: { status?: number; error?: string; cause?: unknown } = {}) {
+  constructor(
+    code: FailureCode,
+    details: { status?: number; error?: string; retryInSec?: number; cause?: unknown } = {},
+  ) {
     super(`api:${code}${details.status ? ` ${details.status}` : ''}${details.error ? ` ${details.error}` : ''}`, {
       cause: details.cause,
     });
@@ -40,6 +61,7 @@ export class ApiFailure extends Error {
     this.code = code;
     this.status = details.status;
     this.error = details.error;
+    this.retryInSec = details.retryInSec;
   }
 }
 
@@ -59,9 +81,11 @@ export type ConnectionStatus = 'connecting' | 'open' | 'closed';
  * Sumber gambar untuk media (`mediaId` di bagian `image`, `document`, `audio`, dan kartu `qris`).
  * - `uri`: unduh dari `uri` dengan `headers` (token), misalnya `<Image source={{ uri, headers }} />`;
  * - `sampleQr`: hanya dari server tiruan. Tidak ada berkas; layar menggambar pola QR contoh (`qrPattern`) dengan SVG,
- *   seperti `QrisCard` di Fase 0b.
+ *   seperti `QrisCard` di Fase 0b;
+ * - `sampleFile`: hanya dari server tiruan. Dokumen contoh tanpa berkas; layar memberi tahu bahwa ini contoh.
  */
-export type MediaSource = { kind: 'uri'; uri: string; headers: Record<string, string> } | { kind: 'sampleQr' };
+export type MediaSource =
+  { kind: 'uri'; uri: string; headers: Record<string, string> } | { kind: 'sampleQr' } | { kind: 'sampleFile' };
 
 export type Unsubscribe = () => void;
 
@@ -82,23 +106,35 @@ export interface Transport {
   /** Keluar. Sesi selalu dihapus, juga saat server tidak terjangkau; tidak pernah gagal. */
   logout(): Promise<void>;
   me(): Promise<Me>;
-  /** Satu halaman riwayat, dari yang terbaru. Tanpa `before`: halaman terbaru. */
-  messages(before?: string): Promise<MessagesPage>;
+  /**
+   * Satu halaman riwayat, dari yang terbaru. Tanpa `before` (atau `before` = seq yang tidak ada lagi): halaman
+   * terbaru. `before` di hasilnya dipakai untuk halaman yang lebih lama.
+   */
+  messages(before?: number): Promise<MessagesPage>;
+  /** Pesan dengan `seq` lebih besar dari `after`, dari yang terlama; `more` = ulangi dengan seq terakhir. Untuk resync. */
+  messagesAfter(after: number): Promise<MessagesSincePage>;
   /** Kirim pesan pengguna; hasilnya pesan yang tersimpan. Balasan asisten datang lewat `subscribe`. */
   send(req: SendMessageReq): Promise<Message>;
   draftAction(id: string, req: DraftActionReq): Promise<Draft>;
-  registerDevice(req: DeviceRegisterReq): Promise<void>;
+  /** Daftarkan token notifikasi HP (`POST /push-tokens`). */
+  registerPushToken(req: PushTokenReq): Promise<void>;
+  /** Atur perangkat rumah dari kartu (`POST /home/devices/:id`). Fase 3; sebelum itu `unavailable`. */
+  controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard>;
   /** Cara menampilkan media `mediaId`, dengan header token untuk server asli. */
   mediaUrl(mediaId: string): Promise<MediaSource>;
   /**
    * Dengarkan event utas. `onStatus` langsung dipanggil dengan status sekarang, lalu tiap kali berubah. `onResync`
-   * dipanggil setelah tersambung lagi sesudah putus: saatnya mengambil pesan yang terlewat lewat `messages()`. Satu
-   * koneksi dipakai bersama semua pendengar; koneksi ditutup saat pendengar terakhir berhenti.
+   * dipanggil SETIAP kali koneksi terbuka (juga yang pertama), dengan `lastSeq` = seq terbesar yang sudah diterima
+   * transport lewat stream dan `messages()` / `messagesAfter()` (`undefined` kalau belum ada): saatnya mengambil pesan
+   * yang terlewat lewat `messagesAfter(lastSeq)` (atau `messages()` kalau `lastSeq` kosong) dan menggabungkannya
+   * berdasarkan `id`. Event `thinking` yang terlewat tidak bisa diambil: kosongkan himpunan `runId` aktif saat resync.
+   * Satu koneksi dipakai bersama semua pendengar; koneksi ditutup saat pendengar terakhir berhenti.
+   * Satu pendengar yang melempar error tidak menghentikan pendengar lain.
    */
   subscribe(
     onEvent: (event: StreamEvent) => void,
     onStatus: (status: ConnectionStatus) => void,
-    onResync?: () => void,
+    onResync?: (lastSeq: number | undefined) => void,
   ): Unsubscribe;
   /**
    * Hentikan koneksi dan timer milik transport ini, misalnya saat mode data diganti. Pendengar menerima status

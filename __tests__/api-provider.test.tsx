@@ -42,6 +42,9 @@ test('bawaannya contoh dengan server tiruan; sesinya di kunci sendiri', async ()
   expect(api().transport).toBeInstanceOf(FakeTransport);
   expect(api().canUseServer).toBe(false);
 
+  const started = api().transport.authStart({ phone: '6281220457781' });
+  await jest.advanceTimersByTimeAsync(FAKE_LATENCY_MS);
+  await started;
   const verifying = api().transport.authVerify({ phone: '6281220457781', code: '123456' });
   await jest.advanceTimersByTimeAsync(FAKE_LATENCY_MS);
   await verifying;

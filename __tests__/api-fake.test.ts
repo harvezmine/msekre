@@ -1,6 +1,6 @@
 import {
-  clockSchema,
   HELD_MINUTES,
+  isoDateTimeSchema,
   messageSchema,
   meSchema,
   streamEventSchema,
@@ -37,19 +37,22 @@ function setup(options: FakeOptions & { token?: string | null } = {}) {
 const after = (ms: number) => jest.advanceTimersByTimeAsync(ms);
 const textOf = (m: Message) => m.parts.flatMap((p) => (p.type === 'text' ? [p.text] : [])).join(' ');
 const cardOf = (m: Message): Card | undefined => m.parts.find((p) => p.type === 'card')?.card;
+const messagesOf = (events: StreamEvent[]) => events.flatMap((e) => (e.type === 'message' ? [e.message] : []));
 const assistantMessages = (events: StreamEvent[]) =>
   events.flatMap((e) => (e.type === 'message' && e.message.from === 'assistant' ? [e.message] : []));
 
 let clientSeq = 0;
 
 /** Kirim teks, tunggu jawabannya, dan kembalikan pesan asisten yang datang. */
-async function ask(t: ReturnType<typeof setup>, text: string, choiceId?: string) {
+async function ask(t: ReturnType<typeof setup>, text: string, choice?: { messageId: string; choiceId: string }) {
   const from = t.events.length;
-  await (choiceId
-    ? t.transport.send({ clientId: `c-${++clientSeq}`, choiceId, choiceTitle: text })
-    : t.transport.send({ clientId: `c-${++clientSeq}`, text }));
+  const known = new Set(messagesOf(t.events).map((m) => m.id));
+  await (choice
+    ? t.transport.send({ kind: 'choice', clientId: `c-${++clientSeq}`, ...choice })
+    : t.transport.send({ kind: 'text', clientId: `c-${++clientSeq}`, text }));
   await after(THINK_MS);
-  return assistantMessages(t.events.slice(from));
+  // Upsert pesan lama (misalnya pilihan yang diambil) bukan balasan baru.
+  return assistantMessages(t.events.slice(from)).filter((m) => !known.has(m.id));
 }
 
 describe('riwayat contoh', () => {
@@ -77,6 +80,7 @@ describe('riwayat contoh', () => {
   test('halaman lama lewat before', async () => {
     const history: Message[] = Array.from({ length: 70 }, (_, i) => ({
       id: `p${i}`,
+      seq: i + 1,
       at: new Date(SAMPLE_NOW + i * 60_000).toISOString(),
       from: i % 2 ? 'assistant' : 'user',
       via: 'app',
@@ -85,14 +89,15 @@ describe('riwayat contoh', () => {
     const { transport } = setup({ history });
     const first = await transport.messages();
     expect(first.items.map((m) => m.id)).toEqual(Array.from({ length: 30 }, (_, i) => `p${69 - i}`));
-    expect(first.before).toBe('p40');
+    expect(first.before).toBe(41);
     const second = await transport.messages(first.before!);
     expect(second.items[0]!.id).toBe('p39');
-    expect(second.before).toBe('p10');
+    expect(second.before).toBe(11);
     const third = await transport.messages(second.before!);
     expect(third.items.map((m) => m.id)).toEqual(Array.from({ length: 10 }, (_, i) => `p${9 - i}`));
     expect(third.before).toBeNull();
-    await expect(transport.messages('tidak-ada')).rejects.toMatchObject({ code: 'server', error: 'tidak_valid' });
+    // `before` yang tidak ada (misalnya setelah memory_forget): halaman terbaru, bukan error.
+    expect(await transport.messages(9999)).toEqual(first);
   });
 });
 
@@ -129,6 +134,7 @@ describe('masuk', () => {
     await expect(t.transport.me()).rejects.toMatchObject({ code: 'unauthorized', status: 401, error: 'tidak_masuk' });
     await expect(t.transport.mediaUrl(SAMPLE_QR_MEDIA_ID)).rejects.toMatchObject({ code: 'unauthorized' });
 
+    await t.transport.authStart({ phone: '628122045' });
     await t.transport.authVerify({ phone: '628122045', code: '123456' });
     await after(0);
     expect(t.last()).toBe('open');
@@ -158,7 +164,7 @@ describe('kirim pesan', () => {
     t.listen();
     expect(t.statuses).toEqual(['closed', 'open']);
 
-    const saved = await t.transport.send({ clientId: 'c1', text: '  Halo Nadia  ' });
+    const saved = await t.transport.send({ kind: 'text', clientId: 'c1', text: '  Halo Nadia  ' });
     expect(saved).toMatchObject({
       clientId: 'c1',
       from: 'user',
@@ -171,7 +177,7 @@ describe('kirim pesan', () => {
     await after(0);
     expect(t.events).toEqual([
       { type: 'message', message: saved },
-      { type: 'thinking', on: true },
+      { type: 'thinking', runId: expect.any(String), on: true },
     ]);
     await after(THINK_MS - 1);
     expect(t.events).toHaveLength(2);
@@ -179,7 +185,7 @@ describe('kirim pesan', () => {
     expect(t.events).toHaveLength(4);
     expect(t.events[2]).toMatchObject({ type: 'message', message: { from: 'assistant', via: 'app' } });
     expect(textOf((t.events[2] as { message: Message }).message)).toBe(SAMPLE_REPLY);
-    expect(t.events[3]).toEqual({ type: 'thinking', on: false });
+    expect(t.events[3]).toEqual({ type: 'thinking', runId: (t.events[1] as { runId: string }).runId, on: false });
     for (const e of t.events) expect(streamEventSchema.safeParse(e).success).toBe(true);
 
     const page = await t.transport.messages();
@@ -192,10 +198,10 @@ describe('kirim pesan', () => {
   test('clientId yang sama tidak membuat pesan baru', async () => {
     const t = setup();
     t.listen();
-    const a = await t.transport.send({ clientId: 'c1', text: 'Halo' });
+    const a = await t.transport.send({ kind: 'text', clientId: 'c1', text: 'Halo' });
     await after(THINK_MS);
     const count = t.events.length;
-    const b = await t.transport.send({ clientId: 'c1', text: 'Halo' });
+    const b = await t.transport.send({ kind: 'text', clientId: 'c1', text: 'Halo' });
     await after(THINK_MS * 2);
     expect(b).toEqual(a);
     expect(t.events).toHaveLength(count);
@@ -203,13 +209,15 @@ describe('kirim pesan', () => {
 
   test('isi yang tidak sesuai kontrak ditolak', async () => {
     const { transport } = setup();
-    await expect(transport.send({ clientId: 'c1', text: '   ' })).rejects.toMatchObject({ error: 'tidak_valid' });
+    await expect(transport.send({ kind: 'text', clientId: 'c1', text: '   ' })).rejects.toMatchObject({
+      error: 'tidak_valid',
+    });
   });
 
   test('jeda request tiruan', async () => {
     const { transport } = setup({ latencyMs: 300 });
     let saved: Message | undefined;
-    void transport.send({ clientId: 'c1', text: 'Halo' }).then((m) => (saved = m));
+    void transport.send({ kind: 'text', clientId: 'c1', text: 'Halo' }).then((m) => (saved = m));
     await after(299);
     expect(saved).toBeUndefined();
     await after(1);
@@ -219,7 +227,7 @@ describe('kirim pesan', () => {
   test('dispose menghentikan jawaban yang dijadwalkan', async () => {
     const t = setup();
     t.listen();
-    await t.transport.send({ clientId: 'c1', text: 'Halo' });
+    await t.transport.send({ kind: 'text', clientId: 'c1', text: 'Halo' });
     t.transport.dispose();
     await after(THINK_MS * 2);
     expect(t.events).toEqual([]);
@@ -273,15 +281,16 @@ describe('kata kunci', () => {
       ],
     });
 
-    const [qris] = await ask(t, 'Ya, benar', 'ya');
+    const [qris] = await ask(t, 'Ya, benar', { messageId: pay!.id, choiceId: 'ya' });
     const card = cardOf(qris!);
     expect(card).toMatchObject({ kind: 'qris', amountRp: 50000, mediaId: SAMPLE_QR_MEDIA_ID });
-    expect(card?.kind === 'qris' && clockSchema.safeParse(card.until).success).toBe(true);
+    expect(card?.kind === 'qris' && isoDateTimeSchema.safeParse(card.until).success).toBe(true);
+    expect(card).toMatchObject({ status: 'menunggu' });
     expect(await t.transport.mediaUrl(SAMPLE_QR_MEDIA_ID)).toEqual({ kind: 'sampleQr' });
     await expect(t.transport.mediaUrl('lain')).rejects.toMatchObject({ error: 'tidak_ditemukan' });
 
-    await ask(t, 'token 20rb');
-    const [cancelled] = await ask(t, 'Batal', 'batal');
+    const [pay2] = await ask(t, 'token 20rb');
+    const [cancelled] = await ask(t, 'Batal', { messageId: pay2!.id, choiceId: 'batal' });
     expect(textOf(cancelled!)).toBe(PAYMENT_CANCELLED);
   });
 
@@ -310,9 +319,9 @@ describe('draf', () => {
     expect(held).toMatchObject({
       id: BUDI_DRAFT_ID,
       status: 'held',
-      heldUntil: hhmmWib(SAMPLE_NOW + HELD_MINUTES * 60_000),
+      heldUntil: new Date(SAMPLE_NOW + HELD_MINUTES * 60_000).toISOString(),
     });
-    expect(held.heldUntil).toBe('10.47');
+    expect(hhmmWib(Date.parse(held.heldUntil!))).toBe('10.47');
     await expect(t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' })).rejects.toMatchObject({
       status: 409,
       error: 'status_draf',
@@ -322,9 +331,13 @@ describe('draf', () => {
     });
 
     await after(HELD_MINUTES * 60_000 - 1);
-    expect(t.events).toEqual([]);
+    // Aksi dari aplikasi ini juga disiarkan (ke koneksi lain), lalu perubahan karena waktu.
+    expect(t.events).toEqual([{ type: 'draft', draft: held }]);
     await after(1);
-    expect(t.events).toEqual([{ type: 'draft', draft: { ...held, status: 'sent' } }]);
+    expect(t.events).toEqual([
+      { type: 'draft', draft: held },
+      { type: 'draft', draft: { ...held, status: 'sent' } },
+    ]);
 
     // Riwayat membawa keadaan draf yang terbaru.
     const card = (await t.transport.messages()).items.map(cardOf).find((c) => c?.kind === 'draft');
@@ -344,7 +357,8 @@ describe('draf', () => {
     await after(60_000);
     expect(await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'cancel' })).toMatchObject({ status: 'cancelled' });
     await after(HELD_MINUTES * 60_000);
-    expect(t.events).toEqual([]);
+    // Hanya siaran `send` dan `cancel`; tidak ada `sent`.
+    expect(t.events.map((e) => (e.type === 'draft' ? e.draft.status : e.type))).toEqual(['held', 'cancelled']);
   });
 
   test('edit dari draf, draf tidak dikenal, dan aksi tidak sah', async () => {
@@ -378,17 +392,20 @@ describe('putus sambung', () => {
     t.listen();
     t.transport.drop();
     expect(t.last()).toBe('connecting');
-    await expect(t.transport.send({ clientId: 'c1', text: 'Halo' })).rejects.toMatchObject({ code: 'network' });
+    await expect(t.transport.send({ kind: 'text', clientId: 'c1', text: 'Halo' })).rejects.toMatchObject({
+      code: 'network',
+    });
     const wa = t.transport.receive({ from: 'user', via: 'whatsapp', parts: [{ type: 'text', text: 'Dari WA' }] });
     expect(t.events).toEqual([]);
 
+    expect(t.resyncs()).toBe(1); // pembukaan pertama
     t.transport.restore();
     expect(t.last()).toBe('open');
-    expect(t.resyncs()).toBe(1);
+    expect(t.resyncs()).toBe(2);
     expect((await t.transport.messages()).items[0]).toEqual(wa);
 
     // Coba lagi dengan clientId yang sama setelah tersambung.
-    expect(await t.transport.send({ clientId: 'c1', text: 'Halo' })).toMatchObject({ clientId: 'c1' });
+    expect(await t.transport.send({ kind: 'text', clientId: 'c1', text: 'Halo' })).toMatchObject({ clientId: 'c1' });
   });
 
   test('putus sebentar lalu tersambung sendiri', async () => {
@@ -399,27 +416,29 @@ describe('putus sambung', () => {
     expect(t.last()).toBe('connecting');
     await after(1);
     expect(t.last()).toBe('open');
-    // Seperti server asli: setiap kali tersambung lagi, pesan yang mungkin terlewat diambil ulang.
-    expect(t.resyncs()).toBe(1);
+    // Seperti server asli: setiap kali terbuka (juga yang pertama), pesan yang mungkin terlewat diambil ulang.
+    expect(t.resyncs()).toBe(2);
   });
 
   test('jawaban yang datang saat putus diambil lewat resync', async () => {
     const t = setup();
     t.listen();
-    await t.transport.send({ clientId: 'c1', text: 'Halo' });
+    await t.transport.send({ kind: 'text', clientId: 'c1', text: 'Halo' });
     t.transport.drop();
     await after(THINK_MS);
     expect(t.events).toEqual([]);
     t.transport.restore();
-    expect(t.resyncs()).toBe(1);
+    expect(t.resyncs()).toBe(2);
     expect(textOf((await t.transport.messages()).items[0]!)).toBe(SAMPLE_REPLY);
   });
 
   test('gagal sekali lalu berhasil', async () => {
     const { transport } = setup();
     transport.failNext('timeout');
-    await expect(transport.send({ clientId: 'c1', text: 'Halo' })).rejects.toMatchObject({ code: 'timeout' });
-    expect(await transport.send({ clientId: 'c1', text: 'Halo' })).toMatchObject({ clientId: 'c1' });
+    await expect(transport.send({ kind: 'text', clientId: 'c1', text: 'Halo' })).rejects.toMatchObject({
+      code: 'timeout',
+    });
+    expect(await transport.send({ kind: 'text', clientId: 'c1', text: 'Halo' })).toMatchObject({ clientId: 'c1' });
   });
 
   test('pendengar terakhir pergi: stream tertutup; datang lagi: terbuka', () => {
@@ -435,11 +454,11 @@ describe('putus sambung', () => {
   });
 });
 
-test('pendaftaran perangkat notifikasi hanya dicatat', async () => {
+test('pendaftaran token notifikasi hanya dicatat', async () => {
   const { transport } = setup();
-  await transport.registerDevice({ pushToken: 'ExponentPushToken[x]', platform: 'android' });
-  expect(transport.registeredDevices).toEqual([{ pushToken: 'ExponentPushToken[x]', platform: 'android' }]);
-  await expect(transport.registerDevice({ pushToken: '', platform: 'android' })).rejects.toMatchObject({
+  await transport.registerPushToken({ pushToken: 'ExponentPushToken[x]', platform: 'android' });
+  expect(transport.registeredPushTokens).toEqual([{ pushToken: 'ExponentPushToken[x]', platform: 'android' }]);
+  await expect(transport.registerPushToken({ pushToken: '', platform: 'android' })).rejects.toMatchObject({
     error: 'tidak_valid',
   });
 });

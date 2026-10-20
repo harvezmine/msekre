@@ -3,21 +3,26 @@ import { THINK_MS } from '@/sample/chat';
 import {
   authStartReqSchema,
   authVerifyReqSchema,
-  deviceRegisterReqSchema,
+  deviceControlReqSchema,
   draftActionReqSchema,
   HELD_MINUTES,
   MESSAGES_LIMIT,
+  MESSAGES_LIMIT_MAX,
+  pushTokenReqSchema,
   sendMessageReqSchema,
   type AuthStartReq,
   type AuthStartRes,
   type AuthVerifyReq,
   type AuthVerifyRes,
-  type DeviceRegisterReq,
+  type DeviceCard,
+  type DeviceControlReq,
   type Draft,
   type DraftActionReq,
   type Me,
   type Message,
   type MessagesPage,
+  type MessagesSincePage,
+  type PushTokenReq,
   type SendMessageReq,
   type StreamEvent,
 } from '../contract';
@@ -32,7 +37,7 @@ import {
   type Unsubscribe,
 } from '../transport';
 import { FakeClock } from './clock';
-import { SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
+import { SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
 import { FakeScenario, sampleMe } from './scenario';
 
 /** Jeda minta kode lagi di server tiruan. */
@@ -50,9 +55,11 @@ export interface FakeOptions {
    * tidak, karena mode contoh tidak memaksa masuk.
    */
   requireSession?: boolean;
-  /** Riwayat awal, dari yang terlama. Bawaan utas contoh 0b. */
+  /** Riwayat awal, dari yang terlama, dengan `seq` naik. Bawaan utas contoh 0b. */
   history?: Message[];
   clock?: FakeClock;
+  /** Paling banyak pesan per `messagesAfter`, supaya `more` bisa dicoba. Bawaan batas kontrak. */
+  afterLimit?: number;
 }
 
 type Timer = ReturnType<typeof setTimeout>;
@@ -62,6 +69,7 @@ const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const invalid = (cause?: unknown) => new ApiFailure('server', { status: 400, error: 'tidak_valid', cause });
 const notFound = () => new ApiFailure('server', { status: 404, error: 'tidak_ditemukan' });
 const wrongStatus = () => new ApiFailure('server', { status: 409, error: 'status_draf' });
+const alreadyChosen = () => new ApiFailure('server', { status: 409, error: 'sudah_dipilih' });
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
@@ -71,48 +79,60 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
 
 /**
  * Server tiruan di memori, memenuhi kontrak dan aturan perilaku yang sama dengan server asli (lihat contract.ts):
- * - `authStart` menerima nomor E.164 apa pun (minimal 9 digit); `authVerify` menerima kode 6 angka apa pun kecuali
- *   {@link FAKE_WRONG_CODE};
- * - riwayat awal dari utas contoh 0b;
- * - `send` menyimpan pesan, lalu stream mengirim pesan itu, `thinking on`, jawaban setelah `thinkMs`, dan
- *   `thinking off`. Jawabannya dari {@link FakeScenario};
- * - draf `send` → `held` → `sent` setelah {@link HELD_MINUTES} menit, `cancel` hanya dari `held`.
+ * - `authStart` menerima nomor E.164 apa pun (minimal 9 digit) tapi membalas 429 `terlalu_sering` (dengan
+ *   `retryInSec`) kalau diulang sebelum {@link FAKE_RESEND_SEC} detik; `authVerify` menerima kode 6 angka apa pun
+ *   kecuali {@link FAKE_WRONG_CODE}, dan hanya untuk nomor yang sudah `authStart` (selain itu `kode_salah`);
+ * - riwayat awal dari utas contoh 0b; setiap pesan punya `seq`, dibaca lewat `messages(before)` / `messagesAfter`;
+ * - `send` menyimpan pesan, lalu stream mengirim pesan itu, `thinking on` (dengan `runId`), jawaban setelah `thinkMs`,
+ *   dan `thinking off`. Jawabannya dari {@link FakeScenario}. Pilihan (`kind: 'choice'`) divalidasi terhadap pesan
+ *   `messageId`, judulnya diambil dari sana, dan pesan itu di-upsert dengan `chosenId`;
+ * - draf `send` → `held` → `sent` (atau `failed`, lihat {@link failHeldSends}) setelah {@link HELD_MINUTES} menit,
+ *   `cancel` hanya dari `held`, `discard` hanya dari `draft`. Setiap perubahan disiarkan lewat event `draft`;
+ * - QRIS `menunggu` menjadi `kedaluwarsa` saat `until` lewat, atau `lunas` lewat {@link payQris}, keduanya lewat
+ *   upsert pesan (event `message` dengan `id` dan `seq` yang sama).
  *
  * Untuk tes dan menu Coba ada kendali tambahan: {@link drop} / {@link restore} (putus sambung), {@link failNext},
- * {@link revokeSession}, dan {@link receive} (pesan masuk dari luar aplikasi, misalnya WhatsApp).
+ * {@link revokeSession}, {@link receive} (pesan masuk dari luar aplikasi, misalnya WhatsApp), {@link payQris}, dan
+ * {@link failHeldSends}.
  */
 export class FakeTransport implements Transport {
   readonly mode = 'contoh' as const;
-  /** Setiap pendaftaran perangkat notifikasi, dari yang pertama. Hanya dicatat, tidak dikirim ke mana pun. */
-  readonly registeredDevices: DeviceRegisterReq[] = [];
+  /** Setiap pendaftaran token notifikasi, dari yang pertama. Hanya dicatat, tidak dikirim ke mana pun. */
+  readonly registeredPushTokens: PushTokenReq[] = [];
 
   private readonly clock: FakeClock;
   private readonly scenario: FakeScenario;
   private readonly thinkMs: number;
   private readonly latencyMs: number;
   private readonly requireSession: boolean;
+  private readonly afterLimit: number;
   private readonly meValue: Me;
 
-  /** Utas, dari yang terlama. Kartu draf di sini bisa usang; keadaan terbaru ada di `drafts`. */
+  /** Utas, dari yang terlama (juga urutan `seq`). Kartu draf di sini bisa usang; keadaan terbaru ada di `drafts`. */
   private readonly thread: Message[] = [];
   private readonly drafts = new Map<string, Draft>();
-  private readonly byClientId = new Map<string, Message>();
+  /** `clientId` → id pesan, untuk kirim ulang yang aman. */
+  private readonly byClientId = new Map<string, string>();
   private readonly holds = new Map<string, Timer>();
+  private readonly qrisExpiry = new Map<string, Timer>();
   private readonly timers = new Set<Timer>();
+  /** Nomor yang sudah meminta kode: kapan (ms jam tiruan). */
+  private readonly codeRequests = new Map<string, number>();
+  /** Request yang sedang berjalan; `dispose` menolaknya supaya tidak menggantung. */
+  private readonly pending = new Set<(e: ApiFailure) => void>();
   private readonly hub = new StreamHub({
     start: () => this.connect(),
-    stop: () => {
-      this.missed = false;
-      this.hub.setStatus('closed');
-    },
+    stop: () => this.hub.setStatus('closed'),
   });
   private readonly failures: SimulatedFailure[] = [];
   private offline = false;
   private restoreTimer: Timer | null = null;
   private revoked = false;
-  /** Ada event yang tidak sampai ke pendengar (stream tidak terbuka): setelah tersambung, minta resync. */
-  private missed = false;
-  private seq = 0;
+  private failHeld = false;
+  /** Pencacah untuk id pesan, token, dan runId. */
+  private counter = 0;
+  /** `seq` pesan terakhir. */
+  private msgSeq = 0;
 
   constructor(
     private readonly session: Session,
@@ -123,15 +143,27 @@ export class FakeTransport implements Transport {
     this.thinkMs = options.thinkMs ?? THINK_MS;
     this.latencyMs = options.latencyMs ?? 0;
     this.requireSession = options.requireSession ?? false;
+    this.afterLimit = options.afterLimit ?? MESSAGES_LIMIT_MAX;
     this.meValue = sampleMe(this.clock);
-    for (const message of copy(options.history ?? sampleHistory())) this.store(message);
+    for (const message of copy(options.history ?? sampleHistory())) {
+      this.msgSeq = Math.max(this.msgSeq, message.seq);
+      this.store(message);
+    }
   }
 
   // ---- Jalur kontrak ----
 
   authStart(req: AuthStartReq): Promise<AuthStartRes> {
     return this.call(false, () => {
-      parse(authStartReqSchema, req);
+      const { phone } = parse(authStartReqSchema, req);
+      const last = this.codeRequests.get(phone);
+      if (last !== undefined) {
+        const left = Math.ceil((last + FAKE_RESEND_SEC * 1000 - this.clock.now()) / 1000);
+        if (left > 0) {
+          throw new ApiFailure('rate_limited', { status: 429, error: 'terlalu_sering', retryInSec: left });
+        }
+      }
+      this.codeRequests.set(phone, this.clock.now());
       return { resendInSec: FAKE_RESEND_SEC };
     });
   }
@@ -139,8 +171,12 @@ export class FakeTransport implements Transport {
   authVerify(req: AuthVerifyReq): Promise<AuthVerifyRes> {
     return this.call(false, async () => {
       const { phone, code } = parse(authVerifyReqSchema, req);
-      if (code === FAKE_WRONG_CODE) throw new ApiFailure('kode_salah', { status: 400, error: 'kode_salah' });
-      const token = `contoh-${phone}-${++this.seq}`;
+      if (code === FAKE_WRONG_CODE || !this.codeRequests.has(phone)) {
+        throw new ApiFailure('kode_salah', { status: 400, error: 'kode_salah' });
+      }
+      // Kode sudah terpakai: masuk berikutnya perlu meminta kode lagi.
+      this.codeRequests.delete(phone);
+      const token = `contoh-${phone}-${++this.counter}`;
       this.revoked = false;
       await this.session.set(token);
       if (this.hub.active && this.hub.status !== 'open') this.connect();
@@ -157,19 +193,27 @@ export class FakeTransport implements Transport {
     return this.call(true, () => copy(this.meValue));
   }
 
-  messages(before?: string): Promise<MessagesPage> {
+  messages(before?: number): Promise<MessagesPage> {
     return this.call(true, () => {
-      let end = this.thread.length;
-      if (before !== undefined) {
-        end = this.thread.findIndex((m) => m.id === before);
-        if (end < 0) throw invalid();
-      }
+      // `before` yang tidak ada di utas (misalnya setelah memory_forget) memberi halaman terbaru, bukan error.
+      const at = before === undefined ? -1 : this.thread.findIndex((m) => m.seq === before);
+      const end = at < 0 ? this.thread.length : at;
       const start = Math.max(0, end - MESSAGES_LIMIT);
       const items = this.thread
         .slice(start, end)
         .reverse()
         .map((m) => this.present(m));
-      return { items, before: start > 0 ? items[items.length - 1]!.id : null };
+      if (at < 0) for (const m of items) this.hub.noteSeq(m.seq);
+      return { items, before: start > 0 ? items[items.length - 1]!.seq : null };
+    });
+  }
+
+  messagesAfter(after: number): Promise<MessagesSincePage> {
+    return this.call(true, () => {
+      const newer = this.thread.filter((m) => m.seq > after);
+      const items = newer.slice(0, this.afterLimit).map((m) => this.present(m));
+      for (const m of items) this.hub.noteSeq(m.seq);
+      return { items, more: newer.length > items.length };
     });
   }
 
@@ -177,26 +221,55 @@ export class FakeTransport implements Transport {
     return this.call(true, () => {
       const parsed = parse(sendMessageReqSchema, req);
       const known = this.byClientId.get(parsed.clientId);
-      if (known) return this.present(known);
-      const text = 'text' in parsed ? parsed.text : parsed.choiceTitle;
-      const choiceId = 'choiceId' in parsed ? parsed.choiceId : undefined;
+      const knownMessage = known === undefined ? undefined : this.thread.find((m) => m.id === known);
+      if (knownMessage) return this.present(knownMessage);
+
+      let text: string;
+      let choiceId: string | undefined;
+      let chosenIn: string | undefined;
+      if (parsed.kind === 'text') {
+        text = parsed.text;
+      } else {
+        const source = this.thread.find((m) => m.id === parsed.messageId);
+        if (!source) throw notFound();
+        const choices = source.parts.find((p) => p.type === 'choices');
+        if (choices?.type !== 'choices') throw invalid();
+        const choice = choices.choices.find((c) => c.id === parsed.choiceId);
+        if (!choice) throw invalid();
+        if (choices.chosenId !== undefined) throw alreadyChosen();
+        // Judul dari pilihan tersimpan, bukan dari klien.
+        text = choice.title;
+        choiceId = choice.id;
+        chosenIn = source.id;
+      }
+
       const message = this.store({
         id: this.nextId(),
+        seq: ++this.msgSeq,
         clientId: parsed.clientId,
         at: this.clock.iso(),
         from: 'user',
         via: 'app',
         parts: [{ type: 'text', text }],
       });
+      let chosen: Message | null = null;
+      if (chosenIn !== undefined) {
+        chosen = this.replace(chosenIn, (m) => ({
+          ...m,
+          parts: m.parts.map((p) => (p.type === 'choices' ? { ...p, chosenId: choiceId } : p)),
+        }));
+      }
+      const runId = `r-contoh-${++this.counter}`;
       this.later(0, () => {
         this.emit({ type: 'message', message: this.present(message) });
-        this.emit({ type: 'thinking', on: true });
+        if (chosen) this.emit({ type: 'message', message: chosen });
+        this.emit({ type: 'thinking', runId, on: true });
       });
       this.later(this.thinkMs, () => {
         const reply = this.scenario.reply({ text, choiceId });
         for (const draft of reply.drafts) this.drafts.set(draft.id, draft);
         for (const parts of reply.messages) this.receive({ from: 'assistant', via: 'app', parts });
-        this.emit({ type: 'thinking', on: false });
+        this.emit({ type: 'thinking', runId, on: false });
       });
       return this.present(message);
     });
@@ -211,13 +284,16 @@ export class FakeTransport implements Transport {
       switch (action.action) {
         case 'send':
           if (draft.status !== 'draft') throw wrongStatus();
-          next = { ...draft, status: 'held', heldUntil: this.clock.hhmm(HELD_MINUTES) };
+          next = { ...draft, status: 'held', heldUntil: this.clock.iso(HELD_MINUTES) };
           this.hold(id);
           break;
         case 'cancel':
           if (draft.status !== 'held') throw wrongStatus();
-          this.cancelTimer(this.holds.get(id));
-          this.holds.delete(id);
+          this.endHold(id);
+          next = { ...draft, status: 'cancelled' };
+          break;
+        case 'discard':
+          if (draft.status !== 'draft') throw wrongStatus();
           next = { ...draft, status: 'cancelled' };
           break;
         case 'edit':
@@ -225,27 +301,36 @@ export class FakeTransport implements Transport {
           next = { ...draft, text: action.text };
           break;
       }
-      this.drafts.set(id, next);
+      this.changeDraft(next);
       return copy(next);
     });
   }
 
-  registerDevice(req: DeviceRegisterReq): Promise<void> {
+  registerPushToken(req: PushTokenReq): Promise<void> {
     return this.call(true, () => {
-      this.registeredDevices.push(parse(deviceRegisterReqSchema, req));
+      this.registeredPushTokens.push(parse(pushTokenReqSchema, req));
+    });
+  }
+
+  /** Kendali perangkat dari kartu adalah Fase 3: server tiruan, seperti server Fase 1b, menjawab 501. */
+  controlDevice(_deviceId: string, req: DeviceControlReq): Promise<DeviceCard> {
+    return this.call(true, (): DeviceCard => {
+      parse(deviceControlReqSchema, req);
+      throw new ApiFailure('unavailable', { status: 501, error: 'belum_tersedia' });
     });
   }
 
   async mediaUrl(mediaId: string): Promise<MediaSource> {
     await this.checkSession();
     if (mediaId === SAMPLE_QR_MEDIA_ID) return { kind: 'sampleQr' };
+    if (mediaId === SAMPLE_FILE_MEDIA_ID) return { kind: 'sampleFile' };
     throw notFound();
   }
 
   subscribe(
     onEvent: (event: StreamEvent) => void,
     onStatus: (status: ConnectionStatus) => void,
-    onResync?: () => void,
+    onResync?: (lastSeq: number | undefined) => void,
   ): Unsubscribe {
     return this.hub.add({ onEvent, onStatus, onResync });
   }
@@ -254,7 +339,12 @@ export class FakeTransport implements Transport {
     for (const t of this.timers) clearTimeout(t);
     this.timers.clear();
     this.holds.clear();
+    this.qrisExpiry.clear();
     this.restoreTimer = null;
+    // Request yang masih menunggu (jeda, atau sesi) ditolak, bukan dibiarkan menggantung.
+    const rejects = [...this.pending];
+    this.pending.clear();
+    for (const reject of rejects) reject(new ApiFailure('network', { cause: new Error('transport dilepas') }));
     this.hub.setStatus('closed');
   }
 
@@ -262,19 +352,17 @@ export class FakeTransport implements Transport {
 
   /**
    * Putuskan jaringan: stream putus (status `connecting`) dan setiap request gagal dengan kendala jaringan, sampai
-   * {@link restore}. Dengan `ms`, tersambung lagi sendiri setelah sekian milidetik.
+   * {@link restore}. Dengan `ms`, tersambung lagi sendiri setelah sekian milidetik. Event selama putus tidak sampai;
+   * setelah {@link restore} pendengar diminta resync.
    */
   drop(ms?: number) {
     this.offline = true;
-    if (this.hub.active && this.hub.status !== 'closed') {
-      this.missed = true;
-      this.hub.setStatus('connecting');
-    }
+    if (this.hub.active && this.hub.status !== 'closed') this.hub.setStatus('connecting');
     this.cancelTimer(this.restoreTimer);
     this.restoreTimer = ms === undefined ? null : this.later(ms, () => this.restore());
   }
 
-  /** Sambungkan lagi. Stream terbuka kembali dan pendengar diminta resync kalau ada event yang terlewat. */
+  /** Sambungkan lagi. Stream terbuka kembali dan pendengar diminta resync. */
   restore() {
     if (!this.offline) return;
     this.offline = false;
@@ -296,14 +384,34 @@ export class FakeTransport implements Transport {
 
   /** Pesan baru dari luar aplikasi (asisten, atau pengguna lewat WhatsApp): disimpan di utas lalu dikirim lewat stream. */
   receive(input: Pick<Message, 'from' | 'via' | 'parts'>): Message {
-    const message = this.store({ id: this.nextId(), at: this.clock.iso(), ...copy(input) });
+    const message = this.store({ id: this.nextId(), seq: ++this.msgSeq, at: this.clock.iso(), ...copy(input) });
     this.emit({ type: 'message', message: this.present(message) });
     return this.present(message);
   }
 
+  /** Pembayaran masuk: QRIS `menunggu` (`messageId`, atau yang terbaru) menjadi `lunas`, lewat upsert pesan. */
+  payQris(messageId?: string): Message | null {
+    const target = messageId ?? this.latestWaitingQris()?.id;
+    return target === undefined ? null : this.setQris(target, 'lunas');
+  }
+
+  /** Mulai sekarang, draf yang selesai ditahan menjadi `failed` (pengiriman gagal), bukan `sent`. */
+  failHeldSends(on = true) {
+    this.failHeld = on;
+  }
+
   // ---- Dalaman ----
 
-  private async call<T>(auth: boolean, run: () => T | Promise<T>): Promise<T> {
+  private call<T>(auth: boolean, run: () => T | Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this.pending.add(reject);
+      this.execute(auth, run)
+        .then(resolve, reject)
+        .finally(() => this.pending.delete(reject));
+    });
+  }
+
+  private async execute<T>(auth: boolean, run: () => T | Promise<T>): Promise<T> {
     if (this.latencyMs > 0) await new Promise<void>((resolve) => this.later(this.latencyMs, resolve));
     if (this.offline) throw new ApiFailure('network');
     const failure = this.failures.shift();
@@ -343,29 +451,38 @@ export class FakeTransport implements Transport {
     });
   }
 
+  /** Setiap koneksi yang terbuka, juga yang pertama, meminta pendengar resync. */
   private open() {
     this.hub.setStatus('open');
-    if (this.missed) {
-      this.missed = false;
-      this.hub.resync();
-    }
+    this.hub.resync();
   }
 
+  /** Kirim ke pendengar. Saat stream tidak terbuka eventnya hilang, seperti server asli; resync mengambilnya. */
   private emit(event: StreamEvent) {
     if (this.hub.status === 'open') this.hub.emit(copy(event));
-    else if (this.hub.active) this.missed = true;
   }
 
-  /** Simpan pesan di utas dan catat draf serta `clientId`-nya. */
+  /** Simpan pesan di utas dan catat draf, `clientId`, serta batas bayar QRIS-nya. */
   private store(message: Message): Message {
     this.thread.push(message);
-    if (message.clientId) this.byClientId.set(message.clientId, message);
+    if (message.clientId) this.byClientId.set(message.clientId, message.id);
     for (const part of message.parts) {
-      if (part.type !== 'card' || part.card.kind !== 'draft' || this.drafts.has(part.card.draft.id)) continue;
-      this.drafts.set(part.card.draft.id, part.card.draft);
-      if (part.card.draft.status === 'held') this.hold(part.card.draft.id);
+      if (part.type !== 'card') continue;
+      const card = part.card;
+      if (card.kind === 'qris' && card.status === 'menunggu') this.expireQrisAt(message.id, card.until);
+      if (card.kind !== 'draft' || this.drafts.has(card.draft.id)) continue;
+      this.drafts.set(card.draft.id, card.draft);
+      if (card.draft.status === 'held') this.hold(card.draft.id);
     }
     return message;
+  }
+
+  /** Ganti isi pesan `id` di tempatnya (`seq` tetap) dan kembalikan salinan untuk dikirim; `null` kalau tidak ada. */
+  private replace(id: string, update: (m: Message) => Message): Message | null {
+    const i = this.thread.findIndex((m) => m.id === id);
+    if (i < 0) return null;
+    this.thread[i] = update(this.thread[i]!);
+    return this.present(this.thread[i]!);
   }
 
   /** Salinan pesan untuk dikirim keluar, dengan kartu draf berisi keadaan draf yang terbaru. */
@@ -380,24 +497,75 @@ export class FakeTransport implements Transport {
     });
   }
 
-  /** Draf `held` menjadi `sent` setelah {@link HELD_MINUTES} menit, dikabarkan lewat event `draft`. */
+  /** Catat perubahan draf dan siarkan ke semua koneksi (juga untuk aksi dari aplikasi ini). */
+  private changeDraft(next: Draft) {
+    this.drafts.set(next.id, next);
+    this.later(0, () => this.emit({ type: 'draft', draft: next }));
+  }
+
+  /** Draf `held` menjadi `sent` (atau `failed`) setelah {@link HELD_MINUTES} menit. */
   private hold(id: string) {
-    this.cancelTimer(this.holds.get(id));
+    this.endHold(id);
     this.holds.set(
       id,
       this.later(HELD_MINUTES * 60_000, () => {
         this.holds.delete(id);
         const draft = this.drafts.get(id);
         if (draft?.status !== 'held') return;
-        const sent: Draft = { ...draft, status: 'sent' };
-        this.drafts.set(id, sent);
-        this.emit({ type: 'draft', draft: sent });
+        const done: Draft = { ...draft, status: this.failHeld ? 'failed' : 'sent' };
+        this.drafts.set(id, done);
+        this.emit({ type: 'draft', draft: done });
+      }),
+    );
+  }
+
+  private endHold(id: string) {
+    this.cancelTimer(this.holds.get(id));
+    this.holds.delete(id);
+  }
+
+  private latestWaitingQris(): Message | undefined {
+    return [...this.thread]
+      .reverse()
+      .find((m) => m.parts.some((p) => p.type === 'card' && p.card.kind === 'qris' && p.card.status === 'menunggu'));
+  }
+
+  /** QRIS `menunggu` pada pesan `id` menjadi `lunas` atau `kedaluwarsa`, lewat upsert. */
+  private setQris(id: string, status: 'lunas' | 'kedaluwarsa'): Message | null {
+    const current = this.thread.find((m) => m.id === id);
+    const waiting = current?.parts.some(
+      (p) => p.type === 'card' && p.card.kind === 'qris' && p.card.status === 'menunggu',
+    );
+    if (!waiting) return null;
+    this.cancelTimer(this.qrisExpiry.get(id));
+    this.qrisExpiry.delete(id);
+    const message = this.replace(id, (m) => ({
+      ...m,
+      parts: m.parts.map((p) =>
+        p.type === 'card' && p.card.kind === 'qris' && p.card.status === 'menunggu'
+          ? { ...p, card: { ...p.card, status } }
+          : p,
+      ),
+    }));
+    if (message) this.emit({ type: 'message', message });
+    return message;
+  }
+
+  private expireQrisAt(id: string, until: string) {
+    const wait = Date.parse(until) - this.clock.now();
+    if (!(wait > 0)) return;
+    this.cancelTimer(this.qrisExpiry.get(id));
+    this.qrisExpiry.set(
+      id,
+      this.later(wait, () => {
+        this.qrisExpiry.delete(id);
+        this.setQris(id, 'kedaluwarsa');
       }),
     );
   }
 
   private nextId(): string {
-    return `m-contoh-${++this.seq}`;
+    return `m-contoh-${++this.counter}`;
   }
 
   private later(ms: number, run: () => void): Timer {

@@ -5,6 +5,8 @@ import type { ChatEntry, Outgoing } from '@/sample/types';
 import type { Card, Choice, Draft, Message, Part } from '../contract';
 import { wibIso } from './clock';
 
+type QrisStatus = Extract<Card, { kind: 'qris' }>['status'];
+
 /**
  * Media server tiruan. Gambar QRIS tiruan tidak punya berkas: `mediaUrl` memberi `{ kind: 'sampleQr' }`, dan layar
  * menggambar pola QR contoh (`qrPattern`) dengan SVG.
@@ -59,8 +61,8 @@ export function paymentParts(amountRp: number): Part[] {
   ];
 }
 
-export function qrisCard(amountRp: number, until: string): Card {
-  return { kind: 'qris', amountRp, until, mediaId: SAMPLE_QR_MEDIA_ID };
+export function qrisCard(amountRp: number, until: string, status: QrisStatus = 'menunggu'): Card {
+  return { kind: 'qris', amountRp, until, status, mediaId: SAMPLE_QR_MEDIA_ID };
 }
 
 export function draftFromOutgoing(o: Outgoing): Draft {
@@ -71,7 +73,7 @@ export function draftFromOutgoing(o: Outgoing): Draft {
     what: o.what,
     text: o.text,
     status: o.status,
-    ...(o.status === 'draft' ? {} : { heldUntil: o.heldUntil }),
+    ...(o.status === 'draft' ? {} : { heldUntil: wibIso(10, 20, o.heldUntil) }),
   };
 }
 
@@ -110,7 +112,7 @@ function entryParts(entry: Exclude<ChatEntry, { kind: 'thinking' }>): Part[] {
     case 'token':
       return paymentParts(rupiah(entry.amount));
     case 'qris':
-      return [{ type: 'card', card: qrisCard(rupiah(entry.amount), entry.until) }];
+      return [{ type: 'card', card: qrisCard(rupiah(entry.amount), wibIso(10, 20, entry.until)) }];
   }
 }
 
@@ -132,12 +134,13 @@ const TIMES: Record<string, string> = {
 /**
  * Riwayat server tiruan, dari yang terlama: dua pesan kemarin malam lewat WhatsApp (untuk tanda "lewat WhatsApp"),
  * lalu utas contoh 0b (`initialChat`) sebagai `Message`. Teks asisten memulai pesan baru; kartu menempel ke pesan
- * asisten sebelumnya. Baris `thinking` dilewati karena itu keadaan stream, bukan pesan.
+ * asisten sebelumnya. `seq` berurutan dari 1. QRIS contoh tetap `menunggu` (bukan kedaluwarsa) supaya kartu 0b terlihat. Baris `thinking` dilewati karena itu keadaan stream, bukan pesan.
  */
 export function sampleHistory(): Message[] {
   const out: Message[] = [
     {
       id: 'h-wa1',
+      seq: 0,
       at: wibIso(10, 19, '20.15'),
       from: 'user',
       via: 'whatsapp',
@@ -145,6 +148,7 @@ export function sampleHistory(): Message[] {
     },
     {
       id: 'h-wa2',
+      seq: 0,
       at: wibIso(10, 19, '20.15'),
       from: 'assistant',
       via: 'whatsapp',
@@ -159,14 +163,22 @@ export function sampleHistory(): Message[] {
     const at = wibIso(10, 20, time);
     if (entry.kind === 'user') {
       current = null;
-      out.push({ id: `h-${entry.id}`, at, from: 'user', via: 'app', parts: [{ type: 'text', text: entry.text }] });
+      out.push({
+        id: `h-${entry.id}`,
+        seq: 0,
+        at,
+        from: 'user',
+        via: 'app',
+        parts: [{ type: 'text', text: entry.text }],
+      });
       continue;
     }
     if (entry.kind === 'assistant' || !current) {
-      current = { id: `h-${entry.id}`, at, from: 'assistant', via: 'app', parts: [] };
+      current = { id: `h-${entry.id}`, seq: 0, at, from: 'assistant', via: 'app', parts: [] };
       out.push(current);
     }
     current.parts.push(...entryParts(entry));
   }
+  out.forEach((m, i) => (m.seq = i + 1));
   return out;
 }

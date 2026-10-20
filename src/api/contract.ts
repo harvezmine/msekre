@@ -1,5 +1,5 @@
 /**
- * Kontrak API aplikasi, versi 1. File ini sumber kontrak server.
+ * Kontrak API aplikasi, versi 1 (revisi 20 Okt). File ini sumber kontrak server.
  *
  * Di Fase 1b file ini dipindah apa adanya ke milo-ai `src/appapi/contract.ts` dan menjadi sumber kebenaran; aplikasi
  * lalu menyalinnya balik lewat `npm run sync:contract`. Karena itu file ini hanya boleh bergantung pada zod: jangan
@@ -13,53 +13,94 @@
  * | POST /auth/verify              | AuthVerifyReq        | AuthVerifyRes                     |
  * | POST /auth/logout              | -                    | OkRes                             |
  * | GET  /me                       | -                    | Me                                |
- * | GET  /messages?before=&limit=  | MessagesQuery        | MessagesPage                      |
+ * | GET  /messages?before=&limit=  | MessagesQuery        | MessagesPage (terbaru dulu)       |
+ * | GET  /messages?after=&limit=   | MessagesQuery        | MessagesSincePage (terlama dulu)  |
  * | POST /messages                 | SendMessageReq       | SendMessageRes                    |
  * | POST /drafts/:id               | DraftActionReq       | DraftActionRes                    |
- * | POST /devices                  | DeviceRegisterReq    | OkRes                             |
+ * | POST /push-tokens              | PushTokenReq         | OkRes                             |
+ * | POST /home/devices/:id         | DeviceControlReq     | DeviceControlRes (Fase 3)         |
  * | GET  /media/:id                | -                    | berkasnya (gambar QRIS, dokumen)  |
- * | WS   /stream?token=<token>     | -                    | StreamEvent, satu JSON per pesan  |
+ * | WS   /stream                   | -                    | StreamEvent, satu JSON per pesan  |
+ *
+ * Header di setiap request HTTP dan di jabat tangan WebSocket: `X-App-Version` (versi aplikasi, contoh `1.0.0`) dan
+ * `X-Contract-Version` ({@link CONTRACT_VERSION}). WebSocket membawa token lewat header `Authorization: Bearer <token>`,
+ * bukan query string (query string tercatat di log proxy).
  *
  * Error: status 4xx/5xx dengan isi `ApiError` (`{ error: <kode> }`):
- * - 400 `tidak_valid`: isi request tidak sesuai skema;
- * - 400 `kode_salah`: kode masuk salah atau kedaluwarsa;
+ * - 400 `tidak_valid`: isi request tidak sesuai skema, atau `choiceId` bukan salah satu pilihan di pesan itu;
+ * - 400 `kode_salah`: kode masuk salah, kedaluwarsa, atau belum diminta;
  * - 401 `tidak_masuk`: token tidak ada, salah, atau sudah keluar. Aplikasi menghapus sesi dan kembali ke layar masuk;
- * - 404 `tidak_ditemukan`: id draf atau media tidak ada (atau milik orang lain);
+ * - 403 `diblokir`: akun dinonaktifkan atau diblokir di admin. Sesi tidak dihapus;
+ * - 404 `tidak_ditemukan`: id draf, pesan, atau media tidak ada (atau milik orang lain);
  * - 409 `status_draf`: aksi draf tidak boleh dari status sekarang (lihat aturan draf);
- * - 429 `terlalu_sering`: `auth/start` diulang sebelum `resendInSec` habis;
- * - 500 `server`: kendala lain.
+ * - 409 `sudah_dipilih`: pilihan di pesan itu sudah diambil;
+ * - 426 `perlu_pembaruan`: versi aplikasi terlalu lama (dari `X-App-Version` / `X-Contract-Version`);
+ * - 429 `terlalu_sering`: terlalu banyak permintaan, misalnya `auth/start` diulang sebelum `resendInSec` habis. Isinya
+ *   membawa `retryInSec`;
+ * - 500 `server`: kendala lain;
+ * - 501 `belum_tersedia`: jalur ada di kontrak tapi belum diisi server (kendali perangkat sebelum Fase 3).
  *
  * Aturan perilaku server:
+ * - Semua waktu memakai ISO 8601 dengan zona (`heldUntil`, `until` QRIS, `at`). Aplikasi yang memformatnya ke jam HP.
  * - `POST /messages` langsung menyimpan pesan pengguna dan mengembalikannya (dengan `clientId` yang sama). Setelah itu
- *   stream mengirim `thinking on`, lalu satu atau beberapa `message` dari asisten, lalu `thinking off`.
+ *   stream mengirim pesan itu, `thinking on` (dengan `runId`), satu atau beberapa `message` dari asisten, lalu
+ *   `thinking off` (`runId` yang sama).
+ * - Isi `POST /messages` ada dua macam, dibedakan `kind` dan tidak boleh dicampur (objek ketat): `text`
+ *   (`{ kind, clientId, text }`) dan `choice` (`{ kind, clientId, messageId, choiceId }`). Judul pilihan tidak dikirim
+ *   aplikasi: server mengambilnya dari pilihan tersimpan di pesan `messageId`, lalu menyimpan pesan pengguna berisi
+ *   satu bagian `text` dengan judul itu. `choiceId` yang tidak ada di pesan itu dibalas 400 `tidak_valid`.
  * - `clientId` dibuat aplikasi (unik per pesan). Mengirim ulang `clientId` yang sama tidak membuat pesan baru: server
  *   mengembalikan pesan yang sudah tersimpan, supaya "Coba lagi" dan antrean offline aman diulang.
- * - Pilihan (`choiceId`) disimpan sebagai pesan pengguna berisi satu bagian `text` dengan `choiceTitle`.
+ * - Setiap pesan punya `seq`, nomor urut yang hanya naik dan tetap seumur pesan. Pesan yang diperbarui (upsert) tetap
+ *   membawa `seq`-nya.
+ * - Upsert: event `message` dengan `id` yang sudah dikenal MENGGANTIKAN versi sebelumnya (tempatnya di utas tetap).
+ *   Dipakai untuk QRIS menjadi `lunas` atau `kedaluwarsa`, keadaan perangkat, dan pilihan yang sudah diambil
+ *   (`chosenId` terisi pada bagian `choices`).
  * - Kiriman ke orang lain selalu berupa kartu `draft` dan tidak pernah keluar tanpa persetujuan:
- *   - `send` hanya dari `draft` → `held`, dengan `heldUntil` = sekarang + {@link HELD_MINUTES} menit (jam WIB "HH.MM");
- *   - setelah {@link HELD_MINUTES} menit `held` → `sent`, dan perubahannya dikirim lewat event `draft`;
+ *   - `send` hanya dari `draft` → `held`, dengan `heldUntil` = sekarang + {@link HELD_MINUTES} menit;
+ *   - setelah {@link HELD_MINUTES} menit `held` → `sent`, atau `failed` kalau pengiriman gagal;
  *   - `cancel` hanya dari `held` → `cancelled`;
+ *   - `discard` hanya dari `draft` → `cancelled` (membuang draf yang belum dikirim);
  *   - `edit` hanya dari `draft`, statusnya tetap `draft`;
- *   - aksi dari status lain dibalas 409 `status_draf`. Perubahan karena aksi aplikasi dikembalikan di response; event
- *     `draft` hanya untuk perubahan dari server sendiri.
+ *   - `sent`, `cancelled`, dan `failed` adalah akhir; aksi dari status yang tidak boleh dibalas 409 `status_draf`.
+ *   - Setiap perubahan draf, juga yang berasal dari aksi aplikasi, disiarkan lewat event `draft` ke semua koneksi
+ *     pengguna; perubahan karena aksi aplikasi juga dikembalikan di response. Klien membuang duplikatnya (event
+ *     `draft` menimpa kartu dengan `draft.id` yang sama).
  * - Event `message` membawa semua pesan baru di utas, termasuk pesan pengguna dari WhatsApp (`via: 'whatsapp'`, satu
  *   utas). Aplikasi menggabungkan pesan berdasarkan `id`, jadi pesan yang datang dua kali tidak tampil dua kali.
+ * - Event `thinking` membawa `runId`: dua proses yang berjalan bersamaan (aplikasi dan WhatsApp) tidak saling menimpa.
+ *   Aplikasi mencatat himpunan `runId` yang aktif; berpikir = himpunan tidak kosong.
  * - WebSocket mengirim `ping` tiap {@link STREAM_PING_SEC} detik. Token yang tidak sah ditutup dengan kode
  *   {@link WS_CLOSE_UNAUTHORIZED}. Kalau koneksi putus, aplikasi menyambung ulang dengan jeda 1, 2, 4, 8, ... paling
- *   lama 30 detik, lalu mengambil pesan yang terlewat lewat `GET /messages`.
- * - `GET /messages` berurutan dari yang terbaru. `before` di response adalah nilai `?before=` untuk halaman yang lebih
- *   lama (id pesan tertua di halaman itu), atau `null` kalau tidak ada lagi. `?before=` dengan id yang tidak ada di utas
- *   dibalas 400 `tidak_valid`.
- * - Kartu `draft` di riwayat selalu membawa keadaan draf yang terbaru, jadi riwayat yang diambil ulang setelah putus
- *   sudah memuat perubahan draf yang terlewat.
+ *   lama 30 detik. Setiap kali koneksi terbuka (juga yang pertama), aplikasi mengambil pesan yang terlewat lewat
+ *   `GET /messages?after=<seq terakhir yang dikenal>`, berulang selama `more`.
+ * - `GET /messages?before=<seq>` berurutan dari yang terbaru. `before` di response adalah nilai `?before=` untuk
+ *   halaman yang lebih lama (seq pesan tertua di halaman itu), atau `null` kalau tidak ada lagi. `before` yang tidak
+ *   ada di utas (misalnya setelah memory_forget) dibalas dengan halaman terbaru, bukan error. Tanpa `before`: halaman
+ *   terbaru.
+ * - `GET /messages?after=<seq>` berurutan dari yang terlama: paling banyak `limit` pesan dengan `seq` lebih besar,
+ *   dengan `more` = masih ada yang lebih baru lagi. `before` dan `after` tidak boleh dipakai bersamaan.
+ *   Catatan: pesan lama yang diperbarui (upsert) tetap membawa `seq` lamanya, jadi tidak ikut `after`; klien yang
+ *   resync juga mengambil halaman terbaru dan menggabungkannya berdasarkan `id`.
+ * - Kartu `draft` di riwayat selalu membawa keadaan draf yang terbaru.
+ * - Pembacaan longgar (aplikasi): bagian pesan, jenis kartu, atau nilai enum yang tidak dikenal (kontrak yang lebih
+ *   baru) menjadi bagian `{ type: 'unknown', note }`, bukan menggagalkan seluruh halaman. Server tidak pernah
+ *   mengirim bagian `unknown`.
+ * - `POST /home/devices/:id` (Fase 3) mengatur perangkat dan menjawab kartu perangkat yang diperbarui. Di Fase 1b boleh
+ *   dibalas 501 `belum_tersedia`.
  */
 import { z } from 'zod';
 
 export const CONTRACT_VERSION = 1;
 export const API_PREFIX = '/app/v1';
+/** Nama header versi aplikasi dan versi kontrak, di setiap request HTTP dan jabat tangan WebSocket. */
+export const APP_VERSION_HEADER = 'X-App-Version';
+export const CONTRACT_VERSION_HEADER = 'X-Contract-Version';
 /** Jumlah pesan per halaman `GET /messages` bila `limit` tidak diisi, dan batas atasnya. */
 export const MESSAGES_LIMIT = 30;
 export const MESSAGES_LIMIT_MAX = 100;
+/** Catatan pada bagian `unknown`: tulisan yang ditampilkan untuk bagian yang tidak dikenal. */
+export const UNKNOWN_PART_NOTE = 'Pesan ini butuh aplikasi versi terbaru.';
 /** Lama kiriman ke orang lain ditahan (bisa dibatalkan) sebelum benar-benar keluar. */
 export const HELD_MINUTES = 5;
 /** Jeda `ping` dari server di WebSocket. */
@@ -75,8 +116,6 @@ export const TEXT_MAX = 4096;
 export const phoneSchema = z.string().regex(/^[1-9]\d{8,14}$/);
 /** Waktu ISO 8601 lengkap dengan zona, contoh `2026-10-20T03:42:00.000Z` atau `2026-10-20T10:42:00+07:00`. */
 export const isoDateTimeSchema = z.iso.datetime({ offset: true });
-/** Jam WIB "HH.MM", contoh `10.47`. */
-export const clockSchema = z.string().regex(/^([01]\d|2[0-3])\.[0-5]\d$/);
 const idSchema = z.string().min(1);
 const textSchema = z.string().trim().min(1).max(TEXT_MAX);
 
@@ -101,7 +140,7 @@ export const okResSchema = z.object({ ok: z.literal(true) });
 
 // ---- Draf (kiriman ke orang lain) ----
 
-export const draftStatusSchema = z.enum(['draft', 'held', 'sent', 'cancelled']);
+export const draftStatusSchema = z.enum(['draft', 'held', 'sent', 'cancelled', 'failed']);
 
 export const draftSchema = z
   .object({
@@ -112,8 +151,8 @@ export const draftSchema = z
     what: z.enum(['balasan', 'pesanan', 'email', 'undangan']),
     text: z.string().min(1),
     status: draftStatusSchema,
-    /** Diisi sejak `held`: batas waktu masih bisa dibatalkan. */
-    heldUntil: clockSchema.optional(),
+    /** Diisi sejak `held`: batas waktu masih bisa dibatalkan (ISO 8601). */
+    heldUntil: isoDateTimeSchema.optional(),
   })
   .refine((d) => d.status !== 'held' || d.heldUntil !== undefined, {
     path: ['heldUntil'],
@@ -152,8 +191,10 @@ export const paymentCardSchema = z.object({
 export const qrisCardSchema = z.object({
   kind: z.literal('qris'),
   amountRp: z.number().int().positive(),
-  /** Batas bayar, jam WIB "HH.MM". */
-  until: clockSchema,
+  /** Batas bayar (ISO 8601). */
+  until: isoDateTimeSchema,
+  /** `menunggu` → `lunas` atau `kedaluwarsa`, lewat upsert pesan (event `message` dengan `id` yang sama). */
+  status: z.enum(['menunggu', 'lunas', 'kedaluwarsa']),
   /** Gambar QRIS lewat `GET /media/:id`. */
   mediaId: idSchema,
 });
@@ -175,6 +216,8 @@ export const choicesPartSchema = z.object({
   type: z.literal('choices'),
   prompt: z.string().optional(),
   choices: z.array(choiceSchema).min(1),
+  /** Terisi (lewat upsert pesan) setelah pilihan diambil. */
+  chosenId: idSchema.optional(),
 });
 export const imagePartSchema = z.object({
   type: z.literal('image'),
@@ -198,6 +241,9 @@ export const audioPartSchema = z.object({
 });
 export const cardPartSchema = z.object({ type: z.literal('card'), card: cardSchema });
 
+/** Bagian yang tidak dikenal aplikasi. Dibuat aplikasi saat membaca (lihat `lenient.ts`); server tidak mengirimnya. */
+export const unknownPartSchema = z.object({ type: z.literal('unknown'), note: z.string() });
+
 export const partSchema = z.discriminatedUnion('type', [
   textPartSchema,
   choicesPartSchema,
@@ -205,12 +251,15 @@ export const partSchema = z.discriminatedUnion('type', [
   documentPartSchema,
   audioPartSchema,
   cardPartSchema,
+  unknownPartSchema,
 ]);
 
 // ---- Pesan ----
 
 export const messageSchema = z.object({
   id: idSchema,
+  /** Nomor urut di utas: hanya naik, tetap seumur pesan (juga setelah upsert). */
+  seq: z.number().int().positive(),
   /** Hanya pada pesan pengguna yang dikirim dari aplikasi: id buatan aplikasi untuk mengganti gelembung "mengirim…". */
   clientId: z.string().optional(),
   at: isoDateTimeSchema,
@@ -220,47 +269,86 @@ export const messageSchema = z.object({
   parts: z.array(partSchema).min(1),
 });
 
-export const messagesQuerySchema = z.object({
-  before: idSchema.optional(),
-  limit: z.coerce.number().int().min(1).max(MESSAGES_LIMIT_MAX).default(MESSAGES_LIMIT),
+export const messagesQuerySchema = z
+  .object({
+    /** Halaman yang lebih lama dari `seq` ini. */
+    before: z.coerce.number().int().positive().optional(),
+    /** Pesan yang lebih baru dari `seq` ini (resync). */
+    after: z.coerce.number().int().nonnegative().optional(),
+    limit: z.coerce.number().int().min(1).max(MESSAGES_LIMIT_MAX).default(MESSAGES_LIMIT),
+  })
+  .refine((q) => q.before === undefined || q.after === undefined, {
+    path: ['after'],
+    message: 'before dan after tidak boleh bersamaan',
+  });
+
+/** Riwayat: berurutan dari yang terbaru. */
+export const messagesPageSchema = z.object({
+  items: z.array(messageSchema),
+  /** Nilai `?before=` untuk halaman yang lebih lama, atau `null` kalau tidak ada lagi. */
+  before: z.number().int().positive().nullable(),
 });
 
-export const messagesPageSchema = z.object({
-  /** Berurutan dari yang terbaru. */
+/** Resync (`?after=`): berurutan dari yang terlama. */
+export const messagesSincePageSchema = z.object({
   items: z.array(messageSchema),
-  before: z.string().nullable(),
+  /** Masih ada pesan yang lebih baru lagi: ulangi dengan `after` = seq terakhir di `items`. */
+  more: z.boolean(),
 });
 
 const clientIdSchema = z.string().min(1).max(64);
-export const sendTextReqSchema = z.object({ clientId: clientIdSchema, text: textSchema });
-export const sendChoiceReqSchema = z.object({
+export const sendTextReqSchema = z.strictObject({
+  kind: z.literal('text'),
   clientId: clientIdSchema,
-  choiceId: idSchema,
-  choiceTitle: z.string().min(1),
+  text: textSchema,
 });
-export const sendMessageReqSchema = z.union([sendTextReqSchema, sendChoiceReqSchema]);
+/** Judul pilihan diambil server dari pesan `messageId`; aplikasi tidak mengirimnya. */
+export const sendChoiceReqSchema = z.strictObject({
+  kind: z.literal('choice'),
+  clientId: clientIdSchema,
+  messageId: idSchema,
+  choiceId: idSchema,
+});
+export const sendMessageReqSchema = z.discriminatedUnion('kind', [sendTextReqSchema, sendChoiceReqSchema]);
 export const sendMessageResSchema = z.object({ message: messageSchema });
 
 export const draftActionReqSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('send') }),
   z.object({ action: z.literal('cancel') }),
+  z.object({ action: z.literal('discard') }),
   z.object({ action: z.literal('edit'), text: textSchema }),
 ]);
 export const draftActionResSchema = z.object({ draft: draftSchema });
 
-// ---- Perangkat (notifikasi) ----
+// ---- Notifikasi ----
 
-export const deviceRegisterReqSchema = z.object({
+export const pushTokenReqSchema = z.object({
   pushToken: z.string().min(1),
   platform: z.enum(['android', 'ios']),
 });
 
+// ---- Perangkat rumah (Fase 3; Fase 1b boleh 501 `belum_tersedia`) ----
+
+export const deviceControlReqSchema = z
+  .strictObject({
+    on: z.boolean().optional(),
+    /** Suhu AC, derajat Celsius. */
+    temp: z.number().optional(),
+    mode: z.string().min(1).optional(),
+  })
+  .refine((r) => r.on !== undefined || r.temp !== undefined || r.mode !== undefined, {
+    message: 'minimal satu pengaturan',
+  });
+export const deviceControlResSchema = z.object({ card: deviceCardSchema });
+
 // ---- Stream ----
 
 export const streamEventSchema = z.discriminatedUnion('type', [
+  /** Pesan baru, atau pembaruan pesan dengan `id` yang sudah dikenal (upsert). */
   z.object({ type: z.literal('message'), message: messageSchema }),
+  /** Perubahan draf: menimpa kartu dengan `draft.id` yang sama. */
   z.object({ type: z.literal('draft'), draft: draftSchema }),
-  z.object({ type: z.literal('thinking'), on: z.boolean() }),
+  z.object({ type: z.literal('thinking'), runId: idSchema, on: z.boolean() }),
   z.object({ type: z.literal('ping') }),
 ]);
 
@@ -272,10 +360,18 @@ export const apiErrorCodeSchema = z.enum([
   'tidak_masuk',
   'tidak_ditemukan',
   'status_draf',
+  'sudah_dipilih',
+  'diblokir',
+  'perlu_pembaruan',
   'terlalu_sering',
   'server',
+  'belum_tersedia',
 ]);
-export const apiErrorSchema = z.object({ error: apiErrorCodeSchema });
+export const apiErrorSchema = z.object({
+  error: apiErrorCodeSchema,
+  /** Hanya pada `terlalu_sering`: berapa detik lagi boleh mencoba. */
+  retryInSec: z.number().int().nonnegative().optional(),
+});
 
 // ---- Tipe ----
 
@@ -292,14 +388,19 @@ export type Choice = z.infer<typeof choiceSchema>;
 export type Part = z.infer<typeof partSchema>;
 export type Message = z.infer<typeof messageSchema>;
 export type MessagesQuery = z.infer<typeof messagesQuerySchema>;
+export type UnknownPart = z.infer<typeof unknownPartSchema>;
 export type MessagesPage = z.infer<typeof messagesPageSchema>;
+export type MessagesSincePage = z.infer<typeof messagesSincePageSchema>;
 export type SendTextReq = z.infer<typeof sendTextReqSchema>;
 export type SendChoiceReq = z.infer<typeof sendChoiceReqSchema>;
 export type SendMessageReq = z.infer<typeof sendMessageReqSchema>;
 export type SendMessageRes = z.infer<typeof sendMessageResSchema>;
 export type DraftActionReq = z.infer<typeof draftActionReqSchema>;
 export type DraftActionRes = z.infer<typeof draftActionResSchema>;
-export type DeviceRegisterReq = z.infer<typeof deviceRegisterReqSchema>;
+export type PushTokenReq = z.infer<typeof pushTokenReqSchema>;
+export type DeviceCard = z.infer<typeof deviceCardSchema>;
+export type DeviceControlReq = z.infer<typeof deviceControlReqSchema>;
+export type DeviceControlRes = z.infer<typeof deviceControlResSchema>;
 export type StreamEvent = z.infer<typeof streamEventSchema>;
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;

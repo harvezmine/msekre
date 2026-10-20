@@ -58,6 +58,8 @@ test('layar 2: Masuk menunggu nomor dan 6 angka kode', async () => {
   await fireEvent.changeText(phone, '0812204578');
   expect(masuk()).toBeEnabled();
 
+  // Seperti server: kode hanya sah untuk nomor yang sudah meminta kode.
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode' }));
   await fireEvent.press(masuk());
   expect(router.push).toHaveBeenCalledWith('/mulai/pilih');
 });

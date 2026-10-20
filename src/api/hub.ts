@@ -4,7 +4,7 @@ import type { ConnectionStatus, Unsubscribe } from './transport';
 interface Listener {
   onEvent: (event: StreamEvent) => void;
   onStatus: (status: ConnectionStatus) => void;
-  onResync?: () => void;
+  onResync?: (lastSeq: number | undefined) => void;
 }
 
 /**
@@ -14,6 +14,7 @@ interface Listener {
 export class StreamHub {
   private readonly listeners = new Set<Listener>();
   private current: ConnectionStatus = 'closed';
+  private seq: number | undefined;
 
   constructor(private readonly hooks: { start: () => void; stop: () => void }) {}
 
@@ -25,9 +26,19 @@ export class StreamHub {
     return this.listeners.size > 0;
   }
 
+  /** Seq terbesar yang sudah diterima (stream dan hasil fetch), atau `undefined`. */
+  get lastSeq(): number | undefined {
+    return this.seq;
+  }
+
+  /** Catat seq yang sudah diterima klien. Hanya naik. */
+  noteSeq(seq: number) {
+    if (this.seq === undefined || seq > this.seq) this.seq = seq;
+  }
+
   add(listener: Listener): Unsubscribe {
     this.listeners.add(listener);
-    listener.onStatus(this.current);
+    safe(() => listener.onStatus(this.current));
     if (this.listeners.size === 1) this.hooks.start();
     return () => {
       if (!this.listeners.delete(listener)) return;
@@ -36,16 +47,28 @@ export class StreamHub {
   }
 
   emit(event: StreamEvent) {
-    for (const l of [...this.listeners]) l.onEvent(event);
+    if (event.type === 'message') this.noteSeq(event.message.seq);
+    for (const l of [...this.listeners]) safe(() => l.onEvent(event));
   }
 
   setStatus(status: ConnectionStatus) {
     if (status === this.current) return;
     this.current = status;
-    for (const l of [...this.listeners]) l.onStatus(status);
+    for (const l of [...this.listeners]) safe(() => l.onStatus(status));
   }
 
+  /** Koneksi baru terbuka: minta setiap pendengar mengambil pesan yang terlewat sejak {@link lastSeq}. */
   resync() {
-    for (const l of [...this.listeners]) l.onResync?.();
+    const lastSeq = this.seq;
+    for (const l of [...this.listeners]) safe(() => l.onResync?.(lastSeq));
+  }
+}
+
+/** Satu pendengar yang error tidak boleh menghentikan yang lain; kesalahannya hanya dicatat. */
+function safe(run: () => void) {
+  try {
+    run();
+  } catch (e) {
+    console.error('Pendengar stream gagal', e);
   }
 }

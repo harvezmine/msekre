@@ -5,16 +5,19 @@ import {
   authVerifyReqSchema,
   authVerifyResSchema,
   cardSchema,
-  deviceRegisterReqSchema,
+  deviceControlReqSchema,
+  deviceControlResSchema,
   draftActionReqSchema,
   draftSchema,
   meSchema,
   messageSchema,
   messagesPageSchema,
   messagesQuerySchema,
+  messagesSincePageSchema,
   MESSAGES_LIMIT,
   okResSchema,
   partSchema,
+  pushTokenReqSchema,
   sendMessageReqSchema,
   sendMessageResSchema,
   streamEventSchema,
@@ -36,7 +39,7 @@ const draft: Draft = {
 };
 const cards: Card[] = [
   { kind: 'draft', draft },
-  { kind: 'draft', draft: { ...draft, status: 'held', heldUntil: '10.47' } },
+  { kind: 'draft', draft: { ...draft, status: 'held', heldUntil: '2026-10-20T03:47:00.000Z' } },
   { kind: 'device', deviceId: 'ac-kamar', name: 'AC kamar', on: true, temp: 24, mode: 'Dingin', note: 'Suhu 27°' },
   { kind: 'device', deviceId: 'lampu', name: 'Lampu', on: false },
   { kind: 'notes', title: 'Rapat', when: 'Senin, 20 Okt · 09.00–09.40', decisions: ['Harga tetap.'], meetingId: 'r1' },
@@ -47,7 +50,8 @@ const cards: Card[] = [
     lines: [{ label: 'No. meter', value: '5321' }],
     ask: 'Sudah benar?',
   },
-  { kind: 'qris', amountRp: 100000, until: '10.15', mediaId: 'q1' },
+  { kind: 'qris', amountRp: 100000, until: '2026-10-20T03:57:00.000Z', status: 'menunggu', mediaId: 'q1' },
+  { kind: 'qris', amountRp: 100000, until: '2026-10-20T10:15:00+07:00', status: 'lunas', mediaId: 'q1' },
 ];
 const parts: Part[] = [
   { type: 'text', text: 'Halo' },
@@ -59,6 +63,7 @@ const parts: Part[] = [
 ];
 const message: Message = {
   id: 'm1',
+  seq: 1,
   clientId: 'c1',
   at: '2026-10-20T03:42:00.000Z',
   from: 'user',
@@ -127,6 +132,9 @@ describe('pesan', () => {
     ['gambar bukan image/*', { ...message, parts: [{ type: 'image', mediaId: 'm', mime: 'application/pdf' }] }],
     ['suara bukan audio/*', { ...message, parts: [{ type: 'audio', mediaId: 'm', mime: 'image/png' }] }],
     ['waktu tanpa zona', { ...message, at: '2026-10-20T10:42:00' }],
+    ['tanpa seq', { ...message, seq: undefined }],
+    ['seq nol', { ...message, seq: 0 }],
+    ['seq pecahan', { ...message, seq: 1.5 }],
     ['pengirim lain', { ...message, from: 'system' }],
     ['kanal lain', { ...message, via: 'sms' }],
   ])('%s ditolak', (_, value) => bad(messageSchema, value));
@@ -135,44 +143,73 @@ describe('pesan', () => {
     ['jenis kartu tidak dikenal', { kind: 'cuaca' }],
     ['kartu perangkat tanpa nama', { kind: 'device', deviceId: 'a', on: true }],
     ['pembayaran dengan rupiah pecahan', { ...cards[5], amountRp: 100.5 }],
-    ['QRIS nol rupiah', { kind: 'qris', amountRp: 0, until: '10.15', mediaId: 'q' }],
-    ['QRIS dengan jam titik dua', { kind: 'qris', amountRp: 1000, until: '10:15', mediaId: 'q' }],
-    ['QRIS dengan jam 24.00', { kind: 'qris', amountRp: 1000, until: '24.00', mediaId: 'q' }],
+    ['QRIS nol rupiah', { ...cards[7], amountRp: 0 }],
+    ['QRIS dengan jam saja', { kind: 'qris', amountRp: 1000, until: '10.15', status: 'menunggu', mediaId: 'q' }],
+    [
+      'QRIS tanpa zona',
+      { kind: 'qris', amountRp: 1000, until: '2026-10-20T10:15:00', status: 'menunggu', mediaId: 'q' },
+    ],
+    ['QRIS tanpa status', { kind: 'qris', amountRp: 1000, until: '2026-10-20T10:15:00Z', mediaId: 'q' }],
+    ['QRIS status lain', { ...cards[7], status: 'batal' }],
   ])('%s ditolak', (_, value) => bad(cardSchema, value));
 
-  test('halaman riwayat', () => {
-    ok(messagesPageSchema, { items: [message], before: 'm1' });
+  test('halaman riwayat dan halaman resync', () => {
+    ok(messagesPageSchema, { items: [message], before: 1 });
     ok(messagesPageSchema, { items: [], before: null });
     bad(messagesPageSchema, { items: [message] });
+    bad(messagesPageSchema, { items: [message], before: 'm1' });
+    ok(messagesSincePageSchema, { items: [message], more: true });
+    bad(messagesSincePageSchema, { items: [message] });
   });
 
-  test('query riwayat: limit bawaan 30, dibaca dari teks, paling banyak 100', () => {
+  test('query: limit bawaan 30, dibaca dari teks, paling banyak 100; before dan after tidak bersamaan', () => {
     expect(messagesQuerySchema.parse({})).toEqual({ limit: MESSAGES_LIMIT });
-    expect(messagesQuerySchema.parse({ before: 'm9', limit: '50' })).toEqual({ before: 'm9', limit: 50 });
+    expect(messagesQuerySchema.parse({ before: '9', limit: '50' })).toEqual({ before: 9, limit: 50 });
+    expect(messagesQuerySchema.parse({ after: '0' })).toEqual({ after: 0, limit: MESSAGES_LIMIT });
     bad(messagesQuerySchema, { limit: '101' });
     bad(messagesQuerySchema, { limit: '0' });
-    bad(messagesQuerySchema, { before: '' });
+    bad(messagesQuerySchema, { before: 'm9' });
+    bad(messagesQuerySchema, { before: '5', after: '3' });
   });
 
-  test('kirim teks atau pilihan', () => {
-    ok(sendMessageReqSchema, { clientId: 'c1', text: 'Halo' });
-    ok(sendMessageReqSchema, { clientId: 'c1', choiceId: 'ya', choiceTitle: 'Ya, benar' });
+  test('kirim teks atau pilihan; campuran dan kolom lebih ditolak', () => {
+    ok(sendMessageReqSchema, { kind: 'text', clientId: 'c1', text: 'Halo' });
+    ok(sendMessageReqSchema, { kind: 'choice', clientId: 'c1', messageId: 'm1', choiceId: 'ya' });
     ok(sendMessageResSchema, { message });
-    bad(sendMessageReqSchema, { clientId: 'c1', text: '   ' });
-    bad(sendMessageReqSchema, { clientId: 'c1', text: 'a'.repeat(TEXT_MAX + 1) });
-    bad(sendMessageReqSchema, { clientId: '', text: 'Halo' });
-    bad(sendMessageReqSchema, { clientId: 'c'.repeat(65), text: 'Halo' });
-    bad(sendMessageReqSchema, { clientId: 'c1', choiceId: 'ya' });
-    bad(sendMessageReqSchema, { text: 'Halo' });
+    bad(sendMessageReqSchema, { kind: 'text', clientId: 'c1', text: '   ' });
+    bad(sendMessageReqSchema, { kind: 'text', clientId: 'c1', text: 'a'.repeat(TEXT_MAX + 1) });
+    bad(sendMessageReqSchema, { kind: 'text', clientId: '', text: 'Halo' });
+    bad(sendMessageReqSchema, { kind: 'text', clientId: 'c'.repeat(65), text: 'Halo' });
+    bad(sendMessageReqSchema, { kind: 'choice', clientId: 'c1', choiceId: 'ya' });
+    bad(sendMessageReqSchema, { kind: 'choice', clientId: 'c1', messageId: 'm1' });
+    bad(sendMessageReqSchema, { clientId: 'c1', text: 'Halo' });
+    bad(sendMessageReqSchema, { kind: 'text', clientId: 'c1', text: 'Halo', choiceId: 'ya' });
+    bad(sendMessageReqSchema, { kind: 'choice', clientId: 'c1', messageId: 'm1', choiceId: 'ya', text: 'Halo' });
+    // Judul pilihan dari klien tidak dipercaya.
+    bad(sendMessageReqSchema, { kind: 'choice', clientId: 'c1', messageId: 'm1', choiceId: 'ya', choiceTitle: 'Ya' });
+    bad(sendMessageReqSchema, { kind: 'text', text: 'Halo' });
+  });
+
+  test('pilihan yang sudah diambil membawa chosenId', () => {
+    ok(partSchema, { type: 'choices', choices: [{ id: 'ya', title: 'Ya' }], chosenId: 'ya' });
+  });
+
+  test('bagian unknown sah (dibuat aplikasi)', () => {
+    ok(partSchema, { type: 'unknown', note: 'Pesan ini butuh aplikasi versi terbaru.' });
+    bad(partSchema, { type: 'unknown' });
   });
 });
 
 describe('draf', () => {
   test('held wajib membawa heldUntil', () => {
     ok(draftSchema, draft);
-    ok(draftSchema, { ...draft, status: 'held', heldUntil: '10.47' });
-    ok(draftSchema, { ...draft, status: 'sent', heldUntil: '10.47' });
-    ok(draftSchema, { ...draft, status: 'cancelled', heldUntil: '10.47' });
+    const heldUntil = '2026-10-20T10:47:00+07:00';
+    ok(draftSchema, { ...draft, status: 'held', heldUntil });
+    ok(draftSchema, { ...draft, status: 'sent', heldUntil });
+    ok(draftSchema, { ...draft, status: 'cancelled', heldUntil });
+    ok(draftSchema, { ...draft, status: 'failed', heldUntil });
+    bad(draftSchema, { ...draft, status: 'held', heldUntil: '10.47' });
+    bad(draftSchema, { ...draft, status: 'held', heldUntil: '2026-10-20T10:47:00' });
     bad(draftSchema, { ...draft, status: 'held' });
     bad(draftSchema, { ...draft, status: 'terkirim' });
     bad(draftSchema, { ...draft, channel: 'sms' });
@@ -182,6 +219,7 @@ describe('draf', () => {
   test('aksi draf', () => {
     ok(draftActionReqSchema, { action: 'send' });
     ok(draftActionReqSchema, { action: 'cancel' });
+    ok(draftActionReqSchema, { action: 'discard' });
     ok(draftActionReqSchema, { action: 'edit', text: 'Teks baru' });
     bad(draftActionReqSchema, { action: 'edit' });
     bad(draftActionReqSchema, { action: 'edit', text: '' });
@@ -189,19 +227,30 @@ describe('draf', () => {
   });
 });
 
-test('perangkat notifikasi', () => {
-  ok(deviceRegisterReqSchema, { pushToken: 'ExponentPushToken[x]', platform: 'android' });
-  ok(deviceRegisterReqSchema, { pushToken: 'abc', platform: 'ios' });
-  bad(deviceRegisterReqSchema, { pushToken: '', platform: 'android' });
-  bad(deviceRegisterReqSchema, { pushToken: 'abc', platform: 'web' });
+test('token notifikasi', () => {
+  ok(pushTokenReqSchema, { pushToken: 'ExponentPushToken[x]', platform: 'android' });
+  ok(pushTokenReqSchema, { pushToken: 'abc', platform: 'ios' });
+  bad(pushTokenReqSchema, { pushToken: '', platform: 'android' });
+  bad(pushTokenReqSchema, { pushToken: 'abc', platform: 'web' });
+});
+
+test('kendali perangkat rumah', () => {
+  ok(deviceControlReqSchema, { on: false });
+  ok(deviceControlReqSchema, { on: true, temp: 22, mode: 'Dingin' });
+  bad(deviceControlReqSchema, {});
+  bad(deviceControlReqSchema, { brightness: 3 });
+  bad(deviceControlReqSchema, { mode: '' });
+  ok(deviceControlResSchema, { card: cards[2] });
+  bad(deviceControlResSchema, { card: cards[0] });
 });
 
 test('event stream', () => {
   ok(streamEventSchema, { type: 'message', message });
   ok(streamEventSchema, { type: 'draft', draft });
-  ok(streamEventSchema, { type: 'thinking', on: true });
+  ok(streamEventSchema, { type: 'thinking', runId: 'r1', on: true });
   ok(streamEventSchema, { type: 'ping' });
-  bad(streamEventSchema, { type: 'thinking' });
+  bad(streamEventSchema, { type: 'thinking', on: true });
+  bad(streamEventSchema, { type: 'thinking', runId: 'r1' });
   bad(streamEventSchema, { type: 'message', message: { ...message, parts: [] } });
   bad(streamEventSchema, { type: 'mengetik' });
 });
@@ -213,10 +262,16 @@ test('error', () => {
     'tidak_masuk',
     'tidak_ditemukan',
     'status_draf',
+    'sudah_dipilih',
+    'diblokir',
+    'perlu_pembaruan',
     'terlalu_sering',
     'server',
+    'belum_tersedia',
   ])
     ok(apiErrorSchema, { error });
+  ok(apiErrorSchema, { error: 'terlalu_sering', retryInSec: 42 });
+  bad(apiErrorSchema, { error: 'terlalu_sering', retryInSec: -1 });
   bad(apiErrorSchema, { error: 'lain' });
   bad(apiErrorSchema, {});
 });
