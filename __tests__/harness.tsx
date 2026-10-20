@@ -1,0 +1,175 @@
+import { act } from '@testing-library/react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState, type ComponentType } from 'react';
+import Beranda from '../app/(tabs)/index';
+import Agenda from '../app/(tabs)/agenda';
+import Perangkat from '../app/(tabs)/perangkat';
+import Usaha from '../app/(tabs)/usaha';
+import TambahAgenda from '../app/agenda/tambah';
+import Akun from '../app/akun';
+import Alarm from '../app/alarm';
+import Chat from '../app/chat';
+import Inti from '../app/inti';
+import MulaiIndex from '../app/mulai/index';
+import MulaiMasuk from '../app/mulai/masuk';
+import MulaiPilih from '../app/mulai/pilih';
+import DetailPerangkat from '../app/perangkat/[id]';
+import TambahPerangkat from '../app/perangkat/tambah';
+import Pin from '../app/pin';
+import Riwayat from '../app/riwayat';
+import Suara from '../app/suara';
+import Tempat from '../app/tempat';
+import DetailLayanan from '../app/terhubung/[id]';
+import Konfirmasi from '../app/terhubung/konfirmasi';
+import Terhubung from '../app/terhubung/index';
+import Masuk from '../app/terhubung/masuk';
+import Tersambung from '../app/terhubung/tersambung';
+import { renderWithProviders } from './helpers';
+import { useSample, type SampleState } from '@/sample/store';
+import { ToastHost } from '@/ui/Toast';
+
+/** Peta rute ke layar, sama dengan struktur `app/`. */
+export const ROUTES: Record<string, ComponentType> = {
+  '/': Beranda,
+  '/agenda': Agenda,
+  '/perangkat': Perangkat,
+  '/usaha': Usaha,
+  '/agenda/tambah': TambahAgenda,
+  '/akun': Akun,
+  '/alarm': Alarm,
+  '/chat': Chat,
+  '/inti': Inti,
+  '/mulai': MulaiIndex,
+  '/mulai/masuk': MulaiMasuk,
+  '/mulai/pilih': MulaiPilih,
+  '/perangkat/[id]': DetailPerangkat,
+  '/perangkat/tambah': TambahPerangkat,
+  '/pin': Pin,
+  '/riwayat': Riwayat,
+  '/suara': Suara,
+  '/tempat': Tempat,
+  '/terhubung': Terhubung,
+  '/terhubung/[id]': DetailLayanan,
+  '/terhubung/konfirmasi': Konfirmasi,
+  '/terhubung/masuk': Masuk,
+  '/terhubung/tersambung': Tersambung,
+};
+
+interface Entry {
+  path: string;
+  params: Record<string, string>;
+}
+const STATIC_TERHUBUNG = ['masuk', 'tersambung', 'konfirmasi'];
+const STATIC_PERANGKAT = ['tambah'];
+
+/** Mengubah argumen router ("/x?a=1" atau {pathname, params}) menjadi rute dan parameternya. */
+export function parseRoute(href: unknown): Entry {
+  let raw: string;
+  let params: Record<string, string> = {};
+  if (typeof href === 'object' && href) {
+    const h = href as { pathname: string; params?: Record<string, string> };
+    raw = h.pathname;
+    params = { ...h.params };
+  } else {
+    const [p, query = ''] = String(href).split('?');
+    raw = p!;
+    params = Object.fromEntries(new URLSearchParams(query));
+  }
+  const parts = raw.split('/');
+  const last = parts[parts.length - 1]!;
+  if (raw.startsWith('/terhubung/') && !STATIC_TERHUBUNG.includes(last) && last !== '[id]') {
+    return { path: '/terhubung/[id]', params: { ...params, id: last } };
+  }
+  if (raw.startsWith('/perangkat/') && !STATIC_PERANGKAT.includes(last) && last !== '[id]') {
+    return { path: '/perangkat/[id]', params: { ...params, id: last } };
+  }
+  return { path: raw, params };
+}
+
+let stack: Entry[] = [];
+export const currentRoute = () => stack[stack.length - 1]!.path;
+export const currentStack = () => stack.map((e) => e.path);
+
+let latest: SampleState;
+function Probe() {
+  const { state } = useSample();
+  useEffect(() => {
+    latest = state;
+  });
+  return null;
+}
+/** Keadaan penyimpanan contoh terkini. */
+export const sampleState = () => latest;
+
+/**
+ * Tumpukan navigasi tiruan: push/navigate menambah (navigate kembali ke rute yang sudah ada), replace mengganti,
+ * back membuang, dismissTo kembali ke rute yang sudah ada atau menaruhnya di atas.
+ */
+function Rute({ start }: { start: string }) {
+  const [, setTick] = useState(0);
+  const redraw = () => setTick((t) => t + 1);
+  useEffect(() => {
+    const popTo = (e: Entry) => {
+      const i = stack.map((s) => s.path).lastIndexOf(e.path);
+      if (i >= 0) stack = [...stack.slice(0, i), e];
+      else stack = [...stack, e];
+    };
+    jest.mocked(router.push).mockImplementation((h) => {
+      stack = [...stack, parseRoute(h)];
+      redraw();
+    });
+    jest.mocked(router.replace).mockImplementation((h) => {
+      stack = [...stack.slice(0, -1), parseRoute(h)];
+      redraw();
+    });
+    jest.mocked(router.navigate).mockImplementation((h) => {
+      popTo(parseRoute(h));
+      redraw();
+    });
+    jest.mocked(router.dismissTo).mockImplementation((h) => {
+      popTo(parseRoute(h));
+      redraw();
+    });
+    jest.mocked(router.back).mockImplementation(() => {
+      if (stack.length > 1) stack = stack.slice(0, -1);
+      redraw();
+    });
+  }, []);
+  const Layar = ROUTES[stack[stack.length - 1]!.path] ?? Beranda;
+  void start;
+  return <Layar key={stack.length + stack[stack.length - 1]!.path} />;
+}
+
+/** Siapkan useLocalSearchParams; panggil di beforeEach. */
+export function mockParams() {
+  jest.mocked(useLocalSearchParams).mockImplementation((() => stack[stack.length - 1]?.params ?? {}) as never);
+}
+export function restoreParams() {
+  jest.mocked(useLocalSearchParams).mockReturnValue({});
+}
+
+/** Tampilkan rute `start` dalam satu penyimpanan contoh bersama, dengan navigasi tiruan. */
+export async function showRoute(start = '/', options: Parameters<typeof renderWithProviders>[1] = {}) {
+  stack = [parseRoute(start)];
+  return renderWithProviders(
+    <>
+      <Rute start={start} />
+      <Probe />
+      <ToastHost />
+    </>,
+    options,
+  );
+}
+
+export async function advance(ms: number) {
+  await act(async () => {
+    jest.advanceTimersByTime(ms);
+  });
+}
+
+/** Pindah ke rute lain seperti dari kode layar (tanpa mengetuk tautannya). */
+export async function go(href: Parameters<typeof router.push>[0]) {
+  await act(async () => {
+    router.push(href);
+  });
+}

@@ -1,82 +1,20 @@
-import { act, fireEvent, screen } from '@testing-library/react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { fireEvent, screen } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import Beranda from '../app/(tabs)/index';
-import DetailLayanan from '../app/terhubung/[id]';
-import Konfirmasi from '../app/terhubung/konfirmasi';
-import Masuk from '../app/terhubung/masuk';
 import Terhubung from '../app/terhubung/index';
-import Tersambung from '../app/terhubung/tersambung';
+import { advance, mockParams, restoreParams, sampleState, showRoute } from './harness';
 import { renderWithProviders } from './helpers';
-import { useSample, type SampleState } from '@/sample/store';
-
-let latest: SampleState;
-function Probe() {
-  const { state } = useSample();
-  useEffect(() => {
-    latest = state;
-  });
-  return null;
-}
-
-// Pengganti navigasi: router.push/replace/dismissTo mengganti layar yang tampil, dalam satu SampleProvider.
-let current = '/';
-const paramsOf = (route: string): Record<string, string> => {
-  const [path, query = ''] = route.split('?');
-  const p = Object.fromEntries(new URLSearchParams(query));
-  const last = path!.split('/').pop()!;
-  return path!.startsWith('/terhubung/') && !['masuk', 'tersambung', 'konfirmasi'].includes(last)
-    ? { ...p, id: last }
-    : p;
-};
-function Rute({ start }: { start: string }) {
-  const [route, setRoute] = useState(start);
-  useEffect(() => {
-    const go = (r: unknown) => {
-      current = String(r);
-      act(() => setRoute(current));
-    };
-    jest.mocked(router.push).mockImplementation(go);
-    jest.mocked(router.replace).mockImplementation(go);
-    jest.mocked(router.dismissTo).mockImplementation(go);
-  }, []);
-  switch (route.split('?')[0]) {
-    case '/':
-      return <Beranda />;
-    case '/terhubung':
-      return <Terhubung />;
-    case '/terhubung/masuk':
-      return <Masuk />;
-    case '/terhubung/tersambung':
-      return <Tersambung />;
-    case '/terhubung/konfirmasi':
-      return <Konfirmasi />;
-    default:
-      return <DetailLayanan />;
-  }
-}
 
 async function show(start = '/terhubung') {
-  current = start;
-  await renderWithProviders(
-    <>
-      <Rute start={start} />
-      <Probe />
-    </>,
-  );
-}
-async function advance(ms: number) {
-  await act(async () => {
-    jest.advanceTimersByTime(ms);
-  });
+  await showRoute(start);
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
-  jest.mocked(useLocalSearchParams).mockImplementation((() => paramsOf(current)) as never);
+  mockParams();
 });
 afterAll(() => {
-  jest.mocked(useLocalSearchParams).mockReturnValue({});
+  restoreParams();
 });
 
 test('daftar: tujuh layanan tersambung, CCTV tidak terjangkau berwarna clay, kelompok Kerja dan Usaha', async () => {
@@ -105,7 +43,7 @@ test('Rumah membuka Tambah perangkat', async () => {
 test('Sambungkan layanan lain memunculkan toast Fase 5', async () => {
   await show();
   await fireEvent.press(screen.getByRole('button', { name: 'Sambungkan layanan lain' }));
-  expect(latest.toast?.text).toBe('Menyambungkan layanan lain dibangun di Fase 5.');
+  expect(sampleState().toast?.text).toBe('Menyambungkan layanan lain dibangun di Fase 5.');
 });
 
 test('alur 4: Sambungkan TikTok, Masuk (contoh), tersambung, Selesai, Beranda punya 8 simpul', async () => {
@@ -121,7 +59,7 @@ test('alur 4: Sambungkan TikTok, Masuk (contoh), tersambung, Selesai, Beranda pu
   expect(screen.getByText('Halaman masuk TikTok Shop')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Masuk (contoh)' }));
   await advance(250);
-  expect(latest.services.some((s) => s.id === 'tiktok')).toBe(true);
+  expect(sampleState().services.some((s) => s.id === 'tiktok')).toBe(true);
   expect(router.replace).toHaveBeenCalledWith('/terhubung/tersambung?id=tiktok');
 
   expect(screen.getByText('TikTok Shop sudah terhubung')).toBeOnTheScreen();
@@ -136,14 +74,7 @@ test('alur 4: Sambungkan TikTok, Masuk (contoh), tersambung, Selesai, Beranda pu
 });
 
 test('tersambung: simpul baru ada, izin tampil, Ubah membuka detail layanan', async () => {
-  current = '/terhubung/tersambung?id=tiktok';
-  await renderWithProviders(
-    <>
-      <Rute start="/terhubung/tersambung?id=tiktok" />
-      <Probe />
-    </>,
-    { actions: [{ type: 'connect', id: 'tiktok' }] },
-  );
+  await showRoute('/terhubung/tersambung?id=tiktok', { actions: [{ type: 'connect', id: 'tiktok' }] });
   expect(screen.getByTestId('simpul-tiktok')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Ubah' }));
   expect(router.push).toHaveBeenCalledWith('/terhubung/tiktok');
@@ -173,9 +104,9 @@ test('detail Moka: tiga kemampuan dan izin Hanya membaca terpilih', async () => 
 test('izin: Boleh bertindak mengubah layanan dan mencatat riwayat', async () => {
   await show('/terhubung/moka');
   await fireEvent.press(screen.getByRole('radio', { name: 'Boleh bertindak' }));
-  expect(latest.services.find((s) => s.id === 'moka')!.permission).toBe('act');
+  expect(sampleState().services.find((s) => s.id === 'moka')!.permission).toBe('act');
   expect(screen.getByRole('radio', { name: 'Boleh bertindak' })).toBeChecked();
-  expect(latest.history[0]!.title).toBe('Mengubah izin Moka');
+  expect(sampleState().history[0]!.title).toBe('Mengubah izin Moka');
 });
 
 test('Hapus semua yang Nadia tahu: konfirmasi, lalu forget dan toast', async () => {
@@ -183,11 +114,11 @@ test('Hapus semua yang Nadia tahu: konfirmasi, lalu forget dan toast', async () 
   await fireEvent.press(screen.getByRole('button', { name: 'Hapus semua yang Nadia tahu dari layanan ini' }));
   expect(router.push).toHaveBeenCalledWith('/terhubung/konfirmasi?id=moka&aksi=lupa');
   expect(screen.getByText('Hapus yang Nadia tahu dari Moka?')).toBeOnTheScreen();
-  expect(latest.forgotten).not.toContain('moka');
+  expect(sampleState().forgotten).not.toContain('moka');
   await fireEvent.press(screen.getByRole('button', { name: 'Ya, hapus' }));
   await advance(250);
-  expect(latest.forgotten).toContain('moka');
-  expect(latest.toast?.text).toBe('Yang Nadia tahu dari Moka sudah dihapus.');
+  expect(sampleState().forgotten).toContain('moka');
+  expect(sampleState().toast?.text).toBe('Yang Nadia tahu dari Moka sudah dihapus.');
   expect(router.back).toHaveBeenCalled();
 });
 
@@ -195,8 +126,8 @@ test('Batal di konfirmasi tidak mengubah apa pun', async () => {
   await show('/terhubung/konfirmasi?id=moka&aksi=putus');
   await fireEvent.press(screen.getByRole('button', { name: 'Batal' }));
   await advance(250);
-  expect(latest.services.some((s) => s.id === 'moka')).toBe(true);
-  expect(latest.toast).toBeNull();
+  expect(sampleState().services.some((s) => s.id === 'moka')).toBe(true);
+  expect(sampleState().toast).toBeNull();
 });
 
 test('Putuskan: konfirmasi, simpul hilang dari cincin Beranda, kembali ke Terhubung dengan toast', async () => {
@@ -205,8 +136,8 @@ test('Putuskan: konfirmasi, simpul hilang dari cincin Beranda, kembali ke Terhub
   expect(router.push).toHaveBeenCalledWith('/terhubung/konfirmasi?id=moka&aksi=putus');
   await fireEvent.press(screen.getByRole('button', { name: 'Ya, putuskan' }));
   await advance(250);
-  expect(latest.services.some((s) => s.id === 'moka')).toBe(false);
-  expect(latest.toast?.text).toBe('Moka diputuskan.');
+  expect(sampleState().services.some((s) => s.id === 'moka')).toBe(false);
+  expect(sampleState().toast?.text).toBe('Moka diputuskan.');
   expect(router.dismissTo).toHaveBeenCalledWith('/terhubung');
   // Moka bisa disambungkan lagi dari daftar.
   expect(screen.getByRole('button', { name: 'Sambungkan Moka' })).toBeOnTheScreen();
