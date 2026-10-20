@@ -2,7 +2,7 @@ import { act, fireEvent, renderHook, screen } from '@testing-library/react-nativ
 import * as Haptics from 'expo-haptics';
 import Suara from '../app/suara';
 import { renderWithProviders } from './helpers';
-import { useSample, type SampleState } from '@/sample/store';
+import { deviceById, useSample, type SampleState } from '@/sample/store';
 import { useTimeline } from '@/ui/useTimeline';
 
 async function advance(ms: number) {
@@ -89,11 +89,11 @@ test('saat Nadia mulai berbicara, AC kamar mati di penyimpanan dan tercatat seka
       <Probe />
     </>,
   );
-  expect(seen!.ac.on).toBe(true);
+  expect(deviceById(seen!, 'ac-kamar')!.on).toBe(true);
   await advance(2200);
-  expect(seen!.ac.on).toBe(true);
+  expect(deviceById(seen!, 'ac-kamar')!.on).toBe(true);
   await advance(1200);
-  expect(seen!.ac.on).toBe(false);
+  expect(deviceById(seen!, 'ac-kamar')!.on).toBe(false);
   expect(seen!.history[0]).toMatchObject({ title: 'Mematikan AC kamar', sub: 'lewat suara · 10.41', kind: 'rumah' });
   // Ulangi contoh: tidak mencatat dua kali.
   await fireEvent.press(screen.getByRole('button', { name: 'Ulangi contoh' }));

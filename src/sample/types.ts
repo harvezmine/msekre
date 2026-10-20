@@ -5,26 +5,42 @@ export type Place = (typeof PLACES)[number];
 
 export type AcMode = 'Dingin' | 'Kering' | 'Kipas' | 'Otomatis';
 export type AcFan = 'Pelan' | 'Sedang' | 'Kencang' | 'Otomatis';
-export interface AcState {
-  on: boolean;
+/** Perintah terakhir untuk AC. Tetap tersimpan saat AC dimatikan, jadi menyala lagi di suhu yang sama. */
+export interface AcSettings {
   temp: number;
   mode: AcMode;
   fan: AcFan;
 }
 
 export type DeviceKind = 'lampu' | 'ac' | 'kamera' | 'kunci' | 'speaker' | 'lain';
+/**
+ * Perangkat dengan keadaan terstruktur. Tulisan keadaan ("Nyala · 80%", "Terkunci", "Tidak terjangkau sejak 10.12")
+ * dibuat `deviceStatus` saat digambar, bukan disimpan.
+ */
 export interface Device {
   id: string;
   /** Tempat nyata (bukan 'Semua'). */
   place: Exclude<Place, 'Semua'>;
   room: string;
   name: string;
+  /** Nama pendek di kartu Rumah Beranda, misalnya "Kamera" untuk Kamera ruang tamu. */
+  short?: string;
   icon: IconName;
   kind: DeviceKind;
-  /** Tulisan keadaan, contoh "Nyala · 80%". */
-  status: string;
+  /** Sakelar ubin. Lampu, AC, speaker: nyala. Kunci: terkunci. Kamera: merekam. */
   on: boolean;
   reachable: boolean;
+  /** Jam contoh saat perangkat berhenti terjangkau. */
+  unreachableSince?: string;
+  /** Terang lampu dalam persen. Tetap tersimpan saat lampu dimatikan. */
+  level?: number;
+  /** Hanya untuk `kind: 'ac'`. */
+  ac?: AcSettings;
+  /** Suhu ruangan yang terbaca (contoh), untuk "suhu ruangan sekarang 27°". */
+  roomTemp?: number;
+  /** Merek, untuk keterangan seperti "LG · lewat Kotak Sekretaris AI". */
+  brand?: string;
+  /** `ir`: dikendalikan lewat inframerah dari Kotak, jadi yang diketahui hanya perintah terakhir. */
   via?: 'ir' | 'cloud';
   /** Mematikan perangkat ini butuh PIN. */
   needsPin?: boolean;
@@ -103,6 +119,8 @@ export interface HistoryEntry {
   sub: string;
   /** Kiriman yang dicatat entri ini. Batalkan dan coretan diturunkan dari status kirimannya (`historyRows`). */
   outgoingId?: string;
+  /** Perangkat yang dicatat entri ini, supaya mengatur AC berkali-kali jadi satu entri. */
+  deviceId?: string;
 }
 
 /** Isi kartu notulen di chat. */

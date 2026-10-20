@@ -6,7 +6,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_ASSISTANT } from '@/brand';
 import { VOICE_SAMPLE } from '@/sample/voice';
-import { useSampleDispatch } from '@/sample/store';
+import { MAIN_AC_ID, useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { onForest } from '@/theme/tokens';
 import { Icon } from '@/ui/Icon';
@@ -26,7 +26,7 @@ export default function Suara() {
   // Saat Nadia mulai berbicara, perintah sudah dijalankan: AC kamar mati. Hanya sekali per putaran contoh.
   const speaking = step.state === 'speak';
   useEffect(() => {
-    if (speaking) dispatch({ type: 'setAc', on: false, source: 'suara' });
+    if (speaking) dispatch({ type: 'setAc', deviceId: MAIN_AC_ID, on: false, source: 'suara' });
   }, [speaking, dispatch]);
   useEffect(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

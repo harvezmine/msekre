@@ -2,9 +2,9 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { homeSummary, houseOthers, user } from '@/sample/profile';
+import { homeSummary, user } from '@/sample/profile';
 import { TODAY } from '@/sample/agenda';
-import { approvalText, pendingApproval, useSample } from '@/sample/store';
+import { approvalText, houseCard, pendingApproval, useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '@/ui/Card';
 import { Icon } from '@/ui/Icon';
@@ -147,23 +147,25 @@ export default function Beranda() {
             <Txt v="subtitle" style={{ marginBottom: 8 }}>
               Rumah
             </Txt>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 }}>
-              <IconTile icon="snow" tinted />
-              <Txt weight={500} style={{ flex: 1 }}>
-                {state.ac.on ? `AC kamar nyala · ${state.ac.temp}°` : 'AC kamar mati'}
-              </Txt>
-              <Toggle
-                value={state.ac.on}
-                onChange={(on) => dispatch({ type: 'setAc', on, source: 'aplikasi' })}
-                label="AC kamar"
-              />
-            </View>
-            {houseOthers.map((o) => (
-              <View key={o.text} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 }}>
-                <IconTile icon={o.icon} />
-                <Txt style={{ flex: 1 }}>{o.text}</Txt>
-              </View>
-            ))}
+            {houseCard(state).map(({ device: d, text }) => {
+              // Baris AC punya sakelar dan ikon berwarna; baris lain hanya keterangan.
+              const ac = d.kind === 'ac';
+              return (
+                <View key={d.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 }}>
+                  <IconTile icon={d.icon} tinted={ac} />
+                  <Txt weight={ac ? 500 : undefined} style={{ flex: 1 }}>
+                    {text}
+                  </Txt>
+                  {ac && d.reachable ? (
+                    <Toggle
+                      value={d.on}
+                      onChange={(on) => dispatch({ type: 'setAc', deviceId: d.id, on, source: 'aplikasi' })}
+                      label={d.name}
+                    />
+                  ) : null}
+                </View>
+              );
+            })}
           </Card>
 
           <Card style={{ gap: 12 }}>

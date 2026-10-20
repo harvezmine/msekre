@@ -1,5 +1,20 @@
+import { HOME_CARD_DEVICES, houseLine } from './devices';
 import type { SampleState } from './reducer';
-import type { AgendaItem, HistoryEntry, HistoryKind, Outgoing } from './types';
+import type { AgendaItem, Device, HistoryEntry, HistoryKind, Outgoing } from './types';
+
+export { AC_MAX, AC_MIN, deviceStatus, houseLine, MAIN_AC_ID } from './devices';
+
+export function deviceById(state: SampleState, id: string): Device | undefined {
+  return state.devices.find((d) => d.id === id);
+}
+
+/** Baris kartu Rumah di Beranda, dari keadaan perangkatnya: "AC kamar nyala · 24°", "Pintu depan terkunci". */
+export function houseCard(state: SampleState): { device: Device; text: string }[] {
+  return HOME_CARD_DEVICES.flatMap((id) => {
+    const device = deviceById(state, id);
+    return device ? [{ device, text: houseLine(device) }] : [];
+  });
+}
 
 /** Agenda satu tanggal, urut jam. */
 export function agendaOn(state: SampleState, date: string): AgendaItem[] {

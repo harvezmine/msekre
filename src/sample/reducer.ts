@@ -1,6 +1,6 @@
 import type { OrbitNode } from '@/ui/orbit/types';
 import { initialAgenda, initialLeftover, TODAY } from './agenda';
-import { deviceStatus, initialDevices } from './devices';
+import { clampTemp, initialDevices, MAIN_AC_ID } from './devices';
 import { initialBusiness, initialHistory } from './history';
 import { draftIntro, initialChat } from './chat';
 import { addMinutes } from './dates';
@@ -9,7 +9,7 @@ import { initialRing, initialServices, serviceCatalog } from './services';
 import type {
   AcFan,
   AcMode,
-  AcState,
+  AcSettings,
   AgendaItem,
   Business,
   ChatEntry,
@@ -28,7 +28,7 @@ export type ActionSource = 'suara' | 'aplikasi' | 'chat';
 
 export interface SampleState {
   place: Place;
-  ac: AcState;
+  /** Semua perangkat semua tempat, dengan keadaan terstruktur. Tulisan keadaan dibuat `deviceStatus`. */
   devices: Device[];
   /** Kiriman per id: draf, tertahan, terkirim, dibatalkan. Urutan sisip = urutan dibuat. */
   outgoing: Record<string, Outgoing>;
@@ -54,7 +54,16 @@ export interface SampleState {
 
 export type SampleAction =
   | { type: 'setPlace'; place: Place }
-  | { type: 'setAc'; on?: boolean; temp?: number; mode?: AcMode; fan?: AcFan; source?: ActionSource }
+  /** Mengatur satu AC (bawaan AC kamar). Suhu dibulatkan dan dibatasi 16–30. */
+  | {
+      type: 'setAc';
+      deviceId?: string;
+      on?: boolean;
+      temp?: number;
+      mode?: AcMode;
+      fan?: AcFan;
+      source?: ActionSource;
+    }
   | { type: 'toggleDevice'; id: string; on: boolean }
   | { type: 'addDraft'; draft: NewDraft }
   | { type: 'editDraft'; id: string; text: string }
@@ -75,7 +84,6 @@ export type SampleAction =
 
 export const initialSampleState: SampleState = {
   place: 'Semua',
-  ac: { on: true, temp: 24, mode: 'Dingin', fan: 'Otomatis' },
   devices: initialDevices,
   outgoing: initialOutgoing,
   chat: initialChat,
@@ -116,6 +124,8 @@ function setOutgoing(state: SampleState, id: string, patch: Partial<Outgoing>): 
   return { ...state, outgoing: { ...state.outgoing, [id]: { ...state.outgoing[id]!, ...patch } } };
 }
 
+const placeKind = (d: Device) => (d.place === 'Rumah' ? 'rumah' : 'usaha');
+
 function setDevice(devices: Device[], id: string, patch: Partial<Device>): Device[] {
   return devices.map((d) => (d.id === id ? { ...d, ...patch } : d));
 }
@@ -126,70 +136,55 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       return state.place === action.place ? state : { ...state, place: action.place };
 
     case 'setAc': {
-      const { source, type: _type, ...patch } = action;
-      const ac: AcState = { ...state.ac };
-      for (const k of ['on', 'temp', 'mode', 'fan'] as const) {
-        if (patch[k] !== undefined) (ac[k] as unknown) = patch[k];
-      }
-      if (ac.on === state.ac.on && ac.temp === state.ac.temp && ac.mode === state.ac.mode && ac.fan === state.ac.fan) {
-        return state;
-      }
-      const acDevice = state.devices.find((d) => d.id === 'ac-kamar');
-      let next: SampleState = {
-        ...state,
-        ac,
-        devices: acDevice
-          ? setDevice(state.devices, acDevice.id, { on: ac.on, status: deviceStatus(acDevice, ac.on, ac) })
-          : state.devices,
+      const d = state.devices.find((x) => x.id === (action.deviceId ?? MAIN_AC_ID));
+      if (!d || d.kind !== 'ac' || !d.ac || !d.reachable) return state;
+      const on = action.on ?? d.on;
+      const ac: AcSettings = {
+        temp: action.temp === undefined ? d.ac.temp : clampTemp(action.temp),
+        mode: action.mode ?? d.ac.mode,
+        fan: action.fan ?? d.ac.fan,
       };
-      const time = source === 'suara' ? NOW_VOICE : NOW_APP;
-      const via = source ?? 'aplikasi';
-      if (ac.on !== state.ac.on) {
-        next = withHistory(next, {
-          time,
-          kind: 'rumah',
-          icon: 'snow',
-          title: ac.on ? 'Menyalakan AC kamar' : 'Mematikan AC kamar',
-          sub: `lewat ${via} · ${time}`,
+      if (on === d.on && ac.temp === d.ac.temp && ac.mode === d.ac.mode && ac.fan === d.ac.fan) return state;
+      const next: SampleState = { ...state, devices: setDevice(state.devices, d.id, { on, ac }) };
+      const time = action.source === 'suara' ? NOW_VOICE : NOW_APP;
+      const where = d.place === 'Rumah' ? '' : `${d.place} · `;
+      const via = `lewat ${action.source ?? 'aplikasi'} · ${time}`;
+      const base = { time, kind: placeKind(d), icon: d.icon, deviceId: d.id } as const;
+      if (on !== d.on) {
+        return withHistory(next, {
+          ...base,
+          title: `${on ? 'Menyalakan' : 'Mematikan'} ${lc(d.name)}`,
+          sub: `${where}${via}`,
         }).state;
-      } else {
-        // Mengatur suhu/mode berkali-kali jadi satu catatan, bukan sepuluh.
-        const entry: Omit<HistoryEntry, 'id' | 'day'> = {
-          time,
-          kind: 'rumah',
-          icon: 'snow',
-          title: 'Mengatur AC kamar',
-          sub: `${ac.temp}° · ${ac.mode} · lewat ${via} · ${time}`,
-        };
-        const top = next.history[0];
-        next =
-          top && top.title === 'Mengatur AC kamar' && top.day === 'Hari ini'
-            ? { ...next, history: [{ ...top, ...entry }, ...next.history.slice(1)] }
-            : withHistory(next, entry).state;
       }
-      return next;
+      // Mengatur suhu/mode berkali-kali jadi satu catatan, bukan sepuluh.
+      const entry = { ...base, title: `Mengatur ${lc(d.name)}`, sub: `${where}${ac.temp}° · ${ac.mode} · ${via}` };
+      const top = next.history[0];
+      return top && top.deviceId === d.id && top.title === entry.title && top.day === 'Hari ini'
+        ? { ...next, history: [{ ...top, ...entry }, ...next.history.slice(1)] }
+        : withHistory(next, entry).state;
     }
 
     case 'toggleDevice': {
       const d = state.devices.find((x) => x.id === action.id);
       if (!d || !d.reachable || d.on === action.on) return state;
-      if (d.id === 'ac-kamar') return sampleReducer(state, { type: 'setAc', on: action.on, source: 'aplikasi' });
-      const next = {
-        ...state,
-        devices: setDevice(state.devices, d.id, { on: action.on, status: deviceStatus(d, action.on) }),
-      };
+      if (d.kind === 'ac') return sampleReducer(state, { type: 'setAc', deviceId: d.id, on: action.on });
       const name = lc(d.name);
       const title =
         d.kind === 'kunci'
           ? `${action.on ? 'Mengunci' : 'Membuka'} ${name}`
           : `${action.on ? 'Menyalakan' : 'Mematikan'} ${name}`;
-      return withHistory(next, {
-        time: NOW_APP,
-        kind: d.place === 'Rumah' ? 'rumah' : 'usaha',
-        icon: d.icon,
-        title,
-        sub: `${d.place} · lewat aplikasi · ${NOW_APP}`,
-      }).state;
+      return withHistory(
+        { ...state, devices: setDevice(state.devices, d.id, { on: action.on }) },
+        {
+          time: NOW_APP,
+          kind: placeKind(d),
+          icon: d.icon,
+          title,
+          sub: `${d.place} · lewat aplikasi · ${NOW_APP}`,
+          deviceId: d.id,
+        },
+      ).state;
     }
 
     case 'addDraft': {

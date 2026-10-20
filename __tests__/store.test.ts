@@ -4,7 +4,10 @@ import {
   sampleReducer as reduce,
   agendaOn,
   approvalText,
+  deviceById,
+  deviceStatus,
   draftFor,
+  houseCard,
   historyRows,
   pendingApproval,
   type SampleAction,
@@ -12,10 +15,12 @@ import {
 } from '@/sample/store';
 
 const run = (actions: SampleAction[], from: SampleState = init) => actions.reduce(reduce, from);
+const dev = (s: SampleState, id: string) => deviceById(s, id)!;
+const status = (s: SampleState, id: string) => deviceStatus(dev(s, id));
 
 test('keadaan awal sama dengan desain', () => {
   expect(init.place).toBe('Semua');
-  expect(init.ac).toEqual({ on: true, temp: 24, mode: 'Dingin', fan: 'Otomatis' });
+  expect(dev(init, 'ac-kamar')).toMatchObject({ on: true, ac: { temp: 24, mode: 'Dingin', fan: 'Otomatis' } });
   expect(init.ring).toHaveLength(7);
   expect(pendingApproval(init)?.id).toBe(BUDI);
   expect(init.outgoing[BUDI]).toEqual({
@@ -43,10 +48,29 @@ test('setPlace', () => {
   expect(run([{ type: 'setPlace', place: 'Kedai Dago' }]).place).toBe('Kedai Dago');
 });
 
+test('tulisan keadaan perangkat dibuat dari data terstruktur (desain 2c)', () => {
+  expect(status(init, 'lampu-utama')).toBe('Nyala · 80%');
+  expect(status(init, 'lampu-sudut')).toBe('Tidak terjangkau sejak 10.12');
+  expect(status(init, 'kamera-tamu')).toBe('Merekam');
+  expect(status(init, 'pintu-depan')).toBe('Terkunci');
+  expect(status(init, 'ac-kamar')).toBe('Nyala · 24°');
+  expect(status(init, 'lampu-kamar')).toBe('Mati');
+  expect(status(init, 'lampu-teras')).toBe('Nyala');
+  expect(status(init, 'dago-ac')).toBe('Nyala · 23°');
+  expect(status(init, 'riau-ac')).toBe('Mati');
+  const s = run([
+    { type: 'toggleDevice', id: 'pintu-depan', on: false },
+    { type: 'toggleDevice', id: 'kamera-tamu', on: false },
+  ]);
+  expect(status(s, 'pintu-depan')).toBe('Terbuka');
+  expect(status(s, 'kamera-tamu')).toBe('Mati');
+  expect(init.devices.every((d) => !('status' in d))).toBe(true);
+});
+
 test('setAc mematikan AC, menyamakan perangkat, dan mencatat sumbernya', () => {
   const s = run([{ type: 'setAc', on: false, source: 'suara' }]);
-  expect(s.ac.on).toBe(false);
-  expect(s.devices.find((d) => d.id === 'ac-kamar')).toMatchObject({ on: false, status: 'Mati' });
+  expect(dev(s, 'ac-kamar').on).toBe(false);
+  expect(status(s, 'ac-kamar')).toBe('Mati');
   expect(s.history[0]).toMatchObject({
     day: 'Hari ini',
     kind: 'rumah',
@@ -62,25 +86,90 @@ test('setAc tanpa perubahan tidak mencatat; atur suhu berkali-kali jadi satu cat
     { type: 'setAc', temp: 23 },
     { type: 'setAc', temp: 22, mode: 'Kering' },
   ]);
-  expect(s.ac).toMatchObject({ temp: 22, mode: 'Kering', on: true });
+  expect(dev(s, 'ac-kamar')).toMatchObject({ on: true, ac: { temp: 22, mode: 'Kering' } });
   expect(s.history.filter((h) => h.title === 'Mengatur AC kamar')).toHaveLength(1);
-  expect(s.history[0]!.sub).toContain('22°');
-  expect(s.devices.find((d) => d.id === 'ac-kamar')!.status).toBe('Nyala · 22°');
+  expect(s.history[0]!.sub).toBe('22° · Kering · lewat aplikasi · 10.43');
+  expect(status(s, 'ac-kamar')).toBe('Nyala · 22°');
+});
+
+test('setAc membatasi suhu 16–30 di penyimpanan', () => {
+  expect(dev(run([{ type: 'setAc', temp: 40 }]), 'ac-kamar').ac!.temp).toBe(30);
+  expect(dev(run([{ type: 'setAc', temp: 5 }]), 'ac-kamar').ac!.temp).toBe(16);
+  expect(dev(run([{ type: 'setAc', temp: 22.6 }]), 'ac-kamar').ac!.temp).toBe(23);
+  const top = run([{ type: 'setAc', temp: 30 }]);
+  expect(run([{ type: 'setAc', temp: 31 }], top)).toBe(top);
+});
+
+test('setAc mengatur AC mana pun lewat deviceId; bukan AC atau tak terjangkau diabaikan', () => {
+  const s = run([{ type: 'setAc', deviceId: 'dago-ac', temp: 21, fan: 'Kencang' }]);
+  expect(dev(s, 'dago-ac').ac).toEqual({ temp: 21, mode: 'Dingin', fan: 'Kencang' });
+  expect(dev(s, 'ac-kamar')).toBe(dev(init, 'ac-kamar'));
+  expect(s.history[0]).toMatchObject({
+    kind: 'usaha',
+    title: 'Mengatur AC kedai',
+    sub: 'Kedai Dago · 21° · Dingin · lewat aplikasi · 10.43',
+  });
+  // dua AC dengan nama sama tidak bergabung jadi satu catatan
+  const both = run([{ type: 'setAc', deviceId: 'riau-ac', temp: 24 }], s);
+  expect(both.history.filter((h) => h.title === 'Mengatur AC kedai')).toHaveLength(2);
+  expect(run([{ type: 'setAc', deviceId: 'lampu-utama', on: false }])).toBe(init);
+  expect(run([{ type: 'setAc', deviceId: 'tidak-ada', on: false }])).toBe(init);
+  const unreachable = {
+    ...init,
+    devices: init.devices.map((d) => (d.id === 'dago-ac' ? { ...d, reachable: false } : d)),
+  };
+  expect(run([{ type: 'setAc', deviceId: 'dago-ac', on: false }], unreachable)).toBe(unreachable);
+});
+
+test('mati lalu nyala lagi memakai terang dan suhu yang sama', () => {
+  const lamp = run([
+    { type: 'toggleDevice', id: 'lampu-utama', on: false },
+    { type: 'toggleDevice', id: 'lampu-utama', on: true },
+  ]);
+  expect(status(lamp, 'lampu-utama')).toBe('Nyala · 80%');
+  const ac = run([
+    { type: 'toggleDevice', id: 'dago-ac', on: false },
+    { type: 'toggleDevice', id: 'dago-ac', on: true },
+  ]);
+  expect(status(ac, 'dago-ac')).toBe('Nyala · 23°');
+  expect(ac.history.slice(0, 2).map((h) => h.title)).toEqual(['Menyalakan AC kedai', 'Mematikan AC kedai']);
+  const kamar = run([
+    { type: 'setAc', on: false },
+    { type: 'setAc', temp: 20 },
+    { type: 'setAc', on: true },
+  ]);
+  expect(status(kamar, 'ac-kamar')).toBe('Nyala · 20°');
 });
 
 test('toggleDevice: lampu, kunci, AC, dan perangkat tak terjangkau', () => {
   let s = run([{ type: 'toggleDevice', id: 'lampu-utama', on: false }]);
-  expect(s.devices.find((d) => d.id === 'lampu-utama')).toMatchObject({ on: false, status: 'Mati' });
-  expect(s.history[0]).toMatchObject({ title: 'Mematikan lampu utama', kind: 'rumah' });
+  expect(dev(s, 'lampu-utama')).toMatchObject({ on: false, level: 80 });
+  expect(status(s, 'lampu-utama')).toBe('Mati');
+  expect(s.history[0]).toMatchObject({
+    title: 'Mematikan lampu utama',
+    kind: 'rumah',
+    sub: 'Rumah · lewat aplikasi · 10.43',
+  });
   s = run([{ type: 'toggleDevice', id: 'pintu-depan', on: false }]);
   expect(s.history[0]!.title).toBe('Membuka pintu depan');
   s = run([{ type: 'toggleDevice', id: 'dago-lampu', on: false }]);
   expect(s.history[0]).toMatchObject({ kind: 'usaha' });
   s = run([{ type: 'toggleDevice', id: 'ac-kamar', on: false }]);
-  expect(s.ac.on).toBe(false);
-  expect(s.history[0]!.title).toBe('Mematikan AC kamar');
+  expect(dev(s, 'ac-kamar').on).toBe(false);
+  expect(s.history[0]).toMatchObject({ title: 'Mematikan AC kamar', sub: 'lewat aplikasi · 10.43' });
   expect(run([{ type: 'toggleDevice', id: 'lampu-sudut', on: true }])).toBe(init);
   expect(run([{ type: 'toggleDevice', id: 'tidak-ada', on: true }])).toBe(init);
+});
+
+test('kartu Rumah Beranda diturunkan dari perangkat', () => {
+  expect(houseCard(init).map((r) => r.text)).toEqual(['AC kamar nyala · 24°', 'Pintu depan terkunci', 'Kamera aktif']);
+  const s = run([
+    { type: 'setAc', temp: 26 },
+    { type: 'toggleDevice', id: 'pintu-depan', on: false },
+    { type: 'toggleDevice', id: 'kamera-tamu', on: false },
+  ]);
+  expect(houseCard(s).map((r) => r.text)).toEqual(['AC kamar nyala · 26°', 'Pintu depan terbuka', 'Kamera mati']);
+  expect(houseCard(run([{ type: 'setAc', on: false }]))[0]!.text).toBe('AC kamar mati');
 });
 
 test('sendDraft: tertahan, kartu persetujuan hilang, entri Riwayat bisa dibatalkan sampai 10.47', () => {

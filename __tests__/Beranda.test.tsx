@@ -64,6 +64,26 @@ test('suhu AC datang dari penyimpanan', async () => {
   expect(screen.getByText('AC kamar nyala · 22°')).toBeOnTheScreen();
 });
 
+test('kartu Rumah ikut keadaan perangkat yang diubah di layar lain', async () => {
+  await renderWithProviders(<Beranda />);
+  expect(screen.getByText('AC kamar nyala · 24°')).toBeOnTheScreen();
+  expect(screen.getByText('Pintu depan terkunci')).toBeOnTheScreen();
+  expect(screen.getByText('Kamera aktif')).toBeOnTheScreen();
+});
+
+test('pintu dibuka dan kamera dimatikan di Perangkat: Beranda ikut', async () => {
+  await renderWithProviders(<Beranda />, {
+    actions: [
+      { type: 'toggleDevice', id: 'pintu-depan', on: false },
+      { type: 'toggleDevice', id: 'kamera-tamu', on: false },
+      { type: 'toggleDevice', id: 'ac-kamar', on: false },
+    ],
+  });
+  expect(screen.getByText('Pintu depan terbuka')).toBeOnTheScreen();
+  expect(screen.getByText('Kamera mati')).toBeOnTheScreen();
+  expect(screen.getByText('AC kamar mati')).toBeOnTheScreen();
+});
+
 test('kartu persetujuan hilang setelah kiriman disetujui', async () => {
   await renderWithProviders(<Beranda />, { actions: [{ type: 'sendDraft', id: BUDI_DRAFT_ID }] });
   expect(screen.queryByText('Butuh persetujuan Anda')).not.toBeOnTheScreen();

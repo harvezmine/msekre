@@ -1,5 +1,13 @@
 import type { Device } from './types';
 
+/** AC utama: kartu Rumah di Beranda, kartu AC di chat, dan Mode Suara ("Matikan AC kamar"). */
+export const MAIN_AC_ID = 'ac-kamar';
+/** Batas suhu AC. Penyimpanan membatasi setiap perubahan ke rentang ini. */
+export const AC_MIN = 16;
+export const AC_MAX = 30;
+/** Baris kartu Rumah di Beranda, berurutan (desain 1a). */
+export const HOME_CARD_DEVICES = [MAIN_AC_ID, 'pintu-depan', 'kamera-tamu'];
+
 const dev = (d: Device): Device => d;
 
 /** Perangkat contoh: desain 2c untuk Rumah, ditambah beberapa untuk tiap kedai. */
@@ -11,8 +19,8 @@ export const initialDevices: Device[] = [
     name: 'Lampu utama',
     icon: 'bulb',
     kind: 'lampu',
-    status: 'Nyala · 80%',
     on: true,
+    level: 80,
     reachable: true,
     via: 'cloud',
   }),
@@ -23,9 +31,9 @@ export const initialDevices: Device[] = [
     name: 'Lampu sudut',
     icon: 'bulb',
     kind: 'lampu',
-    status: 'Tidak terjangkau sejak 10.12',
     on: false,
     reachable: false,
+    unreachableSince: '10.12',
     via: 'cloud',
   }),
   dev({
@@ -33,9 +41,9 @@ export const initialDevices: Device[] = [
     place: 'Rumah',
     room: 'Ruang tamu',
     name: 'Kamera ruang tamu',
+    short: 'Kamera',
     icon: 'camera',
     kind: 'kamera',
-    status: 'Merekam',
     on: true,
     reachable: true,
     via: 'cloud',
@@ -48,21 +56,22 @@ export const initialDevices: Device[] = [
     name: 'Pintu depan',
     icon: 'lock',
     kind: 'kunci',
-    status: 'Terkunci',
     on: true,
     reachable: true,
     via: 'cloud',
     needsPin: true,
   }),
   dev({
-    id: 'ac-kamar',
+    id: MAIN_AC_ID,
     place: 'Rumah',
     room: 'Kamar',
     name: 'AC kamar',
     icon: 'snow',
     kind: 'ac',
-    status: 'Nyala · 24°',
     on: true,
+    ac: { temp: 24, mode: 'Dingin', fan: 'Otomatis' },
+    roomTemp: 27,
+    brand: 'LG',
     reachable: true,
     via: 'ir',
   }),
@@ -73,7 +82,6 @@ export const initialDevices: Device[] = [
     name: 'Lampu kamar',
     icon: 'bulb',
     kind: 'lampu',
-    status: 'Mati',
     on: false,
     reachable: true,
     via: 'cloud',
@@ -85,7 +93,6 @@ export const initialDevices: Device[] = [
     name: 'Lampu dapur',
     icon: 'bulb',
     kind: 'lampu',
-    status: 'Mati',
     on: false,
     reachable: true,
     via: 'cloud',
@@ -97,7 +104,6 @@ export const initialDevices: Device[] = [
     name: 'Lampu teras',
     icon: 'bulb',
     kind: 'lampu',
-    status: 'Nyala',
     on: true,
     reachable: true,
     via: 'cloud',
@@ -110,8 +116,8 @@ export const initialDevices: Device[] = [
     name: 'Lampu kedai',
     icon: 'bulb',
     kind: 'lampu',
-    status: 'Nyala · 100%',
     on: true,
+    level: 100,
     reachable: true,
     via: 'cloud',
   }),
@@ -122,8 +128,10 @@ export const initialDevices: Device[] = [
     name: 'AC kedai',
     icon: 'snow',
     kind: 'ac',
-    status: 'Nyala · 23°',
     on: true,
+    ac: { temp: 23, mode: 'Dingin', fan: 'Otomatis' },
+    roomTemp: 28,
+    brand: 'Daikin',
     reachable: true,
     via: 'ir',
   }),
@@ -134,7 +142,6 @@ export const initialDevices: Device[] = [
     name: 'Lampu depan',
     icon: 'bulb',
     kind: 'lampu',
-    status: 'Mati',
     on: false,
     reachable: true,
     via: 'cloud',
@@ -146,7 +153,6 @@ export const initialDevices: Device[] = [
     name: 'CCTV kasir',
     icon: 'camera',
     kind: 'kamera',
-    status: 'Merekam',
     on: true,
     reachable: true,
     via: 'cloud',
@@ -160,7 +166,6 @@ export const initialDevices: Device[] = [
     name: 'Lampu kedai',
     icon: 'bulb',
     kind: 'lampu',
-    status: 'Mati',
     on: false,
     reachable: true,
     via: 'cloud',
@@ -172,8 +177,10 @@ export const initialDevices: Device[] = [
     name: 'AC kedai',
     icon: 'snow',
     kind: 'ac',
-    status: 'Mati',
     on: false,
+    ac: { temp: 25, mode: 'Dingin', fan: 'Otomatis' },
+    roomTemp: 29,
+    brand: 'Panasonic',
     reachable: true,
     via: 'ir',
   }),
@@ -184,7 +191,6 @@ export const initialDevices: Device[] = [
     name: 'Lampu gudang',
     icon: 'bulb',
     kind: 'lampu',
-    status: 'Mati',
     on: false,
     reachable: true,
     via: 'cloud',
@@ -196,7 +202,6 @@ export const initialDevices: Device[] = [
     name: 'CCTV kasir',
     icon: 'camera',
     kind: 'kamera',
-    status: 'Merekam',
     on: true,
     reachable: true,
     via: 'cloud',
@@ -204,16 +209,40 @@ export const initialDevices: Device[] = [
   }),
 ];
 
-/** Tulisan keadaan sesuai jenis, dipakai saat perangkat dinyalakan atau dimatikan. */
-export function deviceStatus(d: Pick<Device, 'kind' | 'name'>, on: boolean, ac?: { temp: number }): string {
+/** Suhu AC dibulatkan dan dibatasi 16–30. */
+export function clampTemp(t: number): number {
+  return Math.min(AC_MAX, Math.max(AC_MIN, Math.round(t)));
+}
+
+/** Tulisan keadaan di ubin dan kartu: "Nyala · 80%", "Nyala · 24°", "Terkunci", "Merekam", "Tidak terjangkau sejak 10.12". */
+export function deviceStatus(d: Device): string {
+  if (!d.reachable) return d.unreachableSince ? `Tidak terjangkau sejak ${d.unreachableSince}` : 'Tidak terjangkau';
   switch (d.kind) {
     case 'ac':
-      return on ? `Nyala · ${ac?.temp ?? 24}°` : 'Mati';
+      return d.on ? (d.ac ? `Nyala · ${d.ac.temp}°` : 'Nyala') : 'Mati';
+    case 'lampu':
+      return d.on ? (d.level !== undefined ? `Nyala · ${d.level}%` : 'Nyala') : 'Mati';
     case 'kamera':
-      return on ? 'Merekam' : 'Mati';
+      return d.on ? 'Merekam' : 'Mati';
     case 'kunci':
-      return on ? 'Terkunci' : 'Terbuka';
+      return d.on ? 'Terkunci' : 'Terbuka';
     default:
-      return on ? 'Nyala' : 'Mati';
+      return d.on ? 'Nyala' : 'Mati';
+  }
+}
+
+/** Kalimat satu baris di kartu Rumah Beranda: "AC kamar nyala · 24°", "Pintu depan terkunci", "Kamera aktif". */
+export function houseLine(d: Device): string {
+  const name = d.short ?? d.name;
+  if (!d.reachable) return `${name} tidak terjangkau`;
+  switch (d.kind) {
+    case 'ac':
+      return d.on ? `${name} nyala${d.ac ? ` · ${d.ac.temp}°` : ''}` : `${name} mati`;
+    case 'kunci':
+      return `${name} ${d.on ? 'terkunci' : 'terbuka'}`;
+    case 'kamera':
+      return `${name} ${d.on ? 'aktif' : 'mati'}`;
+    default:
+      return `${name} ${d.on ? 'nyala' : 'mati'}`;
   }
 }

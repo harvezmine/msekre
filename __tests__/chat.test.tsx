@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import Chat from '../app/chat';
 import { renderWithProviders } from './helpers';
 import { BUDI_DRAFT_ID as BUDI, supplierOrderDraft } from '@/sample/outgoing';
-import { historyRows, useSample, type SampleState } from '@/sample/store';
+import { deviceById, historyRows, initialSampleState, useSample, type SampleState } from '@/sample/store';
 import { QR_SIZE, qrCells } from '@/ui/chat/qrPattern';
 
 let latest: SampleState;
@@ -107,14 +107,14 @@ test('Ubah membuka kolom teks dan Simpan menyimpan isi baru', async () => {
 test('tombol suhu dibatasi 16 sampai 30 dan sakelar mematikan AC', async () => {
   await renderChat();
   for (let i = 0; i < 12; i++) await fireEvent.press(screen.getByRole('button', { name: 'Turunkan suhu' }));
-  expect(latest.ac.temp).toBe(16);
+  expect(deviceById(latest, 'ac-kamar')!.ac!.temp).toBe(16);
   expect(screen.getByText('16°')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Turunkan suhu' }).props.accessibilityState.disabled).toBe(true);
   for (let i = 0; i < 20; i++) await fireEvent.press(screen.getByRole('button', { name: 'Naikkan suhu' }));
-  expect(latest.ac.temp).toBe(30);
+  expect(deviceById(latest, 'ac-kamar')!.ac!.temp).toBe(30);
   expect(screen.getByText('Perintah terakhir: 30° Dingin · suhu ruangan sekarang 27°')).toBeTruthy();
   await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
-  expect(latest.ac.on).toBe(false);
+  expect(deviceById(latest, 'ac-kamar')!.on).toBe(false);
   expect(screen.getByText('Mati')).toBeTruthy();
 });
 
@@ -132,6 +132,21 @@ test('mengetik lalu kirim menambah gelembung, tanda berpikir, dan jawaban setela
   await advance(100);
   expect(screen.getByText('Ini masih contoh. Mulai Fase 1 saya menjawab sungguhan.')).toBeTruthy();
   expect(screen.queryByTestId('berpikir')).toBeNull();
+});
+
+test('kartu perangkat membaca AC yang ditunjuk barisnya', async () => {
+  await renderChat({
+    state: { ...initialSampleState, chat: [{ id: 'x1', kind: 'device', deviceId: 'dago-ac' }] },
+  });
+  expect(screen.getByText('AC kedai')).toBeOnTheScreen();
+  expect(screen.getByText('23°')).toBeOnTheScreen();
+  expect(screen.getByText('Perintah terakhir: 23° Dingin · suhu ruangan sekarang 28°')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Naikkan suhu' }));
+  expect(deviceById(latest, 'dago-ac')!.ac!.temp).toBe(24);
+  expect(deviceById(latest, 'ac-kamar')!.ac!.temp).toBe(24);
+  await fireEvent.press(screen.getByRole('switch', { name: 'AC kedai' }));
+  expect(deviceById(latest, 'dago-ac')!.on).toBe(false);
+  expect(deviceById(latest, 'ac-kamar')!.on).toBe(true);
 });
 
 test('pesan yang diketik dan jawabannya tersimpan di penyimpanan, tanda berpikir contoh hilang', async () => {

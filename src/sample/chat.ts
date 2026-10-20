@@ -1,3 +1,4 @@
+import { MAIN_AC_ID } from './devices';
 import { BUDI_DRAFT_ID } from './outgoing';
 import type { ChatEntry } from './types';
 
@@ -5,7 +6,7 @@ import type { ChatEntry } from './types';
 export const initialChat: ChatEntry[] = [
   { id: 't1', kind: 'user', text: 'Nyalakan AC kamar 24 derajat' },
   { id: 't2', kind: 'assistant', text: 'Sudah. AC kamar nyala di 24°.' },
-  { id: 't3', kind: 'device', deviceId: 'ac-kamar' },
+  { id: 't3', kind: 'device', deviceId: MAIN_AC_ID },
   { id: 't4', kind: 'user', text: 'Balas Pak Budi, harga sewa bisa Rp15 juta' },
   { id: 't5', kind: 'assistant', text: 'Ini draf balasannya. Saya kirim setelah Anda setuju.' },
   { id: 't6', kind: 'confirm', outgoingId: BUDI_DRAFT_ID },
@@ -43,4 +44,3 @@ export const draftIntro = (what: string) => `Ini draf ${what}nya. Saya kirim set
 
 export const typedReply = 'Ini masih contoh. Mulai Fase 1 saya menjawab sungguhan.';
 export const THINK_MS = 1200;
-export const ROOM_TEMP = 27;
