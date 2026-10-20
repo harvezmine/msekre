@@ -21,9 +21,10 @@ export function Toggle({ value, onChange, label }: { value: boolean; onChange: (
       accessibilityState={{ checked: value }}
       onPress={() => onChange(!value)}
       hitSlop={8}
+      style={{ alignSelf: 'flex-start' }}
     >
       <Animated.View style={[{ width: 52, height: 32, borderRadius: 16, padding: 4 }, trackStyle]}>
-        <Animated.View style={[{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF' }, thumbStyle]} />
+        <Animated.View testID="sakelar-jempol" style={[{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF' }, thumbStyle]} />
       </Animated.View>
     </Pressable>
   );
