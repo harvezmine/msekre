@@ -60,9 +60,17 @@ export function agendaOn(state: SampleState, date: string): AgendaItem[] {
   return state.agenda.filter((a) => a.date === date).sort((a, b) => a.time.localeCompare(b.time));
 }
 
-/** Kartu "Agenda hari ini" di Beranda: semua item bertanggal hari ini, termasuk yang ditambah atau dipindah ke hari ini. */
+/** Baris paling banyak di kartu "Agenda hari ini" Beranda (desain 1a). */
+export const HOME_AGENDA_ROWS = 3;
+
+/**
+ * Kartu "Agenda hari ini" di Beranda (desain 1a): tiga item pertama hari ini menurut jam, tanpa tugas (tugas ada di
+ * layar Agenda). Yang ditambah atau dipindah ke hari ini ikut masuk bila jamnya lebih awal.
+ */
 export function homeAgenda(state: SampleState): AgendaItem[] {
-  return agendaOn(state, TODAY);
+  return agendaOn(state, TODAY)
+    .filter((a) => a.kind !== 'task')
+    .slice(0, HOME_AGENDA_ROWS);
 }
 
 /** Draf tertua yang masih menunggu persetujuan, untuk kartu "Butuh persetujuan Anda" di Beranda. */
