@@ -4,7 +4,7 @@ import type { ConnectionStatus, Unsubscribe } from './transport';
 interface Listener {
   onEvent: (event: StreamEvent) => void;
   onStatus: (status: ConnectionStatus) => void;
-  onResync?: (lastSeq: number | undefined) => void;
+  onResync?: (lastRev: number | undefined) => void;
 }
 
 /**
@@ -14,7 +14,7 @@ interface Listener {
 export class StreamHub {
   private readonly listeners = new Set<Listener>();
   private current: ConnectionStatus = 'closed';
-  private seq: number | undefined;
+  private rev: number | undefined;
 
   constructor(private readonly hooks: { start: () => void; stop: () => void }) {}
 
@@ -26,14 +26,14 @@ export class StreamHub {
     return this.listeners.size > 0;
   }
 
-  /** Seq terbesar yang sudah diterima (stream dan hasil fetch), atau `undefined`. */
-  get lastSeq(): number | undefined {
-    return this.seq;
+  /** `rev` terbesar yang sudah diterima (stream dan hasil fetch), atau `undefined`. */
+  get lastRev(): number | undefined {
+    return this.rev;
   }
 
-  /** Catat seq yang sudah diterima klien. Hanya naik. */
-  noteSeq(seq: number) {
-    if (this.seq === undefined || seq > this.seq) this.seq = seq;
+  /** Catat `rev` yang sudah diterima klien. Hanya naik. */
+  noteRev(rev: number) {
+    if (this.rev === undefined || rev > this.rev) this.rev = rev;
   }
 
   add(listener: Listener): Unsubscribe {
@@ -47,7 +47,7 @@ export class StreamHub {
   }
 
   emit(event: StreamEvent) {
-    if (event.type === 'message') this.noteSeq(event.message.seq);
+    if (event.type === 'message') this.noteRev(event.message.rev);
     for (const l of [...this.listeners]) safe(() => l.onEvent(event));
   }
 
@@ -57,10 +57,10 @@ export class StreamHub {
     for (const l of [...this.listeners]) safe(() => l.onStatus(status));
   }
 
-  /** Koneksi baru terbuka: minta setiap pendengar mengambil pesan yang terlewat sejak {@link lastSeq}. */
+  /** Koneksi baru terbuka: minta setiap pendengar mengambil pesan yang berubah sejak {@link lastRev}. */
   resync() {
-    const lastSeq = this.seq;
-    for (const l of [...this.listeners]) safe(() => l.onResync?.(lastSeq));
+    const lastRev = this.rev;
+    for (const l of [...this.listeners]) safe(() => l.onResync?.(lastRev));
   }
 }
 

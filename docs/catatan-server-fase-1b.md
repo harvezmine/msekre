@@ -23,7 +23,16 @@ sisanya adalah aturan implementasi server. Kontrak lengkapnya ada di `src/api/co
   - bagian `choices` membawa `chosenId` setelah dipilih.
 - **Urutan dan resync:**
   - setiap pesan punya `seq`, nomor urut yang hanya naik (bigserial);
-  - riwayat memakai `?before=<seq>`, dan resync memakai `?after=<seq>`;
+  - riwayat memakai `?before=<seq>`;
+  - setiap pesan juga punya `rev`, nomor perubahan per pengguna yang hanya naik (satu sequence per pengguna, atau global
+    bigserial). `rev` dinaikkan (`rev = nextval(...)`) pada INSERT dan pada setiap UPDATE pesan, termasuk saat draf di
+    kartu berubah. Upsert tetap membawa `seq` lamanya, jadi resync TIDAK bisa memakai `seq`: QRIS yang lunas saat HP
+    offline tidak akan terambil. Resync memakai `GET /messages?changedAfter=<rev>&limit=100` (terlama dulu menurut
+    `rev`, `{ items, more }`; ulangi dengan `rev` pesan terakhir selama `more`);
+  - `Me` membawa `phone` (E.164 tanpa +), supaya Akun menampilkan nomor tanpa nama;
+  - jabat tangan WebSocket yang ditolak (403 `diblokir`, 426 `perlu_pembaruan`, 429) dilihat React Native sebagai tutup
+    1006. Karena itu `GET /me` harus membalas 403 / 426 / 401 dengan benar juga untuk akun yang ditolak: klien
+    memanggilnya setelah 3 kali gagal terbuka untuk tahu penyebabnya;
   - `before` yang tidak ada lagi (misalnya setelah memory_forget) dibalas dengan halaman terbaru, bukan 400.
 - **Error:**
   - `403 diblokir` untuk akun yang dinonaktifkan atau diblokir di admin;

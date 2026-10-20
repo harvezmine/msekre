@@ -13,7 +13,7 @@ import {
   messageSchema,
   messagesPageSchema,
   messagesQuerySchema,
-  messagesSincePageSchema,
+  messagesChangedPageSchema,
   MESSAGES_LIMIT,
   okResSchema,
   partSchema,
@@ -28,7 +28,13 @@ import {
   type Part,
 } from '@/api/contract';
 
-const me = { id: 'u1', name: 'Rina', assistantName: 'Nadia', plan: { name: 'Bisnis', activeUntil: null } };
+const me = {
+  id: 'u1',
+  name: 'Rina',
+  assistantName: 'Nadia',
+  plan: { name: 'Bisnis', activeUntil: null },
+  phone: '6281220457781',
+};
 const draft: Draft = {
   id: 'd1',
   to: 'Pak Budi',
@@ -64,6 +70,7 @@ const parts: Part[] = [
 const message: Message = {
   id: 'm1',
   seq: 1,
+  rev: 1,
   clientId: 'c1',
   at: '2026-10-20T03:42:00.000Z',
   from: 'user',
@@ -135,6 +142,8 @@ describe('pesan', () => {
     ['tanpa seq', { ...message, seq: undefined }],
     ['seq nol', { ...message, seq: 0 }],
     ['seq pecahan', { ...message, seq: 1.5 }],
+    ['tanpa rev', { ...message, rev: undefined }],
+    ['rev nol', { ...message, rev: 0 }],
     ['pengirim lain', { ...message, from: 'system' }],
     ['kanal lain', { ...message, via: 'sms' }],
   ])('%s ditolak', (_, value) => bad(messageSchema, value));
@@ -158,18 +167,18 @@ describe('pesan', () => {
     ok(messagesPageSchema, { items: [], before: null });
     bad(messagesPageSchema, { items: [message] });
     bad(messagesPageSchema, { items: [message], before: 'm1' });
-    ok(messagesSincePageSchema, { items: [message], more: true });
-    bad(messagesSincePageSchema, { items: [message] });
+    ok(messagesChangedPageSchema, { items: [message], more: true });
+    bad(messagesChangedPageSchema, { items: [message] });
   });
 
-  test('query: limit bawaan 30, dibaca dari teks, paling banyak 100; before dan after tidak bersamaan', () => {
+  test('query: limit bawaan 30, dibaca dari teks, paling banyak 100; before dan changedAfter tidak bersamaan', () => {
     expect(messagesQuerySchema.parse({})).toEqual({ limit: MESSAGES_LIMIT });
     expect(messagesQuerySchema.parse({ before: '9', limit: '50' })).toEqual({ before: 9, limit: 50 });
-    expect(messagesQuerySchema.parse({ after: '0' })).toEqual({ after: 0, limit: MESSAGES_LIMIT });
+    expect(messagesQuerySchema.parse({ changedAfter: '0' })).toEqual({ changedAfter: 0, limit: MESSAGES_LIMIT });
     bad(messagesQuerySchema, { limit: '101' });
     bad(messagesQuerySchema, { limit: '0' });
     bad(messagesQuerySchema, { before: 'm9' });
-    bad(messagesQuerySchema, { before: '5', after: '3' });
+    bad(messagesQuerySchema, { before: '5', changedAfter: '3' });
   });
 
   test('kirim teks atau pilihan; campuran dan kolom lebih ditolak', () => {

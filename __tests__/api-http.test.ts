@@ -5,10 +5,17 @@ import { createMemorySession, type Session } from '@/api/session';
 import { ApiFailure, type ConnectionStatus } from '@/api/transport';
 
 const BASE = 'https://app.sekertaris.com';
-const me = { id: 'u1', name: 'Rina', assistantName: 'Nadia', plan: { name: 'Bisnis', activeUntil: null } };
+const me = {
+  id: 'u1',
+  name: 'Rina',
+  assistantName: 'Nadia',
+  plan: { name: 'Bisnis', activeUntil: null },
+  phone: '6281220457781',
+};
 const message: Message = {
   id: 'm1',
   seq: 1,
+  rev: 1,
   clientId: 'c1',
   at: '2026-10-20T03:42:00.000Z',
   from: 'user',
@@ -93,21 +100,21 @@ const call = (fetch: ReturnType<typeof fakeFetch>, i = 0) => {
 };
 
 /** Pendengar stream yang mencatat event, status, dan permintaan resync. */
-function listen(transport: HttpTransport, onResync?: (lastSeq: number | undefined) => void) {
+function listen(transport: HttpTransport, onResync?: (lastRev: number | undefined) => void) {
   const events: StreamEvent[] = [];
   const statuses: ConnectionStatus[] = [];
-  const lastSeqs: (number | undefined)[] = [];
+  const lastRevs: (number | undefined)[] = [];
   let resyncs = 0;
   const stop = transport.subscribe(
     (e) => events.push(e),
     (s) => statuses.push(s),
-    (lastSeq) => {
+    (lastRev) => {
       resyncs += 1;
-      lastSeqs.push(lastSeq);
-      onResync?.(lastSeq);
+      lastRevs.push(lastRev);
+      onResync?.(lastRev);
     },
   );
-  return { events, statuses, lastSeqs, stop, resyncs: () => resyncs, last: () => statuses[statuses.length - 1] };
+  return { events, statuses, lastRevs, stop, resyncs: () => resyncs, last: () => statuses[statuses.length - 1] };
 }
 
 const flush = () => jest.advanceTimersByTimeAsync(0);
@@ -118,7 +125,8 @@ describe('HTTP', () => {
       reply: (url) => {
         if (url.endsWith('/auth/start')) return { body: { resendInSec: 60 } };
         if (url.endsWith('/me')) return { body: me };
-        if (url.includes('/messages?') && url.includes('after=')) return { body: { items: [message], more: false } };
+        if (url.includes('/messages?') && url.includes('changedAfter='))
+          return { body: { items: [message], more: false } };
         if (url.includes('/messages?')) return { body: { items: [message], before: null } };
         if (url.includes('/home/devices/')) return { body: { card: acCard } };
         if (url.endsWith('/messages')) return { body: { message } };
@@ -177,8 +185,8 @@ describe('HTTP', () => {
       uri: `${BASE}/app/v1/media/q%201`,
       headers: { Authorization: 'Bearer tok' },
     });
-    expect(await transport.messagesAfter(7)).toEqual({ items: [message], more: false });
-    expect(call(fetch, 7).url).toBe(`${BASE}/app/v1/messages?limit=100&after=7`);
+    expect(await transport.messagesChanged(7)).toEqual({ items: [message], more: false });
+    expect(call(fetch, 7).url).toBe(`${BASE}/app/v1/messages?limit=100&changedAfter=7`);
 
     expect(await transport.controlDevice('ac/1', { on: true, temp: 22 })).toEqual(acCard);
     expect(call(fetch, 8)).toMatchObject({
@@ -311,7 +319,7 @@ describe('WebSocket', () => {
     ]);
     // Pembukaan pertama pun meminta resync; belum ada seq yang dikenal.
     expect(l.resyncs()).toBe(1);
-    expect(l.lastSeqs).toEqual([undefined]);
+    expect(l.lastRevs).toEqual([undefined]);
   });
 
   test('http menjadi ws', async () => {
@@ -352,15 +360,17 @@ describe('WebSocket', () => {
     expect(sockets).toHaveLength(1);
   });
 
-  test('sambung ulang dengan jeda bertingkat, lalu mengambil pesan yang terlewat sejak seq terakhir', async () => {
-    const { fetch, sockets, transport } = setup({ reply: () => ({ body: { items: [message], more: false } }) });
+  test('sambung ulang dengan jeda bertingkat, lalu mengambil pesan yang terlewat sejak rev terakhir', async () => {
+    const { fetch, sockets, transport } = setup({
+      reply: (url) => ({ body: url.endsWith('/me') ? me : { items: [message], more: false } }),
+    });
     const pages: unknown[] = [];
-    const l = listen(transport, (lastSeq) => {
-      if (lastSeq !== undefined) void transport.messagesAfter(lastSeq).then((p) => pages.push(p));
+    const l = listen(transport, (lastRev) => {
+      if (lastRev !== undefined) void transport.messagesChanged(lastRev).then((p) => pages.push(p));
     });
     await flush();
     sockets[0]!.open();
-    sockets[0]!.send({ type: 'message', message: { ...message, id: 'm7', seq: 7 } });
+    sockets[0]!.send({ type: 'message', message: { ...message, id: 'm7', seq: 7, rev: 11 } });
     expect(l.resyncs()).toBe(1);
 
     sockets[0]!.drop();
@@ -374,14 +384,16 @@ describe('WebSocket', () => {
       if (i < 6) sockets[i + 1]!.drop();
     }
     expect(l.statuses.filter((s) => s === 'open')).toHaveLength(1);
-    expect(fetch).not.toHaveBeenCalled();
+    // Gagal terbuka tiga kali: satu pemeriksaan GET /me (server menjawab sehat, jadi tidak diulang).
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(call(fetch, 0).url).toBe(`${BASE}/app/v1/me`);
 
     sockets[7]!.open();
     expect(l.last()).toBe('open');
     expect(l.resyncs()).toBe(2);
-    expect(l.lastSeqs).toEqual([undefined, 7]);
+    expect(l.lastRevs).toEqual([undefined, 11]);
     await flush();
-    expect(call(fetch).url).toBe(`${BASE}/app/v1/messages?limit=100&after=7`);
+    expect(call(fetch, 1).url).toBe(`${BASE}/app/v1/messages?limit=100&changedAfter=11`);
     expect(pages).toEqual([{ items: [message], more: false }]);
 
     // Setelah tersambung, jedanya kembali ke 1 detik.
@@ -390,9 +402,50 @@ describe('WebSocket', () => {
     expect(sockets).toHaveLength(9);
   });
 
-  test('seq yang dikenal berasal dari halaman terbaru, bukan dari halaman lama atau kiriman sendiri', async () => {
-    const page = (ids: number[]) => ({ items: ids.map((n) => ({ ...message, id: `m${n}`, seq: n })), before: null });
-    const replies = [page([9, 8]), page([3, 2]), { message: { ...message, id: 'm20', seq: 20 } }];
+  test('upsert saat koneksi putus (QRIS lunas) sampai lewat resync berdasarkan rev', async () => {
+    const qris = (status: string, rev: number) => ({
+      ...message,
+      id: 'q1',
+      seq: 3,
+      rev,
+      parts: [
+        {
+          type: 'card',
+          card: { kind: 'qris', amountRp: 1000, until: '2026-10-20T10:15:00Z', status, mediaId: 'q' },
+        },
+      ],
+    });
+    const { fetch, sockets, transport } = setup({
+      reply: (url) =>
+        url.includes('changedAfter=5')
+          ? { body: { items: [qris('lunas', 9)], more: false } }
+          : { body: { items: [], more: false } },
+    });
+    const merged = new Map<string, Message>();
+    const l = listen(transport, (lastRev) => {
+      if (lastRev === undefined) return;
+      void transport.messagesChanged(lastRev).then((p) => p.items.forEach((m) => merged.set(m.id, m)));
+    });
+    await flush();
+    sockets[0]!.open();
+    sockets[0]!.send({ type: 'message', message: qris('menunggu', 5) });
+    sockets[0]!.drop();
+    // Saat putus QRIS dibayar: seq tetap 3, rev naik ke 9; tidak ada event yang sampai.
+    await jest.advanceTimersByTimeAsync(1000);
+    sockets[1]!.open();
+    await flush();
+    expect(l.lastRevs).toEqual([undefined, 5]);
+    expect(call(fetch).url).toBe(`${BASE}/app/v1/messages?limit=100&changedAfter=5`);
+    expect(merged.get('q1')).toMatchObject({ seq: 3, rev: 9 });
+    expect(JSON.stringify(merged.get('q1'))).toContain('lunas');
+  });
+
+  test('rev yang dikenal berasal dari halaman terbaru, bukan dari halaman lama atau kiriman sendiri', async () => {
+    const page = (ids: number[]) => ({
+      items: ids.map((n) => ({ ...message, id: `m${n}`, seq: n, rev: n })),
+      before: null,
+    });
+    const replies = [page([9, 8]), page([3, 2]), { message: { ...message, id: 'm20', seq: 20, rev: 20 } }];
     const { sockets, transport } = setup({ reply: () => ({ body: replies.shift() }) });
     await transport.messages();
     await transport.messages(8);
@@ -400,7 +453,7 @@ describe('WebSocket', () => {
     const l = listen(transport);
     await flush();
     sockets[0]!.open();
-    expect(l.lastSeqs).toEqual([9]);
+    expect(l.lastRevs).toEqual([9]);
   });
 
   test('koneksi yang macet saat menyambung dibuang dan dicoba lagi dengan jeda bertingkat', async () => {
@@ -528,6 +581,88 @@ describe('WebSocket', () => {
   });
 });
 
+describe('penolakan jabat tangan', () => {
+  /** Soket ke-`count` gagal terbuka berturut-turut (RN melaporkan 403/426/429 sebagai tutup 1006). */
+  async function failOpens(sockets: FakeSocket[], count: number) {
+    for (let i = 0; i < count; i++) {
+      for (let step = 0; sockets.length <= i && step < 40; step++) await jest.advanceTimersByTimeAsync(1000);
+      expect(sockets.length).toBeGreaterThan(i);
+      sockets[i]!.drop();
+      await flush();
+    }
+  }
+  const quiet = async (sockets: FakeSocket[]) => {
+    const n = sockets.length;
+    await jest.advanceTimersByTimeAsync(300_000);
+    expect(sockets).toHaveLength(n);
+  };
+
+  test.each<[string, number, string, ConnectionStatus]>([
+    ['diblokir', 403, 'diblokir', 'blocked'],
+    ['perlu pembaruan', 426, 'perlu_pembaruan', 'upgrade_required'],
+  ])(
+    'tiga kali gagal terbuka lalu GET /me %s: berhenti menyambung dan status tampil',
+    async (_, status, error, expected) => {
+      const { fetch, session, sockets, transport } = setup({ reply: () => ({ status, body: { error } }) });
+      const l = listen(transport);
+      await flush();
+      await failOpens(sockets, 2);
+      expect(fetch).not.toHaveBeenCalled();
+      await failOpens(sockets, 3);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(call(fetch).url).toBe(`${BASE}/app/v1/me`);
+      expect(l.last()).toBe(expected);
+      expect(await session.get()).toBe('tok');
+      await quiet(sockets);
+      expect(sockets).toHaveLength(3);
+    },
+  );
+
+  test('GET /me 401: sesi dihapus dan tidak menyambung ulang', async () => {
+    const { session, sockets, transport } = setup({ reply: () => ({ status: 401, body: { error: 'tidak_masuk' } }) });
+    const l = listen(transport);
+    await flush();
+    await failOpens(sockets, 3);
+    expect(await session.get()).toBeNull();
+    expect(l.last()).toBe('closed');
+    await quiet(sockets);
+    expect(sockets).toHaveLength(3);
+  });
+
+  test('GET /me sehat: jeda bertingkat dilanjutkan dan tidak ditanya lagi', async () => {
+    const { fetch, sockets, transport } = setup({ reply: () => ({ body: me }) });
+    const l = listen(transport);
+    await flush();
+    await failOpens(sockets, 3);
+    expect(l.last()).toBe('connecting');
+    await failOpens(sockets, 5);
+    expect(sockets.length).toBeGreaterThanOrEqual(5);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('GET /me tanpa sinyal: jeda dilanjutkan dan ditanya lagi pada kegagalan berikutnya', async () => {
+    const { fetch, sockets, transport } = setup({ reply: () => Promise.reject(new Error('putus')) });
+    const l = listen(transport);
+    await flush();
+    await failOpens(sockets, 4);
+    expect(l.last()).toBe('connecting');
+    expect(fetch.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('koneksi yang sempat terbuka tidak dihitung gagal terbuka', async () => {
+    const { fetch, sockets, transport } = setup();
+    listen(transport);
+    await flush();
+    for (let i = 0; i < 5; i++) {
+      for (let step = 0; sockets.length <= i && step < 40; step++) await jest.advanceTimersByTimeAsync(1000);
+      sockets[i]!.open();
+      sockets[i]!.drop();
+      await flush();
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
 describe('kegagalan khusus', () => {
   test('429 membawa retryInSec dan teks ramah', async () => {
     const { transport } = setup({
@@ -636,6 +771,13 @@ describe('pembacaan longgar', () => {
     expect(page.items[5]).toEqual({ ...message, id: 'h', seq: 6 });
   });
 
+  test('rev yang hilang diganti seq (server lama), bukan menghilangkan pesan', async () => {
+    const { rev: _rev, ...old } = message;
+    const { transport } = setup({ reply: () => ({ body: { items: [{ ...old, seq: 4 }], before: null } }) });
+    const page = await transport.messages();
+    expect(page.items[0]).toMatchObject({ id: 'm1', seq: 4, rev: 4 });
+  });
+
   test('bentuk halaman yang salah tetap kendala server', async () => {
     const { transport } = setup({ reply: () => ({ body: { items: 'x', before: null } }) });
     await expect(transport.messages()).rejects.toMatchObject({ code: 'server' });
@@ -646,7 +788,7 @@ describe('pembacaan longgar', () => {
   test('halaman resync dan jawaban kirim juga longgar', async () => {
     const odd = { ...message, id: 'z', seq: 2, parts: [future] };
     const since = setup({ reply: () => ({ body: { items: [message, odd], more: true } }) });
-    const page = await since.transport.messagesAfter(0);
+    const page = await since.transport.messagesChanged(0);
     expect(page.more).toBe(true);
     expect(page.items[1]!.parts[0]).toMatchObject({ type: 'unknown' });
 

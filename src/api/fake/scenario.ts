@@ -21,6 +21,7 @@ export function sampleMe(clock: FakeClock): Me {
     name: user.name,
     assistantName: DEFAULT_ASSISTANT,
     plan: { name: 'Bisnis', activeUntil: clock.iso(30 * 24 * 60) },
+    phone: '6281220457781',
   };
 }
 

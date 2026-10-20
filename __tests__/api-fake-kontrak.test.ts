@@ -10,14 +10,14 @@ import { BUDI_DRAFT_ID } from '@/sample/outgoing';
 function setup(options: FakeOptions = {}) {
   const transport = new FakeTransport(createMemorySession(null), options);
   const events: StreamEvent[] = [];
-  const lastSeqs: (number | undefined)[] = [];
+  const lastRevs: (number | undefined)[] = [];
   const listen = () =>
     transport.subscribe(
       (e) => events.push(e),
       () => {},
-      (lastSeq) => lastSeqs.push(lastSeq),
+      (lastRev) => lastRevs.push(lastRev),
     );
-  return { transport, events, lastSeqs, listen };
+  return { transport, events, lastRevs, listen };
 }
 
 const after = (ms: number) => jest.advanceTimersByTimeAsync(ms);
@@ -44,45 +44,56 @@ describe('seq dan halaman', () => {
     expect(saved.seq).toBe(seqs.length + 1);
     await after(THINK_MS);
     const reply = messagesOf(t.events).at(-1)!;
-    expect(reply.seq).toBe(saved.seq + 1);
+    expect(reply.rev).toBe(saved.seq + 1);
     for (const m of messagesOf(t.events)) expect(messageSchema.safeParse(m).success).toBe(true);
   });
 
-  test('messagesAfter: terlama dulu, dibatasi, dengan more', async () => {
+  test('messagesChanged: terlama dulu, dibatasi, dengan more', async () => {
     const history: Message[] = Array.from({ length: 5 }, (_, i) => ({
       id: `p${i}`,
       seq: i + 1,
+      rev: i + 1,
       at: '2026-10-20T03:42:00.000Z',
       from: 'user',
       via: 'app',
       parts: [{ type: 'text', text: `Pesan ${i}` }],
     }));
     const { transport } = setup({ history, afterLimit: 2 });
-    const first = await transport.messagesAfter(1);
+    const first = await transport.messagesChanged(1);
     expect(first.items.map((m) => m.id)).toEqual(['p1', 'p2']);
     expect(first.more).toBe(true);
-    const last = await transport.messagesAfter(first.items.at(-1)!.seq);
+    const last = await transport.messagesChanged(first.items.at(-1)!.rev);
     expect(last.items.map((m) => m.id)).toEqual(['p3', 'p4']);
     expect(last.more).toBe(false);
-    expect(await transport.messagesAfter(5)).toEqual({ items: [], more: false });
-    expect((await transport.messagesAfter(0)).items[0]!.id).toBe('p0');
+    expect(await transport.messagesChanged(5)).toEqual({ items: [], more: false });
+    expect((await transport.messagesChanged(0)).items[0]!.id).toBe('p0');
   });
 
-  test('resync pertama membawa seq terakhir yang dikenal dari halaman terbaru; setelah itu dari stream', async () => {
+  test('resync pertama membawa rev terakhir yang dikenal dari halaman terbaru; setelah itu dari stream', async () => {
     const t = setup();
     const newest = (await t.transport.messages()).items[0]!;
     t.listen();
-    expect(t.lastSeqs).toEqual([newest.seq]);
+    expect(t.lastRevs).toEqual([newest.rev]);
     const reply = t.transport.receive({ from: 'assistant', via: 'app', parts: [{ type: 'text', text: 'Hai' }] });
     t.transport.drop();
     t.transport.restore();
-    expect(t.lastSeqs).toEqual([newest.seq, reply.seq]);
+    expect(t.lastRevs).toEqual([newest.rev, reply.rev]);
   });
 
-  test('tanpa seq yang dikenal: resync membawa undefined', () => {
+  test('perubahan draf menaikkan rev pesan yang memuat kartunya', async () => {
+    const t = setup();
+    const before = (await t.transport.messages()).items.find((m) =>
+      m.parts.some((p) => p.type === 'card' && p.card.kind === 'draft' && p.card.draft.id === BUDI_DRAFT_ID),
+    )!;
+    await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' });
+    const changed = await t.transport.messagesChanged(before.rev);
+    expect(changed.items.map((m) => m.id)).toContain(before.id);
+  });
+
+  test('tanpa rev yang dikenal: resync membawa undefined', () => {
     const t = setup();
     t.listen();
-    expect(t.lastSeqs).toEqual([undefined]);
+    expect(t.lastRevs).toEqual([undefined]);
   });
 });
 
@@ -177,6 +188,25 @@ describe('QRIS', () => {
     expect(t.transport.payQris(message.id)).toBeNull();
     const stored = (await t.transport.messages()).items.find((m) => m.id === message.id)!;
     expect(status(stored)).toEqual(['lunas']);
+  });
+
+  test('QRIS lunas saat koneksi putus: seq tetap, rev naik, dan resync mengantarnya', async () => {
+    const t = setup();
+    t.listen();
+    const message = await qris(t);
+    const known = (await t.transport.messages()).items.reduce((max, m) => Math.max(max, m.rev), 0);
+    t.transport.drop();
+    const from = t.events.length;
+    t.transport.payQris(message.id);
+    // Event selama putus hilang; hanya resync yang membawanya.
+    expect(t.events.slice(from)).toHaveLength(0);
+    t.transport.restore();
+    const changed = await t.transport.messagesChanged(known);
+    expect(changed.items.map((m) => m.id)).toEqual([message.id]);
+    expect(changed.items[0]).toMatchObject({ seq: message.seq });
+    expect(changed.items[0]!.rev).toBeGreaterThan(known);
+    expect(changed.more).toBe(false);
+    expect(status(changed.items[0]!)).toEqual(['lunas']);
   });
 
   test('kedaluwarsa saat batas lewat', async () => {

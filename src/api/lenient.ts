@@ -3,13 +3,13 @@ import {
   isoDateTimeSchema,
   messageSchema,
   messagesPageSchema,
-  messagesSincePageSchema,
+  messagesChangedPageSchema,
   partSchema,
   streamEventSchema,
   UNKNOWN_PART_NOTE,
   type Message,
   type MessagesPage,
-  type MessagesSincePage,
+  type MessagesChangedPage,
   type Part,
   type StreamEvent,
 } from './contract';
@@ -18,10 +18,17 @@ import {
  * Pembacaan longgar untuk pesan dari server. Kontrak bisa lebih baru dari aplikasi (jenis bagian, jenis kartu, atau
  * nilai enum baru): satu pesan seperti itu tidak boleh menggagalkan seluruh halaman atau menghilang dari utas. Bagian
  * yang tidak lolos skema menjadi `{ type: 'unknown', note }`; hanya pesan yang amplopnya rusak (tanpa `id` atau `seq`)
- * dibuang.
+ * dibuang. `rev` yang hilang atau rusak diganti `seq` (server lama), supaya pesan tetap tampil.
  */
 
 const envelopeSchema = z.object({ id: z.string().min(1), seq: z.number().int().positive() });
+
+const positiveInt = z.number().int().positive();
+
+function revOf(raw: unknown, fallback: number): number {
+  const rev = positiveInt.safeParse(raw);
+  return rev.success ? rev.data : fallback;
+}
 
 export function unknownPart(): Part {
   return { type: 'unknown', note: UNKNOWN_PART_NOTE };
@@ -49,6 +56,7 @@ export function parseMessageLenient(raw: unknown): Message | null {
   const coerced = messageSchema.safeParse({
     id: envelope.data.id,
     seq: envelope.data.seq,
+    rev: revOf(r.rev, envelope.data.seq),
     ...(typeof r.clientId === 'string' ? { clientId: r.clientId } : {}),
     at: at.success ? at.data : new Date(0).toISOString(),
     from: from ?? 'assistant',
@@ -74,9 +82,9 @@ export function parsePageLenient(raw: unknown): MessagesPage | null {
 }
 
 /** Halaman resync (`?after=`), pesan demi pesan. */
-export function parseSincePageLenient(raw: unknown): MessagesSincePage | null {
+export function parseChangedPageLenient(raw: unknown): MessagesChangedPage | null {
   const items = parseItems((raw as { items?: unknown } | null)?.items);
-  const rest = messagesSincePageSchema.omit({ items: true }).safeParse(raw);
+  const rest = messagesChangedPageSchema.omit({ items: true }).safeParse(raw);
   return items && rest.success ? { items, more: rest.data.more } : null;
 }
 

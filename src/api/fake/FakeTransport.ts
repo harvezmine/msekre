@@ -21,7 +21,7 @@ import {
   type Me,
   type Message,
   type MessagesPage,
-  type MessagesSincePage,
+  type MessagesChangedPage,
   type PushTokenReq,
   type SendMessageReq,
   type StreamEvent,
@@ -58,7 +58,7 @@ export interface FakeOptions {
   /** Riwayat awal, dari yang terlama, dengan `seq` naik. Bawaan utas contoh 0b. */
   history?: Message[];
   clock?: FakeClock;
-  /** Paling banyak pesan per `messagesAfter`, supaya `more` bisa dicoba. Bawaan batas kontrak. */
+  /** Paling banyak pesan per `messagesChanged`, supaya `more` bisa dicoba. Bawaan batas kontrak. */
   afterLimit?: number;
 }
 
@@ -82,7 +82,7 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
  * - `authStart` menerima nomor E.164 apa pun (minimal 9 digit) tapi membalas 429 `terlalu_sering` (dengan
  *   `retryInSec`) kalau diulang sebelum {@link FAKE_RESEND_SEC} detik; `authVerify` menerima kode 6 angka apa pun
  *   kecuali {@link FAKE_WRONG_CODE}, dan hanya untuk nomor yang sudah `authStart` (selain itu `kode_salah`);
- * - riwayat awal dari utas contoh 0b; setiap pesan punya `seq`, dibaca lewat `messages(before)` / `messagesAfter`;
+ * - riwayat awal dari utas contoh 0b; setiap pesan punya `seq` (tetap) dan `rev` (naik tiap simpan dan perbarui, juga saat drafnya berubah), dibaca lewat `messages(before)` / `messagesChanged`;
  * - `send` menyimpan pesan, lalu stream mengirim pesan itu, `thinking on` (dengan `runId`), jawaban setelah `thinkMs`,
  *   dan `thinking off`. Jawabannya dari {@link FakeScenario}. Pilihan (`kind: 'choice'`) divalidasi terhadap pesan
  *   `messageId`, judulnya diambil dari sana, dan pesan itu di-upsert dengan `chosenId`;
@@ -133,6 +133,8 @@ export class FakeTransport implements Transport {
   private counter = 0;
   /** `seq` pesan terakhir. */
   private msgSeq = 0;
+  /** `rev` terakhir: naik untuk setiap pesan yang disimpan atau diperbarui. */
+  private msgRev = 0;
 
   constructor(
     private readonly session: Session,
@@ -147,6 +149,7 @@ export class FakeTransport implements Transport {
     this.meValue = sampleMe(this.clock);
     for (const message of copy(options.history ?? sampleHistory())) {
       this.msgSeq = Math.max(this.msgSeq, message.seq);
+      this.msgRev = Math.max(this.msgRev, message.rev);
       this.store(message);
     }
   }
@@ -203,16 +206,16 @@ export class FakeTransport implements Transport {
         .slice(start, end)
         .reverse()
         .map((m) => this.present(m));
-      if (at < 0) for (const m of items) this.hub.noteSeq(m.seq);
+      if (at < 0) for (const m of items) this.hub.noteRev(m.rev);
       return { items, before: start > 0 ? items[items.length - 1]!.seq : null };
     });
   }
 
-  messagesAfter(after: number): Promise<MessagesSincePage> {
+  messagesChanged(changedAfter: number): Promise<MessagesChangedPage> {
     return this.call(true, () => {
-      const newer = this.thread.filter((m) => m.seq > after);
+      const newer = this.thread.filter((m) => m.rev > changedAfter).sort((a, b) => a.rev - b.rev);
       const items = newer.slice(0, this.afterLimit).map((m) => this.present(m));
-      for (const m of items) this.hub.noteSeq(m.seq);
+      for (const m of items) this.hub.noteRev(m.rev);
       return { items, more: newer.length > items.length };
     });
   }
@@ -246,6 +249,7 @@ export class FakeTransport implements Transport {
       const message = this.store({
         id: this.nextId(),
         seq: ++this.msgSeq,
+        rev: ++this.msgRev,
         clientId: parsed.clientId,
         at: this.clock.iso(),
         from: 'user',
@@ -330,7 +334,7 @@ export class FakeTransport implements Transport {
   subscribe(
     onEvent: (event: StreamEvent) => void,
     onStatus: (status: ConnectionStatus) => void,
-    onResync?: (lastSeq: number | undefined) => void,
+    onResync?: (lastRev: number | undefined) => void,
   ): Unsubscribe {
     return this.hub.add({ onEvent, onStatus, onResync });
   }
@@ -384,7 +388,13 @@ export class FakeTransport implements Transport {
 
   /** Pesan baru dari luar aplikasi (asisten, atau pengguna lewat WhatsApp): disimpan di utas lalu dikirim lewat stream. */
   receive(input: Pick<Message, 'from' | 'via' | 'parts'>): Message {
-    const message = this.store({ id: this.nextId(), seq: ++this.msgSeq, at: this.clock.iso(), ...copy(input) });
+    const message = this.store({
+      id: this.nextId(),
+      seq: ++this.msgSeq,
+      rev: ++this.msgRev,
+      at: this.clock.iso(),
+      ...copy(input),
+    });
     this.emit({ type: 'message', message: this.present(message) });
     return this.present(message);
   }
@@ -477,11 +487,11 @@ export class FakeTransport implements Transport {
     return message;
   }
 
-  /** Ganti isi pesan `id` di tempatnya (`seq` tetap) dan kembalikan salinan untuk dikirim; `null` kalau tidak ada. */
+  /** Ganti isi pesan `id` di tempatnya (`seq` tetap, `rev` naik) dan kembalikan salinan untuk dikirim; `null` kalau tidak ada. */
   private replace(id: string, update: (m: Message) => Message): Message | null {
     const i = this.thread.findIndex((m) => m.id === id);
     if (i < 0) return null;
-    this.thread[i] = update(this.thread[i]!);
+    this.thread[i] = { ...update(this.thread[i]!), rev: ++this.msgRev };
     return this.present(this.thread[i]!);
   }
 
@@ -500,6 +510,7 @@ export class FakeTransport implements Transport {
   /** Catat perubahan draf dan siarkan ke semua koneksi (juga untuk aksi dari aplikasi ini). */
   private changeDraft(next: Draft) {
     this.drafts.set(next.id, next);
+    this.touchDraft(next.id);
     this.later(0, () => this.emit({ type: 'draft', draft: next }));
   }
 
@@ -514,9 +525,19 @@ export class FakeTransport implements Transport {
         if (draft?.status !== 'held') return;
         const done: Draft = { ...draft, status: this.failHeld ? 'failed' : 'sent' };
         this.drafts.set(id, done);
+        this.touchDraft(id);
         this.emit({ type: 'draft', draft: done });
       }),
     );
+  }
+
+  /** Draf berubah: pesan yang memuat kartunya naik `rev`, supaya resync membawanya. */
+  private touchDraft(id: string) {
+    this.thread.forEach((m, i) => {
+      if (m.parts.some((p) => p.type === 'card' && p.card.kind === 'draft' && p.card.draft.id === id)) {
+        this.thread[i] = { ...m, rev: ++this.msgRev };
+      }
+    });
   }
 
   private endHold(id: string) {

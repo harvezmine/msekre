@@ -14,7 +14,7 @@
  * | POST /auth/logout              | -                    | OkRes                             |
  * | GET  /me                       | -                    | Me                                |
  * | GET  /messages?before=&limit=  | MessagesQuery        | MessagesPage (terbaru dulu)       |
- * | GET  /messages?after=&limit=   | MessagesQuery        | MessagesSincePage (terlama dulu)  |
+ * | GET  /messages?changedAfter=&limit= | MessagesQuery     | MessagesChangedPage (terlama dulu menurut rev) |
  * | POST /messages                 | SendMessageReq       | SendMessageRes                    |
  * | POST /drafts/:id               | DraftActionReq       | DraftActionRes                    |
  * | POST /push-tokens              | PushTokenReq         | OkRes                             |
@@ -52,7 +52,11 @@
  * - `clientId` dibuat aplikasi (unik per pesan). Mengirim ulang `clientId` yang sama tidak membuat pesan baru: server
  *   mengembalikan pesan yang sudah tersimpan, supaya "Coba lagi" dan antrean offline aman diulang.
  * - Setiap pesan punya `seq`, nomor urut yang hanya naik dan tetap seumur pesan. Pesan yang diperbarui (upsert) tetap
- *   membawa `seq`-nya.
+ *   membawa `seq`-nya (tempatnya di utas tidak berpindah).
+ * - Setiap pesan juga punya `rev`, nomor perubahan per pengguna yang hanya naik: dinaikkan (nilai baru, lebih besar dari
+ *   semua `rev` yang pernah ada milik pengguna itu) setiap pesan DISIMPAN dan setiap kali pesan DIPERBARUI, termasuk
+ *   perubahan draf pada kartu `draft` di dalamnya. `rev` pesan yang tidak berubah tidak berubah. Karena upsert tetap
+ *   membawa `seq`, `rev`-lah yang dipakai resync.
  * - Upsert: event `message` dengan `id` yang sudah dikenal MENGGANTIKAN versi sebelumnya (tempatnya di utas tetap).
  *   Dipakai untuk QRIS menjadi `lunas` atau `kedaluwarsa`, keadaan perangkat, dan pilihan yang sudah diambil
  *   (`chosenId` terisi pada bagian `choices`).
@@ -73,15 +77,16 @@
  * - WebSocket mengirim `ping` tiap {@link STREAM_PING_SEC} detik. Token yang tidak sah ditutup dengan kode
  *   {@link WS_CLOSE_UNAUTHORIZED}. Kalau koneksi putus, aplikasi menyambung ulang dengan jeda 1, 2, 4, 8, ... paling
  *   lama 30 detik. Setiap kali koneksi terbuka (juga yang pertama), aplikasi mengambil pesan yang terlewat lewat
- *   `GET /messages?after=<seq terakhir yang dikenal>`, berulang selama `more`.
+ *   `GET /messages?changedAfter=<rev terbesar yang dikenal>`, berulang selama `more`.
  * - `GET /messages?before=<seq>` berurutan dari yang terbaru. `before` di response adalah nilai `?before=` untuk
  *   halaman yang lebih lama (seq pesan tertua di halaman itu), atau `null` kalau tidak ada lagi. `before` yang tidak
  *   ada di utas (misalnya setelah memory_forget) dibalas dengan halaman terbaru, bukan error. Tanpa `before`: halaman
  *   terbaru.
- * - `GET /messages?after=<seq>` berurutan dari yang terlama: paling banyak `limit` pesan dengan `seq` lebih besar,
- *   dengan `more` = masih ada yang lebih baru lagi. `before` dan `after` tidak boleh dipakai bersamaan.
- *   Catatan: pesan lama yang diperbarui (upsert) tetap membawa `seq` lamanya, jadi tidak ikut `after`; klien yang
- *   resync juga mengambil halaman terbaru dan menggabungkannya berdasarkan `id`.
+ * - `GET /messages?changedAfter=<rev>` (resync) berurutan dari `rev` terkecil: paling banyak `limit` pesan dengan `rev`
+ *   lebih besar, dengan `more` = masih ada lagi (ulangi dengan `rev` pesan terakhir di `items`). Pesan lama yang baru
+ *   diperbarui (misalnya QRIS menjadi `lunas` saat koneksi putus) ikut, karena `rev`-nya naik. Klien menggabungkan
+ *   berdasarkan `id`. `before` dan `changedAfter` tidak boleh dipakai bersamaan. `changedAfter=0` memberi pesan dari
+ *   awal.
  * - Kartu `draft` di riwayat selalu membawa keadaan draf yang terbaru.
  * - Pembacaan longgar (aplikasi): bagian pesan, jenis kartu, atau nilai enum yang tidak dikenal (kontrak yang lebih
  *   baru) menjadi bagian `{ type: 'unknown', note }`, bukan menggagalkan seluruh halaman. Server tidak pernah
@@ -132,6 +137,8 @@ export const meSchema = z.object({
   name: z.string().nullable(),
   assistantName: z.string().min(1),
   plan: z.object({ name: z.string().min(1), activeUntil: isoDateTimeSchema.nullable() }),
+  /** Nomor WhatsApp akun ini (E.164 tanpa "+"), untuk ditampilkan di Akun bila `name` kosong. */
+  phone: phoneSchema,
 });
 
 export const authVerifyResSchema = z.object({ token: z.string().min(1), user: meSchema });
@@ -260,6 +267,8 @@ export const messageSchema = z.object({
   id: idSchema,
   /** Nomor urut di utas: hanya naik, tetap seumur pesan (juga setelah upsert). */
   seq: z.number().int().positive(),
+  /** Nomor perubahan per pengguna: naik saat pesan disimpan dan setiap kali diperbarui (lihat aturan `rev`). */
+  rev: z.number().int().positive(),
   /** Hanya pada pesan pengguna yang dikirim dari aplikasi: id buatan aplikasi untuk mengganti gelembung "mengirim…". */
   clientId: z.string().optional(),
   at: isoDateTimeSchema,
@@ -273,13 +282,13 @@ export const messagesQuerySchema = z
   .object({
     /** Halaman yang lebih lama dari `seq` ini. */
     before: z.coerce.number().int().positive().optional(),
-    /** Pesan yang lebih baru dari `seq` ini (resync). */
-    after: z.coerce.number().int().nonnegative().optional(),
+    /** Pesan yang dibuat atau diperbarui setelah `rev` ini (resync). */
+    changedAfter: z.coerce.number().int().nonnegative().optional(),
     limit: z.coerce.number().int().min(1).max(MESSAGES_LIMIT_MAX).default(MESSAGES_LIMIT),
   })
-  .refine((q) => q.before === undefined || q.after === undefined, {
-    path: ['after'],
-    message: 'before dan after tidak boleh bersamaan',
+  .refine((q) => q.before === undefined || q.changedAfter === undefined, {
+    path: ['changedAfter'],
+    message: 'before dan changedAfter tidak boleh bersamaan',
   });
 
 /** Riwayat: berurutan dari yang terbaru. */
@@ -289,10 +298,10 @@ export const messagesPageSchema = z.object({
   before: z.number().int().positive().nullable(),
 });
 
-/** Resync (`?after=`): berurutan dari yang terlama. */
-export const messagesSincePageSchema = z.object({
+/** Resync (`?changedAfter=`): berurutan dari `rev` terkecil. */
+export const messagesChangedPageSchema = z.object({
   items: z.array(messageSchema),
-  /** Masih ada pesan yang lebih baru lagi: ulangi dengan `after` = seq terakhir di `items`. */
+  /** Masih ada perubahan lagi: ulangi dengan `changedAfter` = `rev` pesan terakhir di `items`. */
   more: z.boolean(),
 });
 
@@ -390,7 +399,7 @@ export type Message = z.infer<typeof messageSchema>;
 export type MessagesQuery = z.infer<typeof messagesQuerySchema>;
 export type UnknownPart = z.infer<typeof unknownPartSchema>;
 export type MessagesPage = z.infer<typeof messagesPageSchema>;
-export type MessagesSincePage = z.infer<typeof messagesSincePageSchema>;
+export type MessagesChangedPage = z.infer<typeof messagesChangedPageSchema>;
 export type SendTextReq = z.infer<typeof sendTextReqSchema>;
 export type SendChoiceReq = z.infer<typeof sendChoiceReqSchema>;
 export type SendMessageReq = z.infer<typeof sendMessageReqSchema>;

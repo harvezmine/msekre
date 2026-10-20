@@ -58,7 +58,7 @@ response berupa JSON. Setiap request HTTP dan jabat tangan WebSocket membawa `X-
 | `POST /auth/logout` | — | `{ ok: true }` |
 | `GET /me` | — | `Me` |
 | `GET /messages?before=<seq>&limit=30` | — | `{ items: Message[], before: number \| null }`, terbaru dulu. `before` yang tidak ada → halaman terbaru |
-| `GET /messages?after=<seq>&limit=100` | — | `{ items: Message[], more: boolean }`, terlama dulu. Untuk resync |
+| `GET /messages?changedAfter=<rev>&limit=100` | — | `{ items: Message[], more: boolean }`, terlama dulu menurut `rev`; memuat pesan baru DAN pesan lama yang diperbarui. Untuk resync |
 | `POST /messages` | `{ kind: 'text', clientId, text }` atau `{ kind: 'choice', clientId, messageId, choiceId }` (objek ketat, tidak boleh campuran) | `{ message: Message }`. Pesan pengguna yang tersimpan; balasan datang lewat stream. Judul pilihan diambil server |
 | `POST /drafts/:id` | `{ action: 'send' \| 'cancel' \| 'discard' \| 'edit', text? }` | `{ draft: Draft }` |
 | `POST /push-tokens` | `{ pushToken, platform: 'android' \| 'ios' }` | `{ ok: true }` |
@@ -73,8 +73,9 @@ response berupa JSON. Setiap request HTTP dan jabat tangan WebSocket membawa `X-
 **Tipe:**
 
 ```
-Me       = { id, name: string|null, assistantName: string, plan: { name: string, activeUntil: ISO8601|null } }
-Message  = { id: string, seq: number, clientId?: string, at: ISO8601, from: 'user'|'assistant',
+Me       = { id, name: string|null, assistantName: string, plan: { name: string, activeUntil: ISO8601|null },
+             phone: string }   // E.164 tanpa +, untuk Akun bila name kosong
+Message  = { id: string, seq: number, rev: number, clientId?: string, at: ISO8601, from: 'user'|'assistant',
              via: 'app'|'whatsapp', parts: Part[] }
 Part     = { type: 'text', text }
          | { type: 'choices', prompt?: string, choices: { id, title, description? }[], chosenId?: string }
@@ -102,7 +103,9 @@ StreamEvent = { type: 'message', message: Message }       // id yang sudah diken
   satu atau beberapa event `message` dari asisten, lalu `thinking off` dengan `runId` yang sama. Aplikasi menyimpan
   himpunan `runId` aktif; berpikir = himpunan tidak kosong.
 - **`clientId`** unik per (pengguna, clientId); mengirim ulang mengembalikan pesan asli.
-- **`seq`** hanya naik dan tetap seumur pesan. **Upsert:** event `message` dengan `id` yang sudah dikenal menggantikan
+- **`seq`** hanya naik dan tetap seumur pesan. **`rev`** adalah nomor perubahan per pengguna yang hanya naik: bertambah
+  (nilai baru, lebih besar dari semua `rev` milik pengguna itu) saat pesan disimpan DAN setiap kali diperbarui, termasuk
+  perubahan draf pada kartu di dalamnya. **Upsert:** event `message` dengan `id` yang sudah dikenal menggantikan
   versi sebelumnya (tempat dan `seq` tetap), dipakai untuk QRIS `lunas` / `kedaluwarsa`, keadaan perangkat, dan
   `chosenId` pada pilihan.
 - **Kiriman ke orang lain** selalu berupa kartu `draft`:
@@ -112,11 +115,16 @@ StreamEvent = { type: 'message', message: Message }       // id yang sudah diken
   - Setiap perubahan draf disiarkan lewat event `draft` ke semua koneksi (juga yang berasal dari aksi aplikasi).
 - **Pesan dari WhatsApp** ikut tampil dengan `via: 'whatsapp'`: satu utas, keputusan bawaan #3 di roadmap.
 - **WebSocket** mengirim `ping` tiap 25 detik. Setiap kali terbuka (juga yang pertama), klien mengambil pesan yang
-  terlewat lewat `GET /messages?after=<seq terakhir>` (berulang selama `more`) dan menggabungkannya berdasarkan `id`.
+  terlewat lewat `GET /messages?changedAfter=<rev terbesar yang dikenal>` (berulang selama `more`, dengan `rev` pesan
+  terakhir) dan menggabungkannya berdasarkan `id`. Resync memakai `rev`, bukan `seq`, supaya QRIS yang lunas saat koneksi
+  putus ikut terbawa.
+  Penolakan jabat tangan (403 diblokir, 426 perlu pembaruan, 429) dilaporkan React Native sebagai tutup 1006, sama dengan
+  jaringan putus. Setelah 3 kali gagal terbuka berturut-turut klien memanggil `GET /me` sekali: 401 → keluar, 403 / 426 →
+  berhenti menyambung dan menampilkan penyebabnya; jawaban lain → jeda bertingkat berlanjut.
   Kalau koneksi putus atau macet saat menyambung (15 detik), klien menyambung ulang dengan jeda 1, 2, 4, 8, lalu paling
   lama 30 detik.
 - **Pembacaan longgar:** bagian, kartu, atau enum yang tidak dikenal menjadi `{ type: 'unknown', note }`; hanya pesan
-  tanpa `id` atau `seq` yang dibuang.
+  tanpa `id` atau `seq` yang dibuang (`rev` yang hilang diganti `seq`).
 
 ---
 

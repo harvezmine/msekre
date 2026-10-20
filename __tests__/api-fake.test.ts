@@ -81,6 +81,7 @@ describe('riwayat contoh', () => {
     const history: Message[] = Array.from({ length: 70 }, (_, i) => ({
       id: `p${i}`,
       seq: i + 1,
+      rev: i + 1,
       at: new Date(SAMPLE_NOW + i * 60_000).toISOString(),
       from: i % 2 ? 'assistant' : 'user',
       via: 'app',

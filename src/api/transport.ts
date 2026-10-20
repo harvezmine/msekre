@@ -10,7 +10,7 @@ import type {
   Me,
   Message,
   MessagesPage,
-  MessagesSincePage,
+  MessagesChangedPage,
   PushTokenReq,
   SendMessageReq,
   StreamEvent,
@@ -73,9 +73,11 @@ export function isApiFailure(e: unknown): e is ApiFailure {
  * Status WebSocket:
  * - `connecting`: sedang menyambung, termasuk saat menunggu jeda sebelum mencoba lagi;
  * - `open`: tersambung, event mengalir;
- * - `closed`: tidak menyambung sama sekali (belum masuk, sesi ditolak, atau tidak ada yang mendengarkan).
+ * - `closed`: tidak menyambung sama sekali (belum masuk, sesi ditolak, atau tidak ada yang mendengarkan);
+ * - `blocked` / `upgrade_required`: server menolak jabat tangan karena akun diblokir (403) atau versi aplikasi terlalu
+ *   lama (426); penyambungan ulang dihentikan. Layar menampilkan `BLOCKED_TEXT` / `UPGRADE_TEXT`.
  */
-export type ConnectionStatus = 'connecting' | 'open' | 'closed';
+export type ConnectionStatus = 'connecting' | 'open' | 'closed' | 'blocked' | 'upgrade_required';
 
 /**
  * Sumber gambar untuk media (`mediaId` di bagian `image`, `document`, `audio`, dan kartu `qris`).
@@ -111,8 +113,12 @@ export interface Transport {
    * terbaru. `before` di hasilnya dipakai untuk halaman yang lebih lama.
    */
   messages(before?: number): Promise<MessagesPage>;
-  /** Pesan dengan `seq` lebih besar dari `after`, dari yang terlama; `more` = ulangi dengan seq terakhir. Untuk resync. */
-  messagesAfter(after: number): Promise<MessagesSincePage>;
+  /**
+   * Pesan yang dibuat atau diperbarui setelah `rev` itu (`GET /messages?changedAfter=`), dari `rev` terkecil, termasuk
+   * pesan lama yang baru diperbarui (QRIS lunas, draf berubah, pilihan diambil). `more` = ulangi dengan `rev` pesan
+   * terakhir. Untuk resync.
+   */
+  messagesChanged(changedAfter: number): Promise<MessagesChangedPage>;
   /** Kirim pesan pengguna; hasilnya pesan yang tersimpan. Balasan asisten datang lewat `subscribe`. */
   send(req: SendMessageReq): Promise<Message>;
   draftAction(id: string, req: DraftActionReq): Promise<Draft>;
@@ -124,9 +130,9 @@ export interface Transport {
   mediaUrl(mediaId: string): Promise<MediaSource>;
   /**
    * Dengarkan event utas. `onStatus` langsung dipanggil dengan status sekarang, lalu tiap kali berubah. `onResync`
-   * dipanggil SETIAP kali koneksi terbuka (juga yang pertama), dengan `lastSeq` = seq terbesar yang sudah diterima
-   * transport lewat stream dan `messages()` / `messagesAfter()` (`undefined` kalau belum ada): saatnya mengambil pesan
-   * yang terlewat lewat `messagesAfter(lastSeq)` (atau `messages()` kalau `lastSeq` kosong) dan menggabungkannya
+   * dipanggil SETIAP kali koneksi terbuka (juga yang pertama), dengan `lastRev` = `rev` terbesar yang sudah diterima
+   * transport lewat stream dan `messages()` / `messagesChanged()` (`undefined` kalau belum ada): saatnya mengambil pesan
+   * yang terlewat lewat `messagesChanged(lastRev)` (atau `messages()` kalau `lastRev` kosong) dan menggabungkannya
    * berdasarkan `id`. Event `thinking` yang terlewat tidak bisa diambil: kosongkan himpunan `runId` aktif saat resync.
    * Satu koneksi dipakai bersama semua pendengar; koneksi ditutup saat pendengar terakhir berhenti.
    * Satu pendengar yang melempar error tidak menghentikan pendengar lain.
@@ -134,7 +140,7 @@ export interface Transport {
   subscribe(
     onEvent: (event: StreamEvent) => void,
     onStatus: (status: ConnectionStatus) => void,
-    onResync?: (lastSeq: number | undefined) => void,
+    onResync?: (lastRev: number | undefined) => void,
   ): Unsubscribe;
   /**
    * Hentikan koneksi dan timer milik transport ini, misalnya saat mode data diganti. Pendengar menerima status

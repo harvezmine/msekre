@@ -25,12 +25,12 @@ import {
   type Me,
   type Message,
   type MessagesPage,
-  type MessagesSincePage,
+  type MessagesChangedPage,
   type PushTokenReq,
   type SendMessageReq,
   type StreamEvent,
 } from './contract';
-import { parseEventLenient, parseMessageLenient, parsePageLenient, parseSincePageLenient } from './lenient';
+import { parseEventLenient, parseMessageLenient, parsePageLenient, parseChangedPageLenient } from './lenient';
 import { StreamHub } from './hub';
 import type { Session } from './session';
 import { ApiFailure, type ConnectionStatus, type MediaSource, type Transport, type Unsubscribe } from './transport';
@@ -42,6 +42,9 @@ export const REQUEST_TIMEOUT_MS = 15_000;
 export const CONNECT_TIMEOUT_MS = 15_000;
 /** Tanpa pesan apa pun (server mengirim `ping` tiap 25 detik) selama ini, koneksi dianggap mati dan disambung ulang. */
 export const STREAM_SILENCE_MS = 60_000;
+
+/** Gagal terbuka sebanyak ini berturut-turut: tanya `GET /me` apakah penyebabnya akun diblokir atau versi terlalu lama. */
+export const FAILED_OPENS_BEFORE_PROBE = 3;
 
 /** Bagian WebSocket yang dipakai, supaya tes bisa memberi soket tiruan. */
 export interface SocketLike {
@@ -84,6 +87,13 @@ export class HttpTransport implements Transport {
   /** Naik setiap koneksi dibuka atau ditutup, supaya langkah async yang sudah usang berhenti. */
   private generation = 0;
   private attempt = 0;
+  /** Soket yang gagal terbuka berturut-turut sejak koneksi terakhir yang sempat terbuka. */
+  private failedOpens = 0;
+  /** Pemeriksaan `GET /me` setelah gagal terbuka berulang sedang jalan, atau sudah dijawab server. */
+  private probing = false;
+  private probed = false;
+  /** Naik saat stream dimulai atau ditutup, supaya jawaban pemeriksaan yang usang diabaikan. */
+  private streamEpoch = 0;
   /** Token yang dipakai soket yang sedang berjalan, untuk memeriksa 4401 yang usang. */
   private wsToken: string | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -137,17 +147,17 @@ export class HttpTransport implements Transport {
     const query = `limit=${MESSAGES_LIMIT}${before === undefined ? '' : `&before=${before}`}`;
     const page = await this.request('GET', `/messages?${query}`, reader(parsePageLenient));
     // Halaman terbaru berisi ujung utas; halaman lama tidak mengubah apa yang sudah dikenal.
-    if (before === undefined) this.noteSeqs(page.items);
+    if (before === undefined) this.noteRevs(page.items);
     return page;
   }
 
-  async messagesAfter(after: number): Promise<MessagesSincePage> {
+  async messagesChanged(changedAfter: number): Promise<MessagesChangedPage> {
     const page = await this.request(
       'GET',
-      `/messages?limit=${MESSAGES_LIMIT_MAX}&after=${after}`,
-      reader(parseSincePageLenient),
+      `/messages?limit=${MESSAGES_LIMIT_MAX}&changedAfter=${changedAfter}`,
+      reader(parseChangedPageLenient),
     );
-    this.noteSeqs(page.items);
+    this.noteRevs(page.items);
     return page;
   }
 
@@ -184,8 +194,8 @@ export class HttpTransport implements Transport {
     this.closeStream();
   }
 
-  private noteSeqs(items: Message[]) {
-    for (const m of items) this.hub.noteSeq(m.seq);
+  private noteRevs(items: Message[]) {
+    for (const m of items) this.hub.noteRev(m.rev);
   }
 
   /** Header di setiap request HTTP dan jabat tangan WebSocket. */
@@ -261,13 +271,16 @@ export class HttpTransport implements Transport {
   subscribe(
     onEvent: (event: StreamEvent) => void,
     onStatus: (status: ConnectionStatus) => void,
-    onResync?: (lastSeq: number | undefined) => void,
+    onResync?: (lastRev: number | undefined) => void,
   ): Unsubscribe {
     return this.hub.add({ onEvent, onStatus, onResync });
   }
 
   private startStream() {
     this.attempt = 0;
+    this.failedOpens = 0;
+    this.probed = false;
+    this.streamEpoch += 1;
     void this.openSocket();
   }
 
@@ -288,15 +301,19 @@ export class HttpTransport implements Transport {
         Authorization: `Bearer ${token}`,
       });
     } catch {
-      this.retry();
+      this.retry(true);
       return;
     }
     this.ws = ws;
     this.wsToken = token;
     this.armConnect(ws);
+    let opened = false;
     ws.onopen = () => {
       if (ws !== this.ws) return;
+      opened = true;
       this.attempt = 0;
+      this.failedOpens = 0;
+      this.probed = false;
       this.clearConnect();
       this.hub.setStatus('open');
       this.armSilence();
@@ -317,10 +334,10 @@ export class HttpTransport implements Transport {
       if (ws !== this.ws) return;
       this.ws = null;
       this.clearConnect();
-      if (ev?.code !== WS_CLOSE_UNAUTHORIZED) return this.retry();
+      if (ev?.code !== WS_CLOSE_UNAUTHORIZED) return this.retry(!opened);
       // 4401 untuk token yang sudah diganti: sambung lagi dengan token sekarang, jangan hapus sesi baru.
       void this.unauthorized(this.wsToken).then((cleared) => {
-        if (!cleared) this.retry();
+        if (!cleared) this.retry(!opened);
       });
     };
   }
@@ -334,7 +351,7 @@ export class HttpTransport implements Transport {
       this.ws = null;
       detach(ws);
       ws.close();
-      this.retry();
+      this.retry(true);
     }, this.connectTimeoutMs);
   }
 
@@ -344,13 +361,49 @@ export class HttpTransport implements Transport {
   }
 
   /** Koneksi putus atau gagal: coba lagi setelah jeda bertingkat, selama masih ada yang mendengarkan. */
-  private retry() {
+  private retry(failedOpen: boolean) {
     this.clearTimers();
     if (!this.hub.active) return;
+    if (failedOpen) {
+      this.failedOpens += 1;
+      if (this.failedOpens >= FAILED_OPENS_BEFORE_PROBE) void this.probeHandshake();
+    }
     this.hub.setStatus('connecting');
     const delay = backoffDelay(this.attempt, this.random);
     this.attempt += 1;
     this.retryTimer = setTimeout(() => void this.openSocket(), delay);
+  }
+
+  /**
+   * React Native melaporkan penolakan jabat tangan WebSocket (403 diblokir, 426 perlu pembaruan, 429) sebagai tutup biasa
+   * (1006), sama dengan jaringan putus. Setelah beberapa kali gagal terbuka berturut-turut, tanya server lewat HTTP:
+   * 401 menghapus sesi (status keluar), 403 dan 426 menghentikan penyambungan ulang dengan status yang bisa
+   * ditampilkan; jawaban lain, atau tanpa jawaban, melanjutkan jeda bertingkat. Ditanyakan sampai server menjawab.
+   */
+  private async probeHandshake() {
+    if (this.probing || this.probed) return;
+    this.probing = true;
+    const epoch = this.streamEpoch;
+    let verdict: ConnectionStatus | null = null;
+    let answered = false;
+    try {
+      await this.me();
+      answered = true;
+    } catch (e) {
+      const code = e instanceof ApiFailure ? e.code : null;
+      if (code === 'blocked') verdict = 'blocked';
+      else if (code === 'upgrade_required') verdict = 'upgrade_required';
+      // Jawaban pasti (juga 401, yang sudah menghapus sesi). Gangguan lain: tanya lagi pada kegagalan berikutnya.
+      answered = verdict !== null || code === 'unauthorized';
+    } finally {
+      this.probing = false;
+    }
+    if (epoch !== this.streamEpoch) return;
+    if (answered) this.probed = true;
+    if (verdict === null) return;
+    // Berhenti menyambung; pendengar tetap terdaftar dan menerima status penyebabnya.
+    this.closeStream();
+    this.hub.setStatus(verdict);
   }
 
   /** Server diam terlalu lama: soketnya dianggap mati walau belum ditutup oleh HP. */
@@ -363,13 +416,14 @@ export class HttpTransport implements Transport {
       this.ws = null;
       detach(ws);
       ws.close();
-      this.retry();
+      this.retry(false);
     }, this.silenceMs);
   }
 
   /** Tutup koneksi tanpa menyambung ulang; pendengar tetap terdaftar dan menerima status `closed`. */
   private closeStream() {
     this.generation += 1;
+    this.streamEpoch += 1;
     this.clearTimers();
     const ws = this.ws;
     this.ws = null;
