@@ -311,6 +311,17 @@ Response `{ "ok": true }`.
 - Alasannya: `auth/logout` di latar belakang bisa tidak pernah sampai (mode pesawat). Aplikasi menyimpan token yang
   belum dicabut dan mengulang `DELETE` tiap aplikasi dibuka atau kembali aktif sampai berhasil.
 
+**Isi push yang dikirim server (FCM):**
+- Setiap push wajib membawa `data.kind`: `"pesan"` (pesan chat dari asisten) atau `"pengingat"` (pengingat, alarm,
+  kabar penting).
+- Pakai saluran Android yang sesuai, `channelId: "pesan"` atau `"pengingat"`.
+- Aplikasi meredam push `pesan` saat layar chat sedang terbuka, tetapi **tidak pernah** meredam `pengingat`. Push
+  tanpa `data.kind` diperlakukan menurut salurannya, dan saluran bawaan aplikasi adalah `pesan`. Jadi pengingat tanpa
+  `kind` bisa ikut teredam.
+- `data.route` boleh diisi salah satu rute yang diizinkan: `/chat` (bawaan), `/agenda`, `/riwayat`, `/akun`,
+  `/terhubung`, atau `/perangkat`. Rute lain diabaikan, dan aplikasi membuka chat.
+- Isi notifikasi tampil di layar kunci sebagai privat (saluran `pesan`). Jangan menaruh isi sensitif di judul.
+
 ### 2.9 `POST /home/devices/:id` (Fase 3)
 
 Request (objek ketat, minimal satu kunci; kalau kosong 400):
