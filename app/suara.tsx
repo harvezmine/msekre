@@ -15,9 +15,9 @@ export default function Suara() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <View style={{ flex: 1, backgroundColor: c.voice, paddingTop: insets.top + 24 }}>
+    <View style={{ flex: 1, backgroundColor: c.voice, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 36 }}>
       <StatusBar style="light" />
-      <View style={{ paddingHorizontal: 28, gap: 8, minHeight: 120 }}>
+      <View style={{ paddingHorizontal: 28, gap: 8 }}>
         <Txt v="caption" color={onForest.soft}>
           Anda
         </Txt>
@@ -25,7 +25,7 @@ export default function Suara() {
           Matikan AC kamar dan ingatkan saya jam 7 pagi <Text style={{ color: onForest.hint }}>berangkat ke bandara.</Text>
         </Txt>
       </View>
-      <View style={{ height: 340, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, maxHeight: 340, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' }}>
         <Inti size={200} state="speak" onDark />
       </View>
       <View style={{ paddingHorizontal: 28, gap: 8 }}>
@@ -36,16 +36,7 @@ export default function Suara() {
           Siap. AC kamar sudah mati, dan alarm jam 07.00 sudah saya pasang.
         </Txt>
       </View>
-      <View
-        style={{
-          position: 'absolute',
-          left: 20,
-          right: 20,
-          bottom: insets.bottom + 36,
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-        }}
-      >
+      <View style={{ paddingHorizontal: 20, paddingTop: 24, flexDirection: 'row', alignItems: 'flex-start' }}>
         <RoundAction icon="micOff" label="Bisukan mic" />
         <Pressable
           accessibilityRole="button"

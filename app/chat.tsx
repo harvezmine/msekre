@@ -46,7 +46,11 @@ export default function Chat() {
       </View>
 
       <View style={{ flex: 1, paddingHorizontal: 20, paddingVertical: 16 }}>
-        <Txt v="caption" color={c.muted} style={{ alignSelf: 'center', maxWidth: 300, textAlign: 'center' }}>
+        <Txt
+          v="caption"
+          color={c.muted}
+          style={{ alignSelf: 'center', maxWidth: 300, textAlign: 'center', paddingVertical: 4, paddingHorizontal: 8 }}
+        >
           {DEFAULT_ASSISTANT} ingat semua obrolan Anda, di aplikasi maupun di WhatsApp.
         </Txt>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24 }}>
