@@ -50,6 +50,11 @@ function Navigator() {
             contentStyle: { backgroundColor: 'transparent' },
           }}
         />
+        <Stack.Screen name="akun" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="riwayat" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="mulai/index" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="mulai/masuk" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="mulai/pilih" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="terhubung/index" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="terhubung/[id]" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen

@@ -40,6 +40,7 @@ export default function Beranda() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Akun"
+            onPress={() => router.push('/akun')}
             onLongPress={__DEV__ ? () => router.push('/inti') : undefined}
             style={{
               width: 48,

@@ -46,7 +46,7 @@ export default function Usaha() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Akun"
-            onPress={() => toast('Akun dibangun di tugas berikutnya.')}
+            onPress={() => router.push('/akun')}
             style={{
               width: 48,
               height: 48,

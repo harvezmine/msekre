@@ -85,7 +85,7 @@ export default function Perangkat() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Akun"
-              onPress={() => dispatch({ type: 'showToast', text: 'Akun dibangun di tugas berikutnya.' })}
+              onPress={() => router.push('/akun')}
               style={{
                 width: 48,
                 height: 48,

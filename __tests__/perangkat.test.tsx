@@ -107,12 +107,12 @@ test('mengetuk ubin AC membuka detailnya', async () => {
   expect(router.push).toHaveBeenCalledWith({ pathname: '/perangkat/[id]', params: { id: 'ac-kamar' } });
 });
 
-test('tombol tambah ke Tambah perangkat; avatar memberi toast', async () => {
+test('tombol tambah ke Tambah perangkat; avatar membuka Akun', async () => {
   await show();
   await fireEvent.press(screen.getByRole('button', { name: 'Tambah perangkat' }));
   expect(router.push).toHaveBeenCalledWith('/perangkat/tambah');
   await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
-  expect(latest.toast?.text).toBe('Akun dibangun di tugas berikutnya.');
+  expect(router.push).toHaveBeenCalledWith('/akun');
 });
 
 test('rutinitas Saya pulang: lampu teras nyala, AC kamar 25°, riwayat, toast', async () => {
