@@ -57,7 +57,7 @@
   "jest": {
     "preset": "jest-expo",
     "watchman": false,
-    "maxWorkers": "50%",
+    "maxWorkers": 2,
     "fakeTimers": {
       "enableGlobally": true
     },
