@@ -10,11 +10,13 @@ jest.mock('react-native-gesture-handler/lib/module/handlers/gestures/installUIRu
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
-// Only provides `router`, a no-op `Redirect` and an always-focused `useIsFocused` for screen/component tests. Tests that need real router components must
+// Only provides `router`, a no-op `Redirect`, an always-focused `useIsFocused` and a `useLocalSearchParams` that returns `{}` (tests override it with
+// `jest.mocked(useLocalSearchParams).mockReturnValue(...)` and must restore it) for screen/component tests. Tests that need real router components must
 // mock per file (do not spread requireActual globally: it makes each test file ~9x slower).
 jest.mock('expo-router', () => ({
   Redirect: () => null,
   useIsFocused: () => true,
+  useLocalSearchParams: jest.fn(() => ({})),
   router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), navigate: jest.fn() },
 }));
 jest.mock('expo-haptics', () => ({
