@@ -1,0 +1,23 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- Alarm yang jatuh tempo: memasang notifikasi alarm. Hanya dipanggil AlarmManager milik aplikasi ini. -->
+    <receiver
+      android:name="expo.modules.alarm.AlarmReceiver"
+      android:exported="false" />
+
+    <!-- Jadwal alarm hilang saat HP mati, aplikasi diperbarui, jam atau zona waktu diubah: dipasang ulang dari
+         penyimpanan. Izin RECEIVE_BOOT_COMPLETED dipasang plugin (modules/alarm/app.plugin.js). -->
+    <receiver
+      android:name="expo.modules.alarm.RescheduleReceiver"
+      android:enabled="true"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+        <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

@@ -67,6 +67,9 @@ const config: ExpoConfig = {
         defaultChannel: 'pesan',
       },
     ],
+    // Alarm lokal di HP (modul native modules/alarm): izin AndroidManifest dan skema tautan layar alarm. Opsi
+    // `useExactAlarm`: lihat catatan Google Play di modules/alarm/app.plugin.js.
+    ['./modules/alarm/app.plugin.js', { useExactAlarm: true }],
   ],
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? '',

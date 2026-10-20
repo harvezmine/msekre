@@ -18,6 +18,7 @@ import { ChatProvider } from '@/api/ChatProvider';
 import { HomeProvider } from '@/api/HomeProvider';
 import { canOpen } from '@/api/routeAccess';
 import { PushProvider, PushTapHandler } from '@/api/usePush';
+import { AlarmSyncHost } from '@/alarm/useAlarmSync';
 import { AuthProvider, useAuth } from '@/api/useAuth';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { ToastHost } from '@/ui/Toast';
@@ -131,6 +132,14 @@ function Navigator() {
             }}
           />
           <Stack.Screen
+            name="izin-alarm"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen
             name="tempat"
             options={{
               presentation: 'transparentModal',
@@ -149,6 +158,7 @@ function Navigator() {
         />
       </Stack>
       <AfterSignIn />
+      <AlarmSyncHost />
       <PushTapHandler />
       <ToastHost />
     </>

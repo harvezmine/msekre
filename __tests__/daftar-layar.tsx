@@ -46,5 +46,6 @@ export const LAYAR: LayarKasus[] = [
   { nama: 'Mulai (awal)', Layar: ROUTES['/mulai']! },
   { nama: 'Mulai (masuk)', Layar: ROUTES['/mulai/masuk']! },
   { nama: 'Mulai (pilih)', Layar: ROUTES['/mulai/pilih']! },
+  { nama: 'Izin alarm', Layar: ROUTES['/izin-alarm']! },
   { nama: 'Pemeriksa Inti', Layar: ROUTES['/inti']!, selaluForest: true },
 ];

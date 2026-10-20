@@ -8,6 +8,8 @@ import { useApi } from '@/api/ApiProvider';
 import type { AgendaItem } from '@/api/contract';
 import { useAgenda } from '@/api/useAgenda';
 import { useAssistantName } from '@/api/useProfile';
+import { getAlarmScheduler } from '@/alarm';
+import { TEST_ALARM_ID, testAlarmItem } from '@/alarm/testAlarm';
 import { ALARM_SAMPLE_ID } from '@/sample/agenda';
 import { dayLabel } from '@/sample/dates';
 import { useSampleDispatch } from '@/sample/store';
@@ -36,10 +38,27 @@ export default function Alarm() {
   // Mode contoh tanpa id (dibuka dari menu uji): pengingat contoh. Mode server tanpa id: tidak ada yang dibunyikan.
   const id = param ?? (mode === 'contoh' ? ALARM_SAMPLE_ID : undefined);
   const [loaded, setLoaded] = useState<AgendaItem | null>(null);
-  const item = agenda.items.find((a) => a.id === id) ?? (loaded?.id === id ? loaded : null);
+  // Alarm percobaan dari layar izin alarm hanya ada di HP ini: itemnya dibuat dari jadwal lokal.
+  const [test, setTest] = useState<AgendaItem | null>(null);
+  const item =
+    id === TEST_ALARM_ID ? test : (agenda.items.find((a) => a.id === id) ?? (loaded?.id === id ? loaded : null));
   const { item: load } = agenda;
   useEffect(() => {
-    if (!id || agenda.items.some((a) => a.id === id)) return;
+    if (id !== TEST_ALARM_ID) return;
+    let stale = false;
+    void getAlarmScheduler()
+      .list()
+      .then((all) => {
+        const mine = all.find((a) => a.id === TEST_ALARM_ID);
+        // Sudah berbunyi (tidak lagi terjadwal) atau dibuka tanpa jadwal: jam sekarang.
+        if (!stale) setTest(testAlarmItem(mine?.at ?? Date.now()));
+      });
+    return () => {
+      stale = true;
+    };
+  }, [id]);
+  useEffect(() => {
+    if (!id || id === TEST_ALARM_ID || agenda.items.some((a) => a.id === id)) return;
     let stale = false;
     void load(id).then((found) => {
       if (!stale) setLoaded(found);
@@ -61,11 +80,38 @@ export default function Alarm() {
   if (!item) return null;
   const isFlight = item.id === ALARM_SAMPLE_ID;
 
+  const stop = () => {
+    // Notifikasi alarm yang sedang berbunyi dimatikan, dan aplikasi tidak lagi tampil di atas layar kunci.
+    const scheduler = getAlarmScheduler();
+    void scheduler.cancel(item.id).then(() => scheduler.releaseLockScreen());
+    router.back();
+  };
+
   const snooze = async () => {
+    const scheduler = getAlarmScheduler();
+    if (item.id === TEST_ALARM_ID) {
+      // Alarm percobaan: tidak ada server, jadwal ulang langsung di HP.
+      await scheduler.cancel(item.id);
+      await scheduler.schedule({
+        id: item.id,
+        at: Date.now() + SNOOZE_MINUTES * 60_000,
+        title: item.title,
+        note: item.note,
+      });
+      void scheduler.releaseLockScreen();
+      return router.back();
+    }
+    // Yang sedang berbunyi dimatikan dulu; jadwal tundaannya dipasang penyamaan alarm setelah server menjawab.
+    await scheduler.cancel(item.id);
+    void scheduler.releaseLockScreen();
     // Dari saat alarm ini berbunyi (atau jadwal tundaan sebelumnya), jadi menunda berkali-kali terus maju.
     const base = Date.parse(item.snoozedUntil ?? item.at);
     const failed = await agenda.snooze(item.id, new Date(base + SNOOZE_MINUTES * 60_000).toISOString());
-    if (failed) return toast({ type: 'showToast', text: failed });
+    if (failed) {
+      // Server tidak menjawab: alarm yang belum jatuh tempo dikembalikan, supaya tidak hilang diam-diam.
+      if (base > Date.now()) await scheduler.schedule({ id: item.id, at: base, title: item.title, note: item.note });
+      return toast({ type: 'showToast', text: failed });
+    }
     router.back();
   };
 
@@ -122,7 +168,7 @@ export default function Alarm() {
             <Inti size={24} onDark paused />
           </AlarmButton>
         </View>
-        <SwipeToConfirm label="Geser untuk mematikan" actionLabel="Matikan" onConfirm={() => router.back()} />
+        <SwipeToConfirm label="Geser untuk mematikan" actionLabel="Matikan" onConfirm={stop} />
       </View>
     </View>
   );

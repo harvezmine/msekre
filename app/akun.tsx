@@ -2,6 +2,8 @@ import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
 import { formatPhoneDisplay, formatTanggal } from '@/api/format';
+import { getAlarmScheduler } from '@/alarm';
+import { alarmBlocked, useAlarmStatus } from '@/alarm/useAlarmStatus';
 import { usePush, type PushPermission } from '@/api/usePush';
 import { useSecurity } from '@/api/useSecurity';
 import { useProfile, type Profile } from '@/api/useProfile';
@@ -55,6 +57,7 @@ export default function Akun() {
   const profile = useProfile();
   const { permission, canAskAgain } = usePush();
   const security = useSecurity();
+  const alarm = useAlarmStatus();
   const account = accountOf(profile);
   const toast = (text: string) => dispatch({ type: 'showToast', text });
 
@@ -88,6 +91,21 @@ export default function Akun() {
         subtitle: NOTIF_STATUS[permission === 'denied' && canAskAgain ? 'undetermined' : permission],
         go: { route: '/izin-notifikasi' },
       },
+      // Hanya di HP yang punya alarm sendiri (build Android dengan modul alarm).
+      ...(getAlarmScheduler().native
+        ? [
+            {
+              icon: 'clock' as const,
+              title: 'Alarm tepat waktu',
+              subtitle: alarm.status
+                ? alarmBlocked(alarm.status)
+                  ? 'Ada izin yang perlu dinyalakan'
+                  : 'Siap, bunyi walau HP terkunci'
+                : undefined,
+              go: { route: '/izin-alarm' as Href },
+            },
+          ]
+        : []),
     ],
     [
       {

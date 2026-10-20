@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { AgendaItem as Item } from '@/api/contract';
+import { alarmBlocked, useAlarmStatus } from '@/alarm/useAlarmStatus';
 import { useAgenda } from '@/api/useAgenda';
 import { daysInMonth, dayLabel, isoDate, parts } from '@/sample/dates';
 import { useSampleDispatch } from '@/sample/store';
@@ -24,6 +25,7 @@ export default function Agenda() {
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useSampleDispatch();
+  const alarm = useAlarmStatus();
   const agenda = useAgenda();
   const { itemsOn, marked, leftover, ensureRange } = agenda;
   const [segment, setSegment] = useState<Segment>('Hari ini');
@@ -63,6 +65,9 @@ export default function Agenda() {
   }
 
   const selected = picked ?? TODAY;
+  // Hanya diingatkan kalau memang ada pengingat yang dibunyikan HP.
+  const blocked =
+    alarmBlocked(alarm.status) && agenda.items.some((i) => i.way === 'alarm' && !i.done && i.kind !== 'task');
   const onToggle = (id: string) => void agenda.toggle(id).then(say);
   const onLongPress = (id: string) => router.push({ pathname: '/alarm', params: { id } });
 
@@ -99,6 +104,35 @@ export default function Agenda() {
             <Initials />
           </Pressable>
         </View>
+        {blocked ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Alarm belum bisa bunyi tepat waktu. Atur izinnya"
+            onPress={() => router.push('/izin-alarm')}
+            android_ripple={{ color: c.ripple }}
+            style={{
+              marginHorizontal: 16,
+              marginTop: 12,
+              borderRadius: 20,
+              backgroundColor: c.clayBg,
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <Icon name="bell" size={22} color={c.clay} />
+            <View style={{ flex: 1 }}>
+              <Txt weight={600} color={c.clay}>
+                Alarm belum bisa bunyi tepat waktu
+              </Txt>
+              <Txt v="caption" color={c.muted}>
+                Ada izin yang perlu dinyalakan. Ketuk untuk mengaturnya.
+              </Txt>
+            </View>
+            <Icon name="chevR" size={20} color={c.muted} />
+          </Pressable>
+        ) : null}
         <View style={{ marginHorizontal: 16, marginTop: 12 }}>
           <Segmented options={SEGMENTS} value={segment} onChange={setSegment} label="Tampilan agenda" />
         </View>
