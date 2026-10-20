@@ -6,7 +6,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_ASSISTANT } from '@/brand';
 import { VOICE_SAMPLE } from '@/sample/voice';
-import { useSample } from '@/sample/store';
+import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { onForest } from '@/theme/tokens';
 import { Icon } from '@/ui/Icon';
@@ -22,7 +22,7 @@ export default function Suara() {
   const insets = useSafeAreaInsets();
   const live = useLive();
   const { step, restart } = useTimeline(VOICE_SAMPLE);
-  const { dispatch } = useSample();
+  const dispatch = useSampleDispatch();
   // Saat Nadia mulai berbicara, perintah sudah dijalankan: AC kamar mati. Hanya sekali per putaran contoh.
   const speaking = step.state === 'speak';
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Pressable } from 'react-native';
-import { useSample } from '@/sample/store';
+import { useSampleState } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from './Icon';
 import { Txt } from './Txt';
@@ -8,7 +8,7 @@ import { Txt } from './Txt';
 /** Tombol tempat di kiri atas (Beranda, Perangkat, Usaha): menampilkan tempat terpilih, membuka pemilih tempat. */
 export function PlaceButton() {
   const { c } = useTheme();
-  const { state } = useSample();
+  const state = useSampleState();
   return (
     <Pressable
       accessibilityRole="button"

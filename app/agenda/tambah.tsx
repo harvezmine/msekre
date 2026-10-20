@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Pressable, TextInput, View } from 'react-native';
 import { parseAgenda, toAgendaItem } from '@/sample/parse';
-import { useSample } from '@/sample/store';
+import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
 import { Icon } from '@/ui/Icon';
@@ -13,7 +13,7 @@ import { Txt } from '@/ui/Txt';
 // Lembar Tambah (desain 2b). Pratinjau dibaca dari teks oleh pengurai contoh; pengurai sungguhan datang dari server nanti.
 export default function Tambah() {
   const { c } = useTheme();
-  const { dispatch } = useSample();
+  const dispatch = useSampleDispatch();
   const [text, setText] = useState('');
   const parsed = parseAgenda(text);
 
