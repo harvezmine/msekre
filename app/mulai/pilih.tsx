@@ -11,13 +11,13 @@ import { PrimaryButton } from '@/ui/PrimaryButton';
 import { StepDots } from '@/ui/StepDots';
 import { Txt } from '@/ui/Txt';
 
-type Pick = 'jadwal' | 'rumah' | 'usaha';
-const OPTIONS: { id: Pick; icon: IconName; title: string; sub: string }[] = [
+type Minat = 'jadwal' | 'rumah' | 'usaha';
+const OPTIONS: { id: Minat; icon: IconName; title: string; sub: string }[] = [
   { id: 'jadwal', icon: 'calendar', title: 'Jadwal & pesan', sub: 'Kalender, email, WhatsApp, dan pengingat' },
   { id: 'rumah', icon: 'home', title: 'Rumah', sub: 'AC, lampu, kamera, dan Kotak Sekretaris AI' },
   { id: 'usaha', icon: 'store', title: 'Usaha', sub: 'Penjualan, stok, uang masuk, dan pesanan online' },
 ];
-const NEXT: Record<Pick, { button: string; helper: string; toast: string }> = {
+const NEXT: Record<Minat, { button: string; helper: string; toast: string }> = {
   jadwal: {
     button: 'Sambungkan Google Kalender',
     helper: 'Kita mulai dari Google Kalender. Yang lain bisa menyusul.',
@@ -40,15 +40,15 @@ export default function MulaiPilih() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const { dispatch } = useSample();
-  const [picked, setPicked] = useState<Pick[]>(['jadwal']);
+  const [picked, setPicked] = useState<Minat[]>(['jadwal']);
   const first = OPTIONS.find((o) => picked.includes(o.id))?.id;
   const next = first ? NEXT[first] : undefined;
 
-  const toggle = (id: Pick) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  const toggle = (id: Minat) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const finish = (toast?: string) => {
     dispatch({ type: 'finishOnboarding' });
     if (toast) dispatch({ type: 'showToast', text: toast });
-    router.replace('/');
+    router.dismissTo('/');
   };
 
   return (

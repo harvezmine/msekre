@@ -1,5 +1,6 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { Keyboard } from 'react-native';
 import { useEffect } from 'react';
 import Mulai from '../app/mulai/index';
 import Masuk from '../app/mulai/masuk';
@@ -61,6 +62,20 @@ test('layar 2: Masuk menunggu nomor dan 6 angka kode', async () => {
   expect(router.push).toHaveBeenCalledWith('/mulai/pilih');
 });
 
+test('keyboard kode tertutup otomatis pada angka keenam, tidak sebelumnya', async () => {
+  const dismiss = jest.spyOn(Keyboard, 'dismiss').mockImplementation(() => {});
+  try {
+    await renderWithProviders(<Masuk />);
+    const code = screen.getByLabelText('Kode dari WhatsApp');
+    await fireEvent.changeText(code, '12345');
+    expect(dismiss).not.toHaveBeenCalled();
+    await fireEvent.changeText(code, '123456');
+    expect(dismiss).toHaveBeenCalledTimes(1);
+  } finally {
+    dismiss.mockRestore();
+  }
+});
+
 test('Ubah mengosongkan nomor', async () => {
   await renderWithProviders(<Masuk />);
   await fireEvent.press(screen.getByRole('button', { name: 'Ubah' }));
@@ -104,7 +119,7 @@ test('layar 3: Jadwal dipilih lebih dulu, tombol mengikuti pilihan pertama', asy
   expect(screen.getByRole('button', { name: 'Lanjut ke Beranda' })).toBeTruthy();
   await fireEvent.press(screen.getByRole('button', { name: 'Lanjut ke Beranda' }));
   expect(latest.onboarded).toBe(true);
-  expect(router.replace).toHaveBeenCalledWith('/');
+  expect(router.dismissTo).toHaveBeenCalledWith('/');
 });
 
 test('tombol utama selesai dengan toast dan membuka Beranda', async () => {
@@ -112,12 +127,12 @@ test('tombol utama selesai dengan toast dan membuka Beranda', async () => {
   await fireEvent.press(screen.getByRole('button', { name: 'Sambungkan Google Kalender' }));
   expect(latest.onboarded).toBe(true);
   expect(latest.toast?.text).toBe('Google Kalender bisa disambungkan dari Terhubung.');
-  expect(router.replace).toHaveBeenCalledWith('/');
+  expect(router.dismissTo).toHaveBeenCalledWith('/');
 });
 
 test('Lewati dulu langsung ke Beranda', async () => {
   await withProbe(<Pilih />);
   await fireEvent.press(screen.getByRole('button', { name: 'Lewati dulu' }));
   expect(latest.onboarded).toBe(true);
-  expect(router.replace).toHaveBeenCalledWith('/');
+  expect(router.dismissTo).toHaveBeenCalledWith('/');
 });

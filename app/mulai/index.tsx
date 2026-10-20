@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Inti } from '@/ui/inti/Inti';
@@ -13,10 +13,10 @@ export default function Mulai() {
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: c.paper,
+    <ScrollView
+      style={{ backgroundColor: c.paper }}
+      contentContainerStyle={{
+        flexGrow: 1,
         alignItems: 'center',
         paddingTop: insets.top + 40,
         paddingBottom: insets.bottom + 32,
@@ -39,6 +39,6 @@ export default function Mulai() {
         <StepDots step={1} />
         <PrimaryButton label="Mulai" onPress={() => router.push('/mulai/masuk')} />
       </View>
-    </View>
+    </ScrollView>
   );
 }

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -53,137 +53,154 @@ export default function MulaiMasuk() {
       <View style={{ paddingTop: insets.top, height: 64 + insets.top, justifyContent: 'center', paddingHorizontal: 8 }}>
         <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
       </View>
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: insets.bottom + 32, gap: 24 }}>
-        <View style={{ gap: 8 }}>
-          <Txt v="display" accessibilityRole="header">
-            Masuk dengan nomor WhatsApp
-          </Txt>
-          <Txt weight={400} color={c.muted} style={{ fontSize: 17, lineHeight: 26 }}>
-            Kodenya saya kirim lewat WhatsApp, bukan SMS.
-          </Txt>
-        </View>
-
-        <View style={{ gap: 8 }}>
-          <Txt weight={600} style={{ fontSize: 15, lineHeight: 20 }}>
-            Nomor WhatsApp
-          </Txt>
-          <View
-            style={{
-              height: 60,
-              borderWidth: 1,
-              borderColor: c.line,
-              backgroundColor: c.card,
-              borderRadius: 20,
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingLeft: 18,
-              paddingRight: 8,
-              gap: 12,
-            }}
-          >
-            <Txt weight={600} color={c.muted} style={{ fontSize: 17 }}>
-              +62
+      {/* Edge-to-edge (SDK 58): jendela tidak mengecil, jadi 'padding' menaikkan isi setinggi keyboard dan ScrollView menggulirkannya. */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 24,
+            paddingTop: 8,
+            paddingBottom: insets.bottom + 32,
+            gap: 24,
+          }}
+        >
+          <View style={{ gap: 8 }}>
+            <Txt v="display" accessibilityRole="header">
+              Masuk dengan nomor WhatsApp
             </Txt>
-            <View style={{ width: 1, height: 28, backgroundColor: c.line }} />
-            <TextInput
-              ref={phoneRef}
-              accessibilityLabel="Nomor WhatsApp"
-              value={formatPhone(phone)}
-              onChangeText={(t) => setPhone(cleanPhone(t))}
-              keyboardType="number-pad"
-              textContentType="telephoneNumber"
-              autoComplete="tel"
-              placeholder="812-0000-0000"
-              placeholderTextColor={c.muted}
-              style={{ flex: 1, fontSize: 17, fontFamily: 'PlusJakartaSans_500Medium', color: c.ink, padding: 0 }}
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Ubah"
-              onPress={() => {
-                setPhone('');
-                phoneRef.current?.focus();
+            <Txt weight={400} color={c.muted} style={{ fontSize: 17, lineHeight: 26 }}>
+              Kodenya saya kirim lewat WhatsApp, bukan SMS.
+            </Txt>
+          </View>
+
+          <View style={{ gap: 8 }}>
+            <Txt weight={600} style={{ fontSize: 15, lineHeight: 20 }}>
+              Nomor WhatsApp
+            </Txt>
+            <View
+              style={{
+                height: 60,
+                borderWidth: 1,
+                borderColor: c.line,
+                backgroundColor: c.card,
+                borderRadius: 20,
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingLeft: 18,
+                paddingRight: 8,
+                gap: 12,
               }}
-              android_ripple={{ color: c.ripple }}
-              style={{ height: 48, paddingHorizontal: 12, justifyContent: 'center' }}
             >
-              <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
-                Ubah
+              <Txt weight={600} color={c.muted} style={{ fontSize: 17 }}>
+                +62
               </Txt>
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={{ gap: 8 }}>
-          <Txt weight={600} style={{ fontSize: 15, lineHeight: 20 }}>
-            Kode dari WhatsApp
-          </Txt>
-          {/* Satu kolom isian tak terlihat menampung ketikan, tempel, dan isi otomatis; enam kotak hanya menampilkan. */}
-          <View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {Array.from({ length: CODE_LENGTH }, (_, i) => {
-                const active = focused && i === Math.min(code.length, CODE_LENGTH - 1);
-                return (
-                  <Pressable
-                    key={i}
-                    accessible={false}
-                    onPress={() => codeRef.current?.focus()}
-                    style={{
-                      flex: 1,
-                      height: 60,
-                      borderRadius: 16,
-                      borderWidth: active ? 1.5 : 1,
-                      borderColor: active ? c.green : c.line,
-                      backgroundColor: c.card,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Txt weight={600} tabular style={{ fontSize: 24, lineHeight: 30 }}>
-                      {code[i] ?? ''}
-                    </Txt>
-                  </Pressable>
-                );
-              })}
+              <View style={{ width: 1, height: 28, backgroundColor: c.line }} />
+              <TextInput
+                ref={phoneRef}
+                accessibilityLabel="Nomor WhatsApp"
+                value={formatPhone(phone)}
+                onChangeText={(t) => setPhone(cleanPhone(t))}
+                keyboardType="number-pad"
+                textContentType="telephoneNumber"
+                autoComplete="tel"
+                placeholder="812-0000-0000"
+                placeholderTextColor={c.muted}
+                style={{ flex: 1, fontSize: 17, fontFamily: 'PlusJakartaSans_500Medium', color: c.ink, padding: 0 }}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Ubah"
+                onPress={() => {
+                  setPhone('');
+                  phoneRef.current?.focus();
+                }}
+                android_ripple={{ color: c.ripple }}
+                style={{ height: 48, paddingHorizontal: 12, justifyContent: 'center' }}
+              >
+                <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
+                  Ubah
+                </Txt>
+              </Pressable>
             </View>
-            <TextInput
-              ref={codeRef}
-              accessibilityLabel="Kode dari WhatsApp"
-              value={code}
-              onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, CODE_LENGTH))}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              keyboardType="number-pad"
-              textContentType="oneTimeCode"
-              autoComplete="sms-otp"
-              maxLength={CODE_LENGTH}
-              caretHidden
-              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.02 }}
-            />
           </View>
-          {left > 0 ? (
-            <Txt v="caption" color={c.muted} tabular>
-              Kirim ulang kode dalam {clock(left)}
-            </Txt>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Kirim ulang kode"
-              onPress={resend}
-              android_ripple={{ color: c.ripple }}
-              style={{ height: 48, justifyContent: 'center', alignSelf: 'flex-start' }}
-            >
-              <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
-                Kirim ulang kode
-              </Txt>
-            </Pressable>
-          )}
-        </View>
 
-        <View style={{ flex: 1 }} />
-        <StepDots step={2} />
-        <PrimaryButton label="Masuk" disabled={!ready} onPress={() => router.push('/mulai/pilih')} />
-      </View>
+          <View style={{ gap: 8 }}>
+            <Txt weight={600} style={{ fontSize: 15, lineHeight: 20 }}>
+              Kode dari WhatsApp
+            </Txt>
+            {/* Satu kolom isian tak terlihat menampung ketikan, tempel, dan isi otomatis; enam kotak hanya menampilkan. */}
+            <View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {Array.from({ length: CODE_LENGTH }, (_, i) => {
+                  const active = focused && i === Math.min(code.length, CODE_LENGTH - 1);
+                  return (
+                    <Pressable
+                      key={i}
+                      accessible={false}
+                      onPress={() => codeRef.current?.focus()}
+                      style={{
+                        flex: 1,
+                        height: 60,
+                        borderRadius: 16,
+                        borderWidth: active ? 1.5 : 1,
+                        borderColor: active ? c.green : c.line,
+                        backgroundColor: c.card,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Txt weight={600} tabular style={{ fontSize: 24, lineHeight: 30 }}>
+                        {code[i] ?? ''}
+                      </Txt>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <TextInput
+                ref={codeRef}
+                accessibilityLabel="Kode dari WhatsApp"
+                value={code}
+                onChangeText={(t) => {
+                  const next = t.replace(/\D/g, '').slice(0, CODE_LENGTH);
+                  setCode(next);
+                  // Enam angka lengkap: tutup keyboard supaya "Masuk" terlihat penuh.
+                  if (next.length === CODE_LENGTH) Keyboard.dismiss();
+                }}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                autoComplete="sms-otp"
+                maxLength={CODE_LENGTH}
+                caretHidden
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.02 }}
+              />
+            </View>
+            {left > 0 ? (
+              <Txt v="caption" color={c.muted} tabular>
+                Kirim ulang kode dalam {clock(left)}
+              </Txt>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Kirim ulang kode"
+                onPress={resend}
+                android_ripple={{ color: c.ripple }}
+                style={{ height: 48, justifyContent: 'center', alignSelf: 'flex-start' }}
+              >
+                <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
+                  Kirim ulang kode
+                </Txt>
+              </Pressable>
+            )}
+          </View>
+
+          <View style={{ flex: 1 }} />
+          <StepDots step={2} />
+          <PrimaryButton label="Masuk" disabled={!ready} onPress={() => router.push('/mulai/pilih')} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
