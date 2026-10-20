@@ -2,7 +2,7 @@ import { Redirect, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { onForest } from '@/theme/tokens';
+import { light, onForest } from '@/theme/tokens';
 import { IconButton } from '@/ui/IconButton';
 import { Inti, type IntiState } from '@/ui/inti/Inti';
 import { Txt } from '@/ui/Txt';
@@ -19,7 +19,7 @@ export default function IntiPreview() {
   const insets = useSafeAreaInsets();
   if (!__DEV__) return <Redirect href="/" />;
   return (
-    <View style={{ flex: 1, backgroundColor: '#0E3A2C', paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: light.voice, paddingTop: insets.top }}>
       <StatusBar style="light" />
       <IconButton icon="back" label="Kembali" color={onForest.text} onPress={() => router.back()} />
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40, gap: 40, alignItems: 'center' }}>

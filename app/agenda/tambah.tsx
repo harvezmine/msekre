@@ -112,7 +112,7 @@ function Isi() {
               {parsed.way ? <Row label="Cara" value="Bunyi sebagai alarm" /> : null}
             </View>
             {parsed.timeGuessed ? (
-              <Txt v="caption" color="#3F5048">
+              <Txt v="caption" color={c.micSub}>
                 Jamnya saya tebak. Ketuk untuk mengubah.
               </Txt>
             ) : null}
