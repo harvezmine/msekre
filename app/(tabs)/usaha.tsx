@@ -42,7 +42,7 @@ export default function Usaha() {
             paddingRight: 16,
           }}
         >
-          <PlaceButton />
+          <PlaceButton labelFor={(p) => businessByPlace[p]?.label ?? p} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Akun"

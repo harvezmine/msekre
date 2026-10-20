@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { businessByPlace } from '@/sample/business';
 import { homeSummary, user } from '@/sample/profile';
 import { approvalText, homeAgenda, houseCard, pendingApproval, ringNodes, useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -21,6 +22,13 @@ export default function Beranda() {
   const insets = useSafeAreaInsets();
   const { state, dispatch } = useSample();
   const approval = pendingApproval(state);
+  // Kartu Usaha mengikuti tempat terpilih; Rumah tidak punya usaha, jadi memakai angka Semua.
+  const sales =
+    (state.place === 'Kedai Dago' || state.place === 'Kedai Riau' ? businessByPlace[state.place] : undefined) ??
+    businessByPlace.Semua!;
+  const stock = sales.lowStock[0];
+  const alert =
+    sales === businessByPlace.Semua ? state.business.alert : stock ? `${stock.item} tinggal ${stock.left}` : null;
   const ring = ringNodes(state);
   const today = homeAgenda(state);
 
@@ -185,28 +193,30 @@ export default function Beranda() {
                 Penjualan hari ini
               </Txt>
               <Txt weight={600} tabular style={{ fontSize: 28, lineHeight: 36, letterSpacing: -0.28 }}>
-                {state.business.sales}
+                {sales.sales}
               </Txt>
-              <Txt weight={500} color={c.leafText}>
-                {state.business.change}
-              </Txt>
-            </View>
-            <View
-              style={{
-                backgroundColor: c.clayBg,
-                borderRadius: 16,
-                paddingVertical: 12,
-                paddingHorizontal: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.clay }} />
-              <Txt weight={500} color={c.clay} style={{ flexShrink: 1 }}>
-                {state.business.alert}
+              <Txt weight={500} color={sales.down ? c.clay : c.leafText}>
+                {sales.change}
               </Txt>
             </View>
+            {alert ? (
+              <View
+                style={{
+                  backgroundColor: c.clayBg,
+                  borderRadius: 16,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.clay }} />
+                <Txt weight={500} color={c.clay} style={{ flexShrink: 1 }}>
+                  {alert}
+                </Txt>
+              </View>
+            ) : null}
           </Card>
         </View>
       </ScrollView>

@@ -19,6 +19,17 @@ export const ROUTINES: Routine[] = [
  * Aksi penyimpanan untuk satu rutinitas, dari perangkat yang ada. Perangkat yang tidak terjangkau dilewati oleh
  * reducer sendiri, dan perangkat yang sudah pada keadaan itu tidak mencatat apa-apa.
  */
+/** Tutup kedai hanya menyentuh kedai yang dipilih; di Semua atau Rumah, kedua kedai. */
+const kedaiTarget = (state: SampleState, d: SampleState['devices'][number]) =>
+  state.place === 'Kedai Dago' || state.place === 'Kedai Riau' ? d.place === state.place : d.place !== 'Rumah';
+
+/** Teks toast setelah rutinitas dijalankan; Tutup kedai menyebut kedai yang terkena. */
+export function routineDone(routine: Routine, state: SampleState): string {
+  if (routine.id !== 'tutup-kedai') return `Rutinitas ${routine.name} dijalankan.`;
+  const where = state.place === 'Kedai Dago' || state.place === 'Kedai Riau' ? state.place : 'semua kedai';
+  return `Rutinitas ${routine.name} dijalankan di ${where}.`;
+}
+
 export function routineActions(routine: Routine, state: SampleState): SampleAction[] {
   const pick = (pred: (d: SampleState['devices'][number]) => boolean) => state.devices.filter(pred);
   const acts: SampleAction[] = [];
@@ -29,7 +40,7 @@ export function routineActions(routine: Routine, state: SampleState): SampleActi
         acts.push({ type: 'setAc', deviceId: d.id, on: true, temp: 25 });
       break;
     case 'tutup-kedai':
-      for (const d of pick((x) => x.place !== 'Rumah')) {
+      for (const d of pick((x) => kedaiTarget(state, x))) {
         if (d.kind === 'lampu' || d.kind === 'ac') acts.push({ type: 'toggleDevice', id: d.id, on: false });
         else if (d.kind === 'kamera' || d.kind === 'kunci') acts.push({ type: 'toggleDevice', id: d.id, on: true });
       }

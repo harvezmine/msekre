@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { user } from '@/sample/profile';
-import { ROUTINES, routineActions, type Routine } from '@/sample/routines';
+import { ROUTINES, routineActions, routineDone, type Routine } from '@/sample/routines';
 import { PLACES, useSample, type Device } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BoxCard } from '@/ui/device/BoxCard';
@@ -46,7 +46,7 @@ export default function Perangkat() {
   );
   const run = (r: Routine) => {
     for (const a of routineActions(r, state)) dispatch(a);
-    dispatch({ type: 'showToast', text: `Rutinitas ${r.name} dijalankan.` });
+    dispatch({ type: 'showToast', text: routineDone(r, state) });
   };
 
   return (

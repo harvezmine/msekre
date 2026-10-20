@@ -196,7 +196,17 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
     }
 
     case 'setBoxMic':
-      return state.boxMic === action.on ? state : { ...state, boxMic: action.on };
+      if (state.boxMic === action.on) return state;
+      return withHistory(
+        { ...state, boxMic: action.on },
+        {
+          time: NOW_APP,
+          kind: 'rumah',
+          icon: action.on ? 'mic' : 'micOff',
+          title: `${action.on ? 'Menyalakan' : 'Mematikan'} mic Kotak Sekretaris AI`,
+          sub: `Rumah · lewat aplikasi · ${NOW_APP}`,
+        },
+      ).state;
 
     case 'addDraft': {
       const id = `o-${state.seq + 1}`;

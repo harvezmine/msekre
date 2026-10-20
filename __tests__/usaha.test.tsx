@@ -100,3 +100,13 @@ test('mode gelap memakai warna palet gelap', async () => {
   expect(flat(screen.getByText('naik 12% dari Senin lalu')).color).toBe(dark.leafText);
   expect(flat(screen.getByText('Rp4.250.000')).color).toBe(dark.ink);
 });
+
+test('tombol tempat menyebut Semua cabang, dan kedai tetap namanya', async () => {
+  await renderWithProviders(<Usaha />);
+  expect(screen.getByRole('button', { name: 'Tempat: Semua cabang' })).toBeOnTheScreen();
+});
+
+test('tombol tempat di Kedai Dago memakai nama kedai', async () => {
+  await renderWithProviders(<Usaha />, { actions: [at('Kedai Dago')] });
+  expect(screen.getByRole('button', { name: 'Tempat: Kedai Dago' })).toBeOnTheScreen();
+});

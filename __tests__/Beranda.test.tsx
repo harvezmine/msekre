@@ -155,3 +155,24 @@ test('kartu Agenda hari ini persis tiga baris desain 1a, tanpa tugas', async () 
   expect(screen.queryByText('Rapat manajer kedai')).toBeNull();
   expect(screen.getAllByText(/^\d\d\.\d\d$/).map((t) => t.props.children)).toEqual(['09.00', '13.00', '16.00']);
 });
+
+test('kartu Usaha mengikuti tempat: Kedai Dago dan Kedai Riau memakai angka kedai', async () => {
+  await renderWithProviders(<Beranda />, { actions: [{ type: 'setPlace', place: 'Kedai Dago' }] });
+  expect(screen.getByText('Rp2.610.000')).toBeTruthy();
+  expect(screen.getByText('naik 9% dari Senin lalu')).toBeTruthy();
+  expect(screen.getByText('Susu UHT tinggal 4 karton')).toBeTruthy();
+  expect(screen.queryByText('Rp4.250.000')).toBeNull();
+});
+
+test('kartu Usaha di Kedai Riau menyebut yang menipis di kedai itu', async () => {
+  await renderWithProviders(<Beranda />, { actions: [{ type: 'setPlace', place: 'Kedai Riau' }] });
+  expect(screen.getByText('Rp1.640.000')).toBeTruthy();
+  expect(screen.getByText('turun 4% dari Senin lalu')).toBeTruthy();
+  expect(screen.getByText('Susu UHT tinggal 2 karton')).toBeTruthy();
+});
+
+test('kartu Usaha di Rumah memakai angka Semua', async () => {
+  await renderWithProviders(<Beranda />, { actions: [{ type: 'setPlace', place: 'Rumah' }] });
+  expect(screen.getByText('Rp4.250.000')).toBeTruthy();
+  expect(screen.getByText('Susu UHT tinggal 6 karton')).toBeTruthy();
+});
