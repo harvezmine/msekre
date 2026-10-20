@@ -24,4 +24,15 @@ await sharp({ create: { width: SIZE, height: SIZE, channels: 4, background: '#F6
   .composite([{ input: fg }])
   .png()
   .toFile('assets/brand/icon.png');
+
+// Splash gelap: pita terang tanpa titik + tiga titik chat hijau muda, posisinya sama dengan di s-mark.png.
+const [LW, LH] = [282, 310];
+const D = Math.round(0.068 * LH);
+const dots = [0.278, 0.392, 0.505]
+  .map((x) => `<circle cx="${x * LW}" cy="${0.723 * LH}" r="${D / 2}" fill="#C9E6C7"/>`)
+  .join('');
+await sharp('assets/brand/s-ribbon-light.png')
+  .composite([{ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${LW}" height="${LH}">${dots}</svg>`) }])
+  .png()
+  .toFile('assets/brand/s-mark-light.png');
 console.log('ikon dibuat');

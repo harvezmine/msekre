@@ -30,7 +30,7 @@
           "imageWidth": 120,
           "backgroundColor": "#F6F6F0",
           "dark": {
-            "image": "./assets/brand/s-ribbon-light.png",
+            "image": "./assets/brand/s-mark-light.png",
             "backgroundColor": "#0A1F18"
           }
         }
