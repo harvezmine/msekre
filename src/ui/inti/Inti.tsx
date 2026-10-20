@@ -49,7 +49,7 @@ export function Inti({ size, state = 'idle', onDark = false }: Props) {
         </>
       )}
       {state === 'speak' && [0, 1, 2].map((i) => <Wave key={i} index={i} frame={circle(size * 1.08)} reduce={reduce} />)}
-      <View testID="inti-inti" style={[StyleSheet.absoluteFill, { opacity: state === 'off' ? 0.35 : 1 }]}>
+      <View testID="inti-inti" style={[StyleSheet.absoluteFill, state === 'off' ? { opacity: 0.35, filter: [{ grayscale: 0.8 }] } : null]}>
         <Breath active={(state === 'idle' || state === 'speak') && !reduce}>
           <Image source={onDark ? RIBBON_LIGHT : RIBBON} style={{ width: w, height: h }} resizeMode="contain" />
           {DOT_X.map((x, i) => (
@@ -96,7 +96,7 @@ function Dot({ index, left, top, d, color, pulse }: { index: number; left: numbe
               -1,
             ),
           )
-        : withTiming(0, { duration: 0 }),
+        : 0,
     );
   }, [pulse, index, t]);
   const style = useAnimatedStyle(() =>
@@ -130,10 +130,19 @@ function Ring({ id, frame, border, opacity, delay, reduce }: { id: number; frame
 
 /** Berbicara: gelombang membesar 1 → 1,5 dan memudar, 2,4 detik, jeda 0,8 detik antar gelombang. */
 function Wave({ index, frame, reduce }: { index: number; frame: Frame; reduce: boolean }) {
-  const t = useSharedValue(0);
+  // Mulai di 1 (tak terlihat) lalu direset ke 0 saat gilirannya tiba, supaya tak ada cincin diam sebelum itu.
+  const t = useSharedValue(1);
   useEffect(() => {
     if (reduce) return;
-    t.set(withDelay(index * 800, withRepeat(withTiming(1, { duration: 2400, easing: Easing.out(Easing.ease) }), -1)));
+    t.set(
+      withDelay(
+        index * 800,
+        withSequence(
+          withTiming(0, { duration: 0 }),
+          withRepeat(withTiming(1, { duration: 2400, easing: Easing.out(Easing.ease) }), -1),
+        ),
+      ),
+    );
   }, [reduce, index, t]);
   const first = index === 0;
   const style = useAnimatedStyle(() =>
