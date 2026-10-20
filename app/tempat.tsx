@@ -3,31 +3,37 @@ import { Pressable, View } from 'react-native';
 import { PLACES, useSample, type Place } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
-import { Sheet } from '@/ui/Sheet';
+import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
 
 // Lembar pemilih tempat. Dibuka dengan presentation transparentModal dari Stack.
 export default function Tempat() {
-  const { c } = useTheme();
-  const { state, dispatch } = useSample();
-  const pick = (place: Place) => {
-    dispatch({ type: 'setPlace', place });
-    router.back();
-  };
   return (
     <Sheet onClose={() => router.back()}>
+      <Pilihan />
+    </Sheet>
+  );
+}
+
+function Pilihan() {
+  const { c } = useTheme();
+  const { state, dispatch } = useSample();
+  const { close } = useSheet();
+  const pick = (place: Place) => close(() => dispatch({ type: 'setPlace', place }));
+  return (
+    <>
       <Txt v="title" style={{ marginBottom: 8 }}>
         Pilih tempat
       </Txt>
-      <View>
+      <View accessibilityRole="radiogroup">
         {PLACES.map((p, i) => {
           const selected = p === state.place;
           return (
             <Pressable
               key={p}
-              accessibilityRole="button"
+              accessibilityRole="radio"
               accessibilityLabel={p}
-              accessibilityState={{ selected }}
+              accessibilityState={{ checked: selected }}
               onPress={() => pick(p)}
               android_ripple={{ color: c.ripple }}
               style={{
@@ -45,6 +51,6 @@ export default function Tempat() {
           );
         })}
       </View>
-    </Sheet>
+    </>
   );
 }

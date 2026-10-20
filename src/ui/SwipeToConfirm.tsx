@@ -24,7 +24,8 @@ interface Props {
 /** Slider "Geser untuk ..." di layar alarm (desain 2l): jempol 60 di jalur 72, lepas lewat 80% = jadi. */
 export function SwipeToConfirm({ label, actionLabel, onConfirm }: Props) {
   const x = useSharedValue(0);
-  const range = useRef(0);
+  // Jarak geser terukur: nilai bersama, karena worklet tidak boleh membaca ref React (objek yang ditangkap dibekukan).
+  const range = useSharedValue(0);
   const done = useRef(false);
   const [, setWidth] = useState(0);
 
@@ -40,12 +41,13 @@ export function SwipeToConfirm({ label, actionLabel, onConfirm }: Props) {
     failOffsetY: [-30, 30],
     onUpdate: (e) => {
       'worklet';
-      x.set(Math.min(Math.max(0, e.translationX), range.current));
+      x.set(Math.min(Math.max(0, e.translationX), range.get()));
     },
     onDeactivate: () => {
       'worklet';
-      if (range.current > 0 && x.get() >= range.current * CONFIRM_AT) {
-        x.set(range.current);
+      const r = range.get();
+      if (r > 0 && x.get() >= r * CONFIRM_AT) {
+        x.set(r);
         scheduleOnRN(confirm);
       } else {
         x.set(withSpring(0, { damping: 18, stiffness: 220 }));
@@ -55,13 +57,13 @@ export function SwipeToConfirm({ label, actionLabel, onConfirm }: Props) {
 
   const onLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
-    range.current = Math.max(0, w - THUMB - GAP * 2);
+    range.set(Math.max(0, w - THUMB - GAP * 2));
     setWidth(w);
   };
 
   const thumbStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.get() }] }));
   const labelStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(x.get(), [0, Math.max(range.current * 0.6, 1)], [1, 0], 'clamp'),
+    opacity: interpolate(x.get(), [0, Math.max(range.get() * 0.6, 1)], [1, 0], 'clamp'),
   }));
 
   return (
