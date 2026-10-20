@@ -30,7 +30,16 @@ function Navigator() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="chat" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="suara" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
+        <Stack.Screen name="alarm" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="inti" />
+        <Stack.Screen
+          name="agenda/tambah"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'none',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
         <Stack.Screen
           name="tempat"
           options={{

@@ -52,6 +52,15 @@ export const initialAgenda: AgendaItem[] = [
     kind: 'reminder',
     way: 'call',
   },
+  {
+    id: 'a10',
+    date: '2026-10-21',
+    time: '07.00',
+    title: 'Berangkat ke bandara',
+    kind: 'reminder',
+    way: 'alarm',
+    note: 'Penerbangan GA 408 jam 09.15, Terminal 3',
+  },
   { id: 'a7', date: '2026-10-22', time: '08.30', title: 'Belanja bahan kedai', kind: 'task' },
   { id: 'a8', date: '2026-10-23', time: '14.00', title: 'Rapat dengan Bu Sari', kind: 'meeting', note: 'Zoom' },
   { id: 'a9', date: '2026-10-24', time: '19.30', title: 'Makan malam keluarga', kind: 'reminder', way: 'alarm' },
@@ -67,3 +76,6 @@ export const initialAgenda: AgendaItem[] = [
 ];
 
 export const initialLeftover: Leftover = { id: 'l1', title: 'Kirim penawaran katering ke Bu Sari' };
+
+/** Pengingat yang dibuka alarm bila tidak ada id (desain 2l). */
+export const ALARM_SAMPLE_ID = 'a10';
