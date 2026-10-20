@@ -16,10 +16,12 @@ interface Props {
   inputRef?: Ref<TextInputInstance>;
   /** Layar kosong (desain 1d): mic hijau penuh. Di utas, mic berlatar mint dengan ikon hijau (1b, 1c). */
   strongMic?: boolean;
+  /** Kalau diisi, kolom ketik dimatikan dan teks ini menjadi petunjuknya (akun tidak aktif, aplikasi perlu diperbarui). */
+  disabledText?: string;
 }
 
 /** Bilah ketik di bawah: lampiran, kolom teks, lalu mic (kosong) atau kirim (ada teks). */
-export function Composer({ value, onChangeText, onSend, inputRef, strongMic = false }: Props) {
+export function Composer({ value, onChangeText, onSend, inputRef, strongMic = false, disabledText }: Props) {
   const assistantName = useAssistantName();
   const { c } = useTheme();
   const dispatch = useSampleDispatch();
@@ -34,8 +36,9 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
       hide.remove();
     };
   }, []);
-  const hasText = value.trim().length > 0;
-  const solid = hasText || strongMic;
+  const off = disabledText !== undefined;
+  const hasText = !off && value.trim().length > 0;
+  const solid = !off && (hasText || strongMic);
   return (
     <View
       style={{
@@ -58,11 +61,12 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
         ref={inputRef}
         value={value}
         onChangeText={onChangeText}
-        onSubmitEditing={onSend}
+        editable={!off}
+        onSubmitEditing={off ? undefined : onSend}
         returnKeyType="send"
         submitBehavior="submit"
         accessibilityLabel={`Tulis pesan untuk ${assistantName}`}
-        placeholder={`Tulis pesan untuk ${assistantName}`}
+        placeholder={disabledText ?? `Tulis pesan untuk ${assistantName}`}
         placeholderTextColor={c.muted}
         cursorColor={c.green}
         selectionColor={c.green}
@@ -82,12 +86,15 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={hasText ? 'Kirim pesan' : 'Bicara'}
+        accessibilityState={{ disabled: off }}
+        disabled={off}
         onPress={hasText ? onSend : () => router.replace('/suara')}
         style={{
           width: 52,
           height: 52,
           borderRadius: 26,
           backgroundColor: solid ? c.green : c.mint,
+          opacity: off ? 0.5 : 1,
           alignItems: 'center',
           justifyContent: 'center',
         }}

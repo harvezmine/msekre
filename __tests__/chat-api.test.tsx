@@ -146,13 +146,17 @@ describe('mengirim', () => {
   test('pesan yang diketik saat sinyal putus diantre, lalu terkirim begitu tersambung lagi', async () => {
     const { fake } = await mount();
     const spy = jest.spyOn(fake, 'send');
-    fake.drop();
+    await act(async () => {
+      fake.drop();
+    });
     await advance(0);
     await type('Dikirim nanti');
     expect(screen.getByText('Dikirim nanti')).toBeOnTheScreen();
     expect(screen.getByText('mengirim…')).toBeOnTheScreen();
     expect(spy).not.toHaveBeenCalled();
-    fake.restore();
+    await act(async () => {
+      fake.restore();
+    });
     await advance(0);
     await advance(0);
     expect(spy).toHaveBeenCalledTimes(1);
@@ -165,14 +169,18 @@ describe('koneksi', () => {
   test('banner sinyal lemah setelah 3 detik putus; Inti di header mati; hilang saat tersambung', async () => {
     const { fake } = await mount();
     expect(screen.queryByTestId('banner-koneksi')).toBeNull();
-    fake.drop();
+    await act(async () => {
+      fake.drop();
+    });
     await advance(2999);
     expect(screen.queryByTestId('banner-koneksi')).toBeNull();
     expect(screen.getByTestId('inti-inti')).not.toHaveStyle({ opacity: 0.35 });
     await advance(1);
     expect(screen.getByText('Sinyal lemah, pesan Anda saya simpan dulu.')).toBeOnTheScreen();
     expect(screen.getByTestId('inti-inti')).toHaveStyle({ opacity: 0.35 });
-    fake.restore();
+    await act(async () => {
+      fake.restore();
+    });
     await advance(0);
     expect(screen.queryByTestId('banner-koneksi')).toBeNull();
     expect(screen.getByTestId('inti-inti')).not.toHaveStyle({ opacity: 0.35 });
@@ -180,16 +188,18 @@ describe('koneksi', () => {
 
   test('putus sebentar (kurang dari 3 detik) tidak memunculkan banner', async () => {
     const { fake } = await mount();
-    fake.drop(1000);
+    await act(async () => {
+      fake.drop(1000);
+    });
     await advance(2000);
     await advance(2000);
     expect(screen.queryByTestId('banner-koneksi')).toBeNull();
   });
 
-  test.each<[ConnectionStatus, string]>([
-    ['blocked', BLOCKED_TEXT],
-    ['upgrade_required', UPGRADE_TEXT],
-  ])('status %s langsung menampilkan banner penyebabnya', async (status, text) => {
+  test.each<[ConnectionStatus, string, string]>([
+    ['blocked', BLOCKED_TEXT, 'Akun sedang tidak aktif'],
+    ['upgrade_required', UPGRADE_TEXT, 'Perbarui aplikasi untuk lanjut mengobrol'],
+  ])('status %s langsung menampilkan banner penyebabnya', async (status, text, placeholder) => {
     class Forced extends FakeTransport {
       subscribe(...args: Parameters<FakeTransport['subscribe']>) {
         const [onEvent, onStatus, onResync] = args;
@@ -202,6 +212,15 @@ describe('koneksi', () => {
     await advance(0);
     expect(screen.getByText(text)).toBeOnTheScreen();
     expect(screen.getByTestId('inti-inti')).toHaveStyle({ opacity: 0.35 });
+    // Kolom ketik mati dengan petunjuk penyebabnya; mic juga tidak bisa dipakai.
+    const input = screen.getByPlaceholderText(placeholder);
+    expect(input.props.editable).toBe(false);
+    expect(screen.getByRole('button', { name: 'Bicara' })).toBeDisabled();
+  });
+
+  test('tersambung: kolom ketik aktif dengan petunjuk biasa', async () => {
+    await mount();
+    expect(screen.getByPlaceholderText('Tulis pesan untuk Nadia').props.editable).not.toBe(false);
   });
 
   test('pengendali: resync berhalaman (more) membawa semua pesan yang terlewat saat putus', async () => {
@@ -229,12 +248,16 @@ describe('koneksi', () => {
   test('resync setelah putus membawa QRIS yang lunas selagi putus (lewat rev, bukan seq)', async () => {
     const { fake } = await mount();
     expect(screen.queryByTestId('qris-lunas')).toBeNull();
-    fake.drop();
+    await act(async () => {
+      fake.drop();
+    });
     await advance(0);
     fake.payQris();
     await advance(0);
     expect(screen.queryByTestId('qris-lunas')).toBeNull();
-    fake.restore();
+    await act(async () => {
+      fake.restore();
+    });
     for (let i = 0; i < 4; i++) await advance(0);
     expect(screen.getByTestId('qris-lunas')).toBeOnTheScreen();
     expect(screen.getByText('Sudah dibayar')).toBeOnTheScreen();

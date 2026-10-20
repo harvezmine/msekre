@@ -91,6 +91,13 @@ export default function Chat() {
     nearBottom.current = true;
   };
 
+  const composerOff =
+    chat.connection === 'blocked'
+      ? 'Akun sedang tidak aktif'
+      : chat.connection === 'upgrade_required'
+        ? 'Perbarui aplikasi untuk lanjut mengobrol'
+        : undefined;
+
   const rows = buildRows(chat, { onlyNew: kosong === '1' });
   const showEmpty = kosong === '1' && rows.length === 0;
   // Daftar terbalik: yang terbaru dulu.
@@ -190,7 +197,14 @@ export default function Chat() {
         />
       )}
 
-      <Composer value={text} onChangeText={setText} onSend={send} inputRef={input} strongMic={showEmpty} />
+      <Composer
+        value={text}
+        onChangeText={setText}
+        onSend={send}
+        inputRef={input}
+        strongMic={showEmpty}
+        disabledText={composerOff}
+      />
     </KeyboardAvoidingView>
   );
 }
