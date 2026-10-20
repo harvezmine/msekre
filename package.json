@@ -39,7 +39,7 @@
     "eslint-config-expo": "~58.0.4",
     "jest": "~30.5.2",
     "jest-expo": "~58.0.11",
-    "prettier": "^3.9.10",
+    "prettier": "~3.9.10",
     "sharp": "^0.35.5",
     "test-renderer": "~1.3.1",
     "typescript": "~6.0.3"
@@ -49,11 +49,12 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "eslint app src __tests__ jest.setup.ts scripts --no-error-on-unmatched-pattern",
+    "lint": "eslint app src __tests__ jest.setup.ts scripts --no-error-on-unmatched-pattern && npm run format:check",
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/make-icons.mjs",
-    "format": "prettier --write \"app/**/*.{ts,tsx}\" \"src/**/*.{ts,tsx}\" \"__tests__/**/*.{ts,tsx}\" jest.setup.ts"
+    "format": "prettier --write \"app/**/*.{ts,tsx}\" \"src/**/*.{ts,tsx}\" \"__tests__/**/*.{ts,tsx}\" jest.setup.ts",
+    "format:check": "prettier --check \"app/**/*.{ts,tsx}\" \"src/**/*.{ts,tsx}\" \"__tests__/**/*.{ts,tsx}\" jest.setup.ts"
   },
   "private": true,
   "jest": {
