@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
+  useAnimatedProps,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -17,6 +18,10 @@ import { orbitLayout } from './geometry';
 import type { OrbitNode } from './types';
 
 const NODE = 44;
+/** Simpul baru masuk dari jarak ini ke arah luar, 900 ms (sk-join di desain). */
+const JOIN_FROM = 70;
+const JOIN_MS = 900;
+const AnimatedLine = Animated.createAnimatedComponent(Line);
 
 interface Props {
   nodes: OrbitNode[];
@@ -28,6 +33,8 @@ interface Props {
   flowEveryMs?: number;
   /** Layar tak terlihat atau aplikasi di latar: tanpa aliran titik dan Inti diam. */
   paused?: boolean;
+  /** Kunci simpul yang baru bergabung: masuk ke tempatnya dengan gerak, garisnya memudar muncul, dan warnanya mint. */
+  joinKey?: string;
 }
 
 export function Orbit({
@@ -38,6 +45,7 @@ export function Orbit({
   onPressRing,
   flowEveryMs = 3000,
   paused = false,
+  joinKey,
 }: Props) {
   const { c, scheme } = useTheme();
   const { width } = useWindowDimensions();
@@ -75,23 +83,40 @@ export function Orbit({
     >
       <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
         <Circle cx={layout.cx} cy={layout.cy} r={r} fill="none" stroke={c.sage} strokeOpacity={0.55} strokeWidth={1} />
-        {layout.nodes.map((p, i) => (
-          <Line
-            key={nodes[i]!.key}
-            x1={p.line.x1}
-            y1={p.line.y1}
-            x2={p.line.x2}
-            y2={p.line.y2}
-            stroke={c.sage}
-            strokeOpacity={nodes[i]!.offline ? 0.3 : 0.6}
-            strokeWidth={1}
-            strokeDasharray={nodes[i]!.offline ? '3 4' : undefined}
-          />
-        ))}
+        {layout.nodes.map((p, i) => {
+          const n = nodes[i]!;
+          const line = {
+            x1: p.line.x1,
+            y1: p.line.y1,
+            x2: p.line.x2,
+            y2: p.line.y2,
+            stroke: c.sage,
+            strokeWidth: 1,
+            strokeDasharray: n.offline ? '3 4' : undefined,
+          };
+          const opacity = n.offline ? 0.3 : 0.6;
+          return n.key === joinKey ? (
+            <JoinLine key={n.key} {...line} opacity={opacity} />
+          ) : (
+            <Line key={n.key} {...line} strokeOpacity={opacity} />
+          );
+        })}
       </Svg>
-      {layout.nodes.map((p, i) => (
-        <Node key={nodes[i]!.key} node={nodes[i]!} x={p.x} y={p.y} />
-      ))}
+      {layout.nodes.map((p, i) => {
+        const n = nodes[i]!;
+        return n.key === joinKey ? (
+          <JoiningNode
+            key={n.key}
+            node={n}
+            x={p.x}
+            y={p.y}
+            dx={Math.cos(p.angle) * JOIN_FROM}
+            dy={Math.sin(p.angle) * JOIN_FROM}
+          />
+        ) : (
+          <Node key={n.key} node={n} x={p.x} y={p.y} />
+        );
+      })}
       {flow && flowLine && !paused && (
         <FlowDot key={flow.tick} from={{ x: flowLine.x2, y: flowLine.y2 }} to={{ x: flowLine.x1, y: flowLine.y1 }} />
       )}
@@ -114,29 +139,86 @@ export function Orbit({
   );
 }
 
+function nodeBox(x: number, y: number) {
+  return { position: 'absolute', left: x - NODE / 2, top: y - NODE / 2, width: NODE, height: NODE } as const;
+}
+
 function Node({ node, x, y }: { node: OrbitNode; x: number; y: number }) {
-  const { c } = useTheme();
   return (
     <View
       accessible
       accessibilityLabel={node.offline ? `${node.label}, tidak terjangkau` : node.label}
       testID={node.offline ? `simpul-offline-${node.key}` : `simpul-${node.key}`}
+      style={nodeBox(x, y)}
+    >
+      <NodeFace node={node} />
+    </View>
+  );
+}
+
+/** Simpul yang baru bergabung: mint dengan tepi sage, meluncur 70 dp dari luar sambil membesar dan menampak. Gerak dikurangi: langsung di tempatnya. */
+function JoiningNode({ node, x, y, dx, dy }: { node: OrbitNode; x: number; y: number; dx: number; dy: number }) {
+  const reduce = useReducedMotion();
+  const t = useSharedValue(reduce ? 1 : 0);
+  useEffect(() => {
+    if (!reduce) t.set(withTiming(1, { duration: JOIN_MS, easing: Easing.bezier(0.2, 0.8, 0.2, 1) }));
+  }, [reduce, t]);
+  const style = useAnimatedStyle(() => {
+    const p = t.get();
+    return {
+      opacity: Math.min(1, p / 0.6),
+      transform: [{ translateX: dx * (1 - p) }, { translateY: dy * (1 - p) }, { scale: 0.4 + 0.6 * p }],
+    };
+  });
+  return (
+    <Animated.View
+      accessible
+      accessibilityLabel={node.label}
+      testID={`simpul-${node.key}`}
+      style={[nodeBox(x, y), style]}
+    >
+      <NodeFace node={node} joined />
+    </Animated.View>
+  );
+}
+
+function JoinLine(props: {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  stroke: string;
+  strokeWidth: number;
+  strokeDasharray?: string;
+  opacity: number;
+}) {
+  const reduce = useReducedMotion();
+  const t = useSharedValue(reduce ? 1 : 0);
+  useEffect(() => {
+    if (!reduce) t.set(withTiming(1, { duration: JOIN_MS, easing: Easing.out(Easing.ease) }));
+  }, [reduce, t]);
+  const { opacity, ...line } = props;
+  const animatedProps = useAnimatedProps(() => ({ strokeOpacity: opacity * t.get() }));
+  return <AnimatedLine {...line} animatedProps={animatedProps} />;
+}
+
+function NodeFace({ node, joined = false }: { node: OrbitNode; joined?: boolean }) {
+  const { c } = useTheme();
+  return (
+    <View
       style={{
-        position: 'absolute',
-        left: x - NODE / 2,
-        top: y - NODE / 2,
         width: NODE,
         height: NODE,
         borderRadius: NODE / 2,
         borderWidth: 1,
-        borderColor: c.line,
-        backgroundColor: node.offline ? c.paper : c.card,
+        borderColor: joined ? c.sage : c.line,
+        backgroundColor: node.offline ? c.paper : joined ? c.mint : c.card,
         opacity: node.offline ? 0.7 : 1,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Icon name={node.icon} size={22} color={node.offline ? c.muted : c.ink} />
+      <Icon name={node.icon} size={22} color={node.offline ? c.muted : joined ? c.green : c.ink} />
       {node.offline && (
         <View
           style={{
