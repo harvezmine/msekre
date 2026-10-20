@@ -18,7 +18,7 @@ interface Props {
  * titik clay dan tanpa sakelar. Ubin AC bisa diketuk untuk membuka detail; sakelarnya tetap berdiri sendiri.
  */
 export function DeviceTile({ device, width, onToggle, onOpen }: Props) {
-  const { c, scheme } = useTheme();
+  const { c } = useTheme();
   const { name, icon, on, reachable } = device;
   const status = deviceStatus(device);
   const active = reachable && on;
@@ -30,7 +30,7 @@ export function DeviceTile({ device, width, onToggle, onOpen }: Props) {
         borderRadius: 20,
         borderWidth: 1,
         borderColor: c.line,
-        backgroundColor: reachable ? c.card : scheme === 'dark' ? c.paper : '#EEF0EA',
+        backgroundColor: reachable ? c.card : c.quietTile,
         padding: 16,
         justifyContent: 'space-between',
       }}
@@ -38,7 +38,8 @@ export function DeviceTile({ device, width, onToggle, onOpen }: Props) {
       {onOpen && reachable ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${name}. ${status}. Buka pengaturan`}
+          accessibilityLabel={`${name}, ${status}`}
+          accessibilityHint="Buka pengaturan"
           onPress={onOpen}
           android_ripple={{ color: c.ripple }}
           style={[StyleSheet.absoluteFill, { borderRadius: 20 }]}
@@ -72,15 +73,19 @@ export function DeviceTile({ device, width, onToggle, onOpen }: Props) {
                 borderRadius: 5,
                 backgroundColor: c.clay,
                 borderWidth: 2,
-                borderColor: scheme === 'dark' ? c.paper : '#EEF0EA',
+                borderColor: c.quietTile,
               }}
             />
           ) : null}
         </View>
-        {reachable ? <Toggle label={name} value={on} onChange={onToggle} /> : null}
+        {reachable ? <Toggle label={`${name}, ${status}`} value={on} onChange={onToggle} /> : null}
       </View>
-      <View pointerEvents="none">
-        <Txt weight={600} color={reachable ? c.ink : c.muted}>
+      <View
+        pointerEvents="none"
+        accessibilityElementsHidden={!!onOpen}
+        importantForAccessibility={onOpen ? 'no-hide-descendants' : 'auto'}
+      >
+        <Txt weight={600} color={reachable ? c.ink : c.quietText}>
           {name}
         </Txt>
         <Txt v="caption" weight={active ? 600 : 500} color={active ? c.green : c.muted}>

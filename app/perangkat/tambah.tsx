@@ -10,7 +10,7 @@ import { Txt } from '@/ui/Txt';
 
 // Tambah perangkat (desain 2f): pasang Kotak, atau masuk dengan akun merek.
 export default function TambahPerangkat() {
-  const { c, scheme } = useTheme();
+  const { c } = useTheme();
   const { dispatch } = useSample();
   const toast = (text: string) => dispatch({ type: 'showToast', text });
   return (
@@ -24,7 +24,7 @@ export default function TambahPerangkat() {
                 width: 48,
                 height: 48,
                 borderRadius: 16,
-                backgroundColor: '#0E3A2C',
+                backgroundColor: c.forestTile,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -83,7 +83,7 @@ export default function TambahPerangkat() {
                   width: 40,
                   height: 40,
                   borderRadius: 12,
-                  backgroundColor: scheme === 'dark' ? c.mint : '#F1F2EC',
+                  backgroundColor: c.quiet,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}

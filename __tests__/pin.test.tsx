@@ -1,3 +1,4 @@
+import { AccessibilityInfo } from 'react-native';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
@@ -93,4 +94,22 @@ test('pintu depan: keterangannya "membuka"', async () => {
   jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'pintu-depan' });
   await show();
   expect(screen.getByText('Untuk membuka Pintu depan.')).toBeOnTheScreen();
+});
+
+test('PIN salah diumumkan ke pembaca layar', async () => {
+  const spy = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
+  await show();
+  await type('111111');
+  expect(spy).toHaveBeenCalledWith('PIN belum cocok, coba lagi.');
+  spy.mockRestore();
+});
+
+test('dua ketukan cepat sebelum render tidak menjatuhkan angka', async () => {
+  await show();
+  const one = screen.getByRole('button', { name: '1' });
+  const two = screen.getByRole('button', { name: '2' });
+  await act(async () => {
+    await Promise.all([fireEvent.press(one), fireEvent.press(two)]);
+  });
+  expect(screen.getByLabelText('PIN terisi 2 dari 6')).toBeOnTheScreen();
 });

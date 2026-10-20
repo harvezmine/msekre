@@ -16,6 +16,18 @@ export const light = {
   clayBg: '#F5E5DB',
   track: '#CBD3C8',
   voice: '#0E3A2C',
+  /** Ubin ikon berlatar forest (Kotak): di mode gelap lebih terang supaya tidak hilang di kartu. */
+  forestTile: '#0E3A2C',
+  /** Ubin netral (tombol angka PIN, logo merek) dan ubin perangkat tak terjangkau. */
+  quiet: '#F1F2EC',
+  quietTile: '#EEF0EA',
+  /** Nama perangkat tak terjangkau dan keterangan mic. */
+  quietText: '#4F5A54',
+  micSub: '#3F5048',
+  /** Tepi titik PIN yang masih kosong. */
+  dotEmpty: '#9AA59F',
+  /** Garis pemisah daftar stok di atas latar clay. */
+  stockLine: '#EBD3C4',
 };
 
 export type Palette = Record<keyof typeof light, string>;
@@ -37,6 +49,13 @@ export const dark: Palette = {
   clayBg: '#3B2A21',
   track: '#2E5C4B',
   voice: '#0A1F18',
+  forestTile: '#1E5A45',
+  quiet: '#18493A',
+  quietTile: '#0A1F18',
+  quietText: '#8FA096',
+  micSub: '#A9B8AE',
+  dotEmpty: '#6F8A7D',
+  stockLine: '#5A4033',
 };
 
 /** Teks dan tombol di layar berlatar forest (Mode Suara, alarm). Sama di mode terang dan gelap. */

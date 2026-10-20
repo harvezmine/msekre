@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { AccessibilityInfo, Pressable, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -35,22 +35,30 @@ export function PinPad({ subtitle, onSubmit, onCancel, onForgot }: Props) {
   const [wrong, setWrong] = useState(false);
   const shake = useSharedValue(0);
 
+  // Isian dilacak di ref supaya dua ketukan cepat sebelum render tidak saling menimpa; `pin` hanya untuk tampilan.
+  const typed = useRef('');
+  const setTyped = (value: string) => {
+    typed.current = value;
+    setPin(value);
+  };
+
   const press = (digit: string) => {
-    if (pin.length >= PIN_LENGTH) return;
+    if (typed.current.length >= PIN_LENGTH) return;
     void Haptics.selectionAsync();
-    const next = pin + digit;
+    const next = typed.current + digit;
     if (next.length < PIN_LENGTH) {
-      setPin(next);
+      setTyped(next);
       setWrong(false);
       return;
     }
     if (onSubmit(next)) {
-      setPin(next);
+      setTyped(next);
       return;
     }
-    setPin('');
+    setTyped('');
     setWrong(true);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    AccessibilityInfo.announceForAccessibility('PIN belum cocok, coba lagi.');
     if (!reduce) {
       shake.set(
         withSequence(
@@ -63,7 +71,7 @@ export function PinPad({ subtitle, onSubmit, onCancel, onForgot }: Props) {
       );
     }
   };
-  const back = () => setPin((p) => p.slice(0, -1));
+  const back = () => setTyped(typed.current.slice(0, -1));
 
   const dotsStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.get() }] }));
 
@@ -104,7 +112,7 @@ export function PinPad({ subtitle, onSubmit, onCancel, onForgot }: Props) {
               borderRadius: 7,
               backgroundColor: i < pin.length ? c.ink : 'transparent',
               borderWidth: i < pin.length ? 0 : 1.75,
-              borderColor: wrong ? c.clay : c.muted,
+              borderColor: wrong ? c.clay : c.dotEmpty,
             }}
           />
         ))}
@@ -156,7 +164,7 @@ function Key({
   small?: boolean;
   icon?: boolean;
 }) {
-  const { c, scheme } = useTheme();
+  const { c } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -169,7 +177,7 @@ function Key({
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: plain ? 'transparent' : scheme === 'dark' ? c.mint : '#F1F2EC',
+        backgroundColor: plain ? 'transparent' : c.quiet,
       }}
     >
       {icon ? (

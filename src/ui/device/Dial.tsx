@@ -153,11 +153,7 @@ export function Dial({ name, temp, caption, dimmed = false, onChange }: Props) {
               gap: 2,
             }}
           >
-            <Txt
-              tabular
-              style={{ fontSize: 64, lineHeight: 72, letterSpacing: -1.28, fontVariant: ['tabular-nums'] }}
-              weight={600}
-            >
+            <Txt tabular style={{ fontSize: 64, lineHeight: 72, letterSpacing: -1.28 }} weight={600}>
               {temp}°
             </Txt>
             <Txt color={c.muted}>{caption}</Txt>

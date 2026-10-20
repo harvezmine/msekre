@@ -180,6 +180,7 @@ export default function DetailAc() {
                   Tiap hari
                 </Txt>
               </View>
+              <Icon name="chevR" size={20} color={c.muted} />
             </View>
             <Pressable
               accessibilityRole="button"

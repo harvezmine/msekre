@@ -48,7 +48,9 @@ export function ReportCard({ onOpen }: { onOpen: () => void }) {
           <Icon name="file" size={22} color={c.green} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Txt weight={600}>{REPORT_FILE.name}</Txt>
+          <Txt weight={600} style={{ lineHeight: 22 }}>
+            {REPORT_FILE.name}
+          </Txt>
           <Txt v="caption" color={c.muted}>
             {REPORT_FILE.meta}
           </Txt>
@@ -69,7 +71,9 @@ export function ReportCard({ onOpen }: { onOpen: () => void }) {
             justifyContent: 'center',
           }}
         >
-          <Txt weight={600}>Buka</Txt>
+          <Txt weight={600} style={{ fontSize: 15 }}>
+            Buka
+          </Txt>
         </Pressable>
       </View>
     </Card>

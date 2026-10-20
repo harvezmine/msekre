@@ -23,7 +23,7 @@ export function StockCard({ items, onOrder }: { items: LowStock[]; onOrder: () =
               justifyContent: 'space-between',
               paddingVertical: 10,
               borderBottomWidth: i < items.length - 1 ? 1 : 0,
-              borderBottomColor: c.line,
+              borderBottomColor: c.stockLine,
             }}
           >
             <Txt>{s.item}</Txt>

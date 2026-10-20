@@ -44,3 +44,8 @@ test('semua tempat punya 7 hari dan jumlah cabang sama dengan Semua', () => {
   for (const d of [Semua, dago, riau]) expect(d!.series).toHaveLength(7);
   Semua!.series.forEach((v, i) => expect(dago!.series[i]! + riau!.series[i]!).toBeCloseTo(v, 6));
 });
+
+test('grafik terbaca sebagai gambar bagi pembaca layar', async () => {
+  await renderWithProviders(<Sparkline series={SERIES} />);
+  expect(screen.getByRole('image', { name: 'Grafik penjualan 7 hari terakhir' })).toBeOnTheScreen();
+});

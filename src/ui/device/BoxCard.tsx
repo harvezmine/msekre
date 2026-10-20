@@ -20,7 +20,7 @@ export function BoxCard() {
             width: 44,
             height: 44,
             borderRadius: 14,
-            backgroundColor: '#0E3A2C',
+            backgroundColor: c.forestTile,
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -29,9 +29,12 @@ export function BoxCard() {
         </View>
         <View style={{ flex: 1 }}>
           <Txt v="subtitle">Kotak Sekretaris AI</Txt>
-          <Txt v="caption" color={c.green}>
-            Online
-          </Txt>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View testID="titik-online" style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.green }} />
+            <Txt v="caption" color={c.green}>
+              Online
+            </Txt>
+          </View>
         </View>
       </View>
       <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -67,13 +70,13 @@ export function BoxCard() {
         <Icon name={mic ? 'mic' : 'micOff'} size={24} color={mic ? c.green : c.muted} />
         <View style={{ flex: 1 }}>
           <Txt weight={600}>{mic ? 'Mic menyala' : 'Mic mati'}</Txt>
-          <Txt v="caption" color={c.muted}>
+          <Txt v="caption" color={c.micSub}>
             {mic ? 'Mendengar saat dipanggil "Nadia"' : 'Tidak mendengar sampai dinyalakan'}
           </Txt>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={mic ? 'Matikan' : 'Nyalakan'}
+          accessibilityLabel={mic ? 'Matikan mic' : 'Nyalakan mic'}
           onPress={() => dispatch({ type: 'setBoxMic', on: !mic })}
           android_ripple={{ color: c.ripple }}
           style={{

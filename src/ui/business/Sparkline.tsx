@@ -10,6 +10,8 @@ export function Sparkline({ series, min, span }: { series: number[]; min?: numbe
   return (
     <Svg
       testID="sparkline"
+      accessible
+      accessibilityRole="image"
       accessibilityLabel="Grafik penjualan 7 hari terakhir"
       viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
       width="100%"
