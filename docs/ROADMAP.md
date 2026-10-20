@@ -110,7 +110,34 @@ dibuat dulu supaya bisa dicoba dan dikoreksi di HP.
 - **Akibat ke fase berikutnya:** di Fase 1–5, bagian "Aplikasi" berarti menyambungkan layar yang sudah ada ke data
   asli. Membuat layar dari nol tidak diperlukan lagi.
 
-### Fase 1: Masuk dan Chat (±2 minggu)
+### Fase 1: Masuk dan Chat (±2 minggu), dibagi 1a (aplikasi) dan 1b (server)
+
+Fase 1 dibelah dua pada 20 Okt 2026: **1a** sisi aplikasi dengan server tiruan, **1b** sisi server di milo-ai.
+Rincian 1a: `docs/plans/2026-10-20-fase-1a-frontend-server.md`. Kontrak untuk 1b: `docs/api-v1.md`.
+
+#### Fase 1a: Aplikasi di atas kontrak (status 20 Okt 2026: selesai, kode, frontend)
+
+Yang sudah ada:
+- kontrak API v1 revisi (`src/api/contract.ts`, zod), `HttpTransport` (HTTP + WebSocket dengan header versi, sambung
+  ulang bertingkat, resync lewat `changedAfter`, pemeriksaan `GET /me` saat jabat tangan ditolak) dan `FakeTransport`
+  (server tiruan di memori, mode `contoh`);
+- masuk dan sesi: `useAuth`, token di secure-store, penjaga rute `Stack.Protected`, keluar lokal dulu;
+- chat tersambung: daftar terbalik, pilihan, gambar, suara, kartu draf, antrean offline, banner koneksi dan akun
+  tidak aktif/versi lama (`useChat`);
+- notifikasi: lembar izin, saluran Android, token ke `POST /push-tokens`, ketukan membuka chat, diredam saat chat
+  terbuka (kode saja).
+
+Perlu perangkat atau Firebase (belum bisa dinilai dari tes Jest): push sungguhan (`google-services.json`), gestur
+dan papan ketik di chat, pemutaran suara, membuka dokumen, TalkBack. Dokumen juga perlu keputusan URL bertanda
+tangan (`docs/api-v1.md` bagian 2.10).
+
+#### Fase 1b: Server (sesuai `docs/api-v1.md`)
+
+Dikerjakan di milo-ai: modul `src/appapi/` (kontrak dipindah ke sana), `AppChannel`, tabel sesi/token push/pesan
+(`rev`/`seq`), masuk lewat kode WhatsApp, `/stream`, media, draf dengan masa tahan 5 menit, dan push. Daftar tes ada
+di akhir `docs/api-v1.md`. Pertanyaan terbuka untuk founder ada di bagian 10 dokumen itu.
+
+#### Rencana awal Fase 1 (tetap berlaku sebagai ruang lingkup)
 
 **Server (milo-ai):**
 - Tabel `app_sessions` dan `app_devices`.
@@ -241,13 +268,13 @@ ke orang lain bisa dibatalkan dalam 5 menit.
 ## Urutan dan jalur paralel
 
 ```
-Fase 0 ─► Fase 0b ─► Fase 1 ─┬─► Fase 2 ─┐
-                             ├─► Fase 3 ─┼─► Fase 6 ─► Fase 7
-                             ├─► Fase 4 ─┤
-                             └─► Fase 5 ─┘
+Fase 0 ─► Fase 0b ─► Fase 1a ─► Fase 1b ─┬─► Fase 2 ─┐
+                                         ├─► Fase 3 ─┼─► Fase 6 ─► Fase 7
+                                         ├─► Fase 4 ─┤
+                                         └─► Fase 5 ─┘
 ```
 
-- Fase 0, 0b, dan 1 harus berurutan. Fase 2–5 boleh ditukar urutannya sesuai prioritas bisnis. Fase 6 butuh chat dan
+- Fase 0, 0b, 1a, dan 1b harus berurutan (1a boleh jalan selagi 1b dirancang, karena kontraknya sudah beku). Fase 2–5 boleh ditukar urutannya sesuai prioritas bisnis. Fase 6 butuh chat dan
   kartu konfirmasi dari Fase 1.
 - **Mulai hari ini, berjalan paralel karena butuh waktu tunggu:**
   1. Akun Play Console organisasi dan D-U-N-S (bisa berminggu-minggu).

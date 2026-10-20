@@ -137,6 +137,8 @@ tumpukan tepat `[Beranda]`. Layar pembuka asli bertahan sampai huruf, mode tersi
 
 ## Tugas 1: Kontrak, transport, sesi, dan mode
 
+**Status: selesai.** Commit: 724b200 (kontrak), 2d12a35 (FakeTransport), 684a9e8 (HttpTransport), d1ffafd (ApiProvider), 5036810 dan 4eaa5e5 (revisi kontrak, header versi, resync lewat rev), bdb7a30 (send dari draf failed).
+
 **File:**
 - `src/api/contract.ts`;
 - `src/api/transport.ts` (antarmuka);
@@ -175,6 +177,8 @@ tumpukan tepat `[Beranda]`. Layar pembuka asli bertahan sampai huruf, mode tersi
 
 ## Tugas 2: Masuk dan sesi
 
+**Status: selesai.** Commit: c29ffd4 (useAuth, gerbang masuk), f64c9ee (penyimpanan aman), 748af3c (Stack.Protected, keluar lokal dulu).
+
 **File:** `src/api/useAuth.ts`, `app/mulai/masuk.tsx`, `app/mulai/pilih.tsx`, `app/_layout.tsx`, `app/akun.tsx`.
 
 **Perilaku:**
@@ -200,6 +204,8 @@ tumpukan tepat `[Beranda]`. Layar pembuka asli bertahan sampai huruf, mode tersi
 - nama asisten dari `Me` tampil di header chat.
 
 ## Tugas 3: Chat tersambung
+
+**Status: selesai.** Commit: c74db93 (useChat), f78c4e6 (layar chat), bb537d9 (ContohBridge dan tes alur), cf3492e (kolom ketik mati saat akun tidak aktif).
 
 **File:**
 - `src/api/useChat.ts`, berisi state utas: pesan, `pending` (pesan optimistis), `thinking`, dan status koneksi;
@@ -239,6 +245,8 @@ tumpukan tepat `[Beranda]`. Layar pembuka asli bertahan sampai huruf, mode tersi
 
 ## Tugas 4: Notifikasi
 
+**Status: selesai (kode).** Commit: fd22c4a (expo-notifications, app.config.ts), 0c91e48 (izin, saluran, token ke server, ketukan). Perlu perangkat dan Firebase untuk diuji penuh.
+
 **File:** `src/api/usePush.ts`, `app/_layout.tsx`, `app/izin-notifikasi.tsx` (lembar bawah ajakan), `app.json`.
 
 **Perilaku:**
@@ -262,6 +270,8 @@ tumpukan tepat `[Beranda]`. Layar pembuka asli bertahan sampai huruf, mode tersi
 - notifikasi diredam saat chat terbuka.
 
 ## Tugas 5: Rapikan, dokumentasi, dan serah-terima ke Fase 1b
+
+**Status: selesai.** Dokumen: `docs/api-v1.md`, ROADMAP, dan rencana ini (lihat commit "docs: kontrak API v1 untuk server Fase 1b, status Fase 1a"). Review akhir dijalankan terpisah.
 
 **Yang dikerjakan:**
 - `docs/api-v1.md`: kontrak dalam bahasa biasa untuk pembuat server, dengan contoh JSON dan aturan perilaku.
