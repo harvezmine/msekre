@@ -35,36 +35,24 @@ test('mendengar menambah dua cincin, berbicara tiga gelombang', async () => {
 });
 
 test('berbicara: gelombang kedua dan ketiga tak terlihat sebelum gilirannya', async () => {
-  jest.useFakeTimers();
-  try {
-    await render(<Inti size={140} state="speak" />);
-    expect(getAnimatedStyle(screen.getByTestId('inti-gelombang-1')).opacity).toBe(0);
-    expect(getAnimatedStyle(screen.getByTestId('inti-gelombang-2')).opacity).toBe(0);
-  } finally {
-    await screen.unmount();
-    jest.useRealTimers();
-  }
+  await render(<Inti size={140} state="speak" />);
+  expect(getAnimatedStyle(screen.getByTestId('inti-gelombang-1')).opacity).toBe(0);
+  expect(getAnimatedStyle(screen.getByTestId('inti-gelombang-2')).opacity).toBe(0);
 });
 
 test('berpikir lalu diam: ketiga titik kembali ke posisi dan terang semula', async () => {
-  jest.useFakeTimers();
-  try {
-    await render(<Inti size={140} state="think" />);
-    await act(async () => {
-      jest.advanceTimersByTime(500);
-    });
-    await screen.rerender(<Inti size={140} state="idle" />);
-    await act(async () => {
-      jest.advanceTimersByTime(2000);
-    });
-    for (let i = 0; i < 3; i++) {
-      const style = getAnimatedStyle(screen.getByTestId(`inti-titik-${i}`));
-      expect(style.opacity).toBe(1);
-      expect(style.transform).toEqual([{ translateY: 0 }]);
-    }
-  } finally {
-    await screen.unmount();
-    jest.useRealTimers();
+  await render(<Inti size={140} state="think" />);
+  await act(async () => {
+    jest.advanceTimersByTime(500);
+  });
+  await screen.rerender(<Inti size={140} state="idle" />);
+  await act(async () => {
+    jest.advanceTimersByTime(2000);
+  });
+  for (let i = 0; i < 3; i++) {
+    const style = getAnimatedStyle(screen.getByTestId(`inti-titik-${i}`));
+    expect(style.opacity).toBe(1);
+    expect(style.transform).toEqual([{ translateY: 0 }]);
   }
 });
 

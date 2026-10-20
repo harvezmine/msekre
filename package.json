@@ -57,6 +57,10 @@
   "jest": {
     "preset": "jest-expo",
     "watchman": false,
+    "maxWorkers": "50%",
+    "fakeTimers": {
+      "enableGlobally": true
+    },
     "setupFiles": [
       "<rootDir>/jest.setup.ts"
     ],

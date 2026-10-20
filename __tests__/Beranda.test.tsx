@@ -1,3 +1,5 @@
+import * as Haptics from 'expo-haptics';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { ThemeProvider } from '@/theme/ThemeProvider';
@@ -24,7 +26,7 @@ test('sakelar AC mengubah tulisannya', async () => {
 test('Lihat di kartu persetujuan membuka chat', async () => {
   await render(<Beranda />);
   await fireEvent.press(screen.getByRole('button', { name: 'Lihat' }));
-  expect(router.push).toHaveBeenCalledWith('/chat');
+  expect(router.navigate).toHaveBeenCalledWith('/chat');
 });
 
 test('mode gelap tetap menampilkan isi yang sama', async () => {
@@ -34,4 +36,21 @@ test('mode gelap tetap menampilkan isi yang sama', async () => {
     </ThemeProvider>,
   );
   expect(screen.getByText('Selamat pagi, Rina')).toBeTruthy();
+  expect(StyleSheet.flatten(screen.getByText('Selamat pagi, Rina').props.style).color).toBe('#ECF2EA');
+});
+
+test('ketuk Inti membuka chat, tahan Inti membuka Mode Suara dengan getar', async () => {
+  await render(<Beranda />);
+  const inti = screen.getByRole('button', { name: 'Bicara dengan Nadia' });
+  await fireEvent.press(inti);
+  expect(router.navigate).toHaveBeenCalledWith('/chat');
+  await fireEvent(inti, 'longPress');
+  expect(Haptics.impactAsync).toHaveBeenCalled();
+  expect(router.navigate).toHaveBeenCalledWith('/suara');
+});
+
+test('Lihat semua membuka Agenda', async () => {
+  await render(<Beranda />);
+  await fireEvent.press(screen.getByRole('link', { name: 'Lihat semua' }));
+  expect(router.navigate).toHaveBeenCalledWith('/agenda');
 });
