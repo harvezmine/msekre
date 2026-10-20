@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '@/api/ApiProvider';
 import { ERROR_TEXT } from '@/api/errors';
 import { formatFileMeta } from '@/api/format';
+import { setChatFocused } from '@/api/pushPresence';
 import { useAssistantName } from '@/api/useProfile';
 import type { Message, Part } from '@/api/contract';
 import { useChat, type Chat as ChatApi } from '@/api/useChat';
@@ -64,6 +65,12 @@ export default function Chat() {
   const dispatch = useSampleDispatch();
   const toast = (text: string) => dispatch({ type: 'showToast', text });
   const chat = useChat({ onError: toast });
+  // Selagi chat terbuka, notifikasi diredam (api/usePush.ts).
+  const focused = useIsFocused();
+  useEffect(() => {
+    setChatFocused(focused);
+    return () => setChatFocused(false);
+  }, [focused]);
   const [text, setText] = useState('');
   const input = useRef<TextInputInstance>(null);
   const list = useRef<FlatList<Row>>(null);

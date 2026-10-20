@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePush } from '@/api/usePush';
 import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
@@ -40,6 +41,7 @@ export default function MulaiPilih() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const { dispatch } = useSample();
+  const { offerAfterOnboarding } = usePush();
   const [picked, setPicked] = useState<Minat[]>(['jadwal']);
   const first = OPTIONS.find((o) => picked.includes(o.id))?.id;
   const next = first ? NEXT[first] : undefined;
@@ -51,6 +53,8 @@ export default function MulaiPilih() {
     // Tumpukan menjadi tepat [Beranda]: "kembali" dari Beranda tidak mendarat di layar masuk atau pilihan ini.
     router.dismissAll();
     router.replace('/');
+    // Sekali, kalau izin notifikasi belum pernah ditanya.
+    void offerAfterOnboarding();
   };
 
   return (

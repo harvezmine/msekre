@@ -14,6 +14,7 @@ import { AfterSignIn } from '@/api/AfterSignIn';
 import { ApiProvider, useApi } from '@/api/ApiProvider';
 import { ContohBridge } from '@/api/ContohBridge';
 import { canOpen } from '@/api/routeAccess';
+import { PushProvider, PushTapHandler } from '@/api/usePush';
 import { AuthProvider, useAuth } from '@/api/useAuth';
 import { SampleProvider } from '@/sample/store';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
@@ -119,6 +120,14 @@ function Navigator() {
           />
           <Stack.Screen name="terhubung/tersambung" options={{ gestureEnabled: false, animation: 'fade' }} />
           <Stack.Screen
+            name="izin-notifikasi"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen
             name="tempat"
             options={{
               presentation: 'transparentModal',
@@ -137,6 +146,7 @@ function Navigator() {
         />
       </Stack>
       <AfterSignIn />
+      <PushTapHandler />
       <ToastHost />
     </>
   );
@@ -158,7 +168,9 @@ export default function RootLayout() {
         <SampleProvider>
           <ApiProvider>
             <AuthProvider>
-              <Navigator />
+              <PushProvider>
+                <Navigator />
+              </PushProvider>
               <ContohBridge />
             </AuthProvider>
           </ApiProvider>

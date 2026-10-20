@@ -33,3 +33,17 @@ jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(),
   notificationAsync: jest.fn(),
 }));
+// Notifikasi tanpa modul native: semuanya tiruan yang tidak berbuat apa-apa (tes notifikasi mengaturnya sendiri).
+jest.mock('expo-notifications', () => ({
+  AndroidImportance: { HIGH: 6, DEFAULT: 5 },
+  DEFAULT_ACTION_IDENTIFIER: 'expo.modules.notifications.actions.DEFAULT',
+  setNotificationHandler: jest.fn(),
+  setNotificationChannelAsync: jest.fn(() => Promise.resolve(null)),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false, status: 'undetermined', canAskAgain: true })),
+  requestPermissionsAsync: jest.fn(() =>
+    Promise.resolve({ granted: false, status: 'undetermined', canAskAgain: true }),
+  ),
+  getDevicePushTokenAsync: jest.fn(() => Promise.resolve({ type: 'android', data: 'token-1' })),
+  addPushTokenListener: jest.fn(() => ({ remove: jest.fn() })),
+  useLastNotificationResponse: jest.fn(() => null),
+}));

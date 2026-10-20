@@ -2,6 +2,7 @@ import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
 import { formatPhoneDisplay, formatTanggal } from '@/api/format';
+import { usePush, type PushPermission } from '@/api/usePush';
 import { useProfile, type Profile } from '@/api/useProfile';
 import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -39,12 +40,19 @@ function accountOf(p: Profile) {
   };
 }
 
+const NOTIF_STATUS: Record<PushPermission, string> = {
+  granted: 'Aktif',
+  undetermined: 'Belum diizinkan',
+  denied: 'Dimatikan di pengaturan HP',
+};
+
 // Akun (desain 2q). Baris yang layarnya belum ada memunculkan toast dengan nama fasenya.
 export default function Akun() {
   const { c } = useTheme();
   const { state, dispatch } = useSample();
   const { mode } = useApi();
   const profile = useProfile();
+  const { permission } = usePush();
   const account = accountOf(profile);
   const toast = (text: string) => dispatch({ type: 'showToast', text });
 
@@ -75,8 +83,8 @@ export default function Akun() {
       {
         icon: 'bell',
         title: 'Notifikasi',
-        subtitle: 'Lewat aplikasi dulu. Lewat WhatsApp kalau aplikasi tidak aktif.',
-        go: { toast: 'Pengaturan notifikasi dibangun di Fase 2.' },
+        subtitle: NOTIF_STATUS[permission],
+        go: { route: '/izin-notifikasi' },
       },
     ],
     [
