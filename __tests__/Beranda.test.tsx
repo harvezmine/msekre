@@ -105,6 +105,12 @@ test('cincin dan agenda membaca penyimpanan: layanan baru jadi simpul kedelapan'
   expect(screen.getByText('8 terhubung · CCTV tidak terjangkau')).toBeOnTheScreen();
 });
 
+test('cincin mengikuti layanan: memutus Imou menghapus simpul CCTV', async () => {
+  await renderWithProviders(<Beranda />, { actions: [{ type: 'disconnect', id: 'imou' }] });
+  expect(screen.getByText('6 terhubung')).toBeOnTheScreen();
+  expect(screen.queryByTestId('simpul-offline-cctv')).not.toBeOnTheScreen();
+});
+
 test('agenda hari ini yang ditambah tampil di Beranda', async () => {
   await renderWithProviders(<Beranda />, {
     actions: [

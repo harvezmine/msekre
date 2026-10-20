@@ -1,4 +1,5 @@
 import type { IconName } from '@/ui/icons';
+import type { OrbitNode } from '@/ui/orbit/types';
 
 export const PLACES = ['Semua', 'Rumah', 'Kedai Dago', 'Kedai Riau'] as const;
 export type Place = (typeof PLACES)[number];
@@ -34,6 +35,8 @@ export interface Device {
   unreachableSince?: string;
   /** Terang lampu dalam persen. Tetap tersimpan saat lampu dimatikan. */
   level?: number;
+  /** Simpul cincin Beranda dari perangkat ini, kalau ada (AC kamar). */
+  ring?: RingNode;
   /** Hanya untuk `kind: 'ac'`. */
   ac?: AcSettings;
   /** Suhu ruangan yang terbaca (contoh), untuk "suhu ruangan sekarang 27°". */
@@ -96,16 +99,21 @@ export interface Leftover {
 }
 
 export type Permission = 'read' | 'act';
+/** Simpul cincin Beranda tanpa keterjangkauan; `offline` diturunkan dari layanan atau perangkat sumbernya. */
+export type RingNode = Omit<OrbitNode, 'offline'>;
+
 export interface Service {
   id: string;
   name: string;
   icon: IconName;
-  /** Tulisan keadaan, contoh "Aktif · terakhir dibaca 5 menit lalu". */
-  status: string;
   permission: Permission;
   reachable: boolean;
-  /** Kunci simpul di cincin Beranda, kalau layanan ini punya simpul. */
-  ringKey?: string;
+  /** Jam contoh saat layanan berhenti terjangkau, untuk "Tidak terjangkau sejak 10.12". */
+  unreachableSince?: string;
+  /** Keterangan saat aktif, contoh "terakhir dibaca 5 menit lalu". Tulisan lengkapnya dibuat `serviceStatus`. */
+  note?: string;
+  /** Simpul cincin Beranda dari layanan ini, kalau ada. */
+  ring?: RingNode;
 }
 
 export type HistoryKind = 'pesan' | 'rumah' | 'usaha' | 'pembelian';

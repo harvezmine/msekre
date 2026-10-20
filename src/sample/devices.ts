@@ -71,6 +71,7 @@ export const initialDevices: Device[] = [
     on: true,
     ac: { temp: 24, mode: 'Dingin', fan: 'Otomatis' },
     roomTemp: 27,
+    ring: { key: 'ac', icon: 'snow', label: 'AC kamar' },
     brand: 'LG',
     reachable: true,
     via: 'ir',

@@ -10,6 +10,8 @@ import {
   houseCard,
   historyRows,
   pendingApproval,
+  ringNodes,
+  serviceStatus,
   type SampleAction,
   type SampleState,
 } from '@/sample/store';
@@ -21,7 +23,6 @@ const status = (s: SampleState, id: string) => deviceStatus(dev(s, id));
 test('keadaan awal sama dengan desain', () => {
   expect(init.place).toBe('Semua');
   expect(dev(init, 'ac-kamar')).toMatchObject({ on: true, ac: { temp: 24, mode: 'Dingin', fan: 'Otomatis' } });
-  expect(init.ring).toHaveLength(7);
   expect(pendingApproval(init)?.id).toBe(BUDI);
   expect(init.outgoing[BUDI]).toEqual({
     id: BUDI,
@@ -321,10 +322,46 @@ test('snooze, toggleTask, finishLeftover', () => {
   expect(reduce(s, { type: 'finishLeftover', choice: 'today' })).toBe(s);
 });
 
-test('connect menambah layanan dan simpul cincin; disconnect mengembalikannya', () => {
+test('cincin diturunkan dari layanan dan perangkat: tujuh simpul desain 1a, CCTV dari Imou', () => {
+  expect(ringNodes(init)).toEqual([
+    { key: 'gcal', icon: 'calendar', label: 'Google Kalender' },
+    { key: 'gmail', icon: 'mail', label: 'Gmail' },
+    { key: 'wa', icon: 'chat', label: 'WhatsApp' },
+    { key: 'ac', icon: 'snow', label: 'AC kamar' },
+    { key: 'cctv', icon: 'camera', label: 'CCTV', offline: true },
+    { key: 'kasir', icon: 'receipt', label: 'Kasir Kopi Rindang' },
+    { key: 'bank', icon: 'bank', label: 'Bank' },
+  ]);
+  // keterjangkauan hanya dari sumbernya
+  const imouBack = {
+    ...init,
+    services: init.services.map((x) => (x.id === 'imou' ? { ...x, reachable: true } : x)),
+  };
+  expect(ringNodes(imouBack).find((n) => n.key === 'cctv')!.offline).toBeUndefined();
+  const acGone = { ...init, devices: init.devices.map((d) => (d.id === 'ac-kamar' ? { ...d, reachable: false } : d)) };
+  expect(ringNodes(acGone).find((n) => n.key === 'ac')!.offline).toBe(true);
+  // isi sama = larik sama, supaya cincin tidak mulai ulang
+  const a = ringNodes(init);
+  expect(ringNodes(run([{ type: 'setPlace', place: 'Kedai Dago' }]))).toBe(a);
+  expect(ringNodes(run([{ type: 'setAc', temp: 20 }]))).toBe(a);
+});
+
+test('tulisan keadaan layanan diturunkan dari keterjangkauannya (desain 2h)', () => {
+  const st = (id: string) => serviceStatus(init.services.find((x) => x.id === id)!);
+  expect(st('gcal')).toBe('Aktif · terakhir dibaca 5 menit lalu');
+  expect(st('wa')).toBe('Aktif · pesan masuk langsung terbaca');
+  expect(st('kotak')).toBe('Aktif · di ruang tamu');
+  expect(st('imou')).toBe('Tidak terjangkau sejak 10.12');
+});
+
+test('connect menambah layanan dan simpul cincin kedelapan; disconnect mengembalikannya', () => {
   const s = run([{ type: 'connect', id: 'tiktok' }]);
-  expect(s.ring).toHaveLength(8);
-  expect(s.services.find((x) => x.id === 'tiktok')).toMatchObject({ reachable: true, permission: 'read' });
+  expect(ringNodes(s)).toHaveLength(8);
+  expect(ringNodes(s).at(-1)).toEqual({ key: 'tiktok', icon: 'bag', label: 'TikTok Shop' });
+  expect(ringNodes(s).slice(0, 7)).toEqual(ringNodes(init));
+  const tiktok = s.services.find((x) => x.id === 'tiktok')!;
+  expect(tiktok).toMatchObject({ reachable: true, permission: 'read' });
+  expect(serviceStatus(tiktok)).toBe('Aktif · baru tersambung');
   expect(s.history[0]!.title).toBe('Menyambungkan TikTok Shop & Tokopedia');
   expect(
     run([
@@ -334,13 +371,23 @@ test('connect menambah layanan dan simpul cincin; disconnect mengembalikannya', 
   ).toEqual(s);
   expect(run([{ type: 'connect', id: 'tidak-ada' }])).toBe(init);
   const back = run([{ type: 'disconnect', id: 'tiktok' }], s);
-  expect(back.ring).toEqual(init.ring);
+  expect(ringNodes(back)).toEqual(ringNodes(init));
   expect(back.services).toEqual(init.services);
   expect(back.history[0]!.title).toBe('Memutus TikTok Shop & Tokopedia');
   const noRing = run([{ type: 'disconnect', id: 'kotak' }]);
-  expect(noRing.ring).toHaveLength(7);
+  expect(ringNodes(noRing)).toHaveLength(7);
   expect(noRing.services.some((x) => x.id === 'kotak')).toBe(false);
   expect(run([{ type: 'disconnect', id: 'cctv-lain' }])).toBe(init);
+});
+
+test('memutus layanan bersimpul menghapus simpulnya; menyambung lagi mengembalikannya ke tempat semula', () => {
+  const off = run([{ type: 'disconnect', id: 'imou' }]);
+  expect(ringNodes(off).map((n) => n.key)).toEqual(['gcal', 'gmail', 'wa', 'ac', 'kasir', 'bank']);
+  const again = run([{ type: 'connect', id: 'imou' }], off);
+  expect(ringNodes(again).map((n) => n.key)).toEqual(['gcal', 'gmail', 'wa', 'ac', 'cctv', 'kasir', 'bank']);
+  // tersambung lagi berarti terjangkau
+  expect(ringNodes(again).find((n) => n.key === 'cctv')!.offline).toBeUndefined();
+  expect(serviceStatus(again.services.find((x) => x.id === 'imou')!)).toBe('Aktif · baru tersambung');
 });
 
 test('forget dan setPermission', () => {

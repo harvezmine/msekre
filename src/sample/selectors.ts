@@ -1,6 +1,8 @@
+import type { OrbitNode } from '@/ui/orbit/types';
 import { HOME_CARD_DEVICES, houseLine } from './devices';
 import type { SampleState } from './reducer';
-import type { AgendaItem, Device, HistoryEntry, HistoryKind, Outgoing } from './types';
+import { RING_ORDER } from './services';
+import type { AgendaItem, Device, HistoryEntry, HistoryKind, Outgoing, RingNode, Service } from './types';
 
 export { AC_MAX, AC_MIN, deviceStatus, houseLine, MAIN_AC_ID } from './devices';
 
@@ -14,6 +16,42 @@ export function houseCard(state: SampleState): { device: Device; text: string }[
     const device = deviceById(state, id);
     return device ? [{ device, text: houseLine(device) }] : [];
   });
+}
+
+/** "Aktif · terakhir dibaca 5 menit lalu" atau "Tidak terjangkau sejak 10.12". */
+export function serviceStatus(s: Service): string {
+  if (!s.reachable) return s.unreachableSince ? `Tidak terjangkau sejak ${s.unreachableSince}` : 'Tidak terjangkau';
+  return s.note ? `Aktif · ${s.note}` : 'Aktif';
+}
+
+const toNode = (src: { ring?: RingNode; reachable: boolean } | undefined): OrbitNode[] =>
+  src?.ring ? [src.reachable ? src.ring : { ...src.ring, offline: true }] : [];
+
+const sameNodes = (a: OrbitNode[], b: OrbitNode[]) =>
+  a.length === b.length &&
+  a.every(
+    (n, i) => n.key === b[i]!.key && n.icon === b[i]!.icon && n.label === b[i]!.label && !n.offline === !b[i]!.offline,
+  );
+
+let lastRing: OrbitNode[] = [];
+
+/**
+ * Simpul cincin Beranda, diturunkan dari layanan tersambung dan perangkat: urutan `RING_ORDER`, lalu layanan lain
+ * yang punya simpul. Tidak terjangkau mengikuti sumbernya (CCTV dari layanan Imou).
+ * Hasil yang isinya sama memakai larik yang sama, supaya animasi aliran di cincin tidak mulai ulang setiap kali
+ * penyimpanan berubah.
+ */
+export function ringNodes(state: SampleState): OrbitNode[] {
+  const placed = new Set(RING_ORDER.flatMap((r) => ('service' in r ? [r.service] : [])));
+  const next = [
+    ...RING_ORDER.flatMap((r) =>
+      toNode('service' in r ? state.services.find((s) => s.id === r.service) : deviceById(state, r.device)),
+    ),
+    ...state.services.filter((s) => !placed.has(s.id)).flatMap(toNode),
+  ];
+  if (sameNodes(next, lastRing)) return lastRing;
+  lastRing = next;
+  return next;
 }
 
 /** Agenda satu tanggal, urut jam. */

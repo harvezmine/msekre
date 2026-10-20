@@ -1,57 +1,58 @@
-import type { OrbitNode } from '@/ui/orbit/types';
+import { MAIN_AC_ID } from './devices';
 import type { Service } from './types';
 
+/** Layanan tersambung, desain 2h. */
 export const initialServices: Service[] = [
   {
     id: 'gcal',
     name: 'Google Kalender',
     icon: 'calendar',
-    status: 'Aktif · terakhir dibaca 5 menit lalu',
+    note: 'terakhir dibaca 5 menit lalu',
     permission: 'act',
     reachable: true,
-    ringKey: 'gcal',
+    ring: { key: 'gcal', icon: 'calendar', label: 'Google Kalender' },
   },
   {
     id: 'gmail',
     name: 'Gmail',
     icon: 'mail',
-    status: 'Aktif · terakhir dibaca 2 menit lalu',
+    note: 'terakhir dibaca 2 menit lalu',
     permission: 'act',
     reachable: true,
-    ringKey: 'gmail',
+    ring: { key: 'gmail', icon: 'mail', label: 'Gmail' },
   },
   {
     id: 'wa',
     name: 'WhatsApp',
     icon: 'chat',
-    status: 'Aktif · pesan masuk langsung terbaca',
+    note: 'pesan masuk langsung terbaca',
     permission: 'act',
     reachable: true,
-    ringKey: 'wa',
+    ring: { key: 'wa', icon: 'chat', label: 'WhatsApp' },
   },
   {
     id: 'moka',
     name: 'Moka',
     icon: 'receipt',
-    status: 'Aktif · terakhir dibaca 1 menit lalu',
+    note: 'terakhir dibaca 1 menit lalu',
     permission: 'read',
     reachable: true,
-    ringKey: 'kasir',
+    ring: { key: 'kasir', icon: 'receipt', label: 'Kasir Kopi Rindang' },
   },
   {
     id: 'bca',
     name: 'Mutasi rekening BCA',
     icon: 'bank',
-    status: 'Aktif · terakhir dibaca 10 menit lalu',
+    note: 'terakhir dibaca 10 menit lalu',
     permission: 'read',
     reachable: true,
-    ringKey: 'bank',
+    ring: { key: 'bank', icon: 'bank', label: 'Bank' },
   },
   {
     id: 'kotak',
     name: 'Kotak Sekretaris AI',
     icon: 'box',
-    status: 'Aktif · di ruang tamu',
+    note: 'di ruang tamu',
     permission: 'act',
     reachable: true,
   },
@@ -59,101 +60,68 @@ export const initialServices: Service[] = [
     id: 'imou',
     name: 'Imou · CCTV',
     icon: 'camera',
-    status: 'Tidak terjangkau sejak 10.12',
     permission: 'read',
     reachable: false,
-    ringKey: 'cctv',
+    unreachableSince: '10.12',
+    ring: { key: 'cctv', icon: 'camera', label: 'CCTV' },
   },
 ];
 
-/** Cincin Beranda: tujuh simpul awal, sama dengan desain 1a. */
-export const initialRing: OrbitNode[] = [
-  { key: 'gcal', icon: 'calendar', label: 'Google Kalender' },
-  { key: 'gmail', icon: 'mail', label: 'Gmail' },
-  { key: 'wa', icon: 'chat', label: 'WhatsApp' },
-  { key: 'ac', icon: 'snow', label: 'AC kamar' },
-  { key: 'cctv', icon: 'camera', label: 'CCTV', offline: true },
-  { key: 'kasir', icon: 'receipt', label: 'Kasir Kopi Rindang' },
-  { key: 'bank', icon: 'bank', label: 'Bank' },
+export type RingSource = { service: string } | { device: string };
+
+/**
+ * Urutan simpul cincin Beranda seperti desain 1a: Google Kalender, Gmail, WhatsApp, AC kamar, CCTV, Kasir, Bank.
+ * Layanan lain yang punya simpul (yang disambungkan kemudian) menyusul di belakang, sesuai urutan sambungnya.
+ */
+export const RING_ORDER: RingSource[] = [
+  { service: 'gcal' },
+  { service: 'gmail' },
+  { service: 'wa' },
+  { device: MAIN_AC_ID },
+  { service: 'imou' },
+  { service: 'moka' },
+  { service: 'bca' },
 ];
 
-/** Layanan yang bisa disambungkan (desain 2h), dengan simpul cincin dan keadaan setelah tersambung. */
-export const serviceCatalog: Record<string, { service: Omit<Service, 'ringKey'>; node: OrbitNode }> = {
-  m365: {
-    service: {
-      id: 'm365',
-      name: 'Microsoft 365',
-      icon: 'mail',
-      status: 'Aktif · baru tersambung',
-      permission: 'read',
-      reachable: true,
-    },
-    node: { key: 'm365', icon: 'mail', label: 'Microsoft 365' },
-  },
-  notion: {
-    service: {
-      id: 'notion',
-      name: 'Notion',
-      icon: 'note',
-      status: 'Aktif · baru tersambung',
-      permission: 'read',
-      reachable: true,
-    },
-    node: { key: 'notion', icon: 'note', label: 'Notion' },
-  },
-  rapat: {
-    service: {
-      id: 'rapat',
-      name: 'Pencatat rapat Zoom, Meet, Teams',
-      icon: 'camera',
-      status: 'Aktif · baru tersambung',
-      permission: 'read',
-      reachable: true,
-    },
-    node: { key: 'rapat', icon: 'camera', label: 'Pencatat rapat' },
-  },
-  plaud: {
-    service: {
-      id: 'plaud',
-      name: 'Plaud',
-      icon: 'mic',
-      status: 'Aktif · baru tersambung',
-      permission: 'read',
-      reachable: true,
-    },
-    node: { key: 'plaud', icon: 'mic', label: 'Plaud' },
-  },
-  github: {
-    service: {
-      id: 'github',
-      name: 'GitHub',
-      icon: 'globe',
-      status: 'Aktif · baru tersambung',
-      permission: 'read',
-      reachable: true,
-    },
-    node: { key: 'github', icon: 'globe', label: 'GitHub' },
-  },
-  tiktok: {
-    service: {
-      id: 'tiktok',
-      name: 'TikTok Shop & Tokopedia',
-      icon: 'bag',
-      status: 'Aktif · baru tersambung',
-      permission: 'read',
-      reachable: true,
-    },
-    node: { key: 'tiktok', icon: 'bag', label: 'TikTok Shop' },
-  },
-  accurate: {
-    service: {
-      id: 'accurate',
-      name: 'Accurate',
-      icon: 'bank',
-      status: 'Aktif · baru tersambung',
-      permission: 'read',
-      reachable: true,
-    },
-    node: { key: 'accurate', icon: 'bank', label: 'Accurate' },
-  },
+const fresh = (s: Omit<Service, 'note' | 'permission' | 'reachable'>): Service => ({
+  ...s,
+  note: 'baru tersambung',
+  permission: 'read',
+  reachable: true,
+});
+
+/** Layanan yang bisa disambungkan (desain 2h), dalam keadaan setelah tersambung. */
+export const serviceCatalog: Record<string, Service> = {
+  m365: fresh({
+    id: 'm365',
+    name: 'Microsoft 365',
+    icon: 'mail',
+    ring: { key: 'm365', icon: 'mail', label: 'Microsoft 365' },
+  }),
+  notion: fresh({ id: 'notion', name: 'Notion', icon: 'note', ring: { key: 'notion', icon: 'note', label: 'Notion' } }),
+  rapat: fresh({
+    id: 'rapat',
+    name: 'Pencatat rapat Zoom, Meet, Teams',
+    icon: 'camera',
+    ring: { key: 'rapat', icon: 'camera', label: 'Pencatat rapat' },
+  }),
+  plaud: fresh({ id: 'plaud', name: 'Plaud', icon: 'mic', ring: { key: 'plaud', icon: 'mic', label: 'Plaud' } }),
+  github: fresh({
+    id: 'github',
+    name: 'GitHub',
+    icon: 'globe',
+    ring: { key: 'github', icon: 'globe', label: 'GitHub' },
+  }),
+  tiktok: fresh({
+    id: 'tiktok',
+    name: 'TikTok Shop & Tokopedia',
+    icon: 'bag',
+    ring: { key: 'tiktok', icon: 'bag', label: 'TikTok Shop' },
+  }),
+  accurate: fresh({
+    id: 'accurate',
+    name: 'Accurate',
+    icon: 'bank',
+    ring: { key: 'accurate', icon: 'bank', label: 'Accurate' },
+  }),
 };

@@ -4,7 +4,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { homeSummary, user } from '@/sample/profile';
 import { TODAY } from '@/sample/agenda';
-import { approvalText, houseCard, pendingApproval, useSample } from '@/sample/store';
+import { approvalText, houseCard, pendingApproval, ringNodes, useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '@/ui/Card';
 import { Icon } from '@/ui/Icon';
@@ -22,6 +22,7 @@ export default function Beranda() {
   const insets = useSafeAreaInsets();
   const { state, dispatch } = useSample();
   const approval = pendingApproval(state);
+  const ring = ringNodes(state);
   const homeAgenda = state.agenda
     .filter((a) => a.date === TODAY && a.home)
     .sort((a, b) => a.time.localeCompare(b.time));
@@ -67,7 +68,7 @@ export default function Beranda() {
 
         <View style={{ paddingHorizontal: 20, paddingTop: 16, alignItems: 'center' }}>
           <Orbit
-            nodes={state.ring}
+            nodes={ring}
             paused={!live}
             onPressInti={() => router.navigate('/chat')}
             onLongPressInti={() => {
@@ -77,7 +78,7 @@ export default function Beranda() {
           />
           <View style={{ height: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Txt v="caption" color={c.muted}>
-              {ringLabel(state.ring)}
+              {ringLabel(ring)}
             </Txt>
             <Icon name="chevR" size={16} color={c.muted} />
           </View>

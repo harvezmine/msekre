@@ -1,11 +1,10 @@
-import type { OrbitNode } from '@/ui/orbit/types';
 import { initialAgenda, initialLeftover, TODAY } from './agenda';
 import { clampTemp, initialDevices, MAIN_AC_ID } from './devices';
 import { initialBusiness, initialHistory } from './history';
 import { draftIntro, initialChat } from './chat';
 import { addMinutes } from './dates';
 import { initialOutgoing } from './outgoing';
-import { initialRing, initialServices, serviceCatalog } from './services';
+import { initialServices, serviceCatalog } from './services';
 import type {
   AcFan,
   AcMode,
@@ -36,7 +35,7 @@ export interface SampleState {
   chat: ChatEntry[];
   agenda: AgendaItem[];
   leftover: Leftover | null;
-  ring: OrbitNode[];
+  /** Layanan tersambung. Cincin Beranda diturunkan dari sini dan dari perangkat (`ringNodes`). */
   services: Service[];
   /** Id layanan yang isi ingatannya sudah dihapus. */
   forgotten: string[];
@@ -89,7 +88,6 @@ export const initialSampleState: SampleState = {
   chat: initialChat,
   agenda: initialAgenda,
   leftover: initialLeftover,
-  ring: initialRing,
   services: initialServices,
   forgotten: [],
   history: initialHistory,
@@ -266,11 +264,18 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       };
 
     case 'connect': {
-      const entry = serviceCatalog[action.id];
-      if (!entry || state.services.some((s) => s.id === action.id)) return state;
-      const service: Service = { ...entry.service, ringKey: entry.node.key };
+      if (state.services.some((s) => s.id === action.id)) return state;
+      // Layanan dari katalog 2h, atau layanan awal yang tadi diputus dan disambungkan lagi.
+      const known = serviceCatalog[action.id] ?? initialServices.find((s) => s.id === action.id);
+      if (!known) return state;
+      const service: Service = {
+        ...known,
+        note: 'baru tersambung',
+        reachable: true,
+        unreachableSince: undefined,
+      };
       return withHistory(
-        { ...state, services: [...state.services, service], ring: [...state.ring, entry.node] },
+        { ...state, services: [...state.services, service] },
         {
           time: NOW_APP,
           kind: 'pesan',
@@ -285,11 +290,7 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       const s = state.services.find((x) => x.id === action.id);
       if (!s) return state;
       return withHistory(
-        {
-          ...state,
-          services: state.services.filter((x) => x.id !== s.id),
-          ring: state.ring.filter((n) => n.key !== s.ringKey),
-        },
+        { ...state, services: state.services.filter((x) => x.id !== s.id) },
         { time: NOW_APP, kind: 'pesan', icon: 'link', title: `Memutus ${s.name}`, sub: `diputus Anda · ${NOW_APP}` },
       ).state;
     }
