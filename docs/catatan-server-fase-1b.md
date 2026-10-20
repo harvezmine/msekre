@@ -10,7 +10,8 @@ sisanya adalah aturan implementasi server. Kontrak lengkapnya ada di `src/api/co
   sesuai zona waktu HP. Format `HH.MM` tanpa tanggal ambigu kalau melewati tengah malam, dan salah untuk pengguna WITA
   atau WIT.
 - **Draf:**
-  - ada status `failed` untuk kiriman yang gagal setelah masa tahan;
+  - ada status `failed` untuk kiriman yang gagal setelah masa tahan; `send` dari `failed` mengulang pengiriman (kembali
+    ke `held`), itulah "Coba lagi" di kartu;
   - aksi `discard` membuang draf yang belum dikirim;
   - `cancel` dari status `held` berakhir di `cancelled`.
 - **Pembaruan kartu:** event `message` dengan `id` yang sudah dikenal menggantikan versi sebelumnya (upsert). Ini

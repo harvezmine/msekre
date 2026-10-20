@@ -61,12 +61,14 @@
  *   Dipakai untuk QRIS menjadi `lunas` atau `kedaluwarsa`, keadaan perangkat, dan pilihan yang sudah diambil
  *   (`chosenId` terisi pada bagian `choices`).
  * - Kiriman ke orang lain selalu berupa kartu `draft` dan tidak pernah keluar tanpa persetujuan:
- *   - `send` hanya dari `draft` → `held`, dengan `heldUntil` = sekarang + {@link HELD_MINUTES} menit;
+ *   - `send` hanya dari `draft` atau `failed` ("Coba lagi") → `held`, dengan `heldUntil` = sekarang + {@link HELD_MINUTES}
+ *     menit;
  *   - setelah {@link HELD_MINUTES} menit `held` → `sent`, atau `failed` kalau pengiriman gagal;
  *   - `cancel` hanya dari `held` → `cancelled`;
  *   - `discard` hanya dari `draft` → `cancelled` (membuang draf yang belum dikirim);
  *   - `edit` hanya dari `draft`, statusnya tetap `draft`;
- *   - `sent`, `cancelled`, dan `failed` adalah akhir; aksi dari status yang tidak boleh dibalas 409 `status_draf`.
+ *   - `sent` dan `cancelled` adalah akhir, dan `failed` hanya bisa `send` lagi; aksi dari status yang tidak boleh dibalas
+ *     409 `status_draf`.
  *   - Setiap perubahan draf, juga yang berasal dari aksi aplikasi, disiarkan lewat event `draft` ke semua koneksi
  *     pengguna; perubahan karena aksi aplikasi juga dikembalikan di response. Klien membuang duplikatnya (event
  *     `draft` menimpa kartu dengan `draft.id` yang sama).

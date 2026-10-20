@@ -185,6 +185,14 @@ export function sampleHistory(): Message[] {
   out.forEach((m, i) => {
     m.seq = i + 1;
     m.rev = i + 1;
+    // Pilihan yang dijawab pengguna di pesan berikutnya ("Ya, benar") sudah terambil.
+    const answer = out[i + 1];
+    const reply = answer?.from === 'user' ? answer.parts[0] : undefined;
+    for (const part of m.parts) {
+      if (part.type !== 'choices' || reply?.type !== 'text') continue;
+      const taken = part.choices.find((c) => c.title === reply.text);
+      if (taken) part.chosenId = taken.id;
+    }
   });
   return out;
 }

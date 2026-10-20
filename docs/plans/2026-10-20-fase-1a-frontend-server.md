@@ -109,7 +109,7 @@ StreamEvent = { type: 'message', message: Message }       // id yang sudah diken
   versi sebelumnya (tempat dan `seq` tetap), dipakai untuk QRIS `lunas` / `kedaluwarsa`, keadaan perangkat, dan
   `chosenId` pada pilihan.
 - **Kiriman ke orang lain** selalu berupa kartu `draft`:
-  - `send` hanya dari `draft` → `held`, dengan `heldUntil` = sekarang + 5 menit.
+  - `send` hanya dari `draft` atau `failed` ("Coba lagi") → `held`, dengan `heldUntil` = sekarang + 5 menit.
   - Setelah 5 menit `held` → `sent`, atau `failed` kalau pengiriman gagal.
   - `cancel` hanya dari `held` → `cancelled`; `discard` hanya dari `draft` → `cancelled`; `edit` hanya dari `draft`.
   - Setiap perubahan draf disiarkan lewat event `draft` ke semua koneksi (juga yang berasal dari aksi aplikasi).

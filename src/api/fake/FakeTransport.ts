@@ -292,7 +292,8 @@ export class FakeTransport implements Transport {
       let next: Draft;
       switch (action.action) {
         case 'send':
-          if (draft.status !== 'draft') throw wrongStatus();
+          // `failed` boleh dikirim ulang ("Coba lagi"); `sent` dan `cancelled` tidak.
+          if (draft.status !== 'draft' && draft.status !== 'failed') throw wrongStatus();
           next = { ...draft, status: 'held', heldUntil: this.clock.iso(HELD_MINUTES) };
           this.hold(id);
           break;

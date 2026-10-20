@@ -243,7 +243,7 @@ describe('draf', () => {
     });
   });
 
-  test('failHeldSends: setelah masa tahan draf menjadi failed, dan itu akhir', async () => {
+  test('failHeldSends: setelah masa tahan draf menjadi failed; hanya send ulang yang boleh', async () => {
     const t = setup();
     t.listen();
     t.transport.failHeldSends();
@@ -257,7 +257,17 @@ describe('draf', () => {
       .find((p) => p.type === 'card' && p.card.kind === 'draft');
     expect(card).toMatchObject({ card: { draft: { status: 'failed' } } });
     await expect(t.transport.draftAction(BUDI_DRAFT_ID, { action: 'cancel' })).rejects.toMatchObject({ status: 409 });
-    await expect(t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' })).rejects.toMatchObject({ status: 409 });
+    await expect(t.transport.draftAction(BUDI_DRAFT_ID, { action: 'discard' })).rejects.toMatchObject({ status: 409 });
+    t.transport.failHeldSends(false);
+    const again = await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' });
+    expect(again).toMatchObject({ status: 'held' });
+    await after(HELD_MINUTES * 60_000);
+    expect(t.events.flatMap((e) => (e.type === 'draft' ? [e.draft.status] : []))).toEqual([
+      'held',
+      'failed',
+      'held',
+      'sent',
+    ]);
   });
 });
 
