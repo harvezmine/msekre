@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { draftIntro } from '@/sample/chat';
 import { initialOutgoing } from '@/sample/outgoing';
-import { useSample, type Outgoing } from '@/sample/store';
+import { deviceById, useSample, type Outgoing } from '@/sample/store';
 import { useApi } from './ApiProvider';
 import { FakeTransport } from './fake/FakeTransport';
 import { draftFromOutgoing } from './fake/history';
+import { MAIN_AC_ID } from '@/sample/devices';
 import type { Draft, StreamEvent } from './contract';
 
 /**
@@ -15,8 +16,11 @@ import type { Draft, StreamEvent } from './contract';
  * - Batalkan di Riwayat (`cancelSend`) diteruskan ke server tiruan (`draftAction cancel`), jadi kartu di chat ikut;
  * - draf baru dari layar lain ("Pesan lagi" di Usaha, `addDraft`) menjadi pesan asisten berisi kartu draf di server
  *   tiruan, jadi muncul di chat;
- * - pesan asisten dengan kartu AC mengatur AC yang sama di penyimpanan contoh (kartu AC di chat memakai
- *   penyimpanan contoh, seperti di 0b, jadi sakelarnya sama dengan Beranda).
+ * - masa tahan lima menit yang habis di server tiruan (`held` → `sent`) menandai kirimannya terkirim (`markSent`), jadi
+ *   Riwayat berhenti menawarkan Batalkan;
+ * - penyimpanan contoh adalah satu-satunya sumber keadaan AC: server tiruan membacanya untuk menjawab "AC kamar
+ *   gimana?", dan hanya permintaan pengguna yang benar-benar mengubah AC yang diteruskan (`setAc`); jawaban yang hanya
+ *   melaporkan keadaan tidak mengubah Beranda atau menambah entri Riwayat.
  *
  * Tidak berbuat apa-apa di mode server. Dipasang sekali di akar, di dalam `ApiProvider` dan `SampleProvider`.
  */
@@ -27,8 +31,10 @@ export function ContohBridge() {
 
   // Keadaan terbaru untuk pendengar stream (yang dipasang sekali per transport).
   const outgoing = useRef(state.outgoing);
+  const sample = useRef(state);
   useEffect(() => {
     outgoing.current = state.outgoing;
+    sample.current = state;
   });
   /** Perubahan yang berasal dari server tiruan: jangan dikirim balik ke server tiruan. */
   const fromFake = useRef(new Set<string>());
@@ -41,6 +47,8 @@ export function ContohBridge() {
       if (!o) return;
       if (draft.status === 'held' && o.status === 'draft') {
         dispatch({ type: 'sendDraft', id: o.id });
+      } else if (draft.status === 'sent' && o.status === 'held') {
+        dispatch({ type: 'markSent', id: o.id });
       } else if (draft.status === 'cancelled' && o.status === 'held') {
         fromFake.current.add(o.id);
         dispatch({ type: 'cancelSend', id: o.id });
@@ -57,13 +65,22 @@ export function ContohBridge() {
       for (const part of event.message.parts) {
         if (part.type !== 'card') continue;
         if (part.card.kind === 'draft') draftChanged(part.card.draft);
-        if (part.card.kind === 'device') {
-          const { deviceId, on, temp } = part.card;
-          dispatch({ type: 'setAc', deviceId, on, temp, source: 'chat' });
-        }
       }
     };
-    return fake.subscribe(onEvent, () => {});
+    const readAc = () => {
+      const ac = deviceById(sample.current, MAIN_AC_ID);
+      return { on: ac?.on ?? false, temp: ac?.ac?.temp ?? 24 };
+    };
+    fake.setAcReader(readAc);
+    const offAc = fake.onAcChange(({ on, temp }) =>
+      dispatch({ type: 'setAc', deviceId: MAIN_AC_ID, on, temp, source: 'chat' }),
+    );
+    const off = fake.subscribe(onEvent, () => {});
+    return () => {
+      off();
+      offAc();
+      fake.setAcReader(null);
+    };
   }, [fake, dispatch]);
 
   // Draf baru dari layar lain jadi pesan di chat; Batalkan dari Riwayat diteruskan ke server tiruan.

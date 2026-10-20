@@ -31,7 +31,7 @@ export function ChoicesCard({
             <Pressable
               key={choice.id}
               accessibilityRole="button"
-              accessibilityLabel={choice.title}
+              accessibilityLabel={choice.description ? `${choice.title}. ${choice.description}` : choice.title}
               accessibilityState={{ disabled: chosenId !== undefined, selected: taken }}
               disabled={chosenId !== undefined}
               onPress={() => onChoose(choice.id)}

@@ -255,7 +255,9 @@ test('kendali perangkat rumah', () => {
 
 test('event stream', () => {
   ok(streamEventSchema, { type: 'message', message });
-  ok(streamEventSchema, { type: 'draft', draft });
+  ok(streamEventSchema, { type: 'draft', draft, rev: 7 });
+  bad(streamEventSchema, { type: 'draft', draft });
+  bad(streamEventSchema, { type: 'draft', draft, rev: 0 });
   ok(streamEventSchema, { type: 'thinking', runId: 'r1', on: true });
   ok(streamEventSchema, { type: 'ping' });
   bad(streamEventSchema, { type: 'thinking', on: true });

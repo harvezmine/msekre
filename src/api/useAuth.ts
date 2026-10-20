@@ -119,10 +119,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!missingMe) return;
     const retry = () => void refreshMe();
+    // Status `open` (juga yang sudah terbuka saat mulai mendengar, karena stream chat dipakai bersama) memicu coba lagi.
     const off = transport.subscribe(
       () => {},
-      () => {},
-      retry,
+      (status) => {
+        if (status === 'open') retry();
+      },
     );
     const app = AppState.addEventListener('change', (next) => {
       if (next === 'active') retry();

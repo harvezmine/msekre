@@ -1,4 +1,4 @@
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import { formatJam, formatRupiah } from '@/api/format';
 import type { Card } from '@/api/contract';
 import type { MediaSource } from '@/api/transport';
@@ -7,6 +7,7 @@ import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 import { ChatCard } from './ChatCard';
 import { QrCode } from './QrCode';
+import { MediaFailed, RemoteImage } from './RemoteImage';
 import { useMedia } from './useMedia';
 
 type Qris = Extract<Card, { kind: 'qris' }>;
@@ -17,7 +18,7 @@ type Qris = Extract<Card, { kind: 'qris' }>;
  */
 export function QrisCard({ qris, mediaUrl }: { qris: Qris; mediaUrl: (mediaId: string) => Promise<MediaSource> }) {
   const { c } = useTheme();
-  const media = useMedia(mediaUrl, qris.mediaId);
+  const { media, reload } = useMedia(mediaUrl, qris.mediaId);
   const paid = qris.status === 'lunas';
   const expired = qris.status === 'kedaluwarsa';
   return (
@@ -44,7 +45,32 @@ export function QrisCard({ qris, mediaUrl }: { qris: Qris; mediaUrl: (mediaId: s
             Sudah dibayar
           </Txt>
         </View>
-      ) : media !== null && media !== 'error' && media.kind === 'uri' ? (
+      ) : expired ? (
+        // Kode yang sudah tidak berlaku tidak ditampilkan sama sekali, supaya tidak terpindai.
+        <View
+          testID="qris-kedaluwarsa"
+          accessible
+          accessibilityLabel="QRIS kedaluwarsa"
+          style={{
+            width: 208,
+            height: 208,
+            borderRadius: 16,
+            backgroundColor: c.paper,
+            borderWidth: 1,
+            borderColor: c.line,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}
+        >
+          <Icon name="x" size={32} color={c.muted} />
+          <Txt weight={600} color={c.muted}>
+            QRIS kedaluwarsa
+          </Txt>
+        </View>
+      ) : media === 'error' ? (
+        <MediaFailed onRetry={reload} style={{ width: 208, minHeight: 208, alignSelf: 'center' }} />
+      ) : media !== null && media.kind === 'uri' ? (
         <View
           testID="qris-kode"
           accessible
@@ -57,18 +83,18 @@ export function QrisCard({ qris, mediaUrl }: { qris: Qris; mediaUrl: (mediaId: s
             backgroundColor: '#FFFFFF',
             borderWidth: 1,
             borderColor: '#E2E6DE',
-            opacity: expired ? 0.25 : 1,
           }}
         >
-          <Image
-            source={{ uri: media.uri, headers: media.headers }}
-            accessibilityLabel="Kode QRIS"
+          <RemoteImage
+            uri={media.uri}
+            headers={media.headers}
+            label="Kode QRIS"
             style={{ width: '100%', height: '100%' }}
-            resizeMode="contain"
+            reload={reload}
           />
         </View>
       ) : (
-        <QrCode showCode={media !== null && media !== 'error'} faded={expired} />
+        <QrCode showCode={media !== null} />
       )}
       <Txt style={{ fontSize: 28, lineHeight: 36 }} weight={600} tabular>
         {formatRupiah(qris.amountRp)}

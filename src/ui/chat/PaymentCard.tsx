@@ -33,8 +33,8 @@ export function PaymentCard({ payment }: { payment: Payment }) {
         <Txt weight={600}>{payment.title}</Txt>
       </View>
       <View style={{ gap: 6 }}>
-        {rows.map(([k, v, strong]) => (
-          <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16 }}>
+        {rows.map(([k, v, strong], i) => (
+          <View key={`${i}:${k}`} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16 }}>
             <Txt color={c.muted}>{k}</Txt>
             <Txt weight={strong ? 600 : undefined} tabular style={{ flexShrink: 1, textAlign: 'right' }}>
               {v}

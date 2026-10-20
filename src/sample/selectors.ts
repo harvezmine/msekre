@@ -97,6 +97,8 @@ export interface HistoryRow extends HistoryEntry {
   undoable: boolean;
   /** Kiriman dibatalkan: entri dicoret. */
   struck: boolean;
+  /** Kiriman sudah keluar (masa tahan habis): tidak bisa dibatalkan lagi. */
+  sent: boolean;
   /** Batas Batalkan, untuk "sampai 10.47". */
   until?: string;
 }
@@ -111,6 +113,7 @@ export function historyRows(state: SampleState, kind?: HistoryKind): HistoryRow[
         ...h,
         undoable: o?.status === 'held',
         struck: o?.status === 'cancelled',
+        sent: o?.status === 'sent',
         ...(o?.status === 'held' ? { until: o.heldUntil } : {}),
       };
     });

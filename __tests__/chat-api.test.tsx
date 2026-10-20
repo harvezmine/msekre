@@ -1,16 +1,27 @@
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { useIsFocused, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { FlatList, Linking } from 'react-native';
 import Chat from '../app/chat';
 import { createTestApi, renderWithProviders } from './helpers';
-import { ChatController } from '@/api/chatController';
+import { ChatController, THINKING_MAX_MS } from '@/api/chatController';
+import { isChatThinking } from '@/api/chatState';
+import { useChatController } from '@/api/ChatProvider';
+import { useAuth } from '@/api/useAuth';
 import { UNKNOWN_PART_NOTE, HELD_MINUTES, type Message, type Part } from '@/api/contract';
-import { BLOCKED_TEXT, UNAVAILABLE_TEXT, UPGRADE_TEXT } from '@/api/errors';
+import {
+  BLOCKED_TEXT,
+  DRAFT_CHANGED_TEXT,
+  DRAFT_SENT_TEXT,
+  FILE_UNAVAILABLE_TEXT,
+  UNAVAILABLE_TEXT,
+  UPGRADE_TEXT,
+} from '@/api/errors';
 import { wibIso } from '@/api/fake/clock';
 import { FakeTransport, type FakeOptions } from '@/api/fake/FakeTransport';
 import { formatJam } from '@/api/format';
 import { createMemorySession } from '@/api/session';
-import type { ConnectionStatus } from '@/api/transport';
+import { ApiFailure, type ConnectionStatus } from '@/api/transport';
 import { useSample, type SampleState } from '@/sample/store';
 import { dark } from '@/theme/tokens';
 
@@ -40,9 +51,21 @@ async function mount(options: FakeOptions & { scheme?: 'light' | 'dark' } = {}) 
     </>,
     { api, scheme },
   );
+  // Pengendali baru berjalan setelah sesi diperiksa (`me`), baru riwayatnya dimuat: dua kali jeda request.
+  await advance(fakeOptions.latencyMs ?? 0);
   await advance(fakeOptions.latencyMs ?? 0);
   for (let i = 0; i < 3; i++) await advance(0);
   return { api, fake: api.transport as FakeTransport };
+}
+
+/** Event stream berikutnya tidak sampai ke aplikasi (seperti koneksi yang diam-diam mati). `mockRestore` memulihkannya. */
+function loseStreamEvents(fake: FakeTransport) {
+  return jest.spyOn(fake as unknown as { emit(event: unknown): void }, 'emit').mockImplementation(() => {});
+}
+
+/** Beri waktu untuk rantai promise (request, resync) selesai. */
+async function settle() {
+  for (let i = 0; i < 6; i++) await advance(0);
 }
 
 const AT = wibIso(10, 20, '09.00');
@@ -135,7 +158,7 @@ describe('mengirim', () => {
     await type('Halo lagi');
     expect(screen.getByText('Belum terkirim · Coba lagi')).toBeOnTheScreen();
     expect(screen.queryByText('mengirim…')).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Coba kirim lagi pesan Halo lagi' }));
     await advance(1);
     expect(screen.queryByText('Belum terkirim · Coba lagi')).toBeNull();
     expect(screen.getAllByText('Halo lagi')).toHaveLength(1);
@@ -305,18 +328,17 @@ describe('kartu draf', () => {
   afterEach(() => jest.mocked(useIsFocused).mockReturnValue(true));
 
   /** Minta draf balasan dan tunggu kartunya tampil. */
-  async function askDraft(fake: FakeTransport) {
+  async function askDraft() {
     await type('Balas Pak Andi, besok jam 9 ya');
     await advance(1);
     await advance(1200);
     await advance(1);
-    expect(fake).toBeDefined();
     expect(screen.getByText('Pak Andi')).toBeOnTheScreen();
   }
 
   test('Kirim menahan lima menit dengan jam, Batalkan membatalkan', async () => {
-    const { fake } = await mount({ history: [say(1, 'Selamat datang')] });
-    await askDraft(fake);
+    await mount({ history: [say(1, 'Selamat datang')] });
+    await askDraft();
     await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
     await advance(1);
     const time = formatJam(new Date(Date.parse(wibIso(10, 20, '10.42')) + HELD_MINUTES * 60_000).toISOString());
@@ -329,8 +351,8 @@ describe('kartu draf', () => {
   });
 
   test('tertahan lima menit lalu terkirim', async () => {
-    const { fake } = await mount({ history: [say(1, 'Selamat datang')] });
-    await askDraft(fake);
+    await mount({ history: [say(1, 'Selamat datang')] });
+    await askDraft();
     await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
     await advance(1);
     expect(screen.getByRole('button', { name: 'Batalkan' })).toBeOnTheScreen();
@@ -342,13 +364,13 @@ describe('kartu draf', () => {
   test('gagal setelah masa tahan: "Gagal terkirim", Coba lagi mengirim ulang sampai terkirim', async () => {
     const { fake } = await mount({ history: [say(1, 'Selamat datang')] });
     fake.failHeldSends();
-    await askDraft(fake);
+    await askDraft();
     await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
     await advance(1);
     await advance(HELD_MINUTES * 60_000);
     expect(screen.getByText('Gagal terkirim')).toBeOnTheScreen();
     fake.failHeldSends(false);
-    await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Coba kirim lagi draf ke Pak Andi' }));
     await advance(1);
     expect(screen.getByText(/^Dikirim \d\d\.\d\d$/)).toBeOnTheScreen();
     await advance(HELD_MINUTES * 60_000);
@@ -356,22 +378,85 @@ describe('kartu draf', () => {
   });
 
   test('Buang draf membuang draf yang belum disetujui', async () => {
-    const { fake } = await mount({ history: [say(1, 'Selamat datang')] });
-    await askDraft(fake);
+    await mount({ history: [say(1, 'Selamat datang')] });
+    await askDraft();
     await fireEvent.press(screen.getByRole('button', { name: 'Buang draf' }));
     await advance(1);
     expect(screen.getByText('Dibatalkan · tidak jadi terkirim')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Kirim' })).toBeNull();
   });
 
-  test('aksi yang ditolak server (draf sudah berubah) memberi toast ramah', async () => {
+  test('kendala server saat aksi memberi toast ramah dan kartu tetap bisa dicoba lagi', async () => {
     const { fake } = await mount({ history: [say(1, 'Selamat datang')] });
-    await askDraft(fake);
+    await askDraft();
     fake.failNext('server');
     await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
     await advance(1);
     expect(latest.toast?.text).toBe('Lagi ada kendala, sudah dilaporkan ke tim. Coba lagi sebentar ya.');
+    expect(screen.getByRole('button', { name: 'Kirim' }).props.accessibilityState.disabled).toBe(false);
+  });
+
+  test('draf sudah berubah di tempat lain (409 status_draf): teks ramah dan kartu menampilkan keadaan sebenarnya', async () => {
+    const { fake } = await mount({ history: [say(1, 'Selamat datang')] });
+    await askDraft();
+    // Draf dibuang dari tempat lain, tapi kabarnya tidak sampai ke aplikasi.
+    const lost = loseStreamEvents(fake);
+    await fake.draftAction('d-contoh-1', { action: 'discard' });
+    await advance(1);
+    lost.mockRestore();
     expect(screen.getByRole('button', { name: 'Kirim' })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
+    for (let i = 0; i < 4; i++) await advance(0);
+    expect(latest.toast?.text).toBe(DRAFT_CHANGED_TEXT);
+    expect(screen.getByText('Dibatalkan · tidak jadi terkirim')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Kirim' })).toBeNull();
+  });
+
+  test('Batalkan terlambat (sudah terkirim): "tidak bisa dibatalkan lagi" dan kartu jadi Terkirim', async () => {
+    const { fake } = await mount({ history: [say(1, 'Selamat datang')] });
+    await askDraft();
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
+    await advance(1);
+    expect(screen.getByRole('button', { name: 'Batalkan' })).toBeOnTheScreen();
+    const lost = loseStreamEvents(fake);
+    await advance(HELD_MINUTES * 60_000); // di server sudah terkirim; kabarnya tidak sampai
+    lost.mockRestore();
+    await fireEvent.press(screen.getByRole('button', { name: 'Batalkan' }));
+    for (let i = 0; i < 4; i++) await advance(0);
+    expect(latest.toast?.text).toBe(DRAFT_SENT_TEXT);
+    expect(screen.getByText(/^Terkirim \d\d\.\d\d$/)).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Batalkan' })).toBeNull();
+  });
+
+  test('selagi aksi berjalan semua tombol kartu mati dan ketukan kedua tidak mengirim permintaan lagi', async () => {
+    const { fake } = await mount({ latencyMs: 300, history: [say(1, 'Selamat datang')] });
+    await type('Balas Pak Andi, besok jam 9 ya');
+    await advance(300);
+    await advance(1200);
+    await advance(1);
+    const spy = jest.spyOn(fake, 'draftAction');
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
+    for (const name of ['Kirim', 'Ubah', 'Buang draf']) {
+      expect(screen.getByRole('button', { name })).toBeDisabled();
+    }
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Buang draf' }));
+    await advance(300);
+    await advance(1);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/^Dikirim \d\d\.\d\d$/)).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Batalkan' })).not.toBeDisabled();
+  });
+
+  test('kolom Ubah menutup sendiri kalau drafnya sudah berubah di tempat lain', async () => {
+    const { fake } = await mount({ history: [say(1, 'Selamat datang')] });
+    await askDraft();
+    await fireEvent.press(screen.getByRole('button', { name: 'Ubah' }));
+    expect(screen.getByLabelText('Isi pesan')).toBeOnTheScreen();
+    await fake.draftAction('d-contoh-1', { action: 'discard' });
+    await advance(1);
+    expect(screen.queryByLabelText('Isi pesan')).toBeNull();
+    expect(screen.getByText('Dibatalkan · tidak jadi terkirim')).toBeOnTheScreen();
   });
 });
 
@@ -461,8 +546,11 @@ describe('bagian dan kartu', () => {
     expect(screen.getByText('Rp100.000', { exact: false })).toBeOnTheScreen();
     expect(screen.getByText('No. meter')).toBeOnTheScreen();
     expect(screen.getByText('QRIS ini sudah kedaluwarsa. Minta saya buatkan yang baru.')).toBeOnTheScreen();
+    // Kodenya tidak ditampilkan lagi, supaya tidak terpindai.
+    expect(screen.getByTestId('qris-kedaluwarsa')).toBeOnTheScreen();
+    expect(screen.queryByTestId('qris-kode')).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Putar pesan suara' }));
-    expect(latest.toast?.text).toBe('Pemutar suara dibangun di Fase 6.');
+    expect(latest.toast?.text).toBe('Pemutar suara segera hadir.');
   });
 
   test('kartu perangkat dari kontrak: mengetuk sakelar memanggil kendali dan 501 jadi toast ramah', async () => {
@@ -493,5 +581,322 @@ describe('bagian dan kartu', () => {
     await mount({ scheme: 'dark', history: [say(1, 'Halo gelap', { from: 'user' })] });
     expect(screen.getByText('Halo gelap').parent).toHaveStyle({ backgroundColor: dark.green });
     expect(within(screen.getByTestId('utas')).getByText('Halo gelap')).toBeOnTheScreen();
+  });
+});
+
+describe('pengendali bersama (ChatProvider)', () => {
+  let setChatOpen: (open: boolean) => void;
+  function Toggle() {
+    const [open, set] = useState(true);
+    useEffect(() => {
+      setChatOpen = set;
+    }, [set]);
+    return open ? <Chat /> : null;
+  }
+
+  test('antrean offline tetap terkirim setelah chat ditutup, dan pesannya ada saat chat dibuka lagi', async () => {
+    const api = createTestApi({ mode: 'server', token: 't' });
+    const fake = api.transport as FakeTransport;
+    await renderWithProviders(<Toggle />, { api });
+    await settle();
+    const spy = jest.spyOn(fake, 'send');
+    await act(async () => {
+      fake.drop();
+    });
+    await advance(0);
+    await type('Dikirim nanti');
+    expect(screen.getByText('mengirim…')).toBeOnTheScreen();
+    await act(async () => {
+      setChatOpen(false); // kembali ke Beranda
+    });
+    expect(spy).not.toHaveBeenCalled();
+    await act(async () => {
+      fake.restore();
+    });
+    await settle();
+    expect(spy).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      setChatOpen(true);
+    });
+    await settle();
+    expect(screen.getAllByText('Dikirim nanti')).toHaveLength(1);
+    expect(screen.queryByText('mengirim…')).toBeNull();
+  });
+
+  test('keluar (mode server) membuang pengendali dan antreannya; pengguna berikutnya mulai bersih', async () => {
+    const api = createTestApi({ mode: 'server', token: 't' });
+    const fake = api.transport as FakeTransport;
+    const seen: { controller: ChatController; logout: () => Promise<void> }[] = [];
+    function Probe2() {
+      const controller = useChatController();
+      const { logout } = useAuth();
+      useEffect(() => {
+        seen.push({ controller, logout });
+      });
+      return null;
+    }
+    await renderWithProviders(<Probe2 />, { api });
+    await settle();
+    const first = seen.at(-1)!.controller;
+    await act(async () => {
+      fake.drop();
+    });
+    first.send('antre');
+    expect(first.getState().pending).toHaveLength(1);
+    await act(async () => {
+      await seen.at(-1)!.logout();
+    });
+    await settle();
+    const second = seen.at(-1)!.controller;
+    expect(second).not.toBe(first);
+    expect(second.getState().pending).toHaveLength(0);
+    expect(second.getState().messages).toHaveLength(0);
+  });
+});
+
+describe('dokumen di mode server', () => {
+  test('Buka tidak membuka alamat media yang butuh token: toast, tanpa Linking', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockImplementation(async () => {});
+    await mount({
+      history: [
+        message(1, [
+          {
+            type: 'document',
+            mediaId: 'contoh-laporan',
+            name: 'Laporan.pdf',
+            mime: 'application/pdf',
+            sizeBytes: 1000,
+          },
+        ]),
+      ],
+    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
+    await advance(0);
+    expect(latest.toast?.text).toBe(FILE_UNAVAILABLE_TEXT);
+    expect(open).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Bagikan' }));
+    expect(latest.toast?.text).toBe('Berbagi berkas segera hadir.');
+    await fireEvent.press(screen.getByRole('button', { name: 'Lampiran' }));
+    expect(latest.toast?.text).toBe('Lampiran segera hadir.');
+    open.mockRestore();
+  });
+});
+
+describe('pengendali: antrean, riwayat awal, dan pengaman', () => {
+  function make(options: FakeOptions = {}) {
+    const transport = new FakeTransport(createMemorySession('t'), options);
+    const controller = new ChatController(transport);
+    return { transport, controller };
+  }
+
+  test('pesan yang diketik selagi antrean dikirim berada di belakang antrean (urutan ketik terjaga)', async () => {
+    const { transport, controller } = make({ latencyMs: 100 });
+    controller.start();
+    await advance(300);
+    const sent: string[] = [];
+    const real = transport.send.bind(transport);
+    jest.spyOn(transport, 'send').mockImplementation((req) => {
+      if (req.kind === 'text') sent.push(req.text);
+      return real(req);
+    });
+    transport.drop();
+    await advance(0);
+    controller.send('a');
+    controller.send('b');
+    transport.restore();
+    await advance(0); // antrean mulai dikirim
+    controller.send('c');
+    expect(controller.getState().pending.find((p) => p.text === 'c')?.queued).toBe(true);
+    for (let i = 0; i < 12; i++) {
+      await advance(100);
+      await settle();
+    }
+    expect(sent).toEqual(['a', 'b', 'c']);
+    expect(controller.getState().pending).toHaveLength(0);
+    controller.stop();
+    transport.dispose();
+  });
+
+  test('pesan yang masuk antara pengambilan riwayat dan stream terbuka tidak hilang', async () => {
+    const { transport, controller } = make();
+    const real = transport.messages.bind(transport);
+    let first = true;
+    jest.spyOn(transport, 'messages').mockImplementation(async (before) => {
+      const page = await real(before);
+      if (first) {
+        first = false;
+        // Selagi halaman ini di jalan, stream putus-sambung dan satu pesan terlewat.
+        transport.drop();
+        transport.receive({ from: 'assistant', via: 'whatsapp', parts: [{ type: 'text', text: 'terlewat' }] });
+        transport.restore();
+      }
+      return page;
+    });
+    controller.start();
+    for (let i = 0; i < 8; i++) await advance(0);
+    const texts = controller
+      .getState()
+      .messages.flatMap((m) => m.parts.flatMap((p) => (p.type === 'text' ? [p.text] : [])));
+    expect(texts).toContain('terlewat');
+    controller.stop();
+    transport.dispose();
+  });
+
+  test('resync berhenti kalau halaman tidak maju (tanpa putaran tanpa akhir)', async () => {
+    const { transport, controller } = make();
+    controller.start();
+    await advance(0);
+    const base = controller.getState().messages.at(-1)!;
+    const spy = jest
+      .spyOn(transport, 'messagesChanged')
+      .mockResolvedValue({ items: [{ ...base, id: 'z', rev: 1 }], more: true });
+    transport.drop();
+    transport.restore();
+    for (let i = 0; i < 8; i++) await advance(0);
+    expect(spy).toHaveBeenCalledTimes(1);
+    controller.stop();
+    transport.dispose();
+  });
+
+  test('tanda berpikir yang tak pernah dimatikan padam sendiri setelah batas waktu', async () => {
+    const { transport, controller } = make({ thinkMs: THINKING_MAX_MS * 2 });
+    controller.start();
+    await advance(0);
+    controller.send('Halo');
+    await settle();
+    await advance(1);
+    expect(isChatThinking(controller.getState())).toBe(true);
+    await advance(THINKING_MAX_MS - 10);
+    expect(isChatThinking(controller.getState())).toBe(true);
+    await advance(20);
+    expect(isChatThinking(controller.getState())).toBe(false);
+    controller.stop();
+    transport.dispose();
+  });
+
+  test('pilihan yang sudah diambil di tempat lain (sudah_dipilih): tidak gagal, tombol terbuka lagi tanpa Coba lagi', async () => {
+    const choices: Part = {
+      type: 'choices',
+      prompt: 'Lanjut?',
+      choices: [
+        { id: 'a', title: 'Ya' },
+        { id: 'b', title: 'Tidak' },
+      ],
+    };
+    const { transport, controller } = make({ history: [message(1, [choices], { id: 'pilih' })] });
+    controller.start();
+    await advance(0);
+    jest.spyOn(transport, 'send').mockRejectedValue(new ApiFailure('server', { status: 409, error: 'sudah_dipilih' }));
+    controller.choose('pilih', 'a');
+    expect(controller.getState().locks).toEqual({ pilih: 'a' });
+    await advance(0);
+    const state = controller.getState();
+    expect(state.pending).toHaveLength(0);
+    expect(state.locks).toEqual({});
+    controller.stop();
+    transport.dispose();
+  });
+});
+
+describe('tampilan utas', () => {
+  test('keterangan header mengikuti koneksi', async () => {
+    const { fake } = await mount();
+    expect(screen.getByText('Siap membantu')).toBeOnTheScreen();
+    await act(async () => {
+      fake.drop();
+    });
+    expect(screen.getByText('Menyambung lagi…')).toBeOnTheScreen();
+    expect(screen.queryByText('Siap membantu')).toBeNull();
+    await act(async () => {
+      fake.restore();
+    });
+    await settle();
+    expect(screen.getByText('Siap membantu')).toBeOnTheScreen();
+  });
+
+  test('pengaturan daftar: tahan posisi baca, tutup keyboard dengan geser', async () => {
+    await mount();
+    const list = screen.getByTestId('utas');
+    expect(list.props.keyboardDismissMode).toBe('interactive');
+    expect(list.props.maintainVisibleContentPosition).toMatchObject({ minIndexForVisible: 1 });
+  });
+
+  test('mengirim saat sedang menggulir ke pesan lama kembali ke dasar', async () => {
+    await mount();
+    const scroll = jest.spyOn(FlatList.prototype, 'scrollToOffset');
+    await fireEvent(screen.getByTestId('utas'), 'scroll', {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 900 },
+        contentSize: { width: 300, height: 3000 },
+        layoutMeasurement: { width: 300, height: 600 },
+      },
+    });
+    await type('Halo dari atas');
+    expect(scroll).toHaveBeenCalledWith({ offset: 0, animated: true });
+    scroll.mockRestore();
+  });
+
+  test('tombol pilihan: label pembaca layar memuat keterangannya', async () => {
+    await mount({
+      history: [
+        message(1, [
+          {
+            type: 'choices',
+            choices: [
+              { id: 'a', title: 'Besok pagi', description: 'Jam 9' },
+              { id: 'b', title: 'Lusa' },
+            ],
+          },
+        ]),
+      ],
+    });
+    expect(screen.getByRole('button', { name: 'Besok pagi. Jam 9' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Lusa' })).toBeOnTheScreen();
+  });
+
+  test('kartu pembayaran dengan label yang sama tidak bentrok kuncinya', async () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await mount({
+      history: [
+        message(1, [
+          {
+            type: 'card',
+            card: {
+              kind: 'payment',
+              title: 'Tagihan',
+              amountRp: 5000,
+              lines: [
+                { label: 'Catatan', value: 'satu' },
+                { label: 'Catatan', value: 'dua' },
+              ],
+              ask: 'Sudah benar?',
+            },
+          },
+        ]),
+      ],
+    });
+    expect(screen.getByText('satu')).toBeOnTheScreen();
+    expect(screen.getByText('dua')).toBeOnTheScreen();
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  test('gambar yang gagal: "Coba muat lagi" mengambil ulang, juga saat unduhannya yang gagal', async () => {
+    const { fake } = await mount({
+      history: [message(1, [{ type: 'image', mediaId: 'm1', mime: 'image/png', alt: 'Foto struk' }])],
+    });
+    // Alamat gambarnya sendiri tidak didapat (berkas tidak ada).
+    expect(screen.getByTestId('gambar-gagal')).toBeOnTheScreen();
+    jest.spyOn(fake, 'mediaUrl').mockResolvedValue({ kind: 'uri', uri: 'https://x.test/a.png', headers: {} });
+    await fireEvent.press(screen.getByRole('button', { name: 'Coba muat ulang gambar' }));
+    await settle();
+    expect(screen.queryByTestId('gambar-gagal')).toBeNull();
+    // Unduhan gambarnya gagal.
+    await fireEvent(screen.getByLabelText('Foto struk'), 'error');
+    expect(screen.getByTestId('gambar-gagal')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Coba muat ulang gambar' }));
+    await settle();
+    expect(screen.getByLabelText('Foto struk')).toBeOnTheScreen();
+    expect(screen.queryByTestId('gambar-gagal')).toBeNull();
   });
 });

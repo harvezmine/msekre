@@ -36,7 +36,11 @@ function weight(row: Row | undefined): Weight {
 export function buildRows(state: ChatState, { onlyNew = false }: { onlyNew?: boolean } = {}): Row[] {
   const rows: Row[] = [];
   for (const message of state.messages) {
-    if (onlyNew && state.initialIds?.has(message.id)) continue;
+    if (
+      onlyNew &&
+      (state.initialIds?.has(message.id) || (state.initialMinSeq !== null && message.seq < state.initialMinSeq))
+    )
+      continue;
     message.parts.forEach((part, i) => {
       rows.push({
         key: `${message.id}:${i}`,

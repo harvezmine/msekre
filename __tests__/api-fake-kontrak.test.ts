@@ -229,7 +229,9 @@ describe('draf', () => {
   test('discard dari draft menjadi cancelled; dari held atau cancelled 409', async () => {
     const t = setup();
     t.listen();
-    expect(await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'discard' })).toMatchObject({ status: 'cancelled' });
+    expect((await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'discard' })).draft).toMatchObject({
+      status: 'cancelled',
+    });
     await expect(t.transport.draftAction(BUDI_DRAFT_ID, { action: 'discard' })).rejects.toMatchObject({ status: 409 });
     await expect(t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' })).rejects.toMatchObject({ status: 409 });
     await expect(t.transport.draftAction(BUDI_DRAFT_ID, { action: 'edit', text: 'X' })).rejects.toMatchObject({
@@ -247,7 +249,7 @@ describe('draf', () => {
     const t = setup();
     t.listen();
     t.transport.failHeldSends();
-    const held = await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' });
+    const held = (await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' })).draft;
     await after(HELD_MINUTES * 60_000);
     const drafts = t.events.flatMap((e) => (e.type === 'draft' ? [e.draft] : []));
     expect(drafts.map((d) => d.status)).toEqual(['held', 'failed']);
@@ -259,7 +261,7 @@ describe('draf', () => {
     await expect(t.transport.draftAction(BUDI_DRAFT_ID, { action: 'cancel' })).rejects.toMatchObject({ status: 409 });
     await expect(t.transport.draftAction(BUDI_DRAFT_ID, { action: 'discard' })).rejects.toMatchObject({ status: 409 });
     t.transport.failHeldSends(false);
-    const again = await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' });
+    const again = (await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' })).draft;
     expect(again).toMatchObject({ status: 'held' });
     await after(HELD_MINUTES * 60_000);
     expect(t.events.flatMap((e) => (e.type === 'draft' ? [e.draft.status] : []))).toEqual([

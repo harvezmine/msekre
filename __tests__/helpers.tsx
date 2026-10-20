@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { ApiProvider, type Api } from '@/api/ApiProvider';
+import { ChatProvider } from '@/api/ChatProvider';
 import { ContohBridge } from '@/api/ContohBridge';
 import { FakeTransport, type FakeOptions } from '@/api/fake/FakeTransport';
 import { createMemorySession } from '@/api/session';
@@ -39,7 +40,7 @@ export async function renderWithProviders(ui: ReactElement, { state, actions = [
         <SampleProvider initial={stateAfter(actions, state)}>
           <ApiProvider initial={api ?? createTestApi()} apiUrl={null}>
             <AuthProvider>
-              {ui}
+              <ChatProvider>{ui}</ChatProvider>
               <ContohBridge />
             </AuthProvider>
           </ApiProvider>

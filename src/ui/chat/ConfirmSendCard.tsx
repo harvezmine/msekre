@@ -14,6 +14,8 @@ export interface DraftActions {
   onCancel: () => void;
   onEdit: (text: string) => void;
   onDiscard: () => void;
+  /** Aksi pada draf ini sedang berjalan: semua tombol mati sampai jawabannya datang. */
+  busy?: boolean;
 }
 
 /**
@@ -26,11 +28,14 @@ export function ConfirmSendCard({
   onCancel,
   onEdit,
   onDiscard,
+  busy = false,
 }: { draft: Draft } & DraftActions) {
   const { c } = useTheme();
-  const [editing, setEditing] = useState(false);
+  const [editRequested, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const { to, text, status } = source;
+  // Draf yang berubah di tempat lain selagi diubah (sudah terkirim, dibatalkan) menutup kolom ubah.
+  const editing = editRequested && status === 'draft';
   const channel = source.channel === 'whatsapp' ? 'WhatsApp' : 'email';
   const time = source.heldUntil ? formatJam(source.heldUntil) : '';
   // Diumumkan ke pembaca layar saat kiriman baru ditahan (bukan saat layar dibuka dengan kartu yang sudah tertahan).
@@ -103,6 +108,7 @@ export function ConfirmSendCard({
         <CardButton
           label="Simpan"
           primary
+          disabled={busy}
           onPress={() => {
             const next = draft.trim();
             if (next && next !== text) onEdit(next);
@@ -114,6 +120,7 @@ export function ConfirmSendCard({
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <CardButton
             label="Ubah"
+            disabled={busy}
             onPress={() => {
               setDraft(text);
               setEditing(true);
@@ -122,6 +129,7 @@ export function ConfirmSendCard({
           <CardButton
             label="Kirim"
             primary
+            disabled={busy}
             onPress={() => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onSend();
@@ -133,6 +141,8 @@ export function ConfirmSendCard({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Buang draf"
+          accessibilityState={{ disabled: busy }}
+          disabled={busy}
           onPress={onDiscard}
           android_ripple={{ color: c.ripple }}
           style={{ minHeight: 40, alignItems: 'center', justifyContent: 'center' }}
@@ -151,6 +161,8 @@ export function ConfirmSendCard({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Batalkan"
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
             onPress={onCancel}
             android_ripple={{ color: c.ripple }}
             style={{ minHeight: 48, paddingHorizontal: 12, justifyContent: 'center' }}
@@ -177,7 +189,9 @@ export function ConfirmSendCard({
           </Txt>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Coba lagi"
+            accessibilityLabel={`Coba kirim lagi draf ke ${to}`}
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
             onPress={onSend}
             android_ripple={{ color: c.ripple }}
             style={{ minHeight: 48, paddingHorizontal: 12, justifyContent: 'center' }}

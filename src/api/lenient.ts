@@ -4,9 +4,12 @@ import {
   messageSchema,
   messagesPageSchema,
   messagesChangedPageSchema,
+  draftActionResSchema,
+  draftSchema,
   partSchema,
   streamEventSchema,
   UNKNOWN_PART_NOTE,
+  type DraftActionRes,
   type Message,
   type MessagesPage,
   type MessagesChangedPage,
@@ -99,5 +102,19 @@ export function parseEventLenient(raw: unknown): StreamEvent | null {
     return message ? { type: 'message', message } : null;
   }
   const parsed = streamEventSchema.safeParse(raw);
-  return parsed.success ? parsed.data : null;
+  if (parsed.success) return parsed.data;
+  if ((raw as { type?: unknown }).type === 'draft') {
+    // `rev` hilang atau rusak (server lama): drafnya tetap berlaku, `rev` 0 = tidak diketahui.
+    const draft = draftSchema.safeParse((raw as { draft?: unknown }).draft);
+    return draft.success ? { type: 'draft', draft: draft.data, rev: 0 } : null;
+  }
+  return null;
+}
+
+/** Jawaban aksi draf. `rev` yang hilang atau rusak dibaca 0 (tidak diketahui). `null` kalau drafnya sendiri rusak. */
+export function parseDraftResLenient(raw: unknown): DraftActionRes | null {
+  const strict = draftActionResSchema.safeParse(raw);
+  if (strict.success) return strict.data;
+  const draft = draftSchema.safeParse((raw as { draft?: unknown } | null)?.draft);
+  return draft.success ? { draft: draft.data, rev: 0 } : null;
 }

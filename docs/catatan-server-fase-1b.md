@@ -62,7 +62,10 @@ sisanya adalah aturan implementasi server. Kontrak lengkapnya ada di `src/api/co
   - dijalankan oleh penjadwal yang tahan restart (job di database), bukan `setTimeout`;
   - pakai update bersyarat (`WHERE status = 'held'`), supaya `cancel` dan pengiriman tidak bisa sama-sama menang di
     menit kelima;
-  - setiap perubahan draf disiarkan ke semua koneksi pengguna; klien membuang duplikatnya.
+  - setiap perubahan draf disiarkan ke semua koneksi pengguna; klien membuang duplikatnya;
+  - event `draft` dan response `POST /drafts/:id` membawa `rev` baru pesan pembawa kartu (`{ draft, rev }`), diambil
+    dari `UPDATE ... RETURNING rev` yang sama dengan kenaikan `rev` pesan. Klien membuang pembaruan yang `rev`-nya lebih
+    lama dari yang ada di layar, jadi urutan response dan event tidak lagi menentukan hasil.
 - **WebSocket:**
   - Token dikirim lewat header `Authorization`, bukan query string, karena query string tercatat di log Nginx Proxy
     Manager.

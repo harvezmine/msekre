@@ -235,7 +235,7 @@ Request, salah satu:
 { "action": "edit", "text": "Baik Pak, saya konfirmasi hadir jam 10." }
 ```
 
-Response 200 (keadaan draf sesudah aksi):
+Response 200 (keadaan draf sesudah aksi, dan `rev` pesan yang memuat kartunya setelah dinaikkan oleh aksi ini):
 
 ```json
 {
@@ -243,7 +243,8 @@ Response 200 (keadaan draf sesudah aksi):
     "id": "d-17", "to": "Pak Budi", "channel": "whatsapp", "what": "balasan",
     "text": "Baik Pak, saya konfirmasi hadir jam 10.",
     "status": "held", "heldUntil": "2026-10-20T03:48:00.000Z"
-  }
+  },
+  "rev": 1408
 }
 ```
 
@@ -267,6 +268,12 @@ Mesin status (`draft.status`: `draft`, `held`, `sent`, `cancelled`, `failed`):
 - Setiap perubahan draf (juga yang berasal dari aksi aplikasi atau penjadwal) disiarkan lewat event `draft` ke
   SEMUA soket pengguna itu dan menaikkan `rev` pesan pembawa kartunya. Perubahan karena aksi aplikasi juga
   dikembalikan di response; klien membuang duplikatnya (event `draft` menimpa kartu dengan `draft.id` yang sama).
+- Response dan event `draft` membawa `rev` = `rev` BARU pesan pembawa kartu (nilai yang sama dengan `rev` pesan itu
+  di `GET /messages` sesudahnya). Klien membuang pembaruan draf yang `rev`-nya lebih kecil dari `rev` pesan di
+  layarnya (misalnya response `held` yang datang sesudah event `sent`), dan memajukan `rev` pesan itu ke `rev` yang
+  diterima. `rev` yang hilang dibaca 0 oleh aplikasi: drafnya tetap dipasang, tanpa memajukan `rev` pesan.
+- Aplikasi mengunci tombol kartu selagi aksinya berjalan. 409 `status_draf` (misalnya `cancel` setelah `sent`) membuat
+  aplikasi memberi tahu pengguna dan mengambil keadaan terbaru lewat `GET /messages?changedAfter=`.
 - Kiriman ke orang lain tidak pernah keluar tanpa persetujuan pengguna (`send`). Server tidak boleh mengirim
   sendiri walaupun agen "yakin".
 - 404 `tidak_ditemukan` kalau draf tidak ada atau milik orang lain.
@@ -452,7 +459,7 @@ Event dari server:
 
 ```json
 { "type": "message", "message": { "id": "813", "seq": 813, "rev": 1407, "...": "..." } }
-{ "type": "draft", "draft": { "id": "d-17", "status": "sent", "...": "..." } }
+{ "type": "draft", "draft": { "id": "d-17", "status": "sent", "...": "..." }, "rev": 1409 }
 { "type": "thinking", "runId": "r-91", "on": true }
 { "type": "ping" }
 ```
@@ -461,8 +468,8 @@ Event dari server:
   sebelumnya, tempat di utas tetap). Membawa semua pesan baru di utas, termasuk pesan pengguna dari WhatsApp
   (`via: 'whatsapp'`) dan pesan pengguna dari aplikasi lain milik akun yang sama. Aplikasi menggabungkan berdasarkan
   `id`.
-- `draft`: perubahan draf; menimpa kartu `draft` dengan `draft.id` yang sama. Sertakan juga event `message` untuk
-  pesan pembawa kartu itu kalau perlu (agar `rev` tersiarkan), tetapi `draft` saja sudah cukup bagi tampilan.
+- `draft`: perubahan draf; menimpa kartu `draft` dengan `draft.id` yang sama, dengan `rev` baru pesan pembawa kartu
+  (wajib; lihat bagian 2.7). Event `message` untuk pesan itu tidak wajib: `draft` saja sudah cukup bagi tampilan.
 - `thinking`: `runId` unik per proses agen; `on: true` saat mulai, `on: false` saat selesai. Dua proses
   bersamaan (aplikasi dan WhatsApp) tidak saling menimpa; aplikasi menyimpan himpunan `runId` aktif.
 - `ping`: setiap 25 detik (`STREAM_PING_SEC`). Aplikasi menganggap koneksi mati bila 60 detik tanpa pesan apa pun.
@@ -662,7 +669,9 @@ Pembayaran:
 
 1. Akun baru dari aplikasi: otomatis mulai percobaan 7 hari atau harus mulai lewat WhatsApp dulu (bagian 4)?
 2. URL dokumen: setuju dengan URL bertanda tangan `?sig=` (bagian 2.10), atau dokumen dibuka di dalam aplikasi
-   (mengunduh dengan header lalu berbagi lewat penampil)? Usulan ini menambah satu jalur ke kontrak.
+   (mengunduh dengan header lalu berbagi lewat penampil)? Usulan ini menambah satu jalur ke kontrak. Sampai ini
+   diputuskan, aplikasi (mode server) tidak membuka alamat media lewat peramban, karena `GET /media/:id` butuh header
+   token; tombol Buka di dokumen memberi tahu pengguna untuk membukanya dari WhatsApp.
 3. Jenis token push: token Expo atau token FCM native? Mempengaruhi `push.ts` dan apakah proyek Firebase wajib sejak
    awal. (Aplikasi sekarang memakai `expo-notifications`; `google-services.json` dari Firebase masih persiapan
    founder.)

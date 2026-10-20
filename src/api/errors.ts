@@ -29,3 +29,10 @@ export function friendlyError(e: unknown): string {
       return ERROR_TEXT;
   }
 }
+
+/** Batalkan ditekan setelah kirimannya keluar. */
+export const DRAFT_SENT_TEXT = 'Kirimannya sudah terkirim, jadi tidak bisa dibatalkan lagi.';
+/** Aksi pada draf yang sudah berubah di tempat lain (WhatsApp, atau jam tahan habis). */
+export const DRAFT_CHANGED_TEXT = 'Draf ini sudah berubah. Saya tampilkan keadaan terbarunya.';
+/** Berkas di chat belum bisa dibuka dari aplikasi di mode server (alamat bertanda tangan belum ada). */
+export const FILE_UNAVAILABLE_TEXT = 'Berkas ini belum bisa dibuka dari aplikasi. Coba buka dari WhatsApp ya.';

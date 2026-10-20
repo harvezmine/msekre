@@ -5,8 +5,8 @@ import type {
   AuthVerifyRes,
   DeviceCard,
   DeviceControlReq,
-  Draft,
   DraftActionReq,
+  DraftActionRes,
   Me,
   Message,
   MessagesPage,
@@ -124,7 +124,8 @@ export interface Transport {
   messagesChanged(changedAfter: number): Promise<MessagesChangedPage>;
   /** Kirim pesan pengguna; hasilnya pesan yang tersimpan. Balasan asisten datang lewat `subscribe`. */
   send(req: SendMessageReq): Promise<Message>;
-  draftAction(id: string, req: DraftActionReq): Promise<Draft>;
+  /** Aksi pada kartu draf (`POST /drafts/:id`): draf yang baru dan `rev` pesan yang memuat kartunya. */
+  draftAction(id: string, req: DraftActionReq): Promise<DraftActionRes>;
   /** Daftarkan token notifikasi HP (`POST /push-tokens`). */
   registerPushToken(req: PushTokenReq): Promise<void>;
   /** Atur perangkat rumah dari kartu (`POST /home/devices/:id`). Fase 3; sebelum itu `unavailable`. */

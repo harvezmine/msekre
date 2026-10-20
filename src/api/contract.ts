@@ -72,6 +72,11 @@
  *   - Setiap perubahan draf, juga yang berasal dari aksi aplikasi, disiarkan lewat event `draft` ke semua koneksi
  *     pengguna; perubahan karena aksi aplikasi juga dikembalikan di response. Klien membuang duplikatnya (event
  *     `draft` menimpa kartu dengan `draft.id` yang sama).
+ *   - Event `draft` dan response `POST /drafts/:id` membawa `rev` pesan yang memuat kartunya (`{ draft, rev }`), yaitu
+ *     `rev` baru setelah perubahan itu. Klien membuang pembaruan draf yang `rev`-nya lebih kecil dari `rev` pesan
+ *     itu di layar (event yang datang terlambat tidak menimpa keadaan yang lebih baru), dan memajukan `rev` pesan itu
+ *     ke `rev` yang diterima. Pembacaan longgar: `rev` yang hilang atau rusak dibaca 0 ("tidak diketahui"): drafnya
+ *     tetap dipasang, tanpa mengubah `rev` pesan.
  * - Event `message` membawa semua pesan baru di utas, termasuk pesan pengguna dari WhatsApp (`via: 'whatsapp'`, satu
  *   utas). Aplikasi menggabungkan pesan berdasarkan `id`, jadi pesan yang datang dua kali tidak tampil dua kali.
  * - Event `thinking` membawa `runId`: dua proses yang berjalan bersamaan (aplikasi dan WhatsApp) tidak saling menimpa.
@@ -329,7 +334,11 @@ export const draftActionReqSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('discard') }),
   z.object({ action: z.literal('edit'), text: textSchema }),
 ]);
-export const draftActionResSchema = z.object({ draft: draftSchema });
+/**
+ * Hasil aksi draf: draf yang baru dan `rev` pesan yang memuat kartunya (sudah dinaikkan karena perubahan ini). Klien
+ * membuang pembaruan draf yang `rev`-nya lebih lama dari `rev` pesan di layar.
+ */
+export const draftActionResSchema = z.object({ draft: draftSchema, rev: z.number().int().positive() });
 
 // ---- Notifikasi ----
 
@@ -357,8 +366,11 @@ export const deviceControlResSchema = z.object({ card: deviceCardSchema });
 export const streamEventSchema = z.discriminatedUnion('type', [
   /** Pesan baru, atau pembaruan pesan dengan `id` yang sudah dikenal (upsert). */
   z.object({ type: z.literal('message'), message: messageSchema }),
-  /** Perubahan draf: menimpa kartu dengan `draft.id` yang sama. */
-  z.object({ type: z.literal('draft'), draft: draftSchema }),
+  /**
+   * Perubahan draf: menimpa kartu dengan `draft.id` yang sama, kecuali `rev` (nomor perubahan pesan yang memuat kartu,
+   * sudah dinaikkan) lebih lama dari `rev` pesan di layar.
+   */
+  z.object({ type: z.literal('draft'), draft: draftSchema, rev: z.number().int().positive() }),
   z.object({ type: z.literal('thinking'), runId: idSchema, on: z.boolean() }),
   z.object({ type: z.literal('ping') }),
 ]);

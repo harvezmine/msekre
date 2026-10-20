@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { AccessibilityInfo } from 'react-native';
 import Chat from '../app/chat';
@@ -346,4 +346,45 @@ test('gelembung pengguna yang membuka tukar-pesan baru diberi jarak atas 8', asy
   expect(margin('Balas Pak Budi, harga sewa bisa Rp15 juta')).toBe(8);
   // jawaban atas tombol pilihan masih tukar-pesan yang sama
   expect(margin('Ya, benar')).toBe(0);
+});
+
+test('bertanya keadaan AC dijawab dari Beranda tanpa mengubahnya dan tanpa catatan Riwayat', async () => {
+  await renderChat({ actions: [{ type: 'setAc', deviceId: 'ac-kamar', on: false }] });
+  expect(deviceById(latest, 'ac-kamar')!.on).toBe(false);
+  const before = latest;
+  await fireEvent.changeText(screen.getByLabelText('Tulis pesan untuk Nadia'), 'AC kamar gimana?');
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim pesan' }));
+  await advance(1300);
+  await advance(1);
+  expect(screen.getByText('AC kamar sedang mati.')).toBeOnTheScreen();
+  expect(deviceById(latest, 'ac-kamar')).toEqual(deviceById(before, 'ac-kamar'));
+  expect(latest.history).toEqual(before.history);
+});
+
+test('meminta AC menyala mengubah Beranda sekali; meminta hal yang sama lagi tidak menambah catatan', async () => {
+  await renderChat({ actions: [{ type: 'setAc', deviceId: 'ac-kamar', on: false }] });
+  const ask = async (text: string) => {
+    await fireEvent.changeText(screen.getByLabelText('Tulis pesan untuk Nadia'), text);
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim pesan' }));
+    await advance(1300);
+    await advance(1);
+  };
+  await ask('Nyalakan AC kamar 23 derajat');
+  expect(deviceById(latest, 'ac-kamar')).toMatchObject({ on: true, ac: { temp: 23 } });
+  const count = latest.history.length;
+  await ask('Nyalakan AC kamar 23 derajat');
+  expect(latest.history.length).toBe(count);
+});
+
+test('masa tahan lima menit habis: Riwayat berhenti menawarkan Batalkan dan menandai terkirim', async () => {
+  jest.mocked(useIsFocused).mockReturnValue(false);
+  await renderChat();
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
+  await advance(1);
+  expect(historyRows(latest)[0]).toMatchObject({ undoable: true, sent: false });
+  await advance(5 * 60_000);
+  expect(latest.outgoing[BUDI]!.status).toBe('sent');
+  expect(historyRows(latest)[0]).toMatchObject({ undoable: false, struck: false, sent: true });
+  expect(screen.getByText(/^Terkirim \d\d\.\d\d$/)).toBeOnTheScreen();
+  jest.mocked(useIsFocused).mockReturnValue(true);
 });

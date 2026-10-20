@@ -12,6 +12,7 @@ import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AfterSignIn } from '@/api/AfterSignIn';
 import { ApiProvider, useApi } from '@/api/ApiProvider';
+import { ChatProvider } from '@/api/ChatProvider';
 import { ContohBridge } from '@/api/ContohBridge';
 import { canOpen } from '@/api/routeAccess';
 import { PushProvider, PushTapHandler } from '@/api/usePush';
@@ -168,9 +169,11 @@ export default function RootLayout() {
         <SampleProvider>
           <ApiProvider>
             <AuthProvider>
-              <PushProvider>
-                <Navigator />
-              </PushProvider>
+              <ChatProvider>
+                <PushProvider>
+                  <Navigator />
+                </PushProvider>
+              </ChatProvider>
               <ContohBridge />
             </AuthProvider>
           </ApiProvider>

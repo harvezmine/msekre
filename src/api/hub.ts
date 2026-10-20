@@ -36,6 +36,11 @@ export class StreamHub {
     if (this.rev === undefined || rev > this.rev) this.rev = rev;
   }
 
+  /** Lupakan `rev` yang dikenal: sesi berganti (keluar, masuk lagi, pengguna lain), nomornya milik pengguna sebelumnya. */
+  resetRev() {
+    this.rev = undefined;
+  }
+
   add(listener: Listener): Unsubscribe {
     this.listeners.add(listener);
     safe(() => listener.onStatus(this.current));

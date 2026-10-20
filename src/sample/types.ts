@@ -52,7 +52,7 @@ export interface Device {
 /**
  * - `draft`: menunggu persetujuan Anda (Ubah, Kirim).
  * - `held`: sudah disetujui, ditahan 5 menit sebelum benar-benar keluar; masih bisa dibatalkan sampai `heldUntil`.
- * - `sent`: sudah keluar (belum dipakai di Fase 0b, tidak ada jam yang berjalan).
+ * - `sent`: sudah keluar; masa tahan habis. Di mode contoh, jam server tiruan yang menentukannya (`markSent`).
  * - `cancelled`: dibatalkan saat ditahan, tidak jadi terkirim.
  */
 export type OutgoingStatus = 'draft' | 'held' | 'sent' | 'cancelled';

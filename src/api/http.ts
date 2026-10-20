@@ -8,7 +8,6 @@ import {
   CONTRACT_VERSION,
   CONTRACT_VERSION_HEADER,
   deviceControlResSchema,
-  draftActionResSchema,
   meSchema,
   MESSAGES_LIMIT,
   MESSAGES_LIMIT_MAX,
@@ -20,8 +19,8 @@ import {
   type AuthVerifyRes,
   type DeviceCard,
   type DeviceControlReq,
-  type Draft,
   type DraftActionReq,
+  type DraftActionRes,
   type Me,
   type Message,
   type MessagesPage,
@@ -30,7 +29,13 @@ import {
   type SendMessageReq,
   type StreamEvent,
 } from './contract';
-import { parseEventLenient, parseMessageLenient, parsePageLenient, parseChangedPageLenient } from './lenient';
+import {
+  parseChangedPageLenient,
+  parseDraftResLenient,
+  parseEventLenient,
+  parseMessageLenient,
+  parsePageLenient,
+} from './lenient';
 import { StreamHub } from './hub';
 import type { Session } from './session';
 import { ApiFailure, type ConnectionStatus, type MediaSource, type Transport, type Unsubscribe } from './transport';
@@ -124,6 +129,8 @@ export class HttpTransport implements Transport {
   async authVerify(req: AuthVerifyReq): Promise<AuthVerifyRes> {
     const res = await this.request('POST', '/auth/verify', authVerifyResSchema, { body: req, auth: false });
     await this.session.set(res.token);
+    // Pengguna bisa berbeda dari sebelumnya: `rev` lama bukan miliknya.
+    this.hub.resetRev();
     if (this.hub.active && !this.ws) this.startStream();
     return res;
   }
@@ -131,6 +138,7 @@ export class HttpTransport implements Transport {
   async logout(): Promise<void> {
     const token = await this.session.get();
     await this.session.clear();
+    this.hub.resetRev();
     this.closeStream();
     // Pemberitahuan ke server menyusul di belakang layar dengan token tadi; gagal pun HP sudah keluar.
     if (token) void this.request('POST', '/auth/logout', okResSchema, { body: {}, token }).catch(() => {});
@@ -162,8 +170,8 @@ export class HttpTransport implements Transport {
     return this.request('POST', '/messages', reader(parseSendRes), { body: req });
   }
 
-  async draftAction(id: string, req: DraftActionReq): Promise<Draft> {
-    return (await this.request('POST', `/drafts/${encodeURIComponent(id)}`, draftActionResSchema, { body: req })).draft;
+  draftAction(id: string, req: DraftActionReq): Promise<DraftActionRes> {
+    return this.request('POST', `/drafts/${encodeURIComponent(id)}`, reader(parseDraftResLenient), { body: req });
   }
 
   async registerPushToken(req: PushTokenReq): Promise<void> {
@@ -259,6 +267,7 @@ export class HttpTransport implements Transport {
   private async unauthorized(failedToken: string | null): Promise<boolean> {
     if (failedToken === null || (await this.session.get()) !== failedToken) return false;
     await this.session.clear();
+    this.hub.resetRev();
     this.closeStream();
     return true;
   }

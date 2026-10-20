@@ -1,4 +1,4 @@
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import type { Part } from '@/api/contract';
 import type { MediaSource } from '@/api/transport';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -6,6 +6,7 @@ import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 import { ChatCard } from './ChatCard';
 import { QrCode } from './QrCode';
+import { MediaFailed, RemoteImage } from './RemoteImage';
 import { useMedia } from './useMedia';
 
 type ImagePart = Extract<Part, { type: 'image' }>;
@@ -19,18 +20,21 @@ export function ImageCard({
   mediaUrl: (mediaId: string) => Promise<MediaSource>;
 }) {
   const { c } = useTheme();
-  const media = useMedia(mediaUrl, image.mediaId);
+  const { media, reload } = useMedia(mediaUrl, image.mediaId);
   const label = image.alt ?? image.caption ?? 'Gambar';
   return (
     <ChatCard style={{ alignItems: 'center' }}>
-      {media !== null && media !== 'error' && media.kind === 'uri' ? (
-        <Image
-          source={{ uri: media.uri, headers: media.headers }}
-          accessibilityLabel={label}
+      {media === 'error' ? (
+        <MediaFailed onRetry={reload} />
+      ) : media !== null && media.kind === 'uri' ? (
+        <RemoteImage
+          uri={media.uri}
+          headers={media.headers}
+          label={label}
           style={{ width: '100%', aspectRatio: 1, borderRadius: 12 }}
-          resizeMode="contain"
+          reload={reload}
         />
-      ) : media !== null && media !== 'error' && media.kind === 'sampleQr' ? (
+      ) : media !== null && media.kind === 'sampleQr' ? (
         <QrCode testID="gambar-contoh" label={label} />
       ) : (
         <View

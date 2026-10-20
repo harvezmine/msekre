@@ -44,7 +44,7 @@ export function UserBubble({ text, startsExchange = false, status, onRetry }: Us
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Coba lagi"
+          accessibilityLabel={`Coba kirim lagi pesan ${text.length > 40 ? `${text.slice(0, 40)}…` : text}`}
           onPress={onRetry}
           hitSlop={{ top: 8, bottom: 8, left: 8 }}
           style={{ minHeight: 32, justifyContent: 'center', paddingHorizontal: 4 }}

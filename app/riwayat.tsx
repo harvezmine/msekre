@@ -83,6 +83,11 @@ function Entry({ row, last, onCancel }: { row: HistoryRow; last: boolean; onCanc
         <Txt v="caption" color={c.muted} style={strike}>
           {row.sub}
         </Txt>
+        {row.sent ? (
+          <Txt v="caption" weight={600} color={c.leafText}>
+            Terkirim
+          </Txt>
+        ) : null}
         {row.undoable ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 }}>
             <Pressable

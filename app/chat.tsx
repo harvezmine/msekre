@@ -1,5 +1,5 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,12 +14,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '@/api/ApiProvider';
-import { ERROR_TEXT } from '@/api/errors';
+import { ERROR_TEXT, FILE_UNAVAILABLE_TEXT } from '@/api/errors';
 import { formatFileMeta } from '@/api/format';
 import { setChatFocused } from '@/api/pushPresence';
 import { useAssistantName } from '@/api/useProfile';
+import type { ChatState } from '@/api/chatState';
 import type { Message, Part } from '@/api/contract';
-import { useChat, type Chat as ChatApi } from '@/api/useChat';
+import { useChat, type ChatActions } from '@/api/useChat';
 import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { AssistantLine, UserBubble, ViaTag } from '@/ui/chat/Bubble';
@@ -89,13 +90,16 @@ export default function Chat() {
   const late = useLateOffline(chat.connection);
   const banner = bannerText(chat.connection, late);
   const intiOff = banner !== null;
+  const status = headerStatus(chat.connection);
 
   const send = () => {
     const value = text.trim();
     if (!value) return;
     chat.send(value);
     setText('');
+    // Mengirim saat sedang menggulir ke pesan lama: kembali ke dasar, supaya gelembung sendiri dan jawabannya terlihat.
     nearBottom.current = true;
+    list.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
   const composerOff =
@@ -128,9 +132,11 @@ export default function Chat() {
         <Inti size={36} state={intiOff ? 'off' : 'idle'} onDark={scheme === 'dark'} paused={!live} />
         <View style={{ flex: 1, marginLeft: 4 }}>
           <Txt v="subtitle">{assistantName}</Txt>
-          <Txt v="caption" color={c.muted}>
-            Siap membantu
-          </Txt>
+          {status !== null && (
+            <Txt v="caption" color={c.muted}>
+              {status}
+            </Txt>
+          )}
         </View>
         <IconButton icon="wave" label="Mode Suara" tinted onPress={() => router.replace('/suara')} />
       </View>
@@ -181,13 +187,23 @@ export default function Chat() {
           data={data}
           keyExtractor={(row) => row.key}
           renderItem={({ item }) => (
-            <ThreadRow row={item} chat={chat} contoh={mode !== 'server'} toast={toast} paused={!live} />
+            <ThreadRow
+              row={item}
+              actions={chat.actions}
+              busyDrafts={chat.busyDrafts}
+              contoh={mode !== 'server'}
+              toast={toast}
+              paused={!live}
+            />
           )}
           ItemSeparatorComponent={Gap}
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
           initialNumToRender={30}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          // Pesan baru di dasar tidak menggeser tampilan saat pengguna membaca yang lama; di dasar, tetap mengikuti.
+          maintainVisibleContentPosition={{ minIndexForVisible: 1, autoscrollToTopThreshold: NEAR_BOTTOM }}
           scrollEventThrottle={64}
           onScroll={onScroll}
           onEndReached={() => void chat.loadOlder()}
@@ -211,9 +227,31 @@ export default function Chat() {
         inputRef={input}
         strongMic={showEmpty}
         disabledText={composerOff}
+        onAttach={mode === 'server' ? () => toast(SOON.attach) : undefined}
       />
     </KeyboardAvoidingView>
   );
+}
+
+/** Teks netral untuk yang belum ada di mode server; mode contoh memakai teks Fase-nya sendiri. */
+const SOON = {
+  attach: 'Lampiran segera hadir.',
+  audio: 'Pemutar suara segera hadir.',
+  notes: 'Notulen lengkap segera hadir.',
+  share: 'Berbagi berkas segera hadir.',
+};
+
+/** Keterangan di bawah nama asisten. Akun diblokir atau aplikasi perlu diperbarui: tanpa keterangan (banner yang bicara). */
+function headerStatus(connection: ChatState['connection']): string | null {
+  switch (connection) {
+    case 'open':
+      return 'Siap membantu';
+    case 'connecting':
+    case 'closed':
+      return 'Menyambung lagi…';
+    default:
+      return null;
+  }
 }
 
 function Gap() {
@@ -255,19 +293,43 @@ function Note() {
   );
 }
 
-function ThreadRow({
-  row,
-  chat,
-  contoh,
-  toast,
-  paused,
-}: {
+interface ThreadRowProps {
   row: Row;
-  chat: ChatApi;
+  actions: ChatActions;
+  busyDrafts: ReadonlySet<string>;
   contoh: boolean;
   toast: (text: string) => void;
   paused: boolean;
-}) {
+}
+
+/** Baris yang isinya sama tidak digambar ulang: `buildRows` membuat objek baris baru tiap perubahan keadaan. */
+function sameRow(a: ThreadRowProps, b: ThreadRowProps): boolean {
+  if (
+    a.actions !== b.actions ||
+    a.busyDrafts !== b.busyDrafts ||
+    a.contoh !== b.contoh ||
+    a.toast !== b.toast ||
+    a.paused !== b.paused
+  )
+    return false;
+  const x = a.row;
+  const y = b.row;
+  if (x.kind === 'thinking' || y.kind === 'thinking') return x.kind === y.kind;
+  if (x.kind === 'pending' || y.kind === 'pending') {
+    return (
+      x.kind === 'pending' && y.kind === 'pending' && x.pending === y.pending && x.startsExchange === y.startsExchange
+    );
+  }
+  return (
+    x.message === y.message &&
+    x.part === y.part &&
+    x.chosenId === y.chosenId &&
+    x.tag === y.tag &&
+    x.startsExchange === y.startsExchange
+  );
+}
+
+const ThreadRow = memo(function ThreadRow({ row, actions, busyDrafts, contoh, toast, paused }: ThreadRowProps) {
   if (row.kind === 'thinking') return <Thinking paused={paused} />;
   if (row.kind === 'pending') {
     const { pending } = row;
@@ -276,7 +338,7 @@ function ThreadRow({
         text={pending.text}
         startsExchange={row.startsExchange}
         status={pending.status}
-        onRetry={() => chat.retry(pending.clientId)}
+        onRetry={() => actions.retry(pending.clientId)}
       />
     );
   }
@@ -287,7 +349,8 @@ function ThreadRow({
       message={message}
       startsExchange={row.startsExchange}
       chosenId={row.chosenId}
-      chat={chat}
+      actions={actions}
+      busyDrafts={busyDrafts}
       contoh={contoh}
       toast={toast}
     />
@@ -299,14 +362,15 @@ function ThreadRow({
       <ViaTag align={message.from === 'user' ? 'right' : 'left'} />
     </View>
   );
-}
+}, sameRow);
 
 function PartView({
   part,
   message,
   startsExchange,
   chosenId,
-  chat,
+  actions,
+  busyDrafts,
   contoh,
   toast,
 }: {
@@ -314,7 +378,8 @@ function PartView({
   message: Message;
   startsExchange: boolean;
   chosenId?: string;
-  chat: ChatApi;
+  actions: ChatActions;
+  busyDrafts: ReadonlySet<string>;
   contoh: boolean;
   toast: (text: string) => void;
 }) {
@@ -333,18 +398,19 @@ function PartView({
           prompt={part.prompt}
           choices={part.choices}
           chosenId={chosenId}
-          onChoose={(choiceId) => chat.choose(message.id, choiceId)}
+          onChoose={(choiceId) => actions.choose(message.id, choiceId)}
         />
       );
     case 'image':
-      return <ImageCard image={part} mediaUrl={chat.mediaUrl} />;
+      return <ImageCard image={part} mediaUrl={actions.mediaUrl} />;
     case 'audio':
-      return <AudioRow audio={part} onPlay={() => toast('Pemutar suara dibangun di Fase 6.')} />;
+      return <AudioRow audio={part} onPlay={() => toast(contoh ? 'Pemutar suara dibangun di Fase 6.' : SOON.audio)} />;
     case 'document':
       return (
         <FileCard
           file={{ name: part.name, meta: formatFileMeta(part.sizeBytes, part.mime) }}
-          onOpen={() => void openFile(chat, part.mediaId, toast)}
+          onOpen={() => void openFile(actions, part.mediaId, toast, contoh)}
+          onShare={contoh ? undefined : () => toast(SOON.share)}
         />
       );
     case 'card': {
@@ -355,10 +421,11 @@ function PartView({
           return (
             <ConfirmSendCard
               draft={card.draft}
-              onSend={() => void chat.draftAction(id, 'send')}
-              onCancel={() => void chat.draftAction(id, 'cancel')}
-              onEdit={(next) => void chat.draftAction(id, 'edit', next)}
-              onDiscard={() => void chat.draftAction(id, 'discard')}
+              busy={busyDrafts.has(id)}
+              onSend={() => void actions.draftAction(id, 'send')}
+              onCancel={() => void actions.draftAction(id, 'cancel')}
+              onEdit={(next) => void actions.draftAction(id, 'edit', next)}
+              onDiscard={() => void actions.draftAction(id, 'discard')}
             />
           );
         }
@@ -376,25 +443,33 @@ function PartView({
               ]
                 .filter(Boolean)
                 .join(' · ')}
-              onToggle={(next) => void chat.controlDevice(card.deviceId, { on: next })}
-              onTemp={(temp) => void chat.controlDevice(card.deviceId, { temp })}
+              onToggle={(next) => void actions.controlDevice(card.deviceId, { on: next })}
+              onTemp={(temp) => void actions.controlDevice(card.deviceId, { temp })}
             />
           );
         case 'notes':
-          return <NotesCard notes={card} />;
+          return <NotesCard notes={card} onOpen={contoh ? undefined : () => toast(SOON.notes)} />;
         case 'payment':
           return <PaymentCard payment={card} />;
         case 'qris':
-          return <QrisCard qris={card} mediaUrl={chat.mediaUrl} />;
+          return <QrisCard qris={card} mediaUrl={actions.mediaUrl} />;
       }
     }
   }
 }
 
-/** Buka berkas lewat alamat dari server; berkas contoh hanya memberi tahu bahwa ini contoh. */
-async function openFile(chat: ChatApi, mediaId: string, toast: (text: string) => void) {
+/**
+ * Buka berkas. Mode contoh: berkas contoh hanya memberi tahu bahwa ini contoh. Mode server: alamat `/media/:id` butuh
+ * token di header, jadi tidak boleh dibuka lewat `Linking` (tanpa token ditolak, dan token tidak boleh ikut di alamat);
+ * sampai ada alamat bertanda tangan (docs/api-v1.md §2.10), pengguna diarahkan ke WhatsApp.
+ */
+async function openFile(actions: ChatActions, mediaId: string, toast: (text: string) => void, contoh: boolean) {
+  if (!contoh) {
+    toast(FILE_UNAVAILABLE_TEXT);
+    return;
+  }
   try {
-    const source = await chat.mediaUrl(mediaId);
+    const source = await actions.mediaUrl(mediaId);
     if (source.kind !== 'uri') toast('Membuka berkas contoh.');
     else await Linking.openURL(source.uri);
   } catch {

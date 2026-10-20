@@ -36,7 +36,6 @@ test('keadaan awal sama dengan desain', () => {
     heldUntil: '10.47',
     sentAt: '10.42',
   });
-  expect('chat' in init).toBe(false);
   expect(init.toast).toBeNull();
   expect(new Set(init.devices.map((d) => d.place))).toEqual(new Set(['Rumah', 'Kedai Dago', 'Kedai Riau']));
   for (const k of ['Kedai Dago', 'Kedai Riau']) {

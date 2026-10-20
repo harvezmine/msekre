@@ -18,6 +18,7 @@ import {
   type DeviceControlReq,
   type Draft,
   type DraftActionReq,
+  type DraftActionRes,
   type Me,
   type Message,
   type MessagesPage,
@@ -39,7 +40,7 @@ import {
 } from '../transport';
 import { FakeClock } from './clock';
 import { SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
-import { FakeScenario, sampleMe } from './scenario';
+import { FakeScenario, sampleMe, type AcState } from './scenario';
 
 /** Jeda minta kode lagi di server tiruan. */
 export const FAKE_RESEND_SEC = 60;
@@ -128,6 +129,7 @@ export class FakeTransport implements Transport {
     start: () => this.connect(),
     stop: () => this.hub.setStatus('closed'),
   });
+  private readonly acListeners = new Set<(ac: AcState) => void>();
   private readonly failures: SimulatedFailure[] = [];
   private offline = false;
   private restoreTimer: Timer | null = null;
@@ -187,6 +189,7 @@ export class FakeTransport implements Transport {
       const token = `contoh-${phone}-${++this.counter}`;
       this.revoked = false;
       await this.session.set(token);
+      this.hub.resetRev();
       if (this.hub.active && this.hub.status !== 'open') this.connect();
       return { token, user: copy(this.meValue) };
     });
@@ -194,6 +197,7 @@ export class FakeTransport implements Transport {
 
   async logout(): Promise<void> {
     await this.session.clear();
+    this.hub.resetRev();
     this.hub.setStatus('closed');
   }
 
@@ -278,13 +282,14 @@ export class FakeTransport implements Transport {
         const reply = this.scenario.reply({ text, choiceId });
         for (const draft of reply.drafts) this.drafts.set(draft.id, draft);
         for (const parts of reply.messages) this.receive({ from: 'assistant', via: 'app', parts });
+        if (reply.acChange) for (const l of [...this.acListeners]) l(reply.acChange);
         this.emit({ type: 'thinking', runId, on: false });
       });
       return this.present(message);
     });
   }
 
-  draftAction(id: string, req: DraftActionReq): Promise<Draft> {
+  draftAction(id: string, req: DraftActionReq): Promise<DraftActionRes> {
     return this.call(true, () => {
       const action = parse(draftActionReqSchema, req);
       const draft = this.drafts.get(id);
@@ -311,8 +316,8 @@ export class FakeTransport implements Transport {
           next = { ...draft, text: action.text };
           break;
       }
-      this.changeDraft(next);
-      return copy(next);
+      const rev = this.changeDraft(next);
+      return { draft: copy(next), rev };
     });
   }
 
@@ -411,6 +416,22 @@ export class FakeTransport implements Transport {
     return target === undefined ? null : this.setQris(target, 'lunas');
   }
 
+  /**
+   * Mode contoh: pembaca keadaan AC yang sebenarnya (penyimpanan contoh), supaya jawaban "AC kamar gimana?" sesuai
+   * Beranda. Tanpa pembaca, skenario memakai keadaannya sendiri.
+   */
+  setAcReader(read: (() => AcState) | null) {
+    this.scenario.setAcReader(read);
+  }
+
+  /** Dipanggil saat permintaan pengguna di chat benar-benar mengubah AC (bukan saat hanya ditanya). */
+  onAcChange(listener: (ac: AcState) => void): Unsubscribe {
+    this.acListeners.add(listener);
+    return () => {
+      this.acListeners.delete(listener);
+    };
+  }
+
   /** Mulai sekarang, draf yang selesai ditahan menjadi `failed` (pengiriman gagal), bukan `sent`. */
   failHeldSends(on = true) {
     this.failHeld = on;
@@ -446,6 +467,7 @@ export class FakeTransport implements Transport {
   private async unauthorized() {
     this.revoked = false;
     await this.session.clear();
+    this.hub.resetRev();
     this.hub.setStatus('closed');
   }
 
@@ -513,11 +535,12 @@ export class FakeTransport implements Transport {
     });
   }
 
-  /** Catat perubahan draf dan siarkan ke semua koneksi (juga untuk aksi dari aplikasi ini). */
-  private changeDraft(next: Draft) {
+  /** Catat perubahan draf dan siarkan ke semua koneksi (juga untuk aksi dari aplikasi ini). Mengembalikan `rev` barunya. */
+  private changeDraft(next: Draft): number {
     this.drafts.set(next.id, next);
-    this.touchDraft(next.id);
-    this.later(0, () => this.emit({ type: 'draft', draft: next }));
+    const rev = this.touchDraft(next.id);
+    this.later(0, () => this.emit({ type: 'draft', draft: next, rev }));
+    return rev;
   }
 
   /** Draf `held` menjadi `sent` (atau `failed`) setelah {@link HELD_MINUTES} menit. */
@@ -531,19 +554,22 @@ export class FakeTransport implements Transport {
         if (draft?.status !== 'held') return;
         const done: Draft = { ...draft, status: this.failHeld ? 'failed' : 'sent' };
         this.drafts.set(id, done);
-        this.touchDraft(id);
-        this.emit({ type: 'draft', draft: done });
+        const rev = this.touchDraft(id);
+        this.emit({ type: 'draft', draft: done, rev });
       }),
     );
   }
 
-  /** Draf berubah: pesan yang memuat kartunya naik `rev`, supaya resync membawanya. */
-  private touchDraft(id: string) {
+  /** Draf berubah: pesan yang memuat kartunya naik `rev`, supaya resync membawanya. Mengembalikan `rev` barunya. */
+  private touchDraft(id: string): number {
+    let rev = 0;
     this.thread.forEach((m, i) => {
       if (m.parts.some((p) => p.type === 'card' && p.card.kind === 'draft' && p.card.draft.id === id)) {
-        this.thread[i] = { ...m, rev: ++this.msgRev };
+        rev = ++this.msgRev;
+        this.thread[i] = { ...m, rev };
       }
     });
+    return rev || ++this.msgRev;
   }
 
   private endHold(id: string) {

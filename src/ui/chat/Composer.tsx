@@ -18,10 +18,12 @@ interface Props {
   strongMic?: boolean;
   /** Kalau diisi, kolom ketik dimatikan dan teks ini menjadi petunjuknya (akun tidak aktif, aplikasi perlu diperbarui). */
   disabledText?: string;
+  /** Ketukan Lampiran. Bawaannya toast contoh Fase 1. */
+  onAttach?: () => void;
 }
 
 /** Bilah ketik di bawah: lampiran, kolom teks, lalu mic (kosong) atau kirim (ada teks). */
-export function Composer({ value, onChangeText, onSend, inputRef, strongMic = false, disabledText }: Props) {
+export function Composer({ value, onChangeText, onSend, inputRef, strongMic = false, disabledText, onAttach }: Props) {
   const assistantName = useAssistantName();
   const { c } = useTheme();
   const dispatch = useSampleDispatch();
@@ -55,7 +57,7 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
         icon="clip"
         label="Lampiran"
         color={c.muted}
-        onPress={() => dispatch({ type: 'showToast', text: 'Lampiran dibangun di Fase 1.' })}
+        onPress={onAttach ?? (() => dispatch({ type: 'showToast', text: 'Lampiran dibangun di Fase 1.' }))}
       />
       <TextInput
         ref={inputRef}

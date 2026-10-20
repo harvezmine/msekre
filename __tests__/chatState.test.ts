@@ -8,6 +8,7 @@ import {
   type PendingMessage,
 } from '@/api/chatState';
 import type { Draft, Message, Part } from '@/api/contract';
+import { buildRows } from '@/ui/chat/rows';
 
 const AT = '2026-10-20T03:42:00.000Z';
 
@@ -190,7 +191,7 @@ describe('draf', () => {
     const other = msg(1, 'lain');
     let s = run([{ type: 'merge', items: [other, draftMsg(2, draft('draft'))] }]);
     const held = draft('held', { heldUntil: AT });
-    s = run([{ type: 'draft', draft: held }], s);
+    s = run([{ type: 'draft', draft: held, rev: 2 }], s);
     expect(draftOf(s, 1)).toEqual(held);
     expect(s.messages[1]!.rev).toBe(2);
     expect(s.messages[0]).toBe(other);
@@ -198,12 +199,12 @@ describe('draf', () => {
 
   test('draf yang tidak dikenal atau tidak berubah: state yang sama', () => {
     const s = run([{ type: 'merge', items: [draftMsg(1, draft('draft'))] }]);
-    expect(run([{ type: 'draft', draft: { ...draft('held', { heldUntil: AT }), id: 'lain' } }], s)).toBe(s);
+    expect(run([{ type: 'draft', draft: { ...draft('held', { heldUntil: AT }), id: 'lain' }, rev: 3 }], s)).toBe(s);
   });
 
   test('upsert dengan rev lebih baru membawa draf terbaru; rev lama tidak menimpa draf yang sudah diperbarui', () => {
     let s = run([{ type: 'merge', items: [draftMsg(1, draft('draft'))] }]);
-    s = run([{ type: 'draft', draft: draft('cancelled') }], s);
+    s = run([{ type: 'draft', draft: draft('cancelled'), rev: 1 }], s);
     expect(run([{ type: 'message', message: draftMsg(1, draft('draft')) }], s)).toBe(s);
     s = run([{ type: 'message', message: { ...draftMsg(1, draft('sent')), rev: 7 } }], s);
     expect(draftOf(s, 0)!.status).toBe('sent');
@@ -249,5 +250,48 @@ describe('berpikir dan koneksi', () => {
     const s = run([{ type: 'connection', status: 'open' }]);
     expect(s.connection).toBe('open');
     expect(run([{ type: 'connection', status: 'open' }], s)).toBe(s);
+  });
+});
+
+describe('draf dan rev', () => {
+  test('pembaruan yang lebih lama dari rev pesan diabaikan; yang sama atau lebih baru dipasang dan memajukan rev', () => {
+    let s = run([{ type: 'merge', items: [{ ...draftMsg(1, draft('held', { heldUntil: AT })), rev: 10 }] }]);
+    const stale = run([{ type: 'draft', draft: draft('draft'), rev: 9 }], s);
+    expect(stale).toBe(s);
+    s = run([{ type: 'draft', draft: draft('sent'), rev: 12 }], s);
+    expect(draftOf(s, 0)!.status).toBe('sent');
+    expect(s.messages[0]!.rev).toBe(12);
+    // event yang sama sekali lagi (jawaban aksi lalu echo stream): tidak ada yang berubah
+    expect(run([{ type: 'draft', draft: draft('sent'), rev: 12 }], s)).toBe(s);
+    // sesudah itu, upsert pesan yang lebih lama tidak menimpa
+    expect(run([{ type: 'message', message: { ...draftMsg(1, draft('held', { heldUntil: AT })), rev: 11 } }], s)).toBe(
+      s,
+    );
+  });
+
+  test('rev 0 (tidak diketahui) tetap dipasang tanpa mengubah rev pesan', () => {
+    let s = run([{ type: 'merge', items: [{ ...draftMsg(1, draft('draft')), rev: 10 }] }]);
+    s = run([{ type: 'draft', draft: draft('cancelled'), rev: 0 }], s);
+    expect(draftOf(s, 0)!.status).toBe('cancelled');
+    expect(s.messages[0]!.rev).toBe(10);
+  });
+
+  test('kunci aksi per draf', () => {
+    let s = run([{ type: 'draftBusy', id: 'd1', on: true }]);
+    expect(s.busyDrafts.has('d1')).toBe(true);
+    expect(run([{ type: 'draftBusy', id: 'd1', on: true }], s)).toBe(s);
+    s = run([{ type: 'draftBusy', id: 'd1', on: false }], s);
+    expect(s.busyDrafts.size).toBe(0);
+  });
+});
+
+describe('kosong=1', () => {
+  test('halaman lama yang dimuat sesudahnya juga tidak tampil, hanya pesan yang lebih baru dari halaman pertama', () => {
+    let s = run([{ type: 'loaded', items: [msg(5, 'e'), msg(4, 'd')], before: 4 }]);
+    s = run([{ type: 'olderLoaded', items: [msg(3, 'c'), msg(2, 'b')], before: 2 }], s);
+    expect(buildRows(s, { onlyNew: true })).toEqual([]);
+    s = run([{ type: 'message', message: msg(6, 'baru') }], s);
+    expect(buildRows(s, { onlyNew: true }).map((r) => r.key)).toEqual(['m6:0']);
+    expect(buildRows(s)).toHaveLength(5);
   });
 });

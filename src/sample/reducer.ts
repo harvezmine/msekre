@@ -68,6 +68,8 @@ export type SampleAction =
   | { type: 'editDraft'; id: string; text: string }
   | { type: 'sendDraft'; id: string }
   | { type: 'cancelSend'; id: string }
+  /** Masa tahan lima menit habis dan kiriman sudah keluar (server mengabarkannya). */
+  | { type: 'markSent'; id: string }
   /** Draf yang belum disetujui dibuang (tombol "Buang draf" di chat). */
   | { type: 'discardDraft'; id: string }
   | { type: 'addAgenda'; item: Omit<AgendaItem, 'id'> }
@@ -228,6 +230,11 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       const o = state.outgoing[action.id];
       if (o?.status !== 'held') return state;
       return withToast(setOutgoing(state, o.id, { status: 'cancelled' }), `Kiriman ke ${o.to} dibatalkan.`);
+    }
+
+    case 'markSent': {
+      const o = state.outgoing[action.id];
+      return o?.status === 'held' ? setOutgoing(state, o.id, { status: 'sent' }) : state;
     }
 
     case 'discardDraft': {

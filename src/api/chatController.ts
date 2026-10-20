@@ -1,9 +1,12 @@
 import { chatReducer, initialChatState, type ChatAction, type ChatState, type PendingMessage } from './chatState';
 import type { DeviceCard, DeviceControlReq, DraftActionReq, SendMessageReq, StreamEvent } from './contract';
-import { friendlyError } from './errors';
+import { DRAFT_CHANGED_TEXT, DRAFT_SENT_TEXT, friendlyError } from './errors';
 import { isApiFailure, type MediaSource, type Transport } from './transport';
 
 export type DraftActionName = DraftActionReq['action'];
+
+/** Tanda "berpikir" yang tidak pernah dimatikan (event `off` hilang) padam sendiri setelah selama ini. */
+export const THINKING_MAX_MS = 3 * 60_000;
 
 /**
  * Pemilik keadaan utas untuk satu transport: menggabungkan hasil request dan event stream ke {@link chatReducer},
@@ -20,6 +23,8 @@ export class ChatController {
   private initial: Promise<void> | null = null;
   private catchUpChain: Promise<void> = Promise.resolve();
   private flushing = false;
+  private reconnectedWhileLoading = false;
+  private readonly thinkTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private counter = 0;
   private readonly salt = Math.random().toString(36).slice(2, 8);
 
@@ -67,6 +72,8 @@ export class ChatController {
   stop() {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    for (const timer of this.thinkTimers.values()) clearTimeout(timer);
+    this.thinkTimers.clear();
   }
 
   private onEvent(event: StreamEvent) {
@@ -75,14 +82,30 @@ export class ChatController {
         this.dispatch({ type: 'message', message: event.message });
         break;
       case 'draft':
-        this.dispatch({ type: 'draft', draft: event.draft });
+        this.dispatch({ type: 'draft', draft: event.draft, rev: event.rev });
         break;
       case 'thinking':
         this.dispatch({ type: 'thinking', runId: event.runId, on: event.on });
+        this.watchThinking(event.runId, event.on);
         break;
       case 'ping':
         break;
     }
+  }
+
+  /** Pengaman: `runId` yang menyala terlalu lama (event `off` hilang) dimatikan sendiri. */
+  private watchThinking(runId: string, on: boolean) {
+    const old = this.thinkTimers.get(runId);
+    if (old) clearTimeout(old);
+    this.thinkTimers.delete(runId);
+    if (!on) return;
+    this.thinkTimers.set(
+      runId,
+      setTimeout(() => {
+        this.thinkTimers.delete(runId);
+        this.dispatch({ type: 'thinking', runId, on: false });
+      }, THINKING_MAX_MS),
+    );
   }
 
   // ---- Riwayat ----
@@ -95,10 +118,13 @@ export class ChatController {
       try {
         const page = await this.transport.messages();
         this.dispatch({ type: 'loaded', items: page.items, before: page.before });
+        // Stream yang terbuka selagi halaman ini diambil bisa melewatkan pesan di antaranya: ambil yang berubah.
+        if (this.reconnectedWhileLoading) this.queueCatchUp(this.maxRev());
       } catch {
         this.dispatch({ type: 'loadFailed' });
       } finally {
         this.initial = null;
+        this.reconnectedWhileLoading = false;
       }
     })();
     return this.initial;
@@ -120,11 +146,25 @@ export class ChatController {
   /** Koneksi baru terbuka: ambil pesan yang terlewat. */
   private onResync(lastRev: number | undefined) {
     this.dispatch({ type: 'resync' });
+    for (const timer of this.thinkTimers.values()) clearTimeout(timer);
+    this.thinkTimers.clear();
     if (!this.state.loaded) {
+      this.reconnectedWhileLoading = true;
       void this.loadInitial();
       return;
     }
-    this.catchUpChain = this.catchUpChain.then(() => (lastRev === undefined ? this.latest() : this.catchUp(lastRev)));
+    this.queueCatchUp(lastRev);
+  }
+
+  /** `rev` terbesar di utas yang dimuat; 0 kalau kosong. */
+  private maxRev(): number {
+    return this.state.messages.reduce((max, m) => Math.max(max, m.rev), 0);
+  }
+
+  /** Antrekan pengambilan pesan yang berubah sejak `from` (tanpa `from`: halaman terbaru). Janjinya selesai bersama. */
+  private queueCatchUp(from: number | undefined): Promise<void> {
+    this.catchUpChain = this.catchUpChain.then(() => (from === undefined ? this.latest() : this.catchUp(from)));
+    return this.catchUpChain;
   }
 
   /** `messagesChanged` berulang selama `more`, dari `rev` pesan terakhir. */
@@ -135,7 +175,8 @@ export class ChatController {
         const page = await this.transport.messagesChanged(rev);
         this.dispatch({ type: 'merge', items: page.items });
         const last = page.items[page.items.length - 1];
-        if (!page.more || !last) return;
+        // Halaman yang tidak maju (server salah, atau `rev` yang sama) tidak boleh membuat putaran tanpa akhir.
+        if (!page.more || !last || last.rev <= rev) return;
         rev = last.rev;
       }
     } catch {
@@ -161,6 +202,11 @@ export class ChatController {
     return connection === 'connecting' || connection === 'closed';
   }
 
+  /** Diantre juga selagi antrean sedang dikirim, supaya tidak menyalip pesan yang diketik lebih dulu. */
+  private get mustQueue(): boolean {
+    return this.offline || this.flushing;
+  }
+
   private newClientId(): string {
     this.counter += 1;
     return `app-${this.salt}-${Date.now().toString(36)}-${this.counter}`;
@@ -168,7 +214,7 @@ export class ChatController {
 
   private add(pending: Omit<PendingMessage, 'status' | 'queued' | 'clientId'>) {
     const clientId = this.newClientId();
-    const queued = this.offline;
+    const queued = this.mustQueue;
     this.dispatch({ type: 'pendingAdd', pending: { ...pending, clientId, status: 'sending', queued } });
     if (!queued) void this.deliver(clientId);
   }
@@ -193,7 +239,7 @@ export class ChatController {
   retry = (clientId: string): void => {
     const pending = this.state.pending.find((p) => p.clientId === clientId);
     if (pending?.status !== 'failed') return;
-    const queued = this.offline;
+    const queued = this.mustQueue;
     this.dispatch({ type: 'sendStarted', clientId, queued });
     if (!queued) void this.deliver(clientId);
   };
@@ -234,14 +280,27 @@ export class ChatController {
 
   // ---- Kartu ----
 
-  /** Aksi pada kartu draf. Hasilnya menimpa kartu (event `draft` yang sama menyusul dan diabaikan). */
+  /**
+   * Aksi pada kartu draf. Hasilnya menimpa kartu (event `draft` yang sama menyusul dan diabaikan). Kartu terkunci
+   * selama aksinya berjalan (ketukan kedua diabaikan). Draf yang sudah berubah di tempat lain (409 `status_draf`) memberi
+   * teks ramah dan mengambil keadaan terbarunya.
+   */
   draftAction = async (id: string, action: DraftActionName, text?: string): Promise<void> => {
+    if (this.state.busyDrafts.has(id)) return;
     const req: DraftActionReq = action === 'edit' ? { action, text: text ?? '' } : { action };
+    this.dispatch({ type: 'draftBusy', id, on: true });
     try {
-      const draft = await this.transport.draftAction(id, req);
-      this.dispatch({ type: 'draft', draft });
+      const res = await this.transport.draftAction(id, req);
+      this.dispatch({ type: 'draft', draft: res.draft, rev: res.rev });
     } catch (e) {
-      this.onError?.(friendlyError(e));
+      if (isApiFailure(e) && e.error === 'status_draf') {
+        this.onError?.(action === 'cancel' ? DRAFT_SENT_TEXT : DRAFT_CHANGED_TEXT);
+        await this.queueCatchUp(this.maxRev());
+      } else {
+        this.onError?.(friendlyError(e));
+      }
+    } finally {
+      this.dispatch({ type: 'draftBusy', id, on: false });
     }
   };
 

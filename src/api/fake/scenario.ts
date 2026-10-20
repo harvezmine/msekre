@@ -29,6 +29,14 @@ export function sampleMe(clock: FakeClock): Me {
 export interface Reply {
   messages: Part[][];
   drafts: Draft[];
+  /** Permintaan pengguna mengubah AC menjadi ini (tidak ada untuk jawaban yang hanya melaporkan keadaan). */
+  acChange?: AcState;
+}
+
+/** Keadaan AC kamar yang dibaca skenario. */
+export interface AcState {
+  on: boolean;
+  temp: number;
 }
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -84,13 +92,19 @@ function greeting(clock: FakeClock): string {
  * Selain itu {@link SAMPLE_REPLY}.
  */
 export class FakeScenario {
-  private readonly ac: { on: boolean; temp: number };
+  private readonly ac: AcState;
+  private readAc: (() => AcState) | null = null;
   private pendingPaymentRp: number | null = null;
   private draftSeq = 0;
 
   constructor(private readonly clock: FakeClock) {
     const main = initialDevices.find((d) => d.id === MAIN_AC_ID);
     this.ac = { on: main?.on ?? true, temp: main?.ac?.temp ?? 24 };
+  }
+
+  /** Sumber keadaan AC yang sebenarnya (mode contoh: penyimpanan contoh). Tanpa itu, keadaan dalam skenario. */
+  setAcReader(read: (() => AcState) | null) {
+    this.readAc = read;
   }
 
   reply({ text, choiceId }: { text: string; choiceId?: string }): Reply {
@@ -143,19 +157,26 @@ export class FakeScenario {
     }
 
     if (/\bac\b/i.test(text)) {
+      const before = this.readAc?.() ?? this.ac;
       const temp = parseTemp(text);
+      let next: AcState | null = null;
       let said: string;
       if (/\b(matikan|mati|off)\b/i.test(text)) {
-        this.ac.on = false;
+        next = { on: false, temp: before.temp };
         said = 'Sudah. AC kamar saya matikan.';
       } else if (/\b(nyalakan|nyala|hidupkan|hidup|on|atur|set)\b/i.test(text) || temp !== null) {
-        this.ac.on = true;
-        if (temp !== null) this.ac.temp = temp;
-        said = `Sudah. AC kamar nyala di ${this.ac.temp}°.`;
+        next = { on: true, temp: temp ?? before.temp };
+        said = `Sudah. AC kamar nyala di ${next.temp}°.`;
       } else {
-        said = this.ac.on ? `AC kamar sedang nyala di ${this.ac.temp}°.` : 'AC kamar sedang mati.';
+        said = before.on ? `AC kamar sedang nyala di ${before.temp}°.` : 'AC kamar sedang mati.';
       }
-      return one({ type: 'text', text: said }, { type: 'card', card: acCard(this.ac.on, this.ac.temp) });
+      const shown = next ?? before;
+      const changed = next !== null && (next.on !== before.on || next.temp !== before.temp);
+      if (next) Object.assign(this.ac, next);
+      return {
+        ...one({ type: 'text', text: said }, { type: 'card', card: acCard(shown.on, shown.temp) }),
+        ...(changed && next ? { acChange: next } : {}),
+      };
     }
 
     return one({ type: 'text', text: SAMPLE_REPLY });

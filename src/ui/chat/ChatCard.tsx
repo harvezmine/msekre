@@ -15,19 +15,25 @@ export function CardButton({
   label,
   onPress,
   primary = false,
+  disabled = false,
 }: {
   label: string;
   onPress: () => void;
   primary?: boolean;
+  /** Mati selagi aksinya berjalan. */
+  disabled?: boolean;
 }) {
   const { c } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       android_ripple={{ color: c.ripple }}
       style={{
+        opacity: disabled ? 0.5 : 1,
         flex: 1,
         height: 48,
         borderRadius: 24,

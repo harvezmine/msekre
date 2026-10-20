@@ -32,12 +32,18 @@ export interface ChatState {
   loadFailed: boolean;
   /** Id pesan dari halaman pertama, untuk `?kosong=1` yang hanya menampilkan pesan sesudahnya. */
   initialIds: ReadonlySet<string> | null;
+  /** `seq` terkecil di halaman pertama: pesan yang lebih lama (halaman berikutnya) juga tidak tampil di `?kosong=1`. */
+  initialMinSeq: number | null;
+  /** Id draf yang aksinya sedang berjalan: kartunya mengunci tombol sampai jawabannya datang. */
+  busyDrafts: ReadonlySet<string>;
   /** `runId` asisten yang sedang berpikir. */
   runs: ActiveRuns;
   connection: ConnectionStatus;
   /** Pilihan yang sudah diketuk: id pesan → id pilihan. Tombolnya terkunci walau server belum menyiarkan `chosenId`. */
   locks: Readonly<Record<string, string>>;
 }
+
+const NO_DRAFTS: ReadonlySet<string> = new Set<string>();
 
 export const initialChatState: ChatState = {
   messages: [],
@@ -48,6 +54,8 @@ export const initialChatState: ChatState = {
   loaded: false,
   loadFailed: false,
   initialIds: null,
+  initialMinSeq: null,
+  busyDrafts: NO_DRAFTS,
   runs: NO_RUNS,
   connection: 'connecting',
   locks: {},
@@ -64,8 +72,13 @@ export type ChatAction =
   /** Pesan dari stream, dari jawaban `send`, atau dari resync: pesan baru, atau upsert berdasarkan `id`. */
   | { type: 'message'; message: Message }
   | { type: 'merge'; items: readonly Message[] }
-  /** Perubahan draf: menimpa kartu dengan `draft.id` yang sama. */
-  | { type: 'draft'; draft: Draft }
+  /**
+   * Perubahan draf: menimpa kartu dengan `draft.id` yang sama, kecuali `rev` lebih lama dari `rev` pesan yang memuat
+   * kartunya. `rev` 0 = tidak diketahui: dipasang, tanpa mengubah `rev` pesan.
+   */
+  | { type: 'draft'; draft: Draft; rev: number }
+  /** Aksi pada kartu draf mulai (`on`) atau selesai berjalan. */
+  | { type: 'draftBusy'; id: string; on: boolean }
   /** Jawaban kendali perangkat: menggantikan kartu perangkat terbaru dengan `deviceId` yang sama. */
   | { type: 'device'; card: DeviceCard }
   | { type: 'thinking'; runId: string; on: boolean }
@@ -115,14 +128,28 @@ function withMessages(state: ChatState, items: readonly Message[]): ChatState {
   return messages === state.messages && pending === state.pending ? state : { ...state, messages, pending };
 }
 
-function mapDraft(message: Message, draft: Draft): Message {
+function sameDraft(a: Draft, b: Draft): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof Draft>;
+  for (const key of keys) if (a[key] !== b[key]) return false;
+  return true;
+}
+
+/** Pasang `draft` pada kartunya di `message`. Pembaruan yang lebih lama dari `rev` pesan atau tidak mengubah apa pun dilewati. */
+function mapDraft(message: Message, draft: Draft, rev: number): Message {
+  const carries = message.parts.some(
+    (p) => p.type === 'card' && p.card.kind === 'draft' && p.card.draft.id === draft.id,
+  );
+  if (!carries || (rev > 0 && rev < message.rev)) return message;
   let changed = false;
   const parts = message.parts.map((part) => {
     if (part.type !== 'card' || part.card.kind !== 'draft' || part.card.draft.id !== draft.id) return part;
+    if (sameDraft(part.card.draft, draft)) return part;
     changed = true;
     return { ...part, card: { ...part.card, draft } };
   });
-  return changed ? { ...message, parts } : message;
+  const nextRev = Math.max(message.rev, rev);
+  if (!changed && nextRev === message.rev) return message;
+  return { ...message, parts: changed ? parts : message.parts, rev: nextRev };
 }
 
 const isDeviceCard = (part: Message['parts'][number], deviceId: string) =>
@@ -147,6 +174,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         olderCursor: state.loaded ? state.olderCursor : action.before,
         hasOlder: state.loaded ? state.hasOlder : action.before !== null,
         initialIds: state.initialIds ?? new Set(action.items.map((m) => m.id)),
+        initialMinSeq:
+          state.initialIds === null && action.items.length > 0
+            ? Math.min(...action.items.map((m) => m.seq))
+            : state.initialMinSeq,
       };
     }
     case 'loadFailed':
@@ -167,8 +198,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'merge':
       return action.items.length === 0 ? state : withMessages(state, action.items);
     case 'draft': {
-      const messages = state.messages.map((m) => mapDraft(m, action.draft));
+      const messages = state.messages.map((m) => mapDraft(m, action.draft, action.rev));
       return messages.some((m, i) => m !== state.messages[i]) ? { ...state, messages } : state;
+    }
+    case 'draftBusy': {
+      if (state.busyDrafts.has(action.id) === action.on) return state;
+      const busyDrafts = new Set(state.busyDrafts);
+      if (action.on) busyDrafts.add(action.id);
+      else busyDrafts.delete(action.id);
+      return { ...state, busyDrafts };
     }
     case 'device': {
       let at = state.messages.length - 1;

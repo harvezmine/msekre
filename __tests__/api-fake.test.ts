@@ -316,7 +316,8 @@ describe('draf', () => {
   test('send → held → sent setelah 5 menit, dikabarkan lewat event draft', async () => {
     const t = setup();
     t.listen();
-    const held = await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' });
+    const sendRes = await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' });
+    const held = sendRes.draft;
     expect(held).toMatchObject({
       id: BUDI_DRAFT_ID,
       status: 'held',
@@ -333,11 +334,12 @@ describe('draf', () => {
 
     await after(HELD_MINUTES * 60_000 - 1);
     // Aksi dari aplikasi ini juga disiarkan (ke koneksi lain), lalu perubahan karena waktu.
-    expect(t.events).toEqual([{ type: 'draft', draft: held }]);
+    // Event dan response membawa `rev` pesan pembawa kartu; perubahan berikutnya membawa `rev` yang lebih besar.
+    expect(t.events).toEqual([{ type: 'draft', draft: held, rev: sendRes.rev }]);
     await after(1);
     expect(t.events).toEqual([
-      { type: 'draft', draft: held },
-      { type: 'draft', draft: { ...held, status: 'sent' } },
+      { type: 'draft', draft: held, rev: sendRes.rev },
+      { type: 'draft', draft: { ...held, status: 'sent' }, rev: sendRes.rev + 1 },
     ]);
 
     // Riwayat membawa keadaan draf yang terbaru.
@@ -356,7 +358,9 @@ describe('draf', () => {
     });
     await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' });
     await after(60_000);
-    expect(await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'cancel' })).toMatchObject({ status: 'cancelled' });
+    expect((await t.transport.draftAction(BUDI_DRAFT_ID, { action: 'cancel' })).draft).toMatchObject({
+      status: 'cancelled',
+    });
     await after(HELD_MINUTES * 60_000);
     // Hanya siaran `send` dan `cancel`; tidak ada `sent`.
     expect(t.events.map((e) => (e.type === 'draft' ? e.draft.status : e.type))).toEqual(['held', 'cancelled']);
@@ -364,7 +368,7 @@ describe('draf', () => {
 
   test('edit dari draf, draf tidak dikenal, dan aksi tidak sah', async () => {
     const { transport } = setup();
-    expect(await transport.draftAction(BUDI_DRAFT_ID, { action: 'edit', text: 'Teks baru' })).toMatchObject({
+    expect((await transport.draftAction(BUDI_DRAFT_ID, { action: 'edit', text: 'Teks baru' })).draft).toMatchObject({
       status: 'draft',
       text: 'Teks baru',
     });
@@ -383,7 +387,7 @@ describe('draf', () => {
     const [reply] = await ask(t, 'Balas Pak Budi, siap');
     const card = cardOf(reply!);
     const id = card?.kind === 'draft' ? card.draft.id : '';
-    expect(await t.transport.draftAction(id, { action: 'send' })).toMatchObject({ status: 'held' });
+    expect((await t.transport.draftAction(id, { action: 'send' })).draft).toMatchObject({ status: 'held' });
   });
 });
 
@@ -469,4 +473,26 @@ test('riwayat contoh tidak berubah oleh transport', async () => {
   const { transport } = setup();
   await transport.draftAction(BUDI_DRAFT_ID, { action: 'edit', text: 'Teks baru' });
   expect(sampleHistory()).toEqual(before);
+});
+
+describe('rev yang dikenal', () => {
+  test('berganti sesi (keluar lalu masuk) melupakan rev pengguna sebelumnya', async () => {
+    const t = setup({ token: 't' });
+    await t.transport.messages();
+    const seen: (number | undefined)[] = [];
+    const listen = () =>
+      t.transport.subscribe(
+        () => {},
+        () => {},
+        (rev) => seen.push(rev),
+      );
+    listen()();
+    expect(seen[0]).toBeGreaterThan(0);
+    await t.transport.logout();
+    await t.transport.authStart({ phone: '6281220457781' });
+    await t.transport.authVerify({ phone: '6281220457781', code: '123456' });
+    seen.length = 0;
+    listen()();
+    expect(seen).toEqual([undefined]);
+  });
 });

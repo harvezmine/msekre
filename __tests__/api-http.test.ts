@@ -130,7 +130,7 @@ describe('HTTP', () => {
         if (url.includes('/messages?')) return { body: { items: [message], before: null } };
         if (url.includes('/home/devices/')) return { body: { card: acCard } };
         if (url.endsWith('/messages')) return { body: { message } };
-        if (url.includes('/drafts/')) return { body: { draft } };
+        if (url.includes('/drafts/')) return { body: { draft, rev: 9 } };
         return { body: { ok: true } };
       },
     });
@@ -174,7 +174,7 @@ describe('HTTP', () => {
       body: JSON.stringify({ kind: 'text', clientId: 'c1', text: 'Halo' }),
     });
 
-    expect(await transport.draftAction('d/1', { action: 'send' })).toEqual(draft);
+    expect(await transport.draftAction('d/1', { action: 'send' })).toEqual({ draft, rev: 9 });
     expect(call(fetch, 5)).toMatchObject({ url: `${BASE}/app/v1/drafts/d%2F1`, body: '{"action":"send"}' });
 
     await transport.registerPushToken({ pushToken: 'p1', platform: 'android' });
@@ -817,6 +817,24 @@ describe('pembacaan longgar', () => {
     expect((await sent.transport.send({ kind: 'text', clientId: 'c1', text: 'Halo' })).parts[0]).toMatchObject({
       type: 'unknown',
     });
+  });
+
+  test('event draft tanpa rev (server lama) tetap berlaku dengan rev 0; draf rusak dilewati', async () => {
+    const { sockets, transport } = setup();
+    const l = listen(transport);
+    await flush();
+    sockets[0]!.open();
+    sockets[0]!.send({ type: 'draft', draft: { ...draft, status: 'sent' } });
+    sockets[0]!.send({ type: 'draft', draft: { ...draft, status: 'sent' }, rev: 'x' });
+    sockets[0]!.send({ type: 'draft', draft: { ...draft, status: 'sent' }, rev: 12 });
+    expect(l.events.map((e) => (e.type === 'draft' ? e.rev : null))).toEqual([0, 0, 12]);
+  });
+
+  test('jawaban aksi draf tanpa rev dibaca rev 0; draf rusak tetap kendala server', async () => {
+    const old = setup({ reply: () => ({ body: { draft } }) });
+    expect(await old.transport.draftAction('d1', { action: 'send' })).toEqual({ draft, rev: 0 });
+    const broken = setup({ reply: () => ({ body: { draft: { ...draft, status: 'aneh' }, rev: 3 } }) });
+    await expect(broken.transport.draftAction('d1', { action: 'send' })).rejects.toMatchObject({ code: 'server' });
   });
 
   test('pesan di stream yang gagal skema ketat diubah dengan cara yang sama; yang rusak amplopnya dilewati', async () => {
