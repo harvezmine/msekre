@@ -92,6 +92,17 @@ dibuat dulu supaya bisa dicoba dan dikoreksi di HP.
 - Empat alur prototipe bisa diklik: bicara mematikan AC, kirim lalu batalkan, tunda alarm, dan menyambungkan layanan
   baru.
 - **Server:** belum ada perubahan.
+- **Status (20 Okt 2026): selesai (kode).** Yang sudah ada:
+  - semua layar desain dengan data contoh dan mode gelap;
+  - penyimpanan contoh bersama, jadi aksi di satu layar terlihat di layar lain;
+  - empat alur prototipe, diuji ujung ke ujung (`__tests__/alur.test.tsx`);
+  - tes mode gelap dan lebar 360 dp untuk setiap layar.
+- **Masih perlu dicek di HP** (tes Jest tidak bisa menilai ini):
+  - gestur: tarik lembar (sheet), geser untuk mematikan alarm, putaran suhu;
+  - kolom ketik terdorong papan ketik;
+  - TalkBack;
+  - huruf besar dari pengaturan sistem;
+  - riak sentuhan dan getar sungguhan.
 - **Akibat ke fase berikutnya:** di Fase 1–5, bagian "Aplikasi" berarti menyambungkan layar yang sudah ada ke data
   asli. Membuat layar dari nol tidak diperlukan lagi.
 

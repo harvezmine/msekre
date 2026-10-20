@@ -74,7 +74,9 @@
     "resolver": "react-native-reanimated/jest/resolver",
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "<rootDir>/__tests__/helpers.tsx"
+      "<rootDir>/__tests__/helpers.tsx",
+      "<rootDir>/__tests__/harness.tsx",
+      "<rootDir>/__tests__/daftar-layar.tsx"
     ]
   }
 }

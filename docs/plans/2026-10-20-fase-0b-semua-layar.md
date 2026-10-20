@@ -434,6 +434,20 @@ ReportCard), dan `src/sample/business.ts`.
 
 ## Tugas 8: Rangkai alur dan periksa menyeluruh
 
+**Status:** Selesai (kode). Tes alur 7851666, tes mode gelap dan lebar 360 menyusul di commit berikutnya. Review akhir
+oleh pengendali dan uji di HP masih menunggu.
+
+**Hasil:**
+- `__tests__/harness.tsx`: tumpukan navigasi tiruan (push, replace, navigate, dismissTo, back) yang merender layar
+  rute saat ini dalam satu `SampleProvider`; dipakai `terhubung.test.tsx` dan `alur.test.tsx`.
+- `__tests__/alur.test.tsx`: empat alur prototipe ujung ke ujung.
+- `__tests__/layar-gelap.test.tsx`: setiap layar di mode gelap punya warna palet gelap dan tanpa latar khusus terang.
+  Pengecualian yang disengaja: tombol terang "Selesai" (Mode Suara) dan geser "Matikan" (Alarm) di atas latar forest,
+  serta kotak putih QRIS.
+- `__tests__/layar-360.test.tsx`: semua layar tampil di 360×740; cincin mengecil (320 dp) dan putaran suhu 280 dp
+  (312 dp dengan gutter) muat.
+- Warna tetap yang diganti token: teks "Jamnya saya tebak" (`micSub`) dan latar Pemeriksa Inti (`light.voice`).
+
 **Yang dikerjakan:**
 - Tes integrasi untuk 4 alur prototipe di `__tests__/alur.test.tsx`. Render beberapa layar dengan `SampleProvider`
   yang sama dan jalankan langkahnya.
