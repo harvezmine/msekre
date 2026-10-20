@@ -98,6 +98,8 @@ export default function Chat() {
         <TextInput
           placeholder={`Tulis pesan untuk ${DEFAULT_ASSISTANT}`}
           placeholderTextColor={c.muted}
+          cursorColor={c.green}
+          selectionColor={c.green}
           style={{
             flex: 1,
             height: 52,
