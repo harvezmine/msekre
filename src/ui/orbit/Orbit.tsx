@@ -48,7 +48,7 @@ export function Orbit({ nodes, intiState = 'idle', onPressInti, onLongPressInti,
   const iw = intiSize(intiPx).w;
 
   return (
-    <Pressable onPress={onPressRing} disabled={!onPressRing} accessible={false} testID="cincin" style={{ width: W, height: H }}>
+    <Pressable onPress={onPressRing} disabled={!onPressRing} accessible={false} focusable={false} importantForAccessibility="no" testID="cincin" style={{ width: W, height: H }}>
       <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
         <Circle cx={layout.cx} cy={layout.cy} r={r} fill="none" stroke={c.sage} strokeOpacity={0.55} strokeWidth={1} />
         {layout.nodes.map((p, i) => (
