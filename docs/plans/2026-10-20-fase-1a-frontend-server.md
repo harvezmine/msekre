@@ -42,59 +42,81 @@ sini menjadi spesifikasi server di Fase 1b.
 
 ---
 
-## Kontrak API (versi 1)
+## Kontrak API (v1, revisi 20 Okt)
+
+Direvisi sesudah review Tugas 1–2 dan sebelum chat (Tugas 3). Sumber kebenarannya `src/api/contract.ts`; alasan tiap
+perubahan ada di `docs/catatan-server-fase-1b.md`.
 
 Semua jalur diawali `/app/v1`. Header `Authorization: Bearer <token>` wajib, kecuali untuk `auth/*`. Isi request dan
-response berupa JSON.
+response berupa JSON. Setiap request HTTP dan jabat tangan WebSocket membawa `X-App-Version` (dari `expo.version`) dan
+`X-Contract-Version`.
 
 | Jalur | Request | Response |
 |---|---|---|
-| `POST /auth/start` | `{ phone: string }` (format E.164 tanpa +, contoh `6281220457781`) | `{ resendInSec: number }`. Kode dikirim lewat WhatsApp |
-| `POST /auth/verify` | `{ phone, code: string(6) }` | `{ token, user: Me }`. Kode salah → 400 `{ error: 'kode_salah' }` |
+| `POST /auth/start` | `{ phone: string }` (format E.164 tanpa +, contoh `6281220457781`) | `{ resendInSec: number }`. Kode dikirim lewat WhatsApp. Diulang sebelum `resendInSec` → 429 `terlalu_sering` |
+| `POST /auth/verify` | `{ phone, code: string(6) }` | `{ token, user: Me }`. Kode salah, kedaluwarsa, atau belum diminta → 400 `kode_salah` |
 | `POST /auth/logout` | — | `{ ok: true }` |
 | `GET /me` | — | `Me` |
-| `GET /messages?before=<id>&limit=30` | — | `{ items: Message[], before: string \| null }`, berurutan dari yang terbaru |
-| `POST /messages` | `{ clientId, text }` atau `{ clientId, choiceId, choiceTitle }` | `{ message: Message }`. Ini pesan pengguna yang tersimpan; balasan datang lewat stream |
-| `POST /drafts/:id` | `{ action: 'send' \| 'cancel' \| 'edit', text? }` | `{ draft: Draft }` |
-| `POST /devices` | `{ pushToken, platform: 'android' \| 'ios' }` | `{ ok: true }` |
+| `GET /messages?before=<seq>&limit=30` | — | `{ items: Message[], before: number \| null }`, terbaru dulu. `before` yang tidak ada → halaman terbaru |
+| `GET /messages?after=<seq>&limit=100` | — | `{ items: Message[], more: boolean }`, terlama dulu. Untuk resync |
+| `POST /messages` | `{ kind: 'text', clientId, text }` atau `{ kind: 'choice', clientId, messageId, choiceId }` (objek ketat, tidak boleh campuran) | `{ message: Message }`. Pesan pengguna yang tersimpan; balasan datang lewat stream. Judul pilihan diambil server |
+| `POST /drafts/:id` | `{ action: 'send' \| 'cancel' \| 'discard' \| 'edit', text? }` | `{ draft: Draft }` |
+| `POST /push-tokens` | `{ pushToken, platform: 'android' \| 'ios' }` | `{ ok: true }` |
+| `POST /home/devices/:id` | `{ on?, temp?, mode? }` (minimal satu) | `{ card: DeviceCard }`. Fase 3; Fase 1b boleh 501 `belum_tersedia` |
 | `GET /media/:id` | — | berkas (gambar QRIS, dokumen), dengan token |
-| `WS /stream?token=…` | — | event `StreamEvent` dalam bentuk JSON per pesan |
+| `WS /stream` | — | event `StreamEvent` dalam bentuk JSON per pesan. Token di header `Authorization`, bukan query string |
+
+**Error** (`{ error: <kode>, retryInSec? }`): 400 `tidak_valid` / `kode_salah`; 401 `tidak_masuk`; 403 `diblokir`;
+404 `tidak_ditemukan`; 409 `status_draf` / `sudah_dipilih`; 426 `perlu_pembaruan`; 429 `terlalu_sering` (dengan
+`retryInSec`); 500 `server`; 501 `belum_tersedia`.
 
 **Tipe:**
 
 ```
-Me       = { id, name: string|null, assistantName: string, plan: { name: string, activeUntil: string|null } }
-Message  = { id: string, clientId?: string, at: ISO8601, from: 'user'|'assistant', via: 'app'|'whatsapp',
-             parts: Part[] }
+Me       = { id, name: string|null, assistantName: string, plan: { name: string, activeUntil: ISO8601|null } }
+Message  = { id: string, seq: number, clientId?: string, at: ISO8601, from: 'user'|'assistant',
+             via: 'app'|'whatsapp', parts: Part[] }
 Part     = { type: 'text', text }
-         | { type: 'choices', prompt?: string, choices: { id, title, description? }[] }
+         | { type: 'choices', prompt?: string, choices: { id, title, description? }[], chosenId?: string }
          | { type: 'image', mediaId, mime, caption?, alt? }
          | { type: 'document', mediaId, name, mime, sizeBytes }
          | { type: 'audio', mediaId, mime, transcript? }
          | { type: 'card', card: Card }
+         | { type: 'unknown', note }          // dibuat aplikasi saat membaca; server tidak mengirimnya
 Card     = { kind: 'draft', draft: Draft }
          | { kind: 'device', deviceId, name, on: boolean, temp?: number, mode?: string, note?: string }
          | { kind: 'notes', title, when, decisions: string[], meetingId }
          | { kind: 'payment', title, amountRp: number, lines: { label, value }[], ask: string }
-         | { kind: 'qris', amountRp, until: 'HH.MM', mediaId }
+         | { kind: 'qris', amountRp, until: ISO8601, status: 'menunggu'|'lunas'|'kedaluwarsa', mediaId }
 Draft    = { id, to, channel: 'whatsapp'|'email', what: 'balasan'|'pesanan'|'email'|'undangan',
-             text, status: 'draft'|'held'|'sent'|'cancelled', heldUntil?: 'HH.MM' }
-StreamEvent = { type: 'message', message: Message }
-            | { type: 'draft', draft: Draft }
-            | { type: 'thinking', on: boolean }
+             text, status: 'draft'|'held'|'sent'|'cancelled'|'failed', heldUntil?: ISO8601 }
+StreamEvent = { type: 'message', message: Message }       // id yang sudah dikenal = upsert
+            | { type: 'draft', draft: Draft }             // menimpa kartu dengan draft.id yang sama
+            | { type: 'thinking', runId: string, on: boolean }
             | { type: 'ping' }
 ```
 
 **Aturan perilaku server, yang ditiru juga oleh server tiruan:**
-- **`POST /messages`** langsung menyimpan pesan pengguna, lalu mengirim event `thinking on`. Setelah itu datang satu
-  atau beberapa event `message` dari asisten, lalu `thinking off`.
+- **Waktu:** semua ISO 8601 dengan zona. Aplikasi memformatnya ke jam HP dengan `formatJam(iso)` → "10.47".
+- **`POST /messages`** langsung menyimpan pesan pengguna, lalu mengirim `thinking on` (dengan `runId`). Setelah itu datang
+  satu atau beberapa event `message` dari asisten, lalu `thinking off` dengan `runId` yang sama. Aplikasi menyimpan
+  himpunan `runId` aktif; berpikir = himpunan tidak kosong.
+- **`clientId`** unik per (pengguna, clientId); mengirim ulang mengembalikan pesan asli.
+- **`seq`** hanya naik dan tetap seumur pesan. **Upsert:** event `message` dengan `id` yang sudah dikenal menggantikan
+  versi sebelumnya (tempat dan `seq` tetap), dipakai untuk QRIS `lunas` / `kedaluwarsa`, keadaan perangkat, dan
+  `chosenId` pada pilihan.
 - **Kiriman ke orang lain** selalu berupa kartu `draft`:
-  - `send` mengubah status menjadi `held`, dengan `heldUntil` = sekarang + 5 menit.
-  - Setelah 5 menit status menjadi `sent`, dan perubahannya dikirim lewat event `draft`.
-  - `cancel` hanya bisa dari status `held`.
+  - `send` hanya dari `draft` → `held`, dengan `heldUntil` = sekarang + 5 menit.
+  - Setelah 5 menit `held` → `sent`, atau `failed` kalau pengiriman gagal.
+  - `cancel` hanya dari `held` → `cancelled`; `discard` hanya dari `draft` → `cancelled`; `edit` hanya dari `draft`.
+  - Setiap perubahan draf disiarkan lewat event `draft` ke semua koneksi (juga yang berasal dari aksi aplikasi).
 - **Pesan dari WhatsApp** ikut tampil dengan `via: 'whatsapp'`: satu utas, keputusan bawaan #3 di roadmap.
-- **WebSocket** mengirim `ping` tiap 25 detik. Kalau koneksi putus, klien menyambung ulang dengan jeda bertingkat
-  (1, 2, 4, 8, lalu paling lama 30 detik), kemudian mengambil pesan yang terlewat lewat `GET /messages`.
+- **WebSocket** mengirim `ping` tiap 25 detik. Setiap kali terbuka (juga yang pertama), klien mengambil pesan yang
+  terlewat lewat `GET /messages?after=<seq terakhir>` (berulang selama `more`) dan menggabungkannya berdasarkan `id`.
+  Kalau koneksi putus atau macet saat menyambung (15 detik), klien menyambung ulang dengan jeda 1, 2, 4, 8, lalu paling
+  lama 30 detik.
+- **Pembacaan longgar:** bagian, kartu, atau enum yang tidak dikenal menjadi `{ type: 'unknown', note }`; hanya pesan
+  tanpa `id` atau `seq` yang dibuang.
 
 ---
 
@@ -211,7 +233,7 @@ StreamEvent = { type: 'message', message: Message }
   - Tombolnya "Izinkan" dan "Nanti saja".
   - Android 13+ meminta izin `POST_NOTIFICATIONS`.
 - **Saluran Android** "Pesan dari Nadia" (penting) dan "Pengingat" (penting, bersuara).
-- **Token push** dikirim ke `POST /devices`. Dalam mode `contoh` tidak dikirim ke mana pun, cukup dicatat.
+- **Token push** dikirim ke `POST /push-tokens`. Dalam mode `contoh` tidak dikirim ke mana pun, cukup dicatat.
 - **Mengetuk notifikasi** membuka `/chat`, juga saat aplikasi sedang tertutup.
 - **Notifikasi tidak muncul** saat pengguna sedang membuka chat.
 - **FCM butuh `google-services.json` dari Firebase** (persiapan founder di roadmap).

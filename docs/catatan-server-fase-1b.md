@@ -17,7 +17,8 @@ sisanya adalah aturan implementasi server. Kontrak lengkapnya ada di `src/api/co
   dipakai untuk QRIS lunas atau kedaluwarsa, keadaan perangkat, dan pilihan yang sudah diambil. QRIS punya status
   `menunggu | lunas | kedaluwarsa`.
 - **Pilihan:**
-  - aplikasi mengirim `{ clientId, messageId, choiceId }`;
+  - aplikasi mengirim `{ kind: 'choice', clientId, messageId, choiceId }` (teks: `{ kind: 'text', clientId, text }`;
+    objek ketat, tidak boleh campuran);
   - server mengambil judulnya dari pilihan yang tersimpan, tidak percaya judul dari klien;
   - bagian `choices` membawa `chosenId` setelah dipilih.
 - **Urutan dan resync:**
