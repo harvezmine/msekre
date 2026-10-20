@@ -50,6 +50,25 @@ function Navigator() {
             contentStyle: { backgroundColor: 'transparent' },
           }}
         />
+        <Stack.Screen name="terhubung/index" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="terhubung/[id]" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen
+          name="terhubung/masuk"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'none',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="terhubung/konfirmasi"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'none',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen name="terhubung/tersambung" options={{ gestureEnabled: false, animation: 'fade' }} />
         <Stack.Screen
           name="tempat"
           options={{

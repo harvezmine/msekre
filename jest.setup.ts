@@ -17,7 +17,7 @@ jest.mock('expo-router', () => ({
   Redirect: () => null,
   useIsFocused: () => true,
   useLocalSearchParams: jest.fn(() => ({})),
-  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), navigate: jest.fn() },
+  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), navigate: jest.fn(), dismissTo: jest.fn() },
 }));
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),

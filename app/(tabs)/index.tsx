@@ -67,18 +67,24 @@ export default function Beranda() {
           <Orbit
             nodes={ring}
             paused={!live}
+            onPressRing={() => router.push('/terhubung')}
             onPressInti={() => router.navigate('/chat')}
             onLongPressInti={() => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               router.navigate('/suara');
             }}
           />
-          <View style={{ height: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={ringLabel(ring)}
+            onPress={() => router.push('/terhubung')}
+            style={{ height: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+          >
             <Txt v="caption" color={c.muted}>
               {ringLabel(ring)}
             </Txt>
             <Icon name="chevR" size={16} color={c.muted} />
-          </View>
+          </Pressable>
         </View>
 
         <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
