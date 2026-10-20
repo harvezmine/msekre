@@ -160,7 +160,7 @@ test('Tambah: Simpan nonaktif sampai ada teks, pratinjau dari teks, Simpan menam
     kind: 'reminder',
     way: 'alarm',
   });
-  expect(latest.toast).toBe('Tersimpan di agenda.');
+  expect(latest.toast?.text).toBe('Tersimpan di agenda.');
   expect(router.back).toHaveBeenCalled();
 });
 

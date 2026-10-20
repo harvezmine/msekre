@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import { BackHandler, Text } from 'react-native';
+import { AccessibilityInfo, BackHandler, Text } from 'react-native';
 import Tempat from '../app/tempat';
 import { useSample, type SampleState } from '@/sample/store';
 import { FilterChips } from '@/ui/FilterChips';
@@ -80,6 +80,34 @@ test('ToastHost: tampil dari penyimpanan dan hilang sendiri setelah 2,6 detik', 
   expect(screen.getByText('Kiriman dibatalkan.')).toBeOnTheScreen();
   await advance(150);
   expect(screen.queryByText('Kiriman dibatalkan.')).not.toBeOnTheScreen();
+});
+
+test('ToastHost: teks yang sama dua kali memulai ulang 2,6 detik dan dibacakan lagi', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
+  let dispatch!: ReturnType<typeof useSample>['dispatch'];
+  function Probe() {
+    dispatch = useSample().dispatch;
+    return null;
+  }
+  await renderWithProviders(
+    <>
+      <ToastHost />
+      <Probe />
+    </>,
+  );
+  await act(async () => dispatch({ type: 'showToast', text: 'Tersimpan di agenda.' }));
+  expect(announce).toHaveBeenCalledTimes(1);
+  expect(announce).toHaveBeenLastCalledWith('Tersimpan di agenda.');
+  await advance(2000);
+  await act(async () => dispatch({ type: 'showToast', text: 'Tersimpan di agenda.' }));
+  expect(announce).toHaveBeenCalledTimes(2);
+  // waktu toast pertama sudah lewat, tapi toast kedua masih tampil
+  await advance(2500);
+  expect(screen.getByText('Tersimpan di agenda.')).toBeOnTheScreen();
+  await advance(150);
+  expect(screen.queryByText('Tersimpan di agenda.')).not.toBeOnTheScreen();
+  expect(announce).toHaveBeenCalledTimes(2);
+  announce.mockRestore();
 });
 
 test('Segmented memanggil onChange dan menandai pilihan', async () => {

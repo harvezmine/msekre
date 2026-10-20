@@ -88,7 +88,7 @@ test('Kirim menahan kiriman dan mencatat Riwayat; Batalkan membatalkannya', asyn
   expect(screen.getByText('Dibatalkan · tidak jadi terkirim')).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Batalkan' })).toBeNull();
   expect(latest.outgoing[BUDI]!.status).toBe('cancelled');
-  expect(latest.toast).toBe('Kiriman ke Pak Budi dibatalkan.');
+  expect(latest.toast?.text).toBe('Kiriman ke Pak Budi dibatalkan.');
   expect(historyRows(latest)[0]).toMatchObject({ struck: true, undoable: false });
 });
 

@@ -220,7 +220,7 @@ test('cancelSend hanya dari held: entri tercoret tanpa Batalkan, toast', () => {
     { type: 'cancelSend', id: BUDI },
   ]);
   expect(s.outgoing[BUDI]!.status).toBe('cancelled');
-  expect(s.toast).toBe('Kiriman ke Pak Budi dibatalkan.');
+  expect(s.toast?.text).toBe('Kiriman ke Pak Budi dibatalkan.');
   expect(historyRows(s)[0]).toMatchObject({ struck: true, undoable: false, title: 'Mengirim balasan ke Pak Budi' });
   expect(historyRows(s)[0]!.until).toBeUndefined();
   expect(
@@ -436,7 +436,16 @@ test('kejadian di luar filter masuk jenis lainnya: tidak tampil di Pesan, tetap 
 });
 
 test('toast, onboarding', () => {
-  expect(run([{ type: 'showToast', text: 'Halo' }]).toast).toBe('Halo');
-  expect(run([{ type: 'showToast', text: 'Halo' }, { type: 'hideToast' }]).toast).toBeNull();
+  const one = run([{ type: 'showToast', text: 'Halo' }]);
+  expect(one.toast).toEqual({ id: expect.any(Number), text: 'Halo' });
+  expect(run([{ type: 'hideToast' }], one).toast).toBeNull();
+  // teks yang sama dua kali tetap toast baru
+  const two = run([{ type: 'showToast', text: 'Halo' }], one);
+  expect(two.toast!.text).toBe('Halo');
+  expect(two.toast!.id).not.toBe(one.toast!.id);
+  // menutup toast lama tidak menutup yang baru
+  expect(run([{ type: 'hideToast', id: one.toast!.id }], two)).toBe(two);
+  expect(run([{ type: 'hideToast', id: two.toast!.id }], two).toast).toBeNull();
+  expect(run([{ type: 'hideToast' }])).toBe(init);
   expect(run([{ type: 'finishOnboarding' }]).onboarded).toBe(true);
 });

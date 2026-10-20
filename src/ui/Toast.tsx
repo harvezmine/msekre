@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { AccessibilityInfo } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -49,23 +50,28 @@ export function Toast({ text }: { text: string }) {
   );
 }
 
-/** Dipasang sekali di akar aplikasi. Membaca `state.toast`, hilang sendiri setelah 2,6 detik. */
+/**
+ * Dipasang sekali di akar aplikasi. Membaca `state.toast`, dibacakan pembaca layar, dan hilang sendiri setelah
+ * 2,6 detik. Toast baru (juga dengan teks yang sama) memulai ulang waktunya dan dibacakan lagi.
+ */
 export function ToastHost() {
   const { state, dispatch } = useSample();
   const insets = useSafeAreaInsets();
-  const text = state.toast;
+  const id = state.toast?.id;
+  const text = state.toast?.text;
   useEffect(() => {
-    if (text === null) return;
-    const t = setTimeout(() => dispatch({ type: 'hideToast' }), TOAST_MS);
+    if (id === undefined || text === undefined) return;
+    AccessibilityInfo.announceForAccessibility(text);
+    const t = setTimeout(() => dispatch({ type: 'hideToast', id }), TOAST_MS);
     return () => clearTimeout(t);
-  }, [text, dispatch]);
-  if (text === null) return null;
+  }, [id, text, dispatch]);
+  if (id === undefined || text === undefined) return null;
   return (
     <Animated.View
       pointerEvents="none"
       style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + TAB_BAR + 16 }}
     >
-      <Toast key={text} text={text} />
+      <Toast key={id} text={text} />
     </Animated.View>
   );
 }

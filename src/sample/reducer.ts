@@ -41,7 +41,8 @@ export interface SampleState {
   forgotten: string[];
   history: HistoryEntry[];
   business: Business;
-  toast: string | null;
+  /** Toast yang sedang tampil. `id` baru setiap kali, jadi teks yang sama dua kali tetap tampil dan dibacakan ulang. */
+  toast: { id: number; text: string } | null;
   /**
    * Penanda contoh saja: layar pertama kali sudah dilewati. Di Fase 0b tidak ada pengalihan ke /mulai; penjaga
    * onboarding sungguhan dibangun di Fase 1.
@@ -78,7 +79,8 @@ export type SampleAction =
   | { type: 'forget'; id: string }
   | { type: 'setPermission'; id: string; permission: Permission }
   | { type: 'showToast'; text: string }
-  | { type: 'hideToast' }
+  /** Dengan `id`: hanya menutup toast itu, bukan toast yang lebih baru. */
+  | { type: 'hideToast'; id?: number }
   | { type: 'finishOnboarding' };
 
 export const initialSampleState: SampleState = {
@@ -109,6 +111,10 @@ function withHistory(state: SampleState, entry: Omit<HistoryEntry, 'id' | 'day'>
     id,
     state: { ...state, seq: state.seq + 1, history: [{ ...entry, id, day: 'Hari ini' }, ...state.history] },
   };
+}
+
+function withToast(state: SampleState, text: string): SampleState {
+  return { ...state, seq: state.seq + 1, toast: { id: state.seq + 1, text } };
 }
 
 /** Menambah baris ke utas. Tanda berpikir hanya berlaku di ujung utas, jadi baris baru menggantikannya. */
@@ -218,7 +224,7 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
     case 'cancelSend': {
       const o = state.outgoing[action.id];
       if (o?.status !== 'held') return state;
-      return { ...setOutgoing(state, o.id, { status: 'cancelled' }), toast: `Kiriman ke ${o.to} dibatalkan.` };
+      return withToast(setOutgoing(state, o.id, { status: 'cancelled' }), `Kiriman ke ${o.to} dibatalkan.`);
     }
 
     case 'addChatMessage': {
@@ -329,9 +335,10 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
     }
 
     case 'showToast':
-      return { ...state, toast: action.text };
+      return withToast(state, action.text);
     case 'hideToast':
-      return state.toast === null ? state : { ...state, toast: null };
+      if (state.toast === null || (action.id !== undefined && action.id !== state.toast.id)) return state;
+      return { ...state, toast: null };
     case 'finishOnboarding':
       return { ...state, onboarded: true };
   }
