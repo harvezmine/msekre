@@ -1,9 +1,12 @@
-// Ikon adaptif Android dari tanda "S" desain (2r): kanvas 1024, tanda setinggi 116/216 kanvas, tepat di tengah,
-// jadi selalu di dalam zona aman 66/108. Jalankan ulang setelah logo vektor tersedia.
+// Ikon adaptif Android dari tanda "S": kanvas 1024, tanda di tengah. Diagonal kotak tanda harus muat di lingkaran
+// zona aman 66/108, supaya ujung daun dan sudut gelembung tidak terpotong masker bulat. Jalankan ulang setelah logo
+// vektor tersedia.
 import sharp from 'sharp';
 
 const SIZE = 1024;
-const MARK_H = Math.round((SIZE * 116) / 216);
+const SAFE = (SIZE * 66) / 108;
+const RATIO = 282 / 310; // lebar / tinggi tanda "S"
+const MARK_H = Math.floor(SAFE / Math.hypot(1, RATIO));
 
 async function centered(src, out) {
   const mark = await sharp(src).resize({ height: MARK_H }).png().toBuffer();
