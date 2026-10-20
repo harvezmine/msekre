@@ -129,14 +129,11 @@ export class HttpTransport implements Transport {
   }
 
   async logout(): Promise<void> {
-    try {
-      await this.request('POST', '/auth/logout', okResSchema, { body: {} });
-    } catch {
-      // Keluar tetap berhasil di HP walau server tidak terjangkau.
-    } finally {
-      await this.session.clear();
-      this.closeStream();
-    }
+    const token = await this.session.get();
+    await this.session.clear();
+    this.closeStream();
+    // Pemberitahuan ke server menyusul di belakang layar dengan token tadi; gagal pun HP sudah keluar.
+    if (token) void this.request('POST', '/auth/logout', okResSchema, { body: {}, token }).catch(() => {});
   }
 
   me(): Promise<Me> {
@@ -207,12 +204,12 @@ export class HttpTransport implements Transport {
     method: Method,
     path: string,
     schema: Reader<T>,
-    { body, auth = true }: { body?: unknown; auth?: boolean } = {},
+    { body, auth = true, token: given }: { body?: unknown; auth?: boolean; token?: string } = {},
   ): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json', ...this.baseHeaders() };
     let token: string | null = null;
     if (auth) {
-      token = await this.session.get();
+      token = given ?? (await this.session.get());
       if (!token) throw new ApiFailure('unauthorized');
       headers.Authorization = `Bearer ${token}`;
     }

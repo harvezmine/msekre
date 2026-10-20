@@ -1,5 +1,5 @@
 import type { StreamEvent } from '@/api/contract';
-import { formatJam } from '@/api/format';
+import { cleanPhone, formatJam, formatPhoneDisplay, formatTanggal, groupPhone } from '@/api/format';
 import { applyThinking, isThinking, NO_RUNS } from '@/api/thinking';
 
 describe('formatJam', () => {
@@ -72,5 +72,30 @@ describe('proses berpikir menurut runId', () => {
   test('event selain thinking tidak mengubah apa pun', () => {
     const one = applyThinking(NO_RUNS, think('a', true));
     expect(applyThinking(one, { type: 'ping' })).toBe(one);
+  });
+});
+
+describe('nomor dan tanggal', () => {
+  test('cleanPhone: 0812, +62 812, 62 0812, dan 62812 semuanya menjadi 812…', () => {
+    for (const text of ['0812 2045 7781', '+62 812 2045 7781', '62 0812 2045 7781', '6281220457781', '812-2045-7781']) {
+      expect(cleanPhone(text)).toBe('81220457781');
+    }
+    expect(cleanPhone('')).toBe('');
+    expect(cleanPhone('6')).toBe('6');
+    expect(cleanPhone('62')).toBe('');
+    expect(cleanPhone('081222222222222222')).toBe('8122222222222');
+  });
+
+  test('tampilan nomor', () => {
+    expect(groupPhone('81220457781')).toBe('812-2045-7781');
+    expect(formatPhoneDisplay('6281220457781')).toBe('+62 812-2045-7781');
+    expect(formatPhoneDisplay('14155550123')).toBe('+14155550123');
+  });
+
+  test('formatTanggal: tanggal pendek Indonesia menurut zona HP; waktu rusak null', () => {
+    jest.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(-420);
+    expect(formatTanggal('2027-01-12T05:00:00.000Z')).toMatch(/^\d{1,2} (Jan|Des) 202[67]$/);
+    expect(formatTanggal('bukan tanggal')).toBeNull();
+    jest.restoreAllMocks();
   });
 });

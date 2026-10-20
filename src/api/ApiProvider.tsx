@@ -39,7 +39,7 @@ export function createApi(mode: DataMode, apiUrl: string | null): Api {
   return { mode: 'contoh', session, transport: new FakeTransport(session, { latencyMs: FAKE_LATENCY_MS }) };
 }
 
-const ApiContext = createContext<ApiValue | null>(null);
+export const ApiContext = createContext<ApiValue | null>(null);
 
 interface ApiProviderProps {
   children: ReactNode;

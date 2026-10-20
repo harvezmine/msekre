@@ -105,7 +105,10 @@ export interface Transport {
   authStart(req: AuthStartReq): Promise<AuthStartRes>;
   /** Cocokkan kode. Saat berhasil, token sudah disimpan ke sesi sebelum janji ini selesai. */
   authVerify(req: AuthVerifyReq): Promise<AuthVerifyRes>;
-  /** Keluar. Sesi selalu dihapus, juga saat server tidak terjangkau; tidak pernah gagal. */
+  /**
+   * Keluar. Sesi dihapus di HP lebih dulu (janji ini selesai saat itu juga, juga saat server tidak terjangkau); token
+   * yang tadi dipakai dikirim ke `auth/logout` di belakang layar dan kegagalannya diabaikan. Tidak pernah gagal.
+   */
   logout(): Promise<void>;
   me(): Promise<Me>;
   /**

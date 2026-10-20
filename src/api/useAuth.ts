@@ -1,4 +1,5 @@
 import { createContext, createElement, use, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 import { useApi } from './ApiProvider';
 import type { AuthStartRes, AuthVerifyRes, Me } from './contract';
 import type { Transport } from './transport';
@@ -30,6 +31,9 @@ interface State {
   me: Me | null;
 }
 
+/** Keluar yang sedang berjalan per transport, supaya ketukan kedua tidak memulai yang kedua. */
+const leaving = new WeakMap<Transport, Promise<void>>();
+
 export const AuthContext = createContext<Auth | null>(null);
 
 /**
@@ -40,6 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { transport, session } = useApi();
   const [state, setState] = useState<State>({ transport, status: 'checking', me: null });
   const current: State = state.transport === transport ? state : { transport, status: 'checking', me: null };
+
+  /**
+   * Hasil request yang datang terlambat hanya berlaku bila transport yang memulainya masih yang dipakai: mode data yang
+   * sudah diganti tidak boleh ditimpa jawaban transport lama.
+   */
+  const apply = useCallback(
+    (from: Transport, next: (prev: State) => State) =>
+      setState((prev) => (prev.transport === from ? next(prev) : prev)),
+    [],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -69,24 +83,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verify = useCallback(
     async (phone: string, code: string) => {
       const res = await transport.authVerify({ phone, code });
-      setState({ transport, status: 'signedIn', me: res.user });
+      apply(transport, () => ({ transport, status: 'signedIn', me: res.user }));
       return res;
     },
-    [transport],
+    [transport, apply],
   );
-  const logout = useCallback(async () => {
-    await transport.logout();
-    setState({ transport, status: 'signedOut', me: null });
-  }, [transport]);
+  const logout = useCallback(() => {
+    // Ketukan kedua selagi keluar berjalan memakai proses yang sama.
+    const running = leaving.get(transport);
+    if (running) return running;
+    const run = (async () => {
+      try {
+        // Sesi dihapus di HP lebih dulu; pemberitahuan ke server menyusul di belakang layar (transport.logout).
+        await transport.logout();
+        apply(transport, () => ({ transport, status: 'signedOut', me: null }));
+      } finally {
+        leaving.delete(transport);
+      }
+    })();
+    leaving.set(transport, run);
+    return run;
+  }, [transport, apply]);
   const refreshMe = useCallback(async () => {
     try {
       const me = await transport.me();
-      setState({ transport, status: 'signedIn', me });
+      apply(transport, () => ({ transport, status: 'signedIn', me }));
       return me;
     } catch {
       return null;
     }
-  }, [transport]);
+  }, [transport, apply]);
+
+  // `me` yang belum terbaca (sinyal hilang saat dimuat): coba lagi saat stream terbuka dan saat aplikasi kembali dibuka.
+  const missingMe = current.status === 'signedIn' && current.me === null;
+  useEffect(() => {
+    if (!missingMe) return;
+    const retry = () => void refreshMe();
+    const off = transport.subscribe(
+      () => {},
+      () => {},
+      retry,
+    );
+    const app = AppState.addEventListener('change', (next) => {
+      if (next === 'active') retry();
+    });
+    return () => {
+      off();
+      app.remove();
+    };
+  }, [missingMe, transport, refreshMe]);
 
   const value = useMemo<Auth>(
     () => ({ status: current.status, me: current.me, start, verify, logout, refreshMe }),

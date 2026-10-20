@@ -274,7 +274,10 @@ describe('HTTP', () => {
 
   test('keluar menghapus sesi, juga saat server tidak terjangkau', async () => {
     const ok = setup({ reply: () => ({ body: { ok: true } }) });
+    // Sesi hilang lebih dulu; pemberitahuan ke server menyusul dengan token tadi.
     await ok.transport.logout();
+    expect(await ok.session.get()).toBeNull();
+    await flush();
     expect(call(ok.fetch)).toMatchObject({ url: `${BASE}/app/v1/auth/logout`, method: 'POST' });
     expect(call(ok.fetch).headers.Authorization).toBe('Bearer tok');
     expect(await ok.session.get()).toBeNull();
@@ -286,6 +289,24 @@ describe('HTTP', () => {
     });
     await expect(offline.transport.logout()).resolves.toBeUndefined();
     expect(await offline.session.get()).toBeNull();
+    await flush();
+    expect(offline.fetch).toHaveBeenCalledTimes(1);
+
+    // Server lambat: HP sudah keluar sebelum server menjawab.
+    let answer: () => void = () => {};
+    const slow = setup({
+      reply: () => new Promise((resolve) => (answer = () => resolve({ body: { ok: true } }))),
+    });
+    await slow.transport.logout();
+    expect(await slow.session.get()).toBeNull();
+    answer();
+    await flush();
+
+    // Tanpa sesi: tidak ada yang dikirim.
+    const none = setup({ token: null });
+    await none.transport.logout();
+    await flush();
+    expect(none.fetch).not.toHaveBeenCalled();
   });
 });
 

@@ -18,11 +18,11 @@ interface Options {
   api?: Api;
 }
 
-/** Sumber data tiruan di memori untuk tes. `mode` hanya label (Api.mode); transport-nya selalu FakeTransport. */
-export function createTestApi(options: FakeOptions & { token?: string | null; mode?: Api['mode'] } = {}) {
+/** Sumber data tiruan di memori untuk tes. `mode` menjadi label `Api.mode` dan `Transport.mode`; isinya selalu FakeTransport. */
+export function createTestApi(options: FakeOptions & { token?: string | null } = {}) {
   const { token = null, mode = 'contoh', ...fake } = options;
   const session = createMemorySession(token);
-  const transport = new FakeTransport(session, fake);
+  const transport = new FakeTransport(session, { ...fake, mode });
   return { mode, session, transport } satisfies Api;
 }
 

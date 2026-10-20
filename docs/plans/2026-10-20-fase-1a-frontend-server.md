@@ -126,6 +126,13 @@ StreamEvent = { type: 'message', message: Message }       // id yang sudah diken
 - **Pembacaan longgar:** bagian, kartu, atau enum yang tidak dikenal menjadi `{ type: 'unknown', note }`; hanya pesan
   tanpa `id` atau `seq` yang dibuang (`rev` yang hilang diganti `seq`).
 
+**Navigasi masuk (mode server):** `app/_layout.tsx` memakai `Stack.Protected`; aturannya di `src/api/routeAccess.ts`
+(`/mulai` dan `/mulai/masuk` hanya tanpa sesi, `/mode` selalu terbuka, selebihnya hanya dengan sesi). Layar yang menjadi
+tertolak (keluar, sesi dicabut server) dibuang dari tumpukan berikut riwayatnya. Setelah masuk, `AfterSignIn` membuka
+`/mulai/pilih`; "Lewati dulu" atau tombol utamanya memanggil `router.dismissAll()` lalu `router.replace('/')`, jadi
+tumpukan tepat `[Beranda]`. Layar pembuka asli bertahan sampai huruf, mode tersimpan, dan pemeriksaan sesi selesai
+(paling lama 6 detik).
+
 ---
 
 ## Tugas 1: Kontrak, transport, sesi, dan mode

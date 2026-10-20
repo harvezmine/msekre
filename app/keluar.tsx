@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useRef } from 'react';
 import { Pressable, View } from 'react-native';
 import { useAuth } from '@/api/useAuth';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -18,14 +19,20 @@ function Isi() {
   const { c } = useTheme();
   const { logout } = useAuth();
   const { close } = useSheet();
-  const run = () =>
+  const leaving = useRef(false);
+  const run = () => {
+    // Ketukan kedua diabaikan: keluar hanya sekali.
+    if (leaving.current) return;
+    leaving.current = true;
     close(() => {
       void logout().then(() => {
-        // Tumpukan dibersihkan: dari layar masuk, "kembali" tidak mendarat di isi akun yang baru ditinggalkan.
-        router.dismissTo('/');
+        // Di mode server penjaga rute (app/_layout.tsx) sudah menutup semua layar aplikasi; mode contoh tidak punya
+        // penjaga. Tumpukan dibersihkan di kedua mode: dari layar masuk, "kembali" tidak mendarat di isi akun lama.
+        router.dismissAll();
         router.replace('/mulai');
       });
     });
+  };
   return (
     <View style={{ gap: 8 }}>
       <Txt v="title">Keluar dari akun ini?</Txt>

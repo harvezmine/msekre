@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { businessByPlace } from '@/sample/business';
-import { user } from '@/sample/profile';
 import { supplierOrderDraft } from '@/sample/outgoing';
 import { draftFor, useSampleDispatch, useSampleState } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -13,6 +12,7 @@ import { SalesCard } from '@/ui/business/SalesCard';
 import { StockCard } from '@/ui/business/StockCard';
 import { Card } from '@/ui/Card';
 import { PlaceButton } from '@/ui/PlaceButton';
+import { Initials } from '@/ui/Initials';
 import { Txt } from '@/ui/Txt';
 
 export default function Usaha() {
@@ -56,9 +56,7 @@ export default function Usaha() {
               justifyContent: 'center',
             }}
           >
-            <Txt weight={700} color={c.green} style={{ fontSize: 15 }}>
-              {user.initials}
-            </Txt>
+            <Initials />
           </Pressable>
         </View>
         <Txt v="title" accessibilityRole="header" style={{ paddingTop: 16, paddingHorizontal: 20 }}>

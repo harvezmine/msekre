@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { user } from '@/sample/profile';
 import { ROUTINES, routineActions, routineDone, type Routine } from '@/sample/routines';
 import { PLACES, useSample, type Device } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -13,6 +12,7 @@ import { RoutineRow } from '@/ui/device/RoutineRow';
 import { Icon } from '@/ui/Icon';
 import { ListGroup } from '@/ui/ListRow';
 import { PlaceButton } from '@/ui/PlaceButton';
+import { Initials } from '@/ui/Initials';
 import { Txt } from '@/ui/Txt';
 
 const HOME_ROOMS = ['Ruang tamu', 'Kamar', 'Dapur', 'Teras'];
@@ -95,9 +95,7 @@ export default function Perangkat() {
                 justifyContent: 'center',
               }}
             >
-              <Txt weight={700} color={c.green} style={{ fontSize: 15 }}>
-                {user.initials}
-              </Txt>
+              <Initials />
             </Pressable>
           </View>
         </View>

@@ -1,9 +1,18 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Keyboard,
+  KeyboardAvoidingView,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '@/api/ApiProvider';
 import { friendlyError } from '@/api/errors';
+import { cleanPhone, groupPhone } from '@/api/format';
 import { isApiFailure } from '@/api/transport';
 import { useAuth } from '@/api/useAuth';
 import { useSample } from '@/sample/store';
@@ -15,20 +24,10 @@ import { Txt } from '@/ui/Txt';
 
 const CODE_LENGTH = 6;
 
-/** Hanya angka, tanpa 0 atau 62 di depan, paling banyak 13 angka. */
-function cleanPhone(text: string): string {
-  return text
-    .replace(/\D/g, '')
-    .replace(/^(0|62)/, '')
-    .slice(0, 13);
-}
-/** 8122045781 -> 812-2045-781 (tiga, empat, sisanya). */
-function formatPhone(digits: string): string {
-  return [digits.slice(0, 3), digits.slice(3, 7), digits.slice(7)].filter(Boolean).join('-');
-}
 /** Nomor E.164 tanpa "+": 62 di depan angka yang sudah dibersihkan. */
 const toE164 = (digits: string) => `62${digits}`;
 const pad = (n: number) => String(n).padStart(2, '0');
+const formatPhone = groupPhone;
 const clock = (s: number) => `${pad(Math.floor(s / 60))}.${pad(s % 60)}`;
 
 // Layar pertama kali 2 (desain 2o): nomor WhatsApp dan kode. "Kirim kode" meminta kode ke server (auth/start); "Masuk"
@@ -41,8 +40,13 @@ export default function MulaiMasuk() {
   const { start, verify } = useAuth();
   const [phone, setPhone] = useState(mode === 'contoh' ? '81220457781' : '');
   const [code, setCode] = useState('');
-  /** Detik sampai boleh minta kode lagi; `null` selama kode belum diminta. */
-  const [left, setLeft] = useState<number | null>(null);
+  /**
+   * Kapan (ms jam HP) tiap nomor boleh minta kode lagi. Ada isinya = kode sudah diminta untuk nomor itu. Per nomor,
+   * jadi mengubah nomor lalu mengembalikannya tidak mengulang tunggu; berupa batas waktu (bukan hitungan mundur) supaya
+   * tidak meleset saat aplikasi di latar belakang.
+   */
+  const [until, setUntil] = useState<Record<string, number>>({});
+  const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState<'start' | 'verify' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const busyRef = useRef(false);
@@ -50,15 +54,27 @@ export default function MulaiMasuk() {
   const phoneRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const codeRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
-  const counting = left !== null;
+  const deadline = until[toE164(phone)];
+  const requested = deadline !== undefined;
+  const left = requested ? Math.max(0, Math.ceil((deadline - now) / 1000)) : 0;
+  const counting = left > 0;
   useEffect(() => {
     if (!counting) return;
-    const t = setInterval(() => setLeft((s) => (s === null ? s : Math.max(0, s - 1))), 1000);
+    const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [counting]);
+  }, [counting, phone]);
+  useEffect(() => {
+    // iOS tidak membaca live region; pembaca layar diberi tahu langsung.
+    if (error) AccessibilityInfo.announceForAccessibility(error);
+  }, [error]);
 
   const phoneOk = phone.length >= 9;
-  const ready = phoneOk && code.length === CODE_LENGTH;
+  const ready = phoneOk && requested && code.length === CODE_LENGTH;
+  const waitFor = (number: string, sec: number) => {
+    const at = Date.now();
+    setNow(at);
+    setUntil((u) => ({ ...u, [number]: at + sec * 1000 }));
+  };
 
   /** Satu permintaan pada satu waktu: ketukan kedua selagi menunggu diabaikan. */
   const run = async (kind: 'start' | 'verify', job: () => Promise<void>) => {
@@ -70,6 +86,10 @@ export default function MulaiMasuk() {
       await job();
     } catch (e) {
       setError(friendlyError(e));
+      // Terlalu sering berarti kode sudah pernah diminta; tunggu sesuai kata server.
+      if (kind === 'start' && isApiFailure(e) && e.code === 'rate_limited') {
+        waitFor(toE164(phone), e.retryInSec ?? 0);
+      }
       if (kind === 'verify' && isApiFailure(e) && e.code === 'kode_salah') {
         setCode('');
         codeRef.current?.focus();
@@ -82,7 +102,8 @@ export default function MulaiMasuk() {
   const send = (again: boolean) =>
     run('start', async () => {
       const res = await start(toE164(phone));
-      setLeft(res.resendInSec);
+      waitFor(toE164(phone), res.resendInSec);
+      codeRef.current?.focus();
       dispatch({
         type: 'showToast',
         text: again ? 'Kode baru dikirim lewat WhatsApp.' : 'Kode dikirim lewat WhatsApp.',
@@ -91,7 +112,8 @@ export default function MulaiMasuk() {
   const submit = () =>
     run('verify', async () => {
       await verify(toE164(phone), code);
-      router.push('/mulai/pilih');
+      // Mode server: AfterSignIn (akar) membukanya sesudah penjaga rute menutup layar ini.
+      if (mode === 'contoh') router.push('/mulai/pilih');
     });
 
   return (
@@ -148,7 +170,7 @@ export default function MulaiMasuk() {
                 value={formatPhone(phone)}
                 onChangeText={(t) => {
                   setPhone(cleanPhone(t));
-                  setLeft(null);
+                  setNow(Date.now());
                   setError(null);
                 }}
                 keyboardType="number-pad"
@@ -163,7 +185,7 @@ export default function MulaiMasuk() {
                 accessibilityLabel="Ubah"
                 onPress={() => {
                   setPhone('');
-                  setLeft(null);
+                  setError(null);
                   phoneRef.current?.focus();
                 }}
                 android_ripple={{ color: c.ripple }}
@@ -223,7 +245,6 @@ export default function MulaiMasuk() {
                 onBlur={() => setFocused(false)}
                 keyboardType="number-pad"
                 textContentType="oneTimeCode"
-                autoComplete="sms-otp"
                 maxLength={CODE_LENGTH}
                 caretHidden
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.02 }}
@@ -234,17 +255,17 @@ export default function MulaiMasuk() {
                 {error}
               </Txt>
             ) : null}
-            {left !== null && left > 0 ? (
+            {counting ? (
               <Txt v="caption" color={c.muted} tabular>
                 Kirim ulang kode dalam {clock(left)}
               </Txt>
             ) : (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={left === null ? 'Kirim kode' : 'Kirim ulang kode'}
+                accessibilityLabel={requested ? 'Kirim ulang kode' : 'Kirim kode'}
                 accessibilityState={{ disabled: busy !== null || !phoneOk }}
                 disabled={busy !== null || !phoneOk}
-                onPress={() => send(left !== null)}
+                onPress={() => send(requested)}
                 android_ripple={{ color: c.ripple }}
                 style={{
                   height: 48,
@@ -254,13 +275,25 @@ export default function MulaiMasuk() {
                 }}
               >
                 <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
-                  {busy === 'start' ? 'Mengirim…' : left === null ? 'Kirim kode' : 'Kirim ulang kode'}
+                  {busy === 'start' ? 'Mengirim…' : requested ? 'Kirim ulang kode' : 'Kirim kode'}
                 </Txt>
               </Pressable>
             )}
           </View>
 
           <View style={{ flex: 1 }} />
+          {__DEV__ ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Ganti mode data"
+              onPress={() => router.push('/mode')}
+              style={{ height: 48, justifyContent: 'center', alignSelf: 'center' }}
+            >
+              <Txt v="caption" color={c.muted}>
+                Ganti mode data
+              </Txt>
+            </Pressable>
+          ) : null}
           <StepDots step={2} />
           <PrimaryButton
             label={busy === 'verify' ? 'Memeriksa…' : 'Masuk'}

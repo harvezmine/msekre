@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { businessByPlace } from '@/sample/business';
-import { homeSummary, user } from '@/sample/profile';
+import { homeSummary } from '@/sample/profile';
 import { useProfile } from '@/api/useProfile';
 import { approvalText, homeAgenda, houseCard, pendingApproval, ringNodes, useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -15,6 +15,7 @@ import { Orbit } from '@/ui/orbit/Orbit';
 import { useLive } from '@/ui/useLive';
 import { ringLabel } from '@/ui/orbit/label';
 import { Toggle } from '@/ui/Toggle';
+import { Initials } from '@/ui/Initials';
 import { Txt } from '@/ui/Txt';
 
 export default function Beranda() {
@@ -61,14 +62,12 @@ export default function Beranda() {
               justifyContent: 'center',
             }}
           >
-            <Txt weight={700} color={c.green} style={{ fontSize: 15 }}>
-              {user.initials}
-            </Txt>
+            <Initials />
           </Pressable>
         </View>
 
         <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 8 }}>
-          <Txt v="display">Selamat pagi, {name}</Txt>
+          <Txt v="display">{name ? `Selamat pagi, ${name}` : 'Selamat pagi'}</Txt>
           <Txt v="subtitle" weight={400} color={c.muted}>
             {homeSummary}
           </Txt>

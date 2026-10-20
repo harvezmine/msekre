@@ -48,7 +48,9 @@ export default function MulaiPilih() {
   const finish = (toast?: string) => {
     dispatch({ type: 'finishOnboarding' });
     if (toast) dispatch({ type: 'showToast', text: toast });
-    router.dismissTo('/');
+    // Tumpukan menjadi tepat [Beranda]: "kembali" dari Beranda tidak mendarat di layar masuk atau pilihan ini.
+    router.dismissAll();
+    router.replace('/');
   };
 
   return (

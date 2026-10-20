@@ -10,3 +10,30 @@ export function formatJam(iso: string): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(local.getUTCHours())}.${pad(local.getUTCMinutes())}`;
 }
+
+/** 8122045781 -> 812-2045-781 (tiga, empat, sisanya). */
+export function groupPhone(digits: string): string {
+  return [digits.slice(0, 3), digits.slice(3, 7), digits.slice(7)].filter(Boolean).join('-');
+}
+
+/** Nomor E.164 tanpa "+" untuk ditampilkan: 6281220457781 -> "+62 812-2045-781". Selain 62, apa adanya dengan "+". */
+export function formatPhoneDisplay(e164: string): string {
+  return e164.startsWith('62') ? `+62 ${groupPhone(e164.slice(2))}` : `+${e164}`;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+/** Tanggal "12 Jan 2027" dari waktu ISO 8601, menurut zona waktu HP. Waktu yang tidak terbaca: `null`. */
+export function formatTanggal(iso: string): string | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/**
+ * Hanya angka, tanpa 62 atau 0 di depan, paling banyak 13 angka. "0812…", "+62 812…", "62 0812…" semuanya menjadi
+ * "812…". Nomor seluler Indonesia selalu berawal 8, jadi 0 di depan memang selalu awalan.
+ */
+export function cleanPhone(text: string): string {
+  return text.replace(/\D/g, '').replace(/^62/, '').replace(/^0+/, '').slice(0, 13);
+}

@@ -27,6 +27,11 @@ import Terhubung from '../app/terhubung/index';
 import Masuk from '../app/terhubung/masuk';
 import Tersambung from '../app/terhubung/tersambung';
 import { renderWithProviders } from './helpers';
+import { AfterSignIn } from '@/api/AfterSignIn';
+import { useApi } from '@/api/ApiProvider';
+import { canOpen, REDIRECT_APP, REDIRECT_ENTRY, routeKind } from '@/api/routeAccess';
+import type { DataMode } from '@/api/mode';
+import { useAuth, type AuthStatus } from '@/api/useAuth';
 import { useSample, type SampleState } from '@/sample/store';
 import { ToastHost } from '@/ui/Toast';
 
@@ -91,6 +96,7 @@ export function parseRoute(href: unknown): Entry {
 }
 
 let stack: Entry[] = [];
+let access: { mode: DataMode; status: AuthStatus } = { mode: 'contoh', status: 'checking' };
 export const currentRoute = () => stack[stack.length - 1]!.path;
 export const currentStack = () => stack.map((e) => e.path);
 
@@ -107,12 +113,38 @@ export const sampleState = () => latest;
 
 /**
  * Tumpukan navigasi tiruan: push/navigate menambah (navigate kembali ke rute yang sudah ada), replace mengganti,
- * back membuang, dismissTo kembali ke rute yang sudah ada atau, bila tak ada, mengganti rute sekarang.
+ * back membuang, dismissTo kembali ke rute yang sudah ada atau, bila tak ada, mengganti rute sekarang, dismissAll
+ * membuang semuanya kecuali yang pertama.
+ *
+ * Penjaga rute meniru `Stack.Protected` di app/_layout.tsx (aturannya `src/api/routeAccess.ts`): menuju rute yang
+ * ditolak dialihkan ke `redirectTo` kelompoknya, dan rute yang menjadi tertolak (status masuk berubah) dibuang dari
+ * tumpukan beserta riwayatnya; bila tumpukan habis, layar pertama yang boleh dibuka dipakai.
  */
 function Rute({ start }: { start: string }) {
   const [, setTick] = useState(0);
   const redraw = () => setTick((t) => t + 1);
+  const { mode } = useApi();
+  const { status } = useAuth();
+  // Seperti penjaga rute di akar: nilainya ikut render yang sama, jadi efek anak (AfterSignIn) sudah melihat yang baru.
+  // eslint-disable-next-line react-hooks/globals
+  access = { mode, status };
+  // Seperti penjaga rute: yang menjadi tertolak dibuang saat itu juga (selama sesi diperiksa, akar menahan tampilan).
+  if (!(mode === 'server' && status === 'checking')) {
+    const open = stack.filter((e) => canOpen(routeKind(e.path), mode, status));
+    if (open.length !== stack.length) {
+      // eslint-disable-next-line react-hooks/globals
+      stack = open.length > 0 ? open : [parseRoute(canOpen('app', mode, status) ? '/' : REDIRECT_APP)];
+    }
+  }
   useEffect(() => {
+    // Tujuan yang ditolak penjaga dialihkan ke `redirectTo` kelompoknya.
+    const guarded = (e: Entry): Entry => {
+      const { mode: m, status: st } = access;
+      if (m === 'server' && st === 'checking') return e;
+      const kind = routeKind(e.path);
+      if (canOpen(kind, m, st)) return e;
+      return parseRoute(kind === 'entry' ? REDIRECT_ENTRY : REDIRECT_APP);
+    };
     const popTo = (e: Entry) => {
       const i = stack.map((s) => s.path).lastIndexOf(e.path);
       if (i >= 0) stack = [...stack.slice(0, i), e];
@@ -124,19 +156,24 @@ function Rute({ start }: { start: string }) {
       stack = i >= 0 ? [...stack.slice(0, i), e] : [...stack.slice(0, -1), e];
     };
     jest.mocked(router.push).mockImplementation((h) => {
-      stack = [...stack, parseRoute(h)];
+      const e = guarded(parseRoute(h));
+      if (e.path !== stack[stack.length - 1]!.path) stack = [...stack, e];
       redraw();
     });
     jest.mocked(router.replace).mockImplementation((h) => {
-      stack = [...stack.slice(0, -1), parseRoute(h)];
+      stack = [...stack.slice(0, -1), guarded(parseRoute(h))];
       redraw();
     });
     jest.mocked(router.navigate).mockImplementation((h) => {
-      popTo(parseRoute(h));
+      popTo(guarded(parseRoute(h)));
       redraw();
     });
     jest.mocked(router.dismissTo).mockImplementation((h) => {
-      dismissTo(parseRoute(h));
+      dismissTo(guarded(parseRoute(h)));
+      redraw();
+    });
+    jest.mocked(router.dismissAll).mockImplementation(() => {
+      stack = stack.slice(0, 1);
       redraw();
     });
     jest.mocked(router.back).mockImplementation(() => {
@@ -146,7 +183,12 @@ function Rute({ start }: { start: string }) {
   }, []);
   const Layar = ROUTES[stack[stack.length - 1]!.path] ?? Beranda;
   void start;
-  return <Layar key={stack.length + stack[stack.length - 1]!.path} />;
+  return (
+    <>
+      <AfterSignIn />
+      <Layar key={stack.length + stack[stack.length - 1]!.path} />
+    </>
+  );
 }
 
 /** Siapkan useLocalSearchParams; panggil di beforeEach. */

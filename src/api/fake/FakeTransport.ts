@@ -27,6 +27,7 @@ import {
   type StreamEvent,
 } from '../contract';
 import { StreamHub } from '../hub';
+import type { DataMode } from '../mode';
 import type { Session } from '../session';
 import {
   ApiFailure,
@@ -46,6 +47,8 @@ export const FAKE_RESEND_SEC = 60;
 export const FAKE_WRONG_CODE = '000000';
 
 export interface FakeOptions {
+  /** Hanya untuk tes: label mode transport ini. Bawaan `contoh`. */
+  mode?: DataMode;
   /** Jeda dari `thinking on` sampai jawaban asisten. Bawaan 1,2 detik. */
   thinkMs?: number;
   /** Jeda setiap request, supaya tanda "mengirim…" sempat terlihat di HP. Bawaan 0 (tes). */
@@ -96,7 +99,8 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
  * {@link failHeldSends}.
  */
 export class FakeTransport implements Transport {
-  readonly mode = 'contoh' as const;
+  /** `contoh`, kecuali tes yang meniru server (`options.mode`) supaya `Transport.mode` sama dengan `Api.mode`. */
+  readonly mode: DataMode;
   /** Setiap pendaftaran token notifikasi, dari yang pertama. Hanya dicatat, tidak dikirim ke mana pun. */
   readonly registeredPushTokens: PushTokenReq[] = [];
 
@@ -140,6 +144,7 @@ export class FakeTransport implements Transport {
     private readonly session: Session,
     options: FakeOptions = {},
   ) {
+    this.mode = options.mode ?? 'contoh';
     this.clock = options.clock ?? new FakeClock();
     this.scenario = new FakeScenario(this.clock);
     this.thinkMs = options.thinkMs ?? THINK_MS;

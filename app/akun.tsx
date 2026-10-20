@@ -1,9 +1,12 @@
 import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
+import { formatPhoneDisplay, formatTanggal } from '@/api/format';
+import { useProfile, type Profile } from '@/api/useProfile';
 import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
+import { Initials } from '@/ui/Initials';
 import type { IconName } from '@/ui/icons';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Txt } from '@/ui/Txt';
@@ -17,11 +20,32 @@ interface Row {
   go: { route: Href } | { toast: string };
 }
 
+/** Isi kepala Akun. Mode contoh memakai isian desain; mode server hanya data akun asli, tanpa nama contoh. */
+function accountOf(p: Profile) {
+  if (p.sample) {
+    return {
+      title: 'Rina Wulandari',
+      phone: '+62 812-2045-7781',
+      plan: 'Paket Bisnis',
+      until: 'Aktif sampai 12 Jan 2027' as string | null,
+    };
+  }
+  const until = p.plan?.activeUntil ? formatTanggal(p.plan.activeUntil) : null;
+  return {
+    title: p.name ?? 'Akun Anda',
+    phone: p.phone ? formatPhoneDisplay(p.phone) : null,
+    plan: p.plan ? `Paket ${p.plan.name}` : 'Paket Anda',
+    until: until ? `Aktif sampai ${until}` : null,
+  };
+}
+
 // Akun (desain 2q). Baris yang layarnya belum ada memunculkan toast dengan nama fasenya.
 export default function Akun() {
   const { c } = useTheme();
   const { state, dispatch } = useSample();
   const { mode } = useApi();
+  const profile = useProfile();
+  const account = accountOf(profile);
   const toast = (text: string) => dispatch({ type: 'showToast', text });
 
   const sections: Row[][] = [
@@ -97,15 +121,15 @@ export default function Akun() {
               justifyContent: 'center',
             }}
           >
-            <Txt weight={700} color={c.green} style={{ fontSize: 20 }}>
-              RW
-            </Txt>
+            <Initials size={20} />
           </View>
           <View>
-            <Txt v="subtitle">Rina Wulandari</Txt>
-            <Txt color={c.muted} tabular>
-              +62 812-2045-7781
-            </Txt>
+            <Txt v="subtitle">{account.title}</Txt>
+            {account.phone ? (
+              <Txt color={c.muted} tabular>
+                {account.phone}
+              </Txt>
+            ) : null}
           </View>
         </View>
 
@@ -125,10 +149,12 @@ export default function Akun() {
             <Txt v="caption" weight={600} color={c.green}>
               Langganan
             </Txt>
-            <Txt v="subtitle">Paket Bisnis</Txt>
-            <Txt v="caption" color={c.muted}>
-              Aktif sampai 12 Jan 2027
-            </Txt>
+            <Txt v="subtitle">{account.plan}</Txt>
+            {account.until ? (
+              <Txt v="caption" color={c.muted}>
+                {account.until}
+              </Txt>
+            ) : null}
           </View>
           <Pressable
             accessibilityRole="button"

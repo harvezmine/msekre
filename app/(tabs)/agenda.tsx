@@ -4,7 +4,6 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TODAY } from '@/sample/agenda';
 import { dayLabel } from '@/sample/dates';
-import { user } from '@/sample/profile';
 import { agendaOn, useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { AgendaItem, isPast } from '@/ui/agenda/AgendaItem';
@@ -14,6 +13,7 @@ import { WeekList } from '@/ui/agenda/WeekList';
 import { Card } from '@/ui/Card';
 import { Icon } from '@/ui/Icon';
 import { Segmented } from '@/ui/Segmented';
+import { Initials } from '@/ui/Initials';
 import { Txt } from '@/ui/Txt';
 
 const SEGMENTS = ['Hari ini', 'Minggu ini', 'Kalender'] as const;
@@ -61,9 +61,7 @@ export default function Agenda() {
               justifyContent: 'center',
             }}
           >
-            <Txt weight={700} color={c.green} style={{ fontSize: 15 }}>
-              {user.initials}
-            </Txt>
+            <Initials />
           </Pressable>
         </View>
         <View style={{ marginHorizontal: 16, marginTop: 12 }}>

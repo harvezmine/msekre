@@ -8,10 +8,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
+import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ApiProvider } from '@/api/ApiProvider';
-import { AuthGate } from '@/api/AuthGate';
-import { AuthProvider } from '@/api/useAuth';
+import { AfterSignIn } from '@/api/AfterSignIn';
+import { ApiProvider, useApi } from '@/api/ApiProvider';
+import { canOpen } from '@/api/routeAccess';
+import { AuthProvider, useAuth } from '@/api/useAuth';
 import { SampleProvider } from '@/sample/store';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { ToastHost } from '@/ui/Toast';
@@ -20,52 +22,110 @@ import { ToastHost } from '@/ui/Toast';
 export const unstable_settings = { anchor: '(tabs)' };
 
 SplashScreen.preventAutoHideAsync();
+/** Batas paling lama layar pembuka menunggu pemeriksaan sesi. */
+const SPLASH_MAX_MS = 6000;
 
 function Navigator() {
   const { c, scheme } = useTheme();
+  const { mode } = useApi();
+  const { status } = useAuth();
+  // Mode server: layar aplikasi hanya setelah masuk, layar masuk hanya sebelumnya (src/api/routeAccess.ts). Penjaga
+  // menutup layar yang tidak lagi boleh dibuka, juga dari sesi yang dicabut server, dan membuang riwayatnya.
+  const app = canOpen('app', mode, status);
+  const entry = canOpen('entry', mode, status);
+  // Layar pembuka asli menunggu sampai sesi tersimpan selesai diperiksa; setelah itu tidak ada bingkai kertas kosong.
+  const ready = mode === 'contoh' || status !== 'checking';
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(c.paper);
   }, [c.paper]);
+  useEffect(() => {
+    if (ready) {
+      void SplashScreen.hideAsync();
+      return;
+    }
+    // Pemeriksaan sesi macet (sinyal buruk): jangan menahan layar pembuka selamanya.
+    const t = setTimeout(() => void SplashScreen.hideAsync(), SPLASH_MAX_MS);
+    return () => clearTimeout(t);
+  }, [ready]);
+  if (!ready) {
+    return (
+      <>
+        <View style={{ flex: 1, backgroundColor: c.paper }} />
+        <ToastHost />
+      </>
+    );
+  }
   return (
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.paper } }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="chat" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="suara" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
-        <Stack.Screen name="alarm" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
-        <Stack.Screen name="inti" />
-        <Stack.Screen
-          name="agenda/tambah"
-          options={{
-            presentation: 'transparentModal',
-            animation: 'none',
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        />
-        <Stack.Screen name="perangkat/[id]" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="perangkat/tambah" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen
-          name="pin"
-          options={{
-            presentation: 'transparentModal',
-            animation: 'none',
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        />
-        <Stack.Screen name="akun" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="riwayat" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="mulai/index" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="mulai/masuk" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="mulai/pilih" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen
-          name="keluar"
-          options={{
-            presentation: 'transparentModal',
-            animation: 'none',
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        />
+        <Stack.Protected guard={entry} redirectTo="/">
+          <Stack.Screen name="mulai/index" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="mulai/masuk" options={{ animation: 'slide_from_right' }} />
+        </Stack.Protected>
+        <Stack.Protected guard={app} redirectTo="/mulai">
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="chat" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="suara" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
+          <Stack.Screen name="alarm" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
+          <Stack.Screen name="inti" />
+          <Stack.Screen
+            name="agenda/tambah"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen name="perangkat/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="perangkat/tambah" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen
+            name="pin"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen name="akun" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="riwayat" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="mulai/pilih" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen
+            name="keluar"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen name="terhubung/index" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="terhubung/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen
+            name="terhubung/masuk"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen
+            name="terhubung/konfirmasi"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen name="terhubung/tersambung" options={{ gestureEnabled: false, animation: 'fade' }} />
+          <Stack.Screen
+            name="tempat"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+        </Stack.Protected>
         <Stack.Screen
           name="mode"
           options={{
@@ -74,40 +134,15 @@ function Navigator() {
             contentStyle: { backgroundColor: 'transparent' },
           }}
         />
-        <Stack.Screen name="terhubung/index" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="terhubung/[id]" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen
-          name="terhubung/masuk"
-          options={{
-            presentation: 'transparentModal',
-            animation: 'none',
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        />
-        <Stack.Screen
-          name="terhubung/konfirmasi"
-          options={{
-            presentation: 'transparentModal',
-            animation: 'none',
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        />
-        <Stack.Screen name="terhubung/tersambung" options={{ gestureEnabled: false, animation: 'fade' }} />
-        <Stack.Screen
-          name="tempat"
-          options={{
-            presentation: 'transparentModal',
-            animation: 'none',
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        />
       </Stack>
-      <AuthGate />
+      <AfterSignIn />
       <ToastHost />
     </>
   );
 }
 
+// Layar pembuka asli bertahan sampai huruf, mode data tersimpan (ApiProvider), dan pemeriksaan sesi selesai; Navigator
+// yang menutupnya (di atas), karena hanya ia yang tahu semuanya sudah siap.
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     PlusJakartaSans_400Regular,
@@ -115,9 +150,6 @@ export default function RootLayout() {
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
   });
-  useEffect(() => {
-    if (loaded || error) SplashScreen.hideAsync();
-  }, [loaded, error]);
   if (!loaded && !error) return null;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

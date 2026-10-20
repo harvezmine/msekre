@@ -47,6 +47,9 @@ test('layar 2: Masuk menunggu nomor dan 6 angka kode', async () => {
   expect(masuk()).toBeDisabled();
   await fireEvent.changeText(code, '12a3456x9');
   expect(code.props.value).toBe('123456');
+  // Enam angka saja belum cukup: kode harus sudah diminta untuk nomor ini.
+  expect(masuk()).toBeDisabled();
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode' }));
   expect(masuk()).toBeEnabled();
 
   await fireEvent.changeText(phone, '0812 2045 7781');
@@ -56,10 +59,11 @@ test('layar 2: Masuk menunggu nomor dan 6 angka kode', async () => {
   await fireEvent.changeText(phone, '08122045');
   expect(masuk()).toBeDisabled();
   await fireEvent.changeText(phone, '0812204578');
-  expect(masuk()).toBeEnabled();
+  expect(masuk()).toBeDisabled();
 
   // Seperti server: kode hanya sah untuk nomor yang sudah meminta kode.
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode' }));
+  expect(masuk()).toBeEnabled();
   await fireEvent.press(masuk());
   expect(router.push).toHaveBeenCalledWith('/mulai/pilih');
 });
@@ -124,7 +128,8 @@ test('layar 3: Jadwal dipilih lebih dulu, tombol mengikuti pilihan pertama', asy
   expect(screen.getByRole('button', { name: 'Lanjut ke Beranda' })).toBeTruthy();
   await fireEvent.press(screen.getByRole('button', { name: 'Lanjut ke Beranda' }));
   expect(latest.onboarded).toBe(true);
-  expect(router.dismissTo).toHaveBeenCalledWith('/');
+  expect(router.dismissAll).toHaveBeenCalledTimes(1);
+  expect(router.replace).toHaveBeenCalledWith('/');
 });
 
 test('tombol utama selesai dengan toast dan membuka Beranda', async () => {
@@ -132,12 +137,14 @@ test('tombol utama selesai dengan toast dan membuka Beranda', async () => {
   await fireEvent.press(screen.getByRole('button', { name: 'Sambungkan Google Kalender' }));
   expect(latest.onboarded).toBe(true);
   expect(latest.toast?.text).toBe('Google Kalender bisa disambungkan dari Terhubung.');
-  expect(router.dismissTo).toHaveBeenCalledWith('/');
+  expect(router.dismissAll).toHaveBeenCalledTimes(1);
+  expect(router.replace).toHaveBeenCalledWith('/');
 });
 
 test('Lewati dulu langsung ke Beranda', async () => {
   await withProbe(<Pilih />);
   await fireEvent.press(screen.getByRole('button', { name: 'Lewati dulu' }));
   expect(latest.onboarded).toBe(true);
-  expect(router.dismissTo).toHaveBeenCalledWith('/');
+  expect(router.dismissAll).toHaveBeenCalledTimes(1);
+  expect(router.replace).toHaveBeenCalledWith('/');
 });
