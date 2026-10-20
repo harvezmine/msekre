@@ -11,7 +11,7 @@ export interface Session {
   onChange(listener: (token: string | null) => void): () => void;
 }
 
-function createSession(load: () => Promise<string | null>, save: (token: string | null) => Promise<void>): Session {
+function createSession(load: () => Promise<string | null>, save: (token: string | null) => Promise<unknown>): Session {
   let token: string | null | undefined;
   let loading: Promise<string | null> | null = null;
   const listeners = new Set<(token: string | null) => void>();

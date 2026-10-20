@@ -1,6 +1,7 @@
 import { BACKOFF_MAX_MS, backoffDelay } from '@/api/backoff';
 import { ERROR_TEXT, friendlyError, WRONG_CODE_TEXT } from '@/api/errors';
 import { loadMode, readApiUrl, resolveMode, saveMode } from '@/api/mode';
+import { readSecure, writeSecure } from '@/api/secureStore';
 import { createMemorySession, createSecureSession } from '@/api/session';
 import { ApiFailure } from '@/api/transport';
 
@@ -118,5 +119,43 @@ describe('teks gagal', () => {
     const text = friendlyError(e);
     expect(text).toBe(ERROR_TEXT);
     expect(text).not.toMatch(/\d{3}|status_draf|tidak_masuk|boom|network|timeout/);
+  });
+});
+
+describe('penyimpanan aman', () => {
+  const store = () => jest.requireMock('expo-secure-store') as { deleteItemAsync: jest.Mock; setItemAsync: jest.Mock };
+
+  test('menghapus yang gagal diulang sekali', async () => {
+    await writeSecure('k', 'v');
+    store().deleteItemAsync.mockRejectedValueOnce(new Error('gagal'));
+    expect(await writeSecure('k', null)).toBe(true);
+    expect(await readSecure('k')).toBeNull();
+  });
+
+  test('menghapus gagal dua kali: nilai lama ditimpa kosong dan hasilnya false', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await writeSecure('k', 'token-lama');
+    store().deleteItemAsync.mockRejectedValueOnce(new Error('gagal')).mockRejectedValueOnce(new Error('gagal'));
+    expect(await writeSecure('k', null)).toBe(false);
+    // Token lama tidak hidup lagi di pembukaan berikutnya.
+    expect(await readSecure('k')).toBeNull();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  test('tanpa modul native: peringatan sekali di mode pengembangan, nilai tidak tersimpan', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    let bare!: typeof import('@/api/secureStore');
+    jest.isolateModules(() => {
+      jest.doMock('expo', () => ({ requireOptionalNativeModule: () => null }));
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      bare = require('@/api/secureStore') as typeof bare;
+    });
+    expect(await bare.readSecure('k')).toBeNull();
+    expect(await bare.writeSecure('k', 'v')).toBe(false);
+    expect(await bare.readSecure('k')).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]![0])).toContain('memori');
+    warn.mockRestore();
   });
 });
