@@ -249,3 +249,32 @@ pakai jam sungguhan: `node scripts/shots.mjs '/suara?demo=mendengar' --out <fold
 --motion on --real 8000`. Skrip menyalin `canvaskit.wasm` ke `public/` selama berjalan dan menghapusnya lagi.
 
 Setelah selesai, hentikan server dan hapus `$TMPDIR/metro-*` (disk mesin pengembang sempit).
+
+## Layar lain dan pemeriksaan responsif (R6)
+
+Setiap berkas layar dibuka dengan satu komentar niat: untuk apa layar itu dan satu tindakan tersering (yang paling besar
+dan paling dekat dengan jempol).
+
+| Layar | Layar utama | Satu ketukan lagi |
+|---|---|---|
+| Agenda (papan 17) | Deretan tujuh hari (terpilih = lingkaran hijau, titik biru = ada agenda), rel waktu hari itu (`TimeRail`: jam, judul, satu ikon; garis sekarang hijau; berikutnya di kartu putih bertitik biru; tugas = kotak centang 28), "Tambah…" + mic hijau menempel di atas bilah tab | Bulan lain (lembar kalender dari nama bulan di kepala), rincian butir (ketuk butir: cara, ulangan, tempat rapat; selalu dibacakan), pratinjau alarm (tahan) |
+| Usaha (papan 18) | Tempat (tulisan + chevron), segmen Hari ini / Minggu / Bulan, angka ringkas `figure` ("Rp 4,25 jt", `formatRupiahRingkas`) + panah persen, `AreaChart` ungu, cabang (titik ungu), satu stok menipis dengan Pesan di zona jempol | `usaha/lainnya`: semua stok, uang masuk, pesanan, laporan, sumber data |
+| Chat | Kepala: Inti 40, nama, "Siap membantu", jam (Riwayat), Mode Suara. Gelembung pengguna `sunken` kanan, asisten `surface` kiri; kartu `ChatCard` (radius 24, `e1`, tombol 52); kolom ketik 56 dengan kirim/mic 56 | - |
+| Riwayat | Garis waktu: ikon penanda kategori 44 di rel, judul, jam di kanan, satu keterangan; Batalkan + hitung mundur | Saringan (satu tombol di kepala, pilihannya di `ChoiceSheet`) |
+| Terhubung | Kisi logo/huruf tiga kolom (`ServiceTile`): tersambung bercentang hijau, perlu dilihat bertanda koral, segera hadir redup | Detail: paling banyak tiga baris "yang bisa dilakukan", izin sebagai `Segmented role="radio"` + satu kalimat, Hapus/Putuskan sebagai tombol teks di bawah |
+| Alarm | Jam besar 104/300, judul, catatan; Tanya (Inti 32) + Tunda 60, lalu geser untuk mematikan, semuanya menempel di bawah | Panduan izin: satu baris per izin (centang hijau atau "Atur") |
+| Mulai | Satu kalimat, Inti, kolom besar `sunken` (nomor 19, kotak kode 64), tombol utama di bawah | - |
+| Lembar | `ConfirmBody` (ikon, judul 20, satu kalimat, tombol 56 koral/hijau, Batal), PIN dengan tombol pil 64 (56 compact), pemilih tempat baris 64 | - |
+
+- **Akun hanya dari Beranda.** Agenda dan Usaha tidak lagi punya avatar.
+- **Sisa tugas kemarin** tidak di layar Agenda; asisten menanyakannya sekali di chat (`resolveLeftover` tetap ada).
+- **Toast** memakai tinta petunjuk (`tip`/`onTip`), radius 20.
+
+### Pemeriksaan responsif (`__tests__/responsif.test.tsx`)
+
+- Semua layar di 360×640 (compact) dan 412×915 (tall): tidak ada lebar tetap yang melebihi layar.
+- Aksi utama tiap layar berada di wadah zona jempol: `testID="zona-jempol"` (bagian bawah `ThumbZone`, kolom ketik chat,
+  Tambah di Agenda, stok di Usaha, aksi alarm, tombol Mulai/Masuk/Selesai), `lembar-panel` (panel lembar bawah), atau
+  `suara-kontrol`. Tambahkan penanda yang sama saat membuat layar baru.
+- Skala huruf 1,3 di 360×640 (layar kunci): teks ≥ 40 dibatasi `maxFontSizeMultiplier` ≤ 1,2 dan teks baca tidak duduk
+  di kotak bertinggi tetap < 40.

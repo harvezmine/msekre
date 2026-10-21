@@ -76,7 +76,10 @@ export default function Usaha() {
         {/* Ruang lentur: stok menipis (aksi tersering) duduk di zona jempol, tepat di atas bilah tab. */}
         <View style={{ flexGrow: 1, minHeight: 16 }} />
         {stock ? (
-          <View style={{ borderTopWidth: 1, borderTopColor: c.line, paddingHorizontal: 20, paddingTop: 8 }}>
+          <View
+            testID="zona-jempol"
+            style={{ borderTopWidth: 1, borderTopColor: c.line, paddingHorizontal: 20, paddingTop: 8 }}
+          >
             <StockRow
               item={stock}
               busy={isReordering(stock.id)}

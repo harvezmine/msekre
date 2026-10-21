@@ -37,7 +37,9 @@ export function ThumbZone({
     <View testID={testID} style={[{ flex: 1 }, style]}>
       {top ? <View style={{ flexShrink: 1 }}>{top}</View> : null}
       <View testID={testID ? `${testID}-spacer` : undefined} style={{ flexGrow: 1, minHeight: gap }} />
-      <View style={{ paddingBottom: (insetBottom ? insets.bottom : 0) + bottomPadding }}>{children}</View>
+      <View testID="zona-jempol" style={{ paddingBottom: (insetBottom ? insets.bottom : 0) + bottomPadding }}>
+        {children}
+      </View>
     </View>
   );
 }

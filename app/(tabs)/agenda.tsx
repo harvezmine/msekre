@@ -217,7 +217,7 @@ function AddBar({ onAdd }: { onAdd: () => void }) {
   const openVoice = useOpenVoice();
   return (
     <View
-      testID="tambah-agenda"
+      testID="zona-jempol"
       style={{
         backgroundColor: c.tabbar,
         borderTopLeftRadius: 28,

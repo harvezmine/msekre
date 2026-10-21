@@ -94,7 +94,7 @@ test('Notulen siap membuka chat; Tambah membuka lembar; mic membuka Mode Suara; 
   expect(router.navigate).toHaveBeenCalledWith('/chat');
   await fireEvent.press(screen.getByRole('button', { name: 'Tambah' }));
   expect(router.push).toHaveBeenCalledWith('/agenda/tambah');
-  await fireEvent.press(within(screen.getByTestId('tambah-agenda')).getByRole('button', { name: 'Bicara' }));
+  await fireEvent.press(within(screen.getByTestId('zona-jempol')).getByRole('button', { name: 'Bicara' }));
   expect(router.push).toHaveBeenCalledWith('/suara');
   await fireEvent(row('16.00'), 'longPress');
   expect(router.push).toHaveBeenCalledWith({ pathname: '/alarm', params: { id: 'jemput:2025-10-20', preview: '1' } });
