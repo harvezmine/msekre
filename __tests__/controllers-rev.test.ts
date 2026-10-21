@@ -94,6 +94,8 @@ const devices = (rev: number, on: boolean): DevicesRes => ({
       kind: 'lamp',
       on,
       reachable: true,
+      capabilities: [],
+      state: {},
       status: on ? 'Nyala' : 'Mati',
     } satisfies Device,
   ],

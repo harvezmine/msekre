@@ -11,6 +11,7 @@ import type {
   AgendaItem,
   Business,
   Device,
+  DeviceExtra,
   HistoryEntry,
   Leftover,
   NewDraft,
@@ -59,6 +60,11 @@ export type SampleAction =
   | { type: 'toggleDevice'; id: string; on: boolean }
   /** Terang lampu 0–100. Tidak mengubah nyala atau matinya. */
   | { type: 'setLevel'; id: string; level: number }
+  /**
+   * Kontrol remote satu perangkat (volume, sumber, posisi, ...): `extra` digabung ke keadaan tambahan, `on`/`level`/`roomTemp`
+   * mengganti bidang datar. Nyala-mati masuk riwayat; pengaturan lain jadi satu catatan "Mengatur ..." per perangkat.
+   */
+  | { type: 'remote'; id: string; on?: boolean; level?: number; extra?: DeviceExtra }
   | { type: 'setBoxMic'; on: boolean }
   /** Draf baru (misalnya "Pesan lagi"). Kartunya di chat dibuat server tiruan (`FakeTransport`) saat melihat kiriman baru. */
   | { type: 'addDraft'; draft: NewDraft }
@@ -191,6 +197,33 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
           deviceId: d.id,
         },
       ).state;
+    }
+
+    case 'remote': {
+      const d = state.devices.find((x) => x.id === action.id);
+      if (!d || !d.reachable) return state;
+      const on = action.on ?? d.on;
+      const level = action.level ?? d.level;
+      const extra: DeviceExtra = { ...d.extra, ...action.extra };
+      const same = on === d.on && level === d.level && JSON.stringify(extra) === JSON.stringify(d.extra ?? {});
+      if (same) return state;
+      const next: SampleState = {
+        ...state,
+        devices: setDevice(state.devices, d.id, { on, ...(level !== undefined ? { level } : {}), extra }),
+      };
+      const base = { time: NOW_APP, kind: placeKind(d), icon: d.icon, deviceId: d.id } as const;
+      const name = lc(d.name);
+      if (on !== d.on) {
+        const title =
+          d.kind === 'kunci' ? `${on ? 'Mengunci' : 'Membuka'} ${name}` : `${on ? 'Menyalakan' : 'Mematikan'} ${name}`;
+        return withHistory(next, { ...base, title, sub: `${d.place} · lewat aplikasi · ${NOW_APP}` }).state;
+      }
+      // Menekan tombol berkali-kali jadi satu catatan, bukan seratus.
+      const entry = { ...base, title: `Mengatur ${name}`, sub: `${d.place} · lewat aplikasi · ${NOW_APP}` };
+      const top = next.history[0];
+      return top && top.deviceId === d.id && top.title === entry.title && top.day === 'Hari ini'
+        ? { ...next, history: [{ ...top, ...entry }, ...next.history.slice(1)] }
+        : withHistory(next, entry).state;
     }
 
     case 'setBoxMic':

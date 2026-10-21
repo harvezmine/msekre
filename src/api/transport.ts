@@ -64,6 +64,7 @@ import type { DataMode } from './mode';
  * - `pin_required`: aksi perangkat yang dijaga butuh PIN (428 `pin_diperlukan`); aplikasi meminta PIN lalu mengulang;
  * - `not_understood`: server tidak bisa membaca kalimat agenda (422 `tidak_paham`);
  * - `invalid_name`: nama asisten tidak sah (400 `nama_tidak_valid`);
+ * - `not_supported`: perangkat tidak punya kemampuan itu (400 `tidak_didukung`);
  * - `unavailable`: jalur belum diisi server (501 `belum_tersedia`);
  * - `server`: kendala lain, termasuk jawaban server yang bentuknya tidak sesuai kontrak.
  */
@@ -82,6 +83,7 @@ export type FailureCode =
   | 'rate_limited'
   | 'upgrade_required'
   | 'unavailable'
+  | 'not_supported'
   | 'server';
 
 export class ApiFailure extends Error {

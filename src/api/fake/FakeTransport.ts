@@ -9,7 +9,7 @@ import type { SampleState } from '@/sample/reducer';
 import { createSampleStore, type SampleStore } from '@/sample/sampleStore';
 import { deviceById, draftFor } from '@/sample/selectors';
 import { ROUTINES, routineActions, routineDone } from '@/sample/routines';
-import { PLACES, type AcFan, type AcMode } from '@/sample/types';
+import { PLACES } from '@/sample/types';
 import {
   agendaAddReqSchema,
   boxReqSchema,
@@ -119,6 +119,7 @@ import { accountFrom, initialAccountState, type FakeAccountState } from './accou
 import { historyFrom, pageOf } from './activity';
 import { businessFrom } from './business';
 import { connectionsFrom, detailFrom, serviceFrom, startUrlOf, type FakeConnectionsContext } from './connections';
+import { planControl } from './deviceControl';
 import { boxFrom, devicesFrom, toDevice, withoutGuardedActions } from './devices';
 import { homeFrom } from './home';
 import { draftFromOutgoing, SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
@@ -175,11 +176,9 @@ export interface FakeOptions {
 type Timer = ReturnType<typeof setTimeout>;
 type SimulatedFailure = Exclude<FailureCode, 'unauthorized' | 'kode_salah'>;
 
-const AC_MODES: readonly string[] = ['Dingin', 'Kering', 'Kipas', 'Otomatis'];
-const AC_FANS: readonly string[] = ['Pelan', 'Sedang', 'Kencang', 'Otomatis'];
-
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const invalid = (cause?: unknown) => new ApiFailure('server', { status: 400, error: 'tidak_valid', cause });
+const notSupported = () => new ApiFailure('not_supported', { status: 400, error: 'tidak_didukung' });
 const notFound = () => new ApiFailure('server', { status: 404, error: 'tidak_ditemukan' });
 const wrongStatus = () => new ApiFailure('server', { status: 409, error: 'status_draf' });
 const wrongPin = () => new ApiFailure('pin_wrong', { status: 403, error: 'pin_salah' });
@@ -735,30 +734,35 @@ export class FakeTransport implements Transport {
       const r = parse(deviceControlReqSchema, req);
       const found = deviceById(this.sample.getState(), deviceId);
       if (!found) throw notFound();
-      const ac = found.kind === 'ac';
-      if (!ac && (r.temp !== undefined || r.mode !== undefined || r.fan !== undefined)) throw invalid();
-      if (r.level !== undefined && found.kind !== 'lampu') throw invalid();
-      if (r.mode !== undefined && !AC_MODES.includes(r.mode)) throw invalid();
-      if (r.fan !== undefined && !AC_FANS.includes(r.fan)) throw invalid();
-      if (found.needsPin && r.on === false && this.pinEnabled) {
+      const planned = planControl(found, r);
+      if (!planned.ok) throw planned.error === 'unsupported' ? notSupported() : invalid();
+      const { plan } = planned;
+      // Yang dijaga: mematikan (kamera, alarm) atau membuka (kunci), termasuk lewat `locked: false` dan `privacy: true`.
+      if (found.needsPin && plan.on === false && this.pinEnabled) {
         // Server asli juga menolak sebelum memeriksa PIN: PIN yang benar pun tidak dipakai selama pengaman.
         if (this.pinResetAt > 0 && this.clock.now() - this.pinResetAt < PIN_COOLDOWN_MS) throw pinCooldown();
         if (r.pin === undefined) throw pinNeeded();
         if (r.pin !== this.pinValue) throw wrongPin();
       }
-      if (ac) {
+      if (plan.ac || (found.kind === 'ac' && plan.on !== undefined)) {
         this.sample.dispatch({
           type: 'setAc',
           deviceId,
-          on: r.on,
-          temp: r.temp,
-          mode: r.mode as AcMode | undefined,
-          fan: r.fan as AcFan | undefined,
+          on: plan.on,
+          temp: plan.ac?.temp,
+          mode: plan.ac?.mode,
+          fan: plan.ac?.fan,
           source: 'aplikasi',
         });
+        if (Object.keys(plan.extra).length) this.sample.dispatch({ type: 'remote', id: deviceId, extra: plan.extra });
       } else {
-        if (r.on !== undefined) this.sample.dispatch({ type: 'toggleDevice', id: deviceId, on: r.on });
-        if (r.level !== undefined) this.sample.dispatch({ type: 'setLevel', id: deviceId, level: r.level });
+        this.sample.dispatch({
+          type: 'remote',
+          id: deviceId,
+          ...(plan.on !== undefined ? { on: plan.on } : {}),
+          ...(plan.level !== undefined ? { level: plan.level } : {}),
+          extra: plan.extra,
+        });
       }
       const device = toDevice(deviceById(this.sample.getState(), deviceId)!);
       this.flushDevices();

@@ -22,8 +22,12 @@ export const TOO_OFTEN_TEXT = 'Tunggu sebentar ya, lalu coba lagi.';
 /** "Tunggu sebentar ya, coba lagi dalam {n} detik." */
 export const tooOftenText = (retryInSec: number) => `Tunggu sebentar ya, coba lagi dalam ${retryInSec} detik.`;
 
+/** Perangkat tidak punya kemampuan yang diminta (400 `tidak_didukung`). */
+export const DEVICE_NOT_SUPPORTED_TEXT = 'Perangkat ini tidak punya tombol itu.';
+
 /** Seperti {@link friendlyError}, tetapi 501 pada kendali perangkat memakai kalimat perangkat. */
 export function deviceError(e: unknown): string {
+  if (isApiFailure(e) && e.code === 'not_supported') return DEVICE_NOT_SUPPORTED_TEXT;
   return isApiFailure(e) && e.code === 'unavailable' ? DEVICE_UNAVAILABLE_TEXT : friendlyError(e);
 }
 
@@ -49,6 +53,8 @@ export function friendlyError(e: unknown): string {
       return NOT_UNDERSTOOD_TEXT;
     case 'invalid_name':
       return INVALID_NAME_TEXT;
+    case 'not_supported':
+      return DEVICE_NOT_SUPPORTED_TEXT;
     case 'unavailable':
       return UNAVAILABLE_TEXT;
     case 'rate_limited':

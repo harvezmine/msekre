@@ -91,7 +91,7 @@ test('perangkat tidak terjangkau: abu-abu dengan titik clay dan tanpa sakelar', 
   expect(screen.getByText('Tidak terjangkau sejak 10.12')).toBeOnTheScreen();
   expect(screen.getByTestId('titik-tak-terjangkau')).toBeOnTheScreen();
   expect(screen.queryByRole('switch', { name: 'Lampu sudut' })).toBeNull();
-  expect(screen.getAllByRole('switch')).toHaveLength(3);
+  expect(screen.getAllByRole('switch')).toHaveLength(4);
 });
 
 test('PIN mati (bawaan): kamera, alarm, dan pintu langsung dijalankan tanpa lembar PIN', async () => {
@@ -155,7 +155,7 @@ test('rutinitas Saya pulang: lampu teras nyala, AC kamar 25°, riwayat, toast', 
   await show({ actions: [...rumah, { type: 'toggleDevice', id: 'lampu-teras', on: false }] });
   const before = latest.history.length;
   await fireEvent.press(screen.getByRole('button', { name: 'Jalankan Saya pulang' }));
-  expect(status('lampu-teras')).toBe('Nyala');
+  expect(status('lampu-teras')).toBe('Nyala · 70%');
   expect(status('ac-kamar')).toBe('Nyala · 25°');
   expect(latest.history.length).toBeGreaterThan(before);
   expect(toastNow()?.text).toBe('Rutinitas Saya pulang dijalankan.');
@@ -193,7 +193,7 @@ test('rutinitas Tutup kedai di Semua: kedua kedai, rumah tidak', async () => {
   await fireEvent.press(screen.getByRole('button', { name: 'Jalankan Tutup kedai' }));
   expect(status('dago-lampu')).toBe('Mati');
   expect(status('riau-lampu')).toBe('Mati');
-  expect(status('lampu-teras')).toBe('Nyala');
+  expect(status('lampu-teras')).toBe('Nyala · 70%');
   expect(toastNow()?.text).toBe('Rutinitas Tutup kedai dijalankan di semua kedai.');
 });
 

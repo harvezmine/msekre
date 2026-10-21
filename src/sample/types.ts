@@ -13,7 +13,37 @@ export interface AcSettings {
   fan: AcFan;
 }
 
-export type DeviceKind = 'lampu' | 'ac' | 'kamera' | 'kunci' | 'speaker' | 'lain';
+export type DeviceKind =
+  'lampu' | 'ac' | 'tv' | 'speaker' | 'kipas' | 'colokan' | 'tirai' | 'kunci' | 'kamera' | 'sensor' | 'lain';
+
+/**
+ * Keadaan tambahan perangkat contoh di luar bidang datar (`on`, `level`, `ac`, `roomTemp`): kontrol remote. Server
+ * tiruan menyusun `Device.state` dari bidang datar ditambah ini.
+ */
+export interface DeviceExtra {
+  swing?: boolean;
+  timerMinutes?: number;
+  colorTemp?: number;
+  color?: string;
+  volume?: number;
+  muted?: boolean;
+  playing?: boolean;
+  /** Indeks lagu di daftar putar contoh. */
+  trackIndex?: number;
+  source?: string;
+  channel?: number;
+  /** Angka yang sedang diketik di remote TV (pindah channel). */
+  channelBuf?: string;
+  /** Kecepatan kipas angin (id pilihan). */
+  fan?: string;
+  position?: number;
+  snapshotAt?: string;
+  powerW?: number;
+  energyTodayKWh?: number;
+  battery?: number;
+  readings?: Record<string, number>;
+  humidity?: number;
+}
 /**
  * Perangkat dengan keadaan terstruktur. Tulisan keadaan ("Nyala · 80%", "Terkunci", "Tidak terjangkau sejak 10.12")
  * dibuat `deviceStatus` saat digambar, bukan disimpan.
@@ -47,6 +77,8 @@ export interface Device {
   via?: 'ir' | 'cloud';
   /** Mematikan perangkat ini butuh PIN. */
   needsPin?: boolean;
+  /** Keadaan remote (volume, sumber, posisi tirai, ...). */
+  extra?: DeviceExtra;
 }
 
 /**

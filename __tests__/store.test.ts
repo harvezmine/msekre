@@ -55,7 +55,7 @@ test('tulisan keadaan perangkat dibuat dari data terstruktur (desain 2c)', () =>
   expect(status(init, 'pintu-depan')).toBe('Terkunci');
   expect(status(init, 'ac-kamar')).toBe('Nyala · 24°');
   expect(status(init, 'lampu-kamar')).toBe('Mati');
-  expect(status(init, 'lampu-teras')).toBe('Nyala');
+  expect(status(init, 'lampu-teras')).toBe('Nyala · 70%');
   expect(status(init, 'dago-ac')).toBe('Nyala · 23°');
   expect(status(init, 'riau-ac')).toBe('Mati');
   const s = run([

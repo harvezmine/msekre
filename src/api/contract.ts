@@ -271,7 +271,20 @@ export const draftSchema = z
 
 export const draftCardSchema = z.object({ kind: z.literal('draft'), draft: draftSchema });
 /** Jenis perangkat; yang belum dikenal aplikasi dibaca `other`. */
-export const deviceKindSchema = z.enum(['lamp', 'ac', 'camera', 'lock', 'plug', 'tv', 'sensor', 'box', 'other']);
+export const deviceKindSchema = z.enum([
+  'ac',
+  'tv',
+  'speaker',
+  'lamp',
+  'fan',
+  'plug',
+  'curtain',
+  'lock',
+  'camera',
+  'sensor',
+  'box',
+  'other',
+]);
 export const deviceCardSchema = z.object({
   kind: z.literal('device'),
   deviceId: idSchema,
@@ -465,6 +478,142 @@ export const pushTokenDeleteReqSchema = z.object({ pushToken: z.string().min(1) 
 
 export const acSettingsSchema = z.object({ temp: z.number(), mode: z.string().min(1), fan: z.string().min(1) });
 
+// ---- Kemampuan perangkat (remote virtual) ----
+
+/** Satu pilihan (mode AC, kecepatan kipas, sumber input): `id` dikirim ke server, `label` ditampilkan. */
+export const capabilityOptionSchema = z.object({ id: z.string().min(1), label: z.string().min(1) });
+/** Tombol remote yang bisa ditekan lewat `key`. */
+export const REMOTE_KEYS = [
+  'up',
+  'down',
+  'left',
+  'right',
+  'ok',
+  'back',
+  'home',
+  'menu',
+  '0',
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '9',
+  'vol_up',
+  'vol_down',
+  'ch_up',
+  'ch_down',
+] as const;
+export const remoteKeySchema = z.enum(REMOTE_KEYS);
+export const PLAYBACK_ACTIONS = ['play', 'pause', 'next', 'prev'] as const;
+
+/**
+ * Apa yang bisa dilakukan satu perangkat. Aplikasi menyusun halaman remote dari daftar ini; jenis kemampuan yang
+ * belum dikenal dibuang saat dibaca (bukan menggagalkan perangkat).
+ */
+export const capabilitySchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('power') }),
+  z.object({
+    type: z.literal('temperature'),
+    min: z.number(),
+    max: z.number(),
+    step: z.number().positive(),
+    unit: z.literal('C'),
+  }),
+  z.object({ type: z.literal('mode'), options: z.array(capabilityOptionSchema).min(1) }),
+  z.object({ type: z.literal('fan'), options: z.array(capabilityOptionSchema).min(1) }),
+  z.object({ type: z.literal('swing') }),
+  z.object({ type: z.literal('timer'), maxMinutes: z.number().int().positive() }),
+  z.object({ type: z.literal('brightness'), min: z.number(), max: z.number() }),
+  z.object({ type: z.literal('colorTemp'), minK: z.number().int().positive(), maxK: z.number().int().positive() }),
+  z.object({
+    type: z.literal('color'),
+    presets: z.array(z.object({ id: z.string().min(1), label: z.string().min(1), hex: z.string().min(1) })).min(1),
+  }),
+  z.object({ type: z.literal('volume'), min: z.number(), max: z.number(), step: z.number().positive() }),
+  z.object({ type: z.literal('mute') }),
+  /** Putar/jeda, berikutnya, sebelumnya. */
+  z.object({ type: z.literal('playback') }),
+  z.object({ type: z.literal('source'), options: z.array(capabilityOptionSchema).min(1) }),
+  z.object({ type: z.literal('channel') }),
+  /** Tombol remote yang ada; tombol lain ditolak server `tidak_didukung`. Tombol asing dibuang. */
+  z.object({
+    type: z.literal('keys'),
+    keys: z
+      .array(z.unknown())
+      .transform((ks) => ks.flatMap((k) => (remoteKeySchema.safeParse(k).success ? [k as RemoteKey] : []))),
+  }),
+  /** Posisi 0-100 (tirai: 0 tertutup, 100 terbuka). */
+  z.object({ type: z.literal('position') }),
+  z.object({ type: z.literal('lock') }),
+  /** Gambar terakhir dan mode privasi. */
+  z.object({ type: z.literal('camera') }),
+  z.object({ type: z.literal('energy') }),
+  z.object({ type: z.literal('battery') }),
+  z.object({
+    type: z.literal('sensor'),
+    readings: z.array(z.object({ id: z.string().min(1), label: z.string().min(1), unit: z.string() })),
+  }),
+]);
+
+/** Daftar kemampuan dibaca longgar: yang rusak atau belum dikenal dibuang satu per satu. */
+const capabilitiesSchema = z
+  .array(z.unknown())
+  .optional()
+  .catch(undefined)
+  .transform((list) =>
+    (list ?? []).flatMap((c) => {
+      const r = capabilitySchema.safeParse(c);
+      return r.success ? [r.data] : [];
+    }),
+  );
+
+const lenientOpt = <T extends z.ZodType>(schema: T) => schema.optional().catch(undefined);
+const pct = z.number().min(0).max(100);
+
+/**
+ * Keadaan terstruktur perangkat; semua bidang opsional dan dibaca longgar (bidang rusak dibuang, bukan menggagalkan
+ * perangkat). Bidang datar lama (`on`, `level`, `ac`, `roomTemp`) tetap ada di `Device` untuk server dan aplikasi lama.
+ */
+export const deviceStateSchema = z.object({
+  on: lenientOpt(z.boolean()),
+  temp: lenientOpt(z.number()),
+  mode: lenientOpt(z.string().min(1)),
+  fan: lenientOpt(z.string().min(1)),
+  swing: lenientOpt(z.boolean()),
+  /** Menit tersisa sebelum perangkat mati sendiri; 0 atau tidak ada = tanpa timer. */
+  timerMinutes: lenientOpt(z.number().int().nonnegative()),
+  brightness: lenientOpt(pct),
+  colorTemp: lenientOpt(z.number().int().positive()),
+  /** Id preset warna aktif, atau "#RRGGBB" untuk warna bebas. */
+  color: lenientOpt(z.string().min(1)),
+  volume: lenientOpt(z.number()),
+  muted: lenientOpt(z.boolean()),
+  playing: lenientOpt(z.boolean()),
+  track: lenientOpt(
+    z.object({ title: z.string().min(1), artist: lenientOpt(z.string().min(1)), artMediaId: lenientOpt(idSchema) }),
+  ),
+  source: lenientOpt(z.string().min(1)),
+  channel: lenientOpt(z.number().int().nonnegative()),
+  position: lenientOpt(pct),
+  locked: lenientOpt(z.boolean()),
+  /** Mode privasi kamera: lensa tertutup, tidak merekam (sama dengan `on: false`). */
+  privacy: lenientOpt(z.boolean()),
+  snapshotMediaId: lenientOpt(idSchema),
+  /** ISO 8601. */
+  snapshotAt: lenientOpt(z.string().min(1)),
+  powerW: lenientOpt(z.number().nonnegative()),
+  energyTodayKWh: lenientOpt(z.number().nonnegative()),
+  battery: lenientOpt(pct),
+  /** Bacaan sensor menurut `id` di kemampuan `sensor`. */
+  readings: lenientOpt(z.record(z.string(), z.number())),
+  roomTemp: lenientOpt(z.number()),
+  humidity: lenientOpt(z.number()),
+});
+
 /**
  * Satu perangkat. `status` adalah tulisan keadaan yang sudah jadi dari server ("Nyala · 80%", "Terkunci", "Merekam",
  * "Tidak terjangkau sejak 10.12"); aplikasi menampilkannya apa adanya. `on`: lampu, AC, colokan, TV nyala; kunci
@@ -486,12 +635,21 @@ export const deviceSchema = z.object({
   reachable: z.boolean(),
   /** Jam tampil ("10.12") saat perangkat berhenti terjangkau. */
   unreachableSince: z.string().min(1).optional(),
-  /** Terang lampu, persen. */
+  /** Terang lampu, persen. Usang: pakai `state.brightness` (tetap dikirim untuk aplikasi lama). */
   level: z.number().int().min(0).max(100).optional(),
-  /** Hanya AC: perintah terakhir. */
+  /** Hanya AC: perintah terakhir. Usang: pakai `state.temp/mode/fan` (tetap dikirim untuk aplikasi lama). */
   ac: acSettingsSchema.optional(),
-  /** Suhu ruangan yang terbaca. */
+  /** Suhu ruangan yang terbaca. Usang: pakai `state.roomTemp`. */
   roomTemp: z.number().optional(),
+  /** Apa yang bisa dilakukan perangkat ini; server lama tanpa bidang ini dibaca `[]`. */
+  capabilities: capabilitiesSchema,
+  /** Keadaan terstruktur; server lama tanpa bidang ini dibaca `{}` (aplikasi memakai bidang datar lama). */
+  state: deviceStateSchema
+    .optional()
+    .catch(undefined)
+    .transform((v) => v ?? {}),
+  /** `true`: keadaan hanya perintah terakhir yang diketahui (perangkat IR tanpa umpan balik). */
+  stateIsAssumed: lenientOpt(z.boolean()),
   brand: z.string().min(1).optional(),
   /** `ir`: lewat inframerah dari Kotak (hanya perintah terakhir yang diketahui); `cloud`: lewat aplikasi mereknya. */
   via: z.enum(['ir', 'cloud']).optional().catch(undefined),
@@ -540,25 +698,42 @@ export const devicesQuerySchema = z.object({ place: z.string().min(1).optional()
 export const deviceControlReqSchema = z
   .strictObject({
     on: z.boolean().optional(),
-    /** Suhu AC, derajat Celsius. */
+    /** Suhu AC, derajat Celsius; di luar `min`-`max` kemampuan `temperature`: 400 `tidak_valid`. */
     temp: z.number().optional(),
     mode: z.string().min(1).optional(),
-    /** Kecepatan kipas AC. */
+    /** Kecepatan kipas (AC atau kipas angin): id pilihan. */
     fan: z.string().min(1).optional(),
+    swing: z.boolean().optional(),
+    /** Timer mati sendiri, menit; 0 membatalkan. */
+    timerMinutes: z.number().int().min(0).optional(),
     /** Terang lampu, persen. */
+    brightness: z.number().int().min(0).max(100).optional(),
+    /** Terang lampu, persen. Usang: sama dengan `brightness`. */
     level: z.number().int().min(0).max(100).optional(),
+    /** Suhu warna lampu, Kelvin. */
+    colorTemp: z.number().int().positive().optional(),
+    /** Id preset warna, atau "#RRGGBB". */
+    color: z.string().min(1).optional(),
+    volume: z.number().int().min(0).max(100).optional(),
+    muted: z.boolean().optional(),
+    playback: z.enum(PLAYBACK_ACTIONS).optional(),
+    /** Id sumber input. */
+    source: z.string().min(1).optional(),
+    channel: z.number().int().nonnegative().optional(),
+    /** Satu tekanan tombol remote; server menerapkannya dan menjawab perangkat yang diperbarui. */
+    key: remoteKeySchema.optional(),
+    /** Posisi 0-100 (tirai). */
+    position: z.number().int().min(0).max(100).optional(),
+    /** `false` = membuka kunci (dijaga). */
+    locked: z.boolean().optional(),
+    /** `true` = mode privasi, kamera berhenti merekam (dijaga, sama dengan `on: false`). */
+    privacy: z.boolean().optional(),
     /** PIN pemilik, untuk aksi yang dijaga bila PIN dihidupkan. */
     pin: pinSchema.optional(),
   })
-  .refine(
-    (r) =>
-      r.on !== undefined ||
-      r.temp !== undefined ||
-      r.mode !== undefined ||
-      r.fan !== undefined ||
-      r.level !== undefined,
-    { message: 'minimal satu pengaturan' },
-  );
+  .refine((r) => Object.entries(r).some(([k, v]) => k !== 'pin' && v !== undefined), {
+    message: 'minimal satu pengaturan',
+  });
 /**
  * `rev`: nomor perubahan perangkat setelah perintah ini (sama dengan `rev` event `device` yang menyusul). Aplikasi
  * membuang event `device` yang lebih lama dari `rev` ini untuk perangkat yang sama. Hilang atau rusak dibaca 0.
@@ -1203,6 +1378,11 @@ export type AgendaLeftoverReq = z.infer<typeof agendaLeftoverReqSchema>;
 export type AgendaLeftoverRes = z.infer<typeof agendaLeftoverResSchema>;
 export type AlarmAckReq = z.infer<typeof alarmAckReqSchema>;
 export type DeviceKind = z.infer<typeof deviceKindSchema>;
+export type Capability = z.infer<typeof capabilitySchema>;
+export type CapabilityOption = z.infer<typeof capabilityOptionSchema>;
+export type DeviceState = z.infer<typeof deviceStateSchema>;
+export type RemoteKey = z.infer<typeof remoteKeySchema>;
+export type PlaybackAction = (typeof PLAYBACK_ACTIONS)[number];
 export type AcSettings = z.infer<typeof acSettingsSchema>;
 export type Device = z.infer<typeof deviceSchema>;
 /** Nama tempat: `Semua` atau salah satu tempat pengguna. */

@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import type { Device } from '@/api/contract';
+import { canSwitch } from '@/api/devices';
 import { useTheme } from '@/theme/ThemeProvider';
 import { iconOr } from '../icons';
 import { Icon } from '../Icon';
@@ -79,7 +80,7 @@ export function DeviceTile({ device, width, onToggle, onOpen }: Props) {
             />
           ) : null}
         </View>
-        {reachable ? <Toggle label={`${name}, ${status}`} value={on} onChange={onToggle} /> : null}
+        {reachable && canSwitch(device) ? <Toggle label={`${name}, ${status}`} value={on} onChange={onToggle} /> : null}
       </View>
       <View
         pointerEvents="none"

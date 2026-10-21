@@ -779,6 +779,7 @@ function failureFor(status: number, data: unknown): ApiFailure {
   if (status === 403 && error === 'pin_salah') return new ApiFailure('pin_wrong', details);
   if (status === 403) return new ApiFailure('blocked', details);
   if (status === 423 && error === 'pin_baru') return new ApiFailure('pin_cooldown', details);
+  if (status === 400 && error === 'tidak_didukung') return new ApiFailure('not_supported', details);
   if (status === 428 && error === 'pin_diperlukan') return new ApiFailure('pin_required', details);
   if (status === 404 && error === 'belum_terdaftar') {
     return new ApiFailure('not_registered', { ...details, waNumber: waNumber(data) });

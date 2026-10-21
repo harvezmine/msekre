@@ -1,6 +1,6 @@
 import { deviceError, WRONG_PIN_TEXT } from './errors';
-import type { Box, Device, DeviceControlReq, DevicesRes, StreamEvent } from './contract';
-import { guessStatus } from './devices';
+import type { Box, Device, DeviceControlReq, DevicesRes, DeviceState, StreamEvent } from './contract';
+import { deviceStateOf, guessStatus, isGuardedAction } from './devices';
 import { isApiFailure, type Transport, type Unsubscribe } from './transport';
 
 export type DevicesStatus = 'loading' | 'ready' | 'error';
@@ -47,15 +47,62 @@ export function findDevice(state: DevicesState, id: string): Device | undefined 
   return undefined;
 }
 
-/** Perintah diterapkan lebih dulu di layar (optimistis); server yang memutuskan. */
+/** Lama menunggu setelah perubahan nilai terakhir sebelum nilai akhirnya dikirim ke server. */
+export const DEBOUNCE_MS = 400;
+
+/** Perintah diterapkan lebih dulu di layar (optimistis); server yang memutuskan. Tombol navigasi remote tidak ditebak. */
 function optimistic(d: Device, req: DeviceControlReq): Device {
   const next: Device = { ...d };
-  if (req.on !== undefined) next.on = req.on;
-  if (req.level !== undefined) next.level = req.level;
+  const patch: DeviceState = {};
+  const base = deviceStateOf(d);
+  let status = false;
+  if (req.on !== undefined) {
+    next.on = req.on;
+    patch.on = req.on;
+    status = true;
+  }
+  if (req.locked !== undefined) {
+    next.on = req.locked;
+    patch.locked = req.locked;
+    status = true;
+  }
+  if (req.privacy !== undefined) {
+    next.on = !req.privacy;
+    patch.privacy = req.privacy;
+    status = true;
+  }
+  const level = req.brightness ?? req.level;
+  if (level !== undefined) {
+    next.level = level;
+    patch.brightness = level;
+    status = true;
+  }
   if (d.ac && (req.temp !== undefined || req.mode !== undefined || req.fan !== undefined)) {
     next.ac = { temp: req.temp ?? d.ac.temp, mode: req.mode ?? d.ac.mode, fan: req.fan ?? d.ac.fan };
+    status = true;
   }
-  next.status = guessStatus(next);
+  if (req.temp !== undefined) patch.temp = req.temp;
+  if (req.mode !== undefined) patch.mode = req.mode;
+  if (req.fan !== undefined) patch.fan = req.fan;
+  if (req.swing !== undefined) patch.swing = req.swing;
+  if (req.timerMinutes !== undefined) patch.timerMinutes = req.timerMinutes;
+  if (req.colorTemp !== undefined) patch.colorTemp = req.colorTemp;
+  if (req.color !== undefined) patch.color = req.color;
+  if (req.volume !== undefined) patch.volume = req.volume;
+  if (req.muted !== undefined) patch.muted = req.muted;
+  if (req.source !== undefined) patch.source = req.source;
+  if (req.channel !== undefined) patch.channel = req.channel;
+  if (req.position !== undefined) patch.position = req.position;
+  if (req.playback === 'play') patch.playing = true;
+  if (req.playback === 'pause') patch.playing = false;
+  if ((req.key === 'vol_up' || req.key === 'vol_down') && base.volume !== undefined) {
+    const cap = d.capabilities.find((c) => c.type === 'volume');
+    const [min, max] = cap?.type === 'volume' ? [cap.min, cap.max] : [0, 100];
+    patch.volume = Math.min(max, Math.max(min, base.volume + (req.key === 'vol_up' ? 1 : -1)));
+    patch.muted = false;
+  }
+  if (Object.keys(patch).length > 0) next.state = { ...d.state, ...patch };
+  if (status) next.status = guessStatus(next);
   return next;
 }
 
@@ -73,6 +120,16 @@ export class DevicesController {
   private readonly latest = new Map<string, number>();
   /** `rev` jawaban perintah terakhir per perangkat: event `device` yang lebih lama darinya dibuang untuk perangkat itu. */
   private readonly repliedRev = new Map<string, number>();
+  /** Nilai kontinu yang menunggu dikirim, per perangkat. */
+  private readonly pending = new Map<
+    string,
+    {
+      req: DeviceControlReq;
+      baseline: Device | undefined;
+      timer: ReturnType<typeof setTimeout> | null;
+      resolve: ((r: ControlResult) => void) | null;
+    }
+  >();
   private counter = 0;
   private alive = true;
 
@@ -147,17 +204,64 @@ export class DevicesController {
     req: DeviceControlReq,
     options: { confirmed?: boolean } = {},
   ): Promise<ControlResult> => {
+    // Nilai yang masih menunggu dikirim lebih dulu, supaya urutannya tetap.
+    if (this.pending.has(id)) await this.flush(id);
     const before = this.find(id);
     const guarded = !!before && (before.sensitive || before.kind === 'lock' || before.kind === 'camera');
-    if (guarded && req.on === false && req.pin === undefined) {
+    if (guarded && isGuardedAction(req) && req.pin === undefined) {
       if (await this.pinRequired()) return { ok: false, reason: 'pin' };
       // PIN mati: membuka kunci tetap bertanya dulu (bukan PIN), supaya ketukan tidak sengaja tidak membuka pintu.
       if (before?.kind === 'lock' && !options.confirmed) return { ok: false, reason: 'confirm' };
     }
-    const mine = ++this.counter;
-    this.latest.set(id, mine);
     const current = this.find(id);
     if (current) this.replace(optimistic(current, req));
+    return this.send(id, req, current);
+  };
+
+  /**
+   * Untuk nilai yang berubah terus selama jari menggeser (suhu, terang, volume, posisi, suhu warna): layar berubah
+   * seketika, lalu hanya nilai akhir yang dikirim, {@link DEBOUNCE_MS} setelah perubahan terakhir. Panggilan yang
+   * digabung ke panggilan berikutnya langsung dijawab `ok` dengan keadaan layar; yang terakhir membawa jawaban server.
+   * Gagal: perangkat dikembalikan ke keadaan sebelum perubahan pertama.
+   */
+  controlDeviceDebounced = (id: string, req: DeviceControlReq, delayMs = DEBOUNCE_MS): Promise<ControlResult> => {
+    const current = this.find(id);
+    let entry = this.pending.get(id);
+    if (!entry) {
+      entry = { req: {}, baseline: current, timer: null, resolve: null };
+      this.pending.set(id, entry);
+    }
+    const previous = entry.resolve;
+    entry.req = { ...entry.req, ...req };
+    if (current) this.replace(optimistic(current, req));
+    if (entry.timer) clearTimeout(entry.timer);
+    const shown = this.find(id) ?? current;
+    if (previous && shown) previous({ ok: true, device: shown });
+    return new Promise<ControlResult>((resolve) => {
+      entry.resolve = resolve;
+      entry.timer = setTimeout(() => void this.flush(id), delayMs);
+    });
+  };
+
+  /** Kirim sekarang nilai yang menunggu (satu perangkat, atau semuanya). Dipakai saat layar ditutup. */
+  flush = async (id?: string): Promise<void> => {
+    const ids = id === undefined ? [...this.pending.keys()] : [id];
+    await Promise.all(
+      ids.map(async (key) => {
+        const entry = this.pending.get(key);
+        if (!entry) return;
+        this.pending.delete(key);
+        if (entry.timer) clearTimeout(entry.timer);
+        const result = await this.send(key, entry.req, entry.baseline);
+        entry.resolve?.(result);
+      }),
+    );
+  };
+
+  /** Kirim ke server; `revertTo` dipasang kembali bila gagal dan tidak ada perintah yang lebih baru. */
+  private async send(id: string, req: DeviceControlReq, revertTo: Device | undefined): Promise<ControlResult> {
+    const mine = ++this.counter;
+    this.latest.set(id, mine);
     try {
       const { device, rev } = await this.transport.controlDevice(id, req);
       if (this.latest.get(id) === mine) {
@@ -166,12 +270,12 @@ export class DevicesController {
       }
       return { ok: true, device };
     } catch (e) {
-      if (this.latest.get(id) === mine && current) this.replace(current);
+      if (this.latest.get(id) === mine && revertTo) this.replace(revertTo);
       if (isApiFailure(e) && e.code === 'pin_required') return { ok: false, reason: 'pin' };
       if (isApiFailure(e) && e.code === 'pin_wrong') return { ok: false, reason: 'pin_wrong', message: WRONG_PIN_TEXT };
       return { ok: false, reason: 'error', message: deviceError(e) };
     }
-  };
+  }
 
   runRoutine = async (routineId: string, place: string): Promise<RoutineResult> => {
     try {

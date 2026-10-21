@@ -84,8 +84,10 @@ export const initialDevices: Device[] = [
     icon: 'bulb',
     kind: 'lampu',
     on: false,
+    level: 60,
     reachable: true,
     via: 'cloud',
+    extra: { color: 'putih' },
   }),
   dev({
     id: 'lampu-dapur',
@@ -106,8 +108,98 @@ export const initialDevices: Device[] = [
     icon: 'bulb',
     kind: 'lampu',
     on: true,
+    level: 70,
     reachable: true,
     via: 'cloud',
+    extra: { colorTemp: 2700 },
+  }),
+  dev({
+    id: 'tv-ruang-tamu',
+    place: 'Rumah',
+    room: 'Ruang tamu',
+    name: 'TV ruang tamu',
+    icon: 'box',
+    kind: 'tv',
+    on: true,
+    brand: 'Samsung',
+    reachable: true,
+    via: 'ir',
+    extra: { source: 'hdmi1', volume: 18, muted: false, channel: 12 },
+  }),
+  dev({
+    id: 'kipas-kamar-anak',
+    place: 'Rumah',
+    room: 'Kamar',
+    name: 'Kipas kamar anak',
+    icon: 'fan',
+    kind: 'kipas',
+    on: true,
+    reachable: true,
+    via: 'cloud',
+    extra: { fan: '2', swing: true },
+  }),
+  dev({
+    id: 'tirai-ruang-tamu',
+    place: 'Rumah',
+    room: 'Ruang tamu',
+    name: 'Tirai ruang tamu',
+    icon: 'box',
+    kind: 'tirai',
+    on: true,
+    reachable: true,
+    via: 'cloud',
+    extra: { position: 60 },
+  }),
+  dev({
+    id: 'speaker-dapur',
+    place: 'Rumah',
+    room: 'Dapur',
+    name: 'Speaker dapur',
+    icon: 'speaker',
+    kind: 'speaker',
+    on: true,
+    reachable: true,
+    via: 'cloud',
+    extra: { playing: true, trackIndex: 0, volume: 40, muted: false, source: 'bluetooth' },
+  }),
+  dev({
+    id: 'colokan-mesin-cuci',
+    place: 'Rumah',
+    room: 'Dapur',
+    name: 'Colokan mesin cuci',
+    icon: 'bolt',
+    kind: 'colokan',
+    on: true,
+    reachable: true,
+    via: 'cloud',
+    extra: { powerW: 450, energyTodayKWh: 1.2 },
+  }),
+  dev({
+    id: 'sensor-dapur',
+    place: 'Rumah',
+    room: 'Dapur',
+    name: 'Sensor suhu dapur',
+    icon: 'thermo',
+    kind: 'sensor',
+    on: true,
+    reachable: true,
+    via: 'cloud',
+    extra: { readings: { temp: 27.5, humidity: 64 }, humidity: 64, battery: 82 },
+    roomTemp: 27.5,
+  }),
+  dev({
+    id: 'kamera-teras',
+    place: 'Rumah',
+    room: 'Teras',
+    name: 'Kamera teras',
+    short: 'Kamera teras',
+    icon: 'camera',
+    kind: 'kamera',
+    on: true,
+    reachable: true,
+    via: 'cloud',
+    needsPin: true,
+    extra: { snapshotAt: '2026-10-21T08:30:00+07:00' },
   }),
 
   dev({
@@ -146,6 +238,43 @@ export const initialDevices: Device[] = [
     on: false,
     reachable: true,
     via: 'cloud',
+  }),
+  dev({
+    id: 'dago-speaker',
+    place: 'Kedai Dago',
+    room: 'Dalam kedai',
+    name: 'Speaker kedai',
+    icon: 'speaker',
+    kind: 'speaker',
+    on: true,
+    reachable: true,
+    via: 'cloud',
+    extra: { playing: true, trackIndex: 2, volume: 30, muted: false, source: 'wifi' },
+  }),
+  dev({
+    id: 'dago-papan-nama',
+    place: 'Kedai Dago',
+    room: 'Depan',
+    name: 'Lampu papan nama',
+    icon: 'bulb',
+    kind: 'lampu',
+    on: true,
+    level: 90,
+    reachable: true,
+    via: 'cloud',
+    extra: { color: 'hangat' },
+  }),
+  dev({
+    id: 'dago-colokan-kulkas',
+    place: 'Kedai Dago',
+    room: 'Dalam kedai',
+    name: 'Colokan kulkas',
+    icon: 'bolt',
+    kind: 'colokan',
+    on: true,
+    reachable: true,
+    via: 'cloud',
+    extra: { powerW: 120, energyTodayKWh: 2.6 },
   }),
   dev({
     id: 'dago-cctv',
@@ -197,6 +326,30 @@ export const initialDevices: Device[] = [
     via: 'cloud',
   }),
   dev({
+    id: 'riau-speaker',
+    place: 'Kedai Riau',
+    room: 'Dalam kedai',
+    name: 'Speaker kedai',
+    icon: 'speaker',
+    kind: 'speaker',
+    on: false,
+    reachable: true,
+    via: 'cloud',
+    extra: { playing: false, trackIndex: 1, volume: 25, muted: false, source: 'bluetooth' },
+  }),
+  dev({
+    id: 'riau-colokan-kulkas',
+    place: 'Kedai Riau',
+    room: 'Gudang',
+    name: 'Colokan kulkas',
+    icon: 'bolt',
+    kind: 'colokan',
+    on: true,
+    reachable: true,
+    via: 'cloud',
+    extra: { powerW: 95, energyTodayKWh: 1.9 },
+  }),
+  dev({
     id: 'riau-cctv',
     place: 'Kedai Riau',
     room: 'Kasir',
@@ -227,6 +380,18 @@ export function deviceStatus(d: Device): string {
       return d.on ? 'Merekam' : 'Mati';
     case 'kunci':
       return d.on ? 'Terkunci' : 'Terbuka';
+    case 'tv':
+      return d.on ? 'Nyala' : 'Mati';
+    case 'speaker':
+      return d.on ? (d.extra?.playing ? 'Memutar' : 'Jeda') : 'Mati';
+    case 'kipas':
+      return d.on ? `Nyala · Kecepatan ${d.extra?.fan ?? 1}` : 'Mati';
+    case 'colokan':
+      return d.on ? `Nyala · ${d.extra?.powerW ?? 0} W` : 'Mati';
+    case 'tirai':
+      return `Terbuka ${d.extra?.position ?? 0}%`;
+    case 'sensor':
+      return d.roomTemp !== undefined ? `${String(d.roomTemp).replace('.', ',')}°` : 'Aktif';
     default:
       return d.on ? 'Nyala' : 'Mati';
   }

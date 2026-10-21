@@ -1,7 +1,44 @@
-import type { Device, DeviceCard, DeviceKind } from './contract';
+import type { Device, DeviceCard, DeviceControlReq, DeviceKind, DeviceState } from './contract';
 
 /** Jenis perangkat yang sakelar nyala-matinya boleh tampil di kartu bila tidak dijaga. */
-export const SWITCHABLE_KINDS: readonly DeviceKind[] = ['lamp', 'ac', 'plug', 'tv'];
+export const SWITCHABLE_KINDS: readonly DeviceKind[] = ['lamp', 'ac', 'plug', 'tv', 'fan'];
+
+/**
+ * Keadaan terstruktur perangkat, juga dari server lama yang hanya mengirim bidang datar (`on`, `level`, `ac`,
+ * `roomTemp`). `state` dari server menang atas bidang datar.
+ */
+export function deviceStateOf(d: Device): DeviceState {
+  const legacy: DeviceState = { on: d.on };
+  if (d.ac) Object.assign(legacy, { temp: d.ac.temp, mode: d.ac.mode, fan: d.ac.fan });
+  if (d.level !== undefined) legacy.brightness = d.level;
+  if (d.roomTemp !== undefined) legacy.roomTemp = d.roomTemp;
+  if (d.kind === 'lock') legacy.locked = d.on;
+  if (d.kind === 'camera') legacy.privacy = !d.on;
+  return { ...legacy, ...d.state };
+}
+
+/**
+ * Sakelar nyala-mati boleh tampil di ubin: perangkat yang punya daya, kunci, atau kamera. Server lama tanpa
+ * `capabilities` (kosong): semua perangkat seperti dulu.
+ */
+export function canSwitch(d: Device): boolean {
+  return d.capabilities.length === 0 || d.capabilities.some((c) => c.type === 'power' || c.type === 'lock');
+}
+
+/** Bidang yang berubah terus selama jari menggeser; dikirim sekali setelah berhenti (lihat `controlDeviceDebounced`). */
+export const CONTINUOUS_FIELDS = ['temp', 'brightness', 'level', 'volume', 'position', 'colorTemp'] as const;
+/** Perintah yang hanya berisi nilai kontinu (boleh digabung dan ditunda). */
+export function isContinuousRequest(req: DeviceControlReq): boolean {
+  const keys = Object.entries(req)
+    .filter(([, v]) => v !== undefined)
+    .map(([k]) => k);
+  return keys.length > 0 && keys.every((k) => (CONTINUOUS_FIELDS as readonly string[]).includes(k));
+}
+
+/** Aksi yang dijaga PIN: mematikan, membuka kunci, atau menutup lensa kamera (privasi). */
+export function isGuardedAction(req: DeviceControlReq): boolean {
+  return req.on === false || req.locked === false || req.privacy === true;
+}
 
 /**
  * Kartu perangkat untuk chat dari perangkat yang sama dengan yang dilihat Perangkat dan Beranda. Server asli dan server

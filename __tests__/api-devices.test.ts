@@ -44,6 +44,8 @@ const lamp: Device = {
   kind: 'lamp',
   on: true,
   reachable: true,
+  capabilities: [],
+  state: {},
   status: 'Nyala',
 };
 
@@ -182,8 +184,10 @@ describe('perangkat di server tiruan', () => {
 
   test('kendali: bentuk salah ditolak (suhu untuk lampu, mode asing, perangkat tak ada)', async () => {
     const { transport } = setup();
-    await expect(transport.controlDevice('lampu-utama', { temp: 22 })).rejects.toMatchObject({ error: 'tidak_valid' });
-    await expect(transport.controlDevice('ac-kamar', { level: 5 })).rejects.toMatchObject({ error: 'tidak_valid' });
+    await expect(transport.controlDevice('lampu-utama', { temp: 22 })).rejects.toMatchObject({
+      error: 'tidak_didukung',
+    });
+    await expect(transport.controlDevice('ac-kamar', { level: 5 })).rejects.toMatchObject({ error: 'tidak_didukung' });
     await expect(transport.controlDevice('ac-kamar', { mode: 'Panas' })).rejects.toMatchObject({
       error: 'tidak_valid',
     });
@@ -229,7 +233,7 @@ describe('perangkat di server tiruan', () => {
     const dago = await transport.runRoutine('tutup-kedai', 'Kedai Dago');
     expect(routineRunResSchema.safeParse(dago).success).toBe(true);
     expect(dago.summary).toBe('Rutinitas Tutup kedai dijalankan di Kedai Dago.');
-    expect(dago.devices.map((d) => d.id).sort()).toEqual(['dago-ac', 'dago-lampu']);
+    expect(dago.devices.map((d) => d.id).sort()).toEqual(['dago-ac', 'dago-lampu', 'dago-papan-nama']);
     const semua = await transport.runRoutine('tutup-kedai', 'Semua');
     expect(semua.summary).toBe('Rutinitas Tutup kedai dijalankan di semua kedai.');
     expect(semua.devices.map((d) => d.id)).toEqual(['riau-lampu'].filter(() => false));

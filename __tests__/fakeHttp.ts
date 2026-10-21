@@ -25,6 +25,7 @@ const FAILURE_DEFAULTS: Record<FailureCode, [number, string]> = {
   invalid_name: [400, 'nama_tidak_valid'],
   rate_limited: [429, 'terlalu_sering'],
   upgrade_required: [426, 'perlu_pembaruan'],
+  not_supported: [400, 'tidak_didukung'],
   unavailable: [501, 'belum_tersedia'],
   server: [500, 'kendala'],
 };

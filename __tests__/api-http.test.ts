@@ -213,7 +213,7 @@ describe('HTTP', () => {
     expect(call(fetch, 7).url).toBe(`${BASE}/app/v1/messages?limit=100&changedAfter=7`);
 
     expect(await transport.controlDevice('ac/1', { on: true, temp: 22 })).toEqual({
-      device: acDevice,
+      device: { ...acDevice, capabilities: [], state: {} },
       card: acCard,
       rev: 0,
     });

@@ -3,6 +3,7 @@ import type { SampleAction, SampleState } from '@/sample/reducer';
 import { ROUTINES } from '@/sample/routines';
 import { PLACES, type Device as SampleDevice, type DeviceKind as SampleKind } from '@/sample/types';
 import type { Box, Device, DevicesRes, Routine } from '../contract';
+import { capabilitiesOf, stateOf } from './deviceControl';
 
 /** Ruangan tetap di Rumah, walau belum ada perangkatnya. */
 export const HOME_ROOMS = ['Ruang tamu', 'Kamar', 'Dapur', 'Teras'];
@@ -12,9 +13,14 @@ export const BOX_ID = 'kotak-ruang-tamu';
 const KIND: Record<SampleKind, Device['kind']> = {
   lampu: 'lamp',
   ac: 'ac',
-  kamera: 'camera',
+  tv: 'tv',
+  speaker: 'speaker',
+  kipas: 'fan',
+  colokan: 'plug',
+  tirai: 'curtain',
   kunci: 'lock',
-  speaker: 'other',
+  kamera: 'camera',
+  sensor: 'sensor',
   lain: 'other',
 };
 
@@ -37,6 +43,10 @@ export function toDevice(d: SampleDevice): Device {
     ...(d.brand ? { brand: d.brand } : {}),
     ...(d.via ? { via: d.via } : {}),
     ...(d.needsPin ? { sensitive: true } : {}),
+    capabilities: capabilitiesOf(d),
+    state: stateOf(d),
+    // Perangkat IR tidak memberi umpan balik: yang diketahui hanya perintah terakhir.
+    ...(d.via === 'ir' ? { stateIsAssumed: true } : {}),
     status: deviceStatus(d),
   };
 }
@@ -52,6 +62,8 @@ export function boxDevice(): Device {
     kind: 'box',
     on: true,
     reachable: true,
+    capabilities: [],
+    state: { on: true },
     status: 'Aktif',
   };
 }
@@ -80,7 +92,7 @@ export function withoutGuardedActions(
   const skipped: string[] = [];
   for (const action of actions) {
     const device =
-      action.type === 'toggleDevice' || action.type === 'setLevel'
+      action.type === 'toggleDevice' || action.type === 'setLevel' || action.type === 'remote'
         ? state.devices.find((d) => d.id === action.id)
         : action.type === 'setAc'
           ? state.devices.find((d) => d.id === action.deviceId)

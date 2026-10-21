@@ -19,6 +19,10 @@ export interface DevicesApi {
   find: (id: string) => Device | undefined;
   /** Atur perangkat, dengan keadaan layar diubah lebih dulu dan dikembalikan kalau gagal. */
   controlDevice: DevicesController['controlDevice'];
+  /** Seperti `controlDevice`, untuk nilai kontinu: nilai akhir dikirim ~400 ms setelah perubahan terakhir. */
+  controlDeviceDebounced: DevicesController['controlDeviceDebounced'];
+  /** Kirim sekarang nilai yang menunggu (saat layar ditutup). */
+  flushPending: DevicesController['flush'];
   runRoutine: DevicesController['runRoutine'];
   setBoxMic: DevicesController['setBoxMic'];
 }
@@ -52,6 +56,9 @@ export function useDevices(place: string | null | undefined): DevicesApi {
     retry: place && controller ? () => controller.load(place) : async () => {},
     find: (id) => findDevice(state, id),
     controlDevice: controller?.controlDevice ?? (async () => ({ ok: false, reason: 'error', message: '' })),
+    controlDeviceDebounced:
+      controller?.controlDeviceDebounced ?? (async () => ({ ok: false, reason: 'error', message: '' })),
+    flushPending: controller?.flush ?? (async () => {}),
     runRoutine: controller?.runRoutine ?? (async () => ({ ok: false, message: '' })),
     setBoxMic: controller?.setBoxMic ?? (async () => null),
   };

@@ -251,7 +251,8 @@ test('kendali perangkat rumah', () => {
   ok(deviceControlReqSchema, { on: false });
   ok(deviceControlReqSchema, { on: true, temp: 22, mode: 'Dingin' });
   bad(deviceControlReqSchema, {});
-  bad(deviceControlReqSchema, { brightness: 3 });
+  ok(deviceControlReqSchema, { brightness: 3 });
+  bad(deviceControlReqSchema, { warna: 'merah' });
   bad(deviceControlReqSchema, { mode: '' });
   ok(deviceControlReqSchema, { fan: 'Pelan' });
   ok(deviceControlReqSchema, { level: 40 });
