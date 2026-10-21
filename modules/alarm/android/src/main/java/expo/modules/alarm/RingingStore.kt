@@ -38,14 +38,27 @@ object RingingStore {
     return parse(raw, System.currentTimeMillis())
   }
 
-  /** Ada alarm yang masih berbunyi. Yang sudah kedaluwarsa dibuang sekalian. */
+  /** Akhir jendela bunyi (milidetik epoch) untuk id ini, atau `null` kalau tidak sedang berbunyi. */
+  fun until(context: Context, id: String): Long? {
+    val raw = prefs(context).getString(id, null) ?: return null
+    return try {
+      JSONObject(raw).getLong("until").takeIf { it > System.currentTimeMillis() }
+    } catch (e: Exception) {
+      null
+    }
+  }
+
+  /**
+   * Ada alarm yang masih berbunyi. Yang sudah kedaluwarsa dibuang sekalian. Dipanggil di thread utama (`onPause`), jadi
+   * pembuangan memakai `apply()` (tidak menunggu disk), bukan `commit()`.
+   */
   fun hasActive(context: Context): Boolean {
     val now = System.currentTimeMillis()
     val store = prefs(context)
     var active = false
     for ((key, value) in store.all) {
       val alarm = (value as? String)?.let { parse(it, now) }
-      if (alarm != null) active = true else store.edit().remove(key).commit()
+      if (alarm != null) active = true else store.edit().remove(key).apply()
     }
     return active
   }

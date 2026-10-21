@@ -54,9 +54,15 @@ class AlarmModule : Module() {
 
     // Alarm yang sedang berbunyi (atau terjadwal) untuk id ini, atau null. Layar alarm memakainya kalau item agendanya
     // tidak bisa dimuat.
+    // `until` (milidetik epoch) = akhir jendela bunyi, ada hanya untuk alarm yang sedang berbunyi; layar alarm menutup
+    // diri saat itu.
     AsyncFunction("getRinging") { id: String ->
-      val alarm = RingingStore.get(context, id) ?: AlarmStore.get(context, id)
-      alarm?.let { entry(it) }
+      val ringing = RingingStore.get(context, id)
+      if (ringing != null) {
+        entry(ringing) + mapOf("until" to RingingStore.until(context, id)?.toDouble())
+      } else {
+        AlarmStore.get(context, id)?.let { entry(it) }
+      }
     }
 
     Function("status") { ->
@@ -67,10 +73,17 @@ class AlarmModule : Module() {
       AlarmStatus.open(context, appContext.currentActivity, kind)
     }.runOnQueue(Queues.MAIN)
 
-    // Alarm dimatikan, ditunda, atau layar alarm ditutup: aplikasi tidak lagi boleh tampil di atas layar kunci.
+    // Alarm dimatikan, ditunda, ditutup, atau habis waktunya: aplikasi tidak lagi boleh tampil di atas layar kunci.
+    // Jalan di thread utama dan selesai sesudah izinnya lepas, jadi JS yang menunggunya tidak mendahului jendela.
     AsyncFunction("releaseLockScreen") { ->
       AlarmWindow.release()
-    }
+    }.runOnQueue(Queues.MAIN)
+
+    // Jendela bunyi habis di HP terkunci: pindahkan aplikasi ke latar supaya layar kunci kembali. `false` kalau HP tidak
+    // terkunci (tidak berbuat apa-apa).
+    AsyncFunction("moveToBack") { ->
+      AlarmWindow.moveToBackIfLocked(appContext.currentActivity)
+    }.runOnQueue(Queues.MAIN)
 
     // Minta pengguna membuka kunci HP; selesai setelah terbuka, ditolak kalau dibatalkan.
     AsyncFunction("dismissKeyguard") { promise: Promise ->

@@ -18,8 +18,13 @@ export interface NativeAlarmEntry {
   note: string | null;
 }
 
-/** Alarm yang sedang berbunyi (atau terjadwal) menurut catatan di HP; sama bentuknya dengan {@link NativeAlarmEntry}. */
-export type NativeRingingEntry = NativeAlarmEntry;
+/**
+ * Alarm yang sedang berbunyi (atau terjadwal) menurut catatan di HP, seperti {@link NativeAlarmEntry}. `until`: akhir
+ * jendela bunyi (milidetik epoch), hanya untuk alarm yang sedang berbunyi.
+ */
+export interface NativeRingingEntry extends NativeAlarmEntry {
+  until?: number | null;
+}
 
 /**
  * Modul native `Alarm` (Kotlin, `android/src/main/java/expo/modules/alarm`). Waktu dalam milidetik epoch.
@@ -43,8 +48,14 @@ export interface AlarmNativeModule {
   status(): AlarmNativeStatus;
   /** `false` kalau tidak ada layar pengaturan yang bisa dibuka. */
   openSettings(kind: AlarmSettingsKind): Promise<boolean>;
-  /** Alarm dimatikan, ditunda, atau layar alarm ditutup: aplikasi tidak lagi tampil di atas layar kunci. */
+  /**
+   * Alarm dimatikan, ditunda, ditutup, atau habis waktunya: aplikasi tidak lagi tampil di atas layar kunci. Selesai
+   * sesudah izinnya benar-benar lepas (di thread utama), jadi aman menunggunya sebelum pindah layar. Hanya penanda yang
+   * dipasang modul ini yang dilepas (bukan `FLAG_KEEP_SCREEN_ON` milik keep-awake).
+   */
   releaseLockScreen(): Promise<void>;
+  /** Pindahkan aplikasi ke latar kalau HP terkunci; `false` kalau tidak terkunci (tidak berbuat apa-apa). */
+  moveToBack(): Promise<boolean>;
   /**
    * Minta pengguna membuka kunci HP tanpa meninggalkan aplikasi. Selesai `true` begitu terbuka (atau HP memang tidak
    * terkunci); ditolak kalau pengguna membatalkan.

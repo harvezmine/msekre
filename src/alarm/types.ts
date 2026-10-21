@@ -23,6 +23,8 @@ export interface AlarmRequest {
 
 export interface ScheduledAlarm extends AlarmRequest {
   note?: string;
+  /** Akhir jendela bunyi (milidetik epoch); hanya ada untuk alarm yang sedang berbunyi (`getRinging`). */
+  until?: number;
 }
 
 /**
@@ -51,6 +53,11 @@ export interface AlarmScheduler {
   openSettings(kind: SettingsKind): Promise<void>;
   /** Alarm dimatikan, ditunda, atau layar alarm ditutup: layar tidak lagi tampil di atas layar kunci. */
   releaseLockScreen(): Promise<void>;
+  /**
+   * Jendela bunyi habis di HP terkunci: pindahkan aplikasi ke latar supaya layar kunci kembali. `true` kalau
+   * dipindahkan; `false` kalau HP tidak terkunci (tidak berbuat apa-apa) atau perangkat tanpa alarm native.
+   */
+  moveToBack(): Promise<boolean>;
   /**
    * Minta pengguna membuka kunci HP. `true` kalau sudah terbuka (atau HP memang tidak terkunci, atau perangkat tanpa
    * alarm native); `false` kalau dibatalkan atau gagal.

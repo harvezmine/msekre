@@ -23,6 +23,7 @@ function fakeModule(overrides: Partial<AlarmNativeModule> = {}): jest.Mocked<Ala
     })),
     openSettings: jest.fn(async () => true),
     releaseLockScreen: jest.fn(async () => {}),
+    moveToBack: jest.fn(async () => true),
     dismissKeyguard: jest.fn(async () => true),
     ...overrides,
   } as jest.Mocked<AlarmNativeModule>;
@@ -135,6 +136,27 @@ describe('NativeAlarmScheduler', () => {
     expect(await s.getRinging('b')).toBeNull();
     expect(await s.dismissKeyguard()).toBe(true);
     expect(await s.dismissKeyguard()).toBe(false);
+  });
+
+  test('getRinging membawa akhir jendela bunyi (until); moveToBack meneruskan hasilnya dan tahan galat', async () => {
+    const m = fakeModule({
+      getRinging: jest.fn(async () => ({ id: 'a', at: 5, title: 'Obat', note: null, until: 600_005 })),
+      moveToBack: jest
+        .fn()
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(false)
+        .mockRejectedValueOnce(new Error('x')),
+    });
+    const s = new NativeAlarmScheduler(m);
+    expect(await s.getRinging('a')).toEqual({ id: 'a', at: 5, title: 'Obat', until: 600_005 });
+    expect(await s.moveToBack()).toBe(true);
+    expect(await s.moveToBack()).toBe(false);
+    expect(await s.moveToBack()).toBe(false);
+    // Tanpa until (alarm terjadwal, belum berbunyi): tidak ada bidangnya.
+    const plain = new NativeAlarmScheduler(
+      fakeModule({ getRinging: jest.fn(async () => ({ id: 'a', at: 5, title: 'Obat', note: null, until: null })) }),
+    );
+    expect(await plain.getRinging('a')).toEqual({ id: 'a', at: 5, title: 'Obat' });
   });
 
   test('list memetakan catatan; status memetakan izin dan baterai', async () => {

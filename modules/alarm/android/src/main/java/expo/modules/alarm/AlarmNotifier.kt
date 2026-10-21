@@ -45,13 +45,13 @@ object AlarmNotifier {
     }
 
   /**
-   * Tautan layar alarm: `<skema>://alarm?id=<id>&title=<judul>`. Judul ikut supaya layar alarm tetap bisa menampilkannya
-   * kalau item agendanya tidak bisa dimuat (tanpa internet, sesi habis).
+   * Tautan layar alarm: `<skema>://alarm?id=<id>`. Tanpa judul di tautan (isinya bisa dibaca aplikasi lain dan tampil di
+   * log): layar alarm membaca judul dari catatan alarm di HP (`getRinging`) kalau item agendanya tidak bisa dimuat.
    */
   fun launchIntent(context: Context, alarm: StoredAlarm): Intent =
     Intent(
       Intent.ACTION_VIEW,
-      Uri.parse("${scheme(context)}://alarm?id=${Uri.encode(alarm.id)}&title=${Uri.encode(alarm.title.take(120))}"),
+      Uri.parse("${scheme(context)}://alarm?id=${Uri.encode(alarm.id)}"),
     ).apply {
       setPackage(context.packageName)
       addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -178,6 +178,11 @@ object AlarmNotifier {
 
   fun dismiss(context: Context, id: String) {
     context.getSystemService(NotificationManager::class.java)?.cancel(notificationId(id))
+  }
+
+  /** Buang notifikasi "Pengingat terlewat" untuk id ini (alarmnya dibatalkan atau diganti, jadi tidak relevan lagi). */
+  fun dismissMissed(context: Context, id: String) {
+    context.getSystemService(NotificationManager::class.java)?.cancel(missedNotificationId(id))
   }
 
   /** Buang semua notifikasi alarm yang sedang tampil. */

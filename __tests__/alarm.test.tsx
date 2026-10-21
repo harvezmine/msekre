@@ -5,6 +5,7 @@ import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import Agenda from '../app/(tabs)/agenda';
 import Alarm from '../app/alarm';
+import { ALARM_WINDOW_MS, ringWindowEnd } from '@/alarm/ringWindow';
 import { createTestApi, renderWithProviders } from './helpers';
 import { Redraw, redraw } from './redraw';
 import { MemoryAlarmScheduler, setAlarmScheduler } from '@/alarm';
@@ -261,9 +262,10 @@ describe('layar alarm tanpa data dari server', () => {
     });
   });
 
-  test('hanya judul di tautan (tanpa catatan di HP dan tanpa sesi): tetap ada judul dan Matikan', async () => {
-    install();
-    jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'x1', title: 'Rapat pagi' });
+  test('tautan tanpa judul: catatan alarm di HP (tanpa sesi) tetap memberi judul dan Matikan', async () => {
+    const scheduler = install();
+    scheduler.ringing.set('x1', { id: 'x1', at: Date.now(), title: 'Rapat pagi' });
+    jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'x1' });
     await renderWithProviders(<Alarm />, { api: createTestApi({ mode: 'server' }) });
     await advance(0);
     expect(screen.getByText('Rapat pagi')).toBeOnTheScreen();
@@ -275,7 +277,8 @@ describe('layar alarm tanpa data dari server', () => {
     const scheduler = install();
     const api = createTestApi({ mode: 'server' });
     const patch = jest.spyOn(api.transport, 'agendaPatch');
-    jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'x1', title: 'Rapat pagi' });
+    scheduler.ringing.set('x1', { id: 'x1', at: Date.now(), title: 'Rapat pagi' });
+    jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'x1' });
     await atTime(SAMPLE_NOW_ISO, async () => {
       await renderWithProviders(<Alarm />, { api });
       await advance(0);
@@ -290,9 +293,10 @@ describe('layar alarm tanpa data dari server', () => {
   });
 
   test('tidak bisa kembali (satu-satunya layar): ke awal aplikasi, bukan kembali ke ketiadaan', async () => {
-    install();
+    const scheduler = install();
+    scheduler.ringing.set('x1', { id: 'x1', at: Date.now(), title: 'Rapat pagi' });
     jest.mocked(router.canGoBack).mockReturnValueOnce(false);
-    jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'x1', title: 'Rapat pagi' });
+    jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'x1' });
     await renderWithProviders(<Alarm />, { api: createTestApi({ mode: 'server' }) });
     await advance(0);
     await fireEvent(screen.getByTestId('swipe-to-confirm'), 'accessibilityAction', {
@@ -313,7 +317,7 @@ describe('layar alarm melepas izin di atas layar kunci', () => {
     expect(scheduler.released).toBe(1);
   });
 
-  test('aplikasi ke latar: izin dilepas; kembali ke depan tidak melepas lagi', async () => {
+  test('aplikasi ke latar (Android menjeda sebentar di atas layar kunci): izin TIDAK dilepas oleh JS', async () => {
     const scheduler = install();
     const listeners: ((s: string) => void)[] = [];
     jest.mocked(AppState.addEventListener).mockImplementation(((_: string, cb: (s: string) => void) => {
@@ -323,10 +327,10 @@ describe('layar alarm melepas izin di atas layar kunci', () => {
     try {
       await renderWithProviders(<Alarm />);
       await advance(0);
+      await act(async () => listeners.forEach((l) => l('inactive')));
+      await act(async () => listeners.forEach((l) => l('background')));
       await act(async () => listeners.forEach((l) => l('active')));
       expect(scheduler.released).toBe(0);
-      await act(async () => listeners.forEach((l) => l('background')));
-      expect(scheduler.released).toBe(1);
     } finally {
       jest.mocked(AppState.addEventListener).mockImplementation((() => ({ remove: jest.fn() })) as never);
     }
@@ -375,4 +379,104 @@ describe('layar alarm melepas izin di atas layar kunci', () => {
       jest.mocked(useLocalSearchParams).mockReturnValue({});
     }
   });
+});
+
+describe('jendela bunyi alarm habis', () => {
+  afterEach(() => jest.mocked(useLocalSearchParams).mockReturnValue({}));
+
+  /** Alarm yang berbunyi menurut catatan di HP, dengan jendela bunyi `until`. */
+  async function ringingFor(extra: { until?: number; at?: number }, scheduler = install()) {
+    scheduler.ringing.set('x7', { id: 'x7', at: extra.at ?? Date.now(), title: 'Rapat pagi', until: extra.until });
+    jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'x7' });
+    await renderWithProviders(<Alarm />, { api: createTestApi({ mode: 'server' }) });
+    await advance(0);
+    return scheduler;
+  }
+
+  test('sampai `until`: getar berhenti, izin dilepas, layar menutup, dan aplikasi pindah ke latar', async () => {
+    const scheduler = await ringingFor({ until: Date.now() + 60_000 });
+    jest.mocked(Haptics.notificationAsync).mockClear();
+    await advance(60_000 - 1000);
+    expect(router.back).not.toHaveBeenCalled();
+    expect(scheduler.released).toBe(0);
+    expect(Haptics.notificationAsync).toHaveBeenCalled();
+    await advance(1000);
+    await advance(0);
+    expect(scheduler.released).toBe(1);
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(scheduler.moved).toBe(1);
+    jest.mocked(Haptics.notificationAsync).mockClear();
+    await advance(20_000);
+    expect(Haptics.notificationAsync).not.toHaveBeenCalled();
+  });
+
+  test('izin dilepas lebih dulu dan ditunggu: layar baru menutup sesudahnya', async () => {
+    const scheduler = install();
+    let finish!: () => void;
+    scheduler.releaseLockScreen = () =>
+      new Promise<void>((resolve) => {
+        finish = () => {
+          scheduler.released += 1;
+          resolve();
+        };
+      });
+    await ringingFor({ until: Date.now() + 1000 }, scheduler);
+    await advance(1000);
+    expect(router.back).not.toHaveBeenCalled();
+    finish();
+    await advance(0);
+    await advance(0);
+    expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  test('batas jendela: `until`, kalau tidak ada waktu alarm + 10 menit, kalau tidak ada 10 menit sejak dibuka', () => {
+    expect(ringWindowEnd({ at: 1000, until: 5000 }, 99)).toBe(5000);
+    expect(ringWindowEnd({ at: 1000 }, 99)).toBe(1000 + ALARM_WINDOW_MS);
+    expect(ringWindowEnd(null, 99)).toBe(99 + ALARM_WINDOW_MS);
+    expect(ALARM_WINDOW_MS).toBe(10 * 60_000);
+  });
+
+  test('tanpa catatan alarm di HP: penutup dipasang 10 menit sejak layar dibuka', async () => {
+    install();
+    const spy = jest.spyOn(globalThis, 'setTimeout');
+    await renderWithProviders(<Alarm />);
+    const delays = spy.mock.calls.map((c) => c[1]).filter((d) => typeof d === 'number' && d >= 300_000);
+    spy.mockRestore();
+    expect(delays).toEqual([ALARM_WINDOW_MS]);
+  });
+
+  test('Matikan sebelum habis: tidak ada penutupan kedua', async () => {
+    await ringingFor({ until: Date.now() + 60_000 });
+    await fireEvent(screen.getByTestId('swipe-to-confirm'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'activate' },
+    });
+    await advance(0);
+    expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  test('pratinjau dari Agenda tidak pernah menutup sendiri', async () => {
+    const scheduler = install();
+    jest.mocked(useLocalSearchParams).mockReturnValue({ preview: '1' });
+    await renderWithProviders(<Alarm />);
+    await advance(60_000);
+    expect(router.back).not.toHaveBeenCalled();
+    expect(scheduler.moved).toBe(0);
+    expect(scheduler.released).toBe(0);
+  });
+});
+
+test('Matikan menunggu izin layar kunci lepas sebelum pindah layar', async () => {
+  const scheduler = install();
+  let finish!: () => void;
+  scheduler.releaseLockScreen = () => new Promise<void>((resolve) => (finish = resolve));
+  await renderWithProviders(<Alarm />);
+  await fireEvent(screen.getByTestId('swipe-to-confirm'), 'accessibilityAction', {
+    nativeEvent: { actionName: 'activate' },
+  });
+  await advance(0);
+  expect(router.back).not.toHaveBeenCalled();
+  finish();
+  await advance(0);
+  await advance(0);
+  expect(router.back).toHaveBeenCalledTimes(1);
 });

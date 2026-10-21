@@ -57,6 +57,7 @@ object AlarmEngine {
     AlarmStore.remove(context, id)
     RingingStore.remove(context, id)
     AlarmNotifier.dismiss(context, id)
+    AlarmNotifier.dismissMissed(context, id)
   }
 
   fun cancelAll(context: Context) {

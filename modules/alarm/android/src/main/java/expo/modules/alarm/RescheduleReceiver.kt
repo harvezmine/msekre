@@ -5,7 +5,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 
-/** HP menyala ulang, aplikasi diperbarui, jam atau zona waktu berubah, izin alarm tepat waktu berubah: pasang ulang. */
+/**
+ * HP menyala ulang, aplikasi diperbarui, jam atau zona waktu berubah, izin alarm tepat waktu berubah: pasang ulang.
+ *
+ * Receiver ini `exported` (broadcast sistem harus bisa sampai), dan `QUICKBOOT_POWERON` / `com.htc.intent.action.
+ * QUICKBOOT_POWERON` bukan broadcast yang dilindungi sistem, jadi aplikasi lain bisa mengirimnya. Itu aman: `restore`
+ * hanya memasang ulang jadwal yang sudah tersimpan (idempoten, FLAG_UPDATE_CURRENT) dan tidak membaca isi intent.
+ */
 class RescheduleReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     when (intent.action) {

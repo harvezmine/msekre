@@ -347,7 +347,7 @@ di Mac ini. Rincian cara dan perintah ada di `docs/alarm-lokal.md`.
    hilang; mematikan aplikasi lewat Recents lalu membukanya dari Recents tidak membuka `/alarm` lagi.
 4. **Tanpa internet.** Cold start dengan mode pesawat: judul dan Matikan tampil (tanpa Tanya); Tunda tanpa internet bunyi
    10 menit kemudian; Tunda telat bunyi 10 menit setelah ditekan; internet kembali: server dan Agenda ikut.
-5. **Tautan layar penuh** di build preview: alarm membuka `/alarm?id=...&title=...` di atas layar kunci.
+5. **Tautan layar penuh** di build preview: alarm membuka `/alarm?id=...` di atas layar kunci.
 6. **Android 14.** Izin layar penuh dicabut (`adb shell appops set id.my.secretary.dev USE_FULL_SCREEN_INTENT deny`) dengan
    Jangan Ganggu menyala: tetap muncul sebagai notifikasi berbunyi.
 7. **Manifest gabungan.** Receiver, `BOOT_COMPLETED`, `QUICKBOOT_POWERON`, dan izin sesuai harapan.

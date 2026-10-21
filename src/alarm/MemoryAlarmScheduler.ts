@@ -13,6 +13,8 @@ export class MemoryAlarmScheduler implements AlarmScheduler {
   readonly opened: SettingsKind[] = [];
   /** Berapa kali `releaseLockScreen` dipanggil. */
   released = 0;
+  /** Berapa kali aplikasi diminta pindah ke latar (jendela bunyi habis di HP terkunci). */
+  moved = 0;
   /** Berapa kali pengguna diminta membuka kunci HP, dan jawabannya (`false` = dibatalkan). */
   unlockAsked = 0;
   unlockResult = true;
@@ -59,6 +61,11 @@ export class MemoryAlarmScheduler implements AlarmScheduler {
 
   async releaseLockScreen(): Promise<void> {
     this.released += 1;
+  }
+
+  async moveToBack(): Promise<boolean> {
+    this.moved += 1;
+    return this.native;
   }
 
   async dismissKeyguard(): Promise<boolean> {

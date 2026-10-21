@@ -57,7 +57,15 @@ export class NativeAlarmScheduler implements AlarmScheduler {
   async getRinging(id: string): Promise<ScheduledAlarm | null> {
     try {
       const e = await this.module.getRinging(id);
-      return e ? { id: e.id, at: e.at, title: e.title, ...(e.note ? { note: e.note } : {}) } : null;
+      return e
+        ? {
+            id: e.id,
+            at: e.at,
+            title: e.title,
+            ...(e.note ? { note: e.note } : {}),
+            ...(typeof e.until === 'number' ? { until: e.until } : {}),
+          }
+        : null;
     } catch {
       return null;
     }
@@ -84,6 +92,14 @@ export class NativeAlarmScheduler implements AlarmScheduler {
       await this.module.releaseLockScreen();
     } catch {
       // Lihat cancel.
+    }
+  }
+
+  async moveToBack(): Promise<boolean> {
+    try {
+      return (await this.module.moveToBack()) === true;
+    } catch {
+      return false;
     }
   }
 

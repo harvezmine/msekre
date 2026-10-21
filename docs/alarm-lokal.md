@@ -8,8 +8,10 @@ dirawat; belum ada pustaka alarm Expo yang terawat dengan `setAlarmClock` dan in
 ## Isi
 
 - `modules/alarm/android/.../AlarmModule.kt`: fungsi untuk JS (`schedule`, `cancel`, `cancelAll`, `list`, `getRinging`,
-  `status`, `openSettings`, `releaseLockScreen`, `dismissKeyguard`). `openSettings` dan `dismissKeyguard` jalan di thread
-  utama (`Queues.MAIN`). Saat modul dimuat (`OnCreate`) jadwal dipasang ulang dari penyimpanan (`AlarmEngine.restore`):
+  `status`, `openSettings`, `releaseLockScreen`, `moveToBack`, `dismissKeyguard`). `openSettings`, `releaseLockScreen`,
+  `moveToBack`, dan `dismissKeyguard` jalan di thread utama (`Queues.MAIN`); `releaseLockScreen` baru selesai sesudah
+  izinnya benar-benar lepas, jadi JS bisa menunggunya sebelum pindah layar. `getRinging` membawa `until` (akhir jendela
+  bunyi) untuk alarm yang sedang berbunyi. Saat modul dimuat (`OnCreate`) jadwal dipasang ulang dari penyimpanan (`AlarmEngine.restore`):
   jadwal hilang kalau aplikasi dihentikan paksa atau dimatikan penghemat baterai, dan pemasangan ulang aman diulang
   (FLAG_UPDATE_CURRENT).
 - `AlarmEngine.kt`: `AlarmManager.setAlarmClock` (bunyi saat HP tidur/Doze, tampil di ikon alarm bilah status);
@@ -18,19 +20,29 @@ dirawat; belum ada pustaka alarm Expo yang terawat dengan `setAlarmClock` dan in
   (id, judul, waktu, catatan; hilang setelah 10 menit atau saat dimatikan), dibaca layar alarm lewat `getRinging(id)` kalau
   item agendanya tidak bisa dimuat.
 - `AlarmReceiver.kt`: alarm jatuh tempo, memasang notifikasi (saluran `alarm`, suara USAGE_ALARM berulang, getar,
-  kategori ALARM, `setFullScreenIntent` ke `<skema>://alarm?id=<id>&title=<judul>`). Notifikasinya privat: layar kunci hanya
+  kategori ALARM, `setFullScreenIntent` ke `<skema>://alarm?id=<id>`; judul tidak ikut di tautan, layar alarm membacanya dari
+  `getRinging`). Notifikasinya privat: layar kunci hanya
   menampilkan "Pengingat" (`setPublicVersion`), judul baru terlihat setelah HP dibuka. Ikon alarm di bilah status membuka
   Agenda, bukan layar alarm.
 - `RescheduleReceiver.kt`: `BOOT_COMPLETED`, `QUICKBOOT_POWERON` (juga versi HTC), `MY_PACKAGE_REPLACED`, `TIME_SET`,
   `TIMEZONE_CHANGED`, dan `SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED` memasang ulang jadwal. Yang terlewat kurang dari
   15 menit dibunyikan langsung; yang lebih lama menjadi notifikasi biasa "Pengingat terlewat: <judul>" (saluran
-  `alarm_terlewat`, tanpa layar penuh), bukan dibuang diam-diam.
+  `alarm_terlewat`, tanpa layar penuh), bukan dibuang diam-diam; membatalkan alarm (`AlarmEngine.cancel`) juga membuang
+  notifikasi "Pengingat terlewat" untuk id itu. Broadcast `QUICKBOOT_POWERON` tidak dilindungi sistem (aplikasi lain bisa
+  mengirimnya); aman, karena `restore` idempoten dan tidak membaca isi intent.
 - `AlarmActivityListener.kt` / `AlarmWindow.kt` / `AlarmPackage.kt`: activity utama tampil di atas layar kunci dan
   menyalakan layar hanya saat dibuka LANGSUNG oleh alarm (ekstra pada intent, dibuang begitu dibaca). Activity yang dibuat
   ulang (`savedInstanceState`) atau dibuka dari Recents (`FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`) tidak mendapatkannya, dan
   tautan `<skema>://alarm` dilepas dari intentnya supaya Recents tidak membuka layar alarm lagi. Izin dilepas saat alarm
-  dimatikan atau ditunda, saat layar alarm ditutup atau ditinggalkan (Kembali, aplikasi ke latar), dan saat activity
-  berhenti sementara tidak ada alarm yang berbunyi (`onPause`, `onUserLeaveHint`). "Tanya" memanggil `dismissKeyguard`
+  dimatikan atau ditunda, saat layar alarm ditutup (Kembali, layar lain menggantikan), saat jendela bunyi habis (10 menit:
+  layar menutup sendiri, getar berhenti, dan di HP terkunci aplikasi pindah ke latar lewat `moveToBack` supaya layar kunci
+  kembali), dan saat activity berhenti sementara tidak ada alarm yang berbunyi (`onPause`, `onUserLeaveHint`;
+  `RingingStore.hasActive` memakai `apply()` karena jalan di thread utama). JS **tidak** melepas izin saat aplikasi ke
+  latar: Android menjeda aplikasi sebentar saat tampil di atas layar kunci dan saat `requestDismissKeyguard`. Pengaman
+  native: `applyIfAlarm` memasang `Handler` yang melepas izin setelah jendela bunyi (+15 detik) walau JS tidak sempat.
+  Modul hanya menghapus penanda jendela yang ia pasang sendiri (`ownedFlags`), jadi `FLAG_KEEP_SCREEN_ON` milik
+  expo-keep-awake (mode suara) tetap utuh. Matikan menunggu izin lepas dulu baru pindah layar (Beranda atau chat tidak
+  sempat tampil di atas layar kunci). "Tanya" memanggil `dismissKeyguard`
   (`KeyguardManager.requestDismissKeyguard`) dan baru pindah ke chat setelah HP dibuka.
 - `AlarmStatus.kt`: status izin (`canScheduleExactAlarms`, `canUseFullScreenIntent`, notifikasi dan saluran `alarm`,
   `isIgnoringBatteryOptimizations`) dan pintasan ke pengaturannya.
@@ -50,7 +62,7 @@ dirawat; belum ada pustaka alarm Expo yang terawat dengan `setAlarmClock` dan in
   Tanpa internet, alarm tetap bunyi; tunda yang belum sampai ke server dicatat di HP (`pendingSnooze.ts`), tetap
   dijadwalkan walau server masih menyebut waktu lama, tanpa tanda terima, dan `PATCH`-nya diulang tiap penyamaan.
 - **Layar alarm tanpa data server.** Item tidak bisa dimuat (tanpa internet, sesi habis): layar tampil dari catatan alarm di
-  HP (`getRinging`) atau judul di tautan, dengan Tunda dan Matikan tapi tanpa "Tanya". `/alarm` terbuka juga tanpa sesi
+  HP (`getRinging`), dengan Tunda dan Matikan tapi tanpa "Tanya". `/alarm` terbuka juga tanpa sesi
   (`src/api/routeAccess.ts`). Menahan pengingat di Agenda membuka pratinjau (`preview=1`) yang tidak menyentuh alarm asli.
 
 ## Izin dan kebijakan Google Play
@@ -94,7 +106,7 @@ Tambahan dari tinjauan (F1), juga di `docs/ROADMAP.md` bagian "Daftar uji di HP:
 11. Mode pesawat dari awal (cold start): alarm berbunyi, layar menampilkan judul dengan Tunda dan Matikan (tanpa Tanya);
     Tunda tanpa internet tetap berbunyi 10 menit kemudian; Tunda telat (ditekan 25 menit setelah waktunya) berbunyi 10
     menit setelah ditekan; internet kembali: Agenda menulis "Ditunda sampai ..." yang sama.
-12. Tautan layar penuh di build preview (bukan development client): alarm membuka `/alarm?id=` di atas layar kunci.
+12. Tautan layar penuh di build preview (bukan development client): alarm membuka `/alarm?id=` (tanpa judul) di atas layar kunci.
 13. Android 14: cabut izin layar penuh (`adb shell appops set id.my.secretary.dev USE_FULL_SCREEN_INTENT deny`) dan nyalakan
     Jangan Ganggu: tetap muncul sebagai notifikasi berbunyi dan Panduan izin menandainya.
 14. Cek manifest hasil gabungan (`aapt dump xmltree` atau Android Studio Merged Manifest): receiver `AlarmReceiver`,
