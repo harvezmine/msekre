@@ -483,7 +483,7 @@ ulang `GET /business` untuk setiap pasangan yang ia pegang, dan juga saat aplika
                   "account": "rina@kopirindang.id", "since": "2026-09-11T03:00:00Z", "lastUsed": "2026-10-21T02:58:00Z",
                   "ring": true },
                 { "id": "imou", "name": "Imou - CCTV", "icon": "camera", "category": "rumah", "status": "connected",
-                  "ring": true, "needsAttention": "Perlu disambungkan ulang" }],
+                  "ring": true, "attention": { "text": "Perlu disambungkan ulang", "action": "reconnect" } }],
   "catalog":   [{ "id": "notion", "name": "Notion", "icon": "note", "category": "catatan", "status": "available", "ring": false },
                 { "id": "shopee", "name": "Shopee", "icon": "bag", "category": "usaha", "status": "soon", "ring": false }],
   "formerly":  [{ "id": "moka", "name": "Moka", "icon": "receipt", "category": "usaha", "status": "formerly", "ring": false }],
@@ -493,17 +493,22 @@ ulang `GET /business` untuk setiap pasangan yang ia pegang, dan juga saat aplika
 - `Service`: `id` (tetap, dipakai di jalur), `name` dan `account` siap tampil, `icon` (nama ikon; yang tak dikenal diganti
   ikon bawaan), `category` (`kerja`, `usaha`, `rumah`, `catatan`, `lainnya`; yang belum dikenal dibaca `lainnya`),
   `status` (`connected`, `available`, `formerly`, `soon`; yang belum dikenal dibaca `available`), `since` dan `lastUsed`
-  (ISO 8601; aplikasi menulis "Terakhir dipakai 5 menit lalu"), `ring`, `needsAttention`.
+  (ISO 8601; aplikasi menulis "Terakhir dipakai 5 menit lalu"), `ring`, `attention`.
 - **Tiga daftar:** `connected` = tersambung (urutan sambung, yang terbaru terakhir); `catalog` = `available` (bisa
   disambungkan) dan `soon` (tampil dengan lencana "Segera hadir", tanpa tombol sambung); `formerly` = pernah tersambung
   lalu diputus (yang terbaru dulu), bisa disambungkan lagi. Layanan hanya ada di satu daftar. Aplikasi menaruh layanan
   menurut daftar tempat ia datang dari server, bukan menurut `status`, kalau keduanya tak cocok.
-- `ring: true` = layanan ini punya simpul di cincin Beranda (`home.ring.nodes`). Cincin selalu datang dari `GET /home`
+- `ring: true` = layanan ini punya simpul di cincin Beranda (`home.ring.nodes`); **`ring.nodes[].key` sama dengan
+  `service.id`** untuk simpul layanan (aplikasi tidak menebak "simpul terakhir": simpul yang kuncinya tidak ada belum
+  dianimasikan, dan masuk dengan animasinya begitu event `home` membawanya). Cincin selalu datang dari `GET /home`
   dan event `home`, bukan dari sini: begitu sambungan selesai server menaikkan `home.rev` dan menyiarkan `home` dengan
   simpul baru di ujung cincin. Aplikasi menganimasikan simpul yang baru masuk di layar "Tersambung".
-- `needsAttention`: kalimat siap tampil untuk layanan yang `connected` tapi perlu tindakan ("Perlu disambungkan ulang",
-  "Tidak terjangkau sejak 10.12"). Aplikasi menampilkannya sebagai banner di atas daftar dan di detail, dengan jalan ke
-  menyambungkan ulang (alur yang sama dengan menyambung).
+- `attention` (opsional, hanya untuk layanan `connected`): `{ "text", "action" }`. `text` = kalimat siap tampil ("Perlu
+  disambungkan ulang", "Tidak terjangkau sejak 10.12"). `action`: `reconnect` = menyambungkan ulang lewat halaman masuk
+  resmi menyelesaikannya (token kedaluwarsa atau dicabut); `none` = tidak ada yang bisa dilakukan pengguna dari sini
+  (perangkat tidak terjangkau). Yang belum dikenal dibaca `none`. Aplikasi menampilkannya sebagai banner di atas daftar
+  dan di detail; **"Sambungkan ulang" hanya muncul untuk `reconnect`** dan memakai alur menyambung di bawah. Pembacaan
+  longgar: `attention` berupa kalimat saja (atau `needsAttention` lama) dibaca `{ text, action: "none" }`.
 
 `GET /connections/:id` → `ConnectionDetail` (berlaku juga untuk layanan yang belum tersambung, dipakai layar "Masuk"):
 
@@ -538,17 +543,23 @@ tidak tersambung: 404.
 
 **Menyambungkan lewat halaman masuk resmi.** Kata sandi tidak pernah lewat aplikasi ataupun Nadia.
 
-1. Aplikasi memanggil `POST /connections/:id/start` → `{ "url": "https://...", "callbackScheme": "sekretarisai" }`.
-   `url` = halaman masuk/izin resmi layanan (OAuth) yang server siapkan; layanan `soon`, yang sudah tersambung, atau
-   Kotak (disambungkan lewat Tambah perangkat): 400 `tidak_valid`.
-2. Aplikasi membuka `url` di dalam aplikasi dengan `WebBrowser.openAuthSessionAsync(url, "<callbackScheme>://terhubung/tersambung")`
+1. Aplikasi memanggil `POST /connections/:id/start` → `{ "url": "https://..." }`. `url` = halaman masuk/izin resmi
+   layanan (OAuth) yang server siapkan; **harus `https:`** (selain itu jawaban ditolak aplikasi). `callbackScheme` boleh
+   ikut tetapi **diabaikan**: aplikasi memakai skemanya sendiri `sekretarisai`. `start` dibolehkan untuk layanan yang
+   belum tersambung **dan untuk layanan `connected` yang `attention.action`-nya `reconnect`**; layanan `soon`, yang
+   tersambung tanpa `reconnect`, atau Kotak (disambungkan lewat Tambah perangkat): 400 `tidak_valid`.
+2. Aplikasi membuka `url` di dalam aplikasi dengan `WebBrowser.openAuthSessionAsync(url, "sekretarisai://terhubung/tersambung")`
    (Chrome Custom Tab di Android).
 3. Layanan mengarahkan pengguna ke alamat callback **server** (`PUBLIC_BASE_URL/...`). Server menukar kode dengan token,
    menyimpannya, lalu mengarahkan peramban ke `sekretarisai://terhubung/tersambung?id=<id>&ok=1`, atau `ok=0&reason=<kode>`
    (`reason` bebas, `ditolak` dikenali: pengguna tidak memberi izin).
-4. Aplikasi menangkap alamat itu (hasil `openAuthSessionAsync`, atau, bila aplikasi dibuka/dibawa ke depan oleh alamat itu,
-   rute `app/terhubung/tersambung`). `ok=1`: aplikasi memuat ulang `GET /connections`; begitu layanan ada di `connected`
-   (atau event `connection` datang) layar "Tersambung" tampil dengan simpul baru di cincin. `ok=0`: kalimat ramah dan
+4. Aplikasi menangkap alamat itu (hasil `openAuthSessionAsync`, atau, bila aplikasi dibuka dingin oleh alamat itu karena prosesnya
+   sempat dibunuh saat di Custom Tab, rute `app/terhubung/tersambung`). Di Android alamat yang sama bisa sampai dua kali
+   ke aplikasi yang sudah berjalan (hasil sesi dan tautan masuk); `app/+native-intent.tsx` membuang tautannya selama sesi
+   masuk dinanti, jadi hanya `connect()` yang menyelesaikan alur dan layar "Tersambung" terbuka sekali. `ok=1`: aplikasi
+   memuat ulang `GET /connections`; begitu layanan ada di `connected` **dan** (bila tadinya `reconnect`) `attention`-nya
+   hilang, atau event `connection` yang menyatakan itu datang, layar "Tersambung" tampil dengan simpul baru di cincin.
+   Server **menyiarkan `connection` dengan `attention` dihapus** begitu sambungan ulang berhasil. `ok=0`: kalimat ramah dan
    "Coba lagi". Peramban ditutup tanpa alamat kembali: aplikasi memuat ulang sekali; bila ternyata sudah tersambung,
    dianggap berhasil, selain itu "Halaman masuk ditutup sebelum selesai, jadi belum ada yang tersambung."
 
@@ -570,7 +581,7 @@ Aturan server untuk langkah 1-3:
 Stream: `{ "type": "connection", "service": Service, "removed"?: true, "rev": number }`. Menggantikan layanan dengan `id`
 yang sama dan menaruhnya di daftar menurut `service.status` (`connected` di akhir, `formerly` di depan, selain itu
 katalog); `removed` = hilang dari semua daftar. Dibuang bila `rev` lebih lama dari `rev` daftar yang dipegang aplikasi.
-Siarkan saat layanan tersambung, diputus, atau `needsAttention` berubah. Setelah koneksi terbuka dan saat aplikasi
+Siarkan saat layanan tersambung, diputus, atau `attention` berubah. Setelah koneksi terbuka dan saat aplikasi
 kembali ke depan, aplikasi memuat ulang `GET /connections` (dan detail yang sedang dibuka).
 
 Sumber data Usaha (bagian 2.15) membawa `sources[].service` = `id` layanannya di sini, supaya "Sambungkan Moka" di

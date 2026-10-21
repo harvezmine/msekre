@@ -6,7 +6,8 @@ import { Txt } from '../Txt';
 import { ServiceTile } from './ServiceTile';
 
 /** Jalan menyambungkan: Kotak lewat Tambah perangkat, selain itu lembar masuk layanan. */
-export const connectRoute = (id: string) => (id === 'kotak' ? '/perangkat/tambah' : `/terhubung/masuk?id=${id}`);
+export const connectRoute = (id: string) =>
+  id === 'kotak' ? '/perangkat/tambah' : `/terhubung/masuk?id=${encodeURIComponent(id)}`;
 
 /** Satu baris katalog (desain 2h): ubin huruf, nama, dan "Sambungkan" atau lencana "Segera hadir". */
 export function CatalogRow({ service, last }: { service: Service; last: boolean }) {

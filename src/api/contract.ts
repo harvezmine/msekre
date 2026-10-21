@@ -810,9 +810,16 @@ export const serviceStatusSchema = z.enum(['connected', 'available', 'formerly',
 /**
  * Satu layanan. `icon`: nama ikon (yang tak dikenal diganti ikon bawaan). `account`: akun yang tersambung dalam kata siap
  * tampil (alamat email, nama toko). `since`: kapan disambungkan; `lastUsed`: terakhir dipakai Nadia. `ring`: layanan ini
- * punya simpul di cincin Beranda. `needsAttention`: kalimat siap tampil kalau perlu tindakan (misalnya "Perlu
- * disambungkan ulang"); layanan tetap `connected`.
+ * punya simpul di cincin Beranda. `attention`: perlu perhatian (layanan tetap `connected`); `text` = kalimat siap tampil
+ * ("Perlu disambungkan ulang", "Tidak terjangkau sejak 10.12"), `action` = `reconnect` kalau menyambungkan ulang lewat
+ * halaman masuk resmi menyelesaikannya, `none` kalau tidak ada yang bisa dilakukan pengguna dari sini. Yang belum
+ * dikenal dibaca `none`.
  */
+export const serviceAttentionSchema = z.object({
+  text: z.string().min(1),
+  action: z.enum(['reconnect', 'none']).catch('none'),
+});
+
 export const serviceSchema = z.object({
   id: idSchema,
   name: z.string().min(1),
@@ -823,7 +830,7 @@ export const serviceSchema = z.object({
   since: isoDateTimeSchema.optional(),
   lastUsed: isoDateTimeSchema.optional(),
   ring: z.boolean(),
-  needsAttention: z.string().min(1).optional(),
+  attention: serviceAttentionSchema.optional(),
 });
 
 /**
@@ -869,10 +876,14 @@ export const connectionPermissionReqSchema = z.strictObject({
 export const connectionForgetResSchema = z.object({ ok: z.literal(true), forgotten: z.number().int().nonnegative() });
 
 /**
- * `POST /connections/:id/start`: alamat halaman masuk resmi layanan. `callbackScheme`: skema alamat kembali aplikasi
- * (`sekretarisai`); aplikasi membuka `url` dan menunggu kembali ke `<callbackScheme>://terhubung/tersambung`.
+ * `POST /connections/:id/start`: alamat halaman masuk resmi layanan; harus `https:`. `callbackScheme` boleh ada tetapi
+ * diabaikan: aplikasi memakai skemanya sendiri (`sekretarisai`) dan menunggu kembali ke
+ * `sekretarisai://terhubung/tersambung`.
  */
-export const connectionStartResSchema = z.object({ url: z.string().min(1), callbackScheme: z.string().min(1) });
+export const connectionStartResSchema = z.object({
+  url: z.url({ protocol: /^https$/ }),
+  callbackScheme: z.string().optional(),
+});
 
 // ---- Riwayat ----
 

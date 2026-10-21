@@ -1,10 +1,11 @@
 import { openAuthBrowser, type OpenAuth } from './authBrowser';
 import {
   CANCELLED_TEXT,
+  CONNECT_REDIRECT_URL,
   failureText,
   findService,
+  needsReconnect,
   parseCallbackUrl,
-  redirectUrlOf,
   type ConnectCallback,
 } from './connections';
 import type { ConnectionDetail, ConnectionPermission, Connections, Service, StreamEvent } from './contract';
@@ -57,7 +58,14 @@ const INITIAL: ConnectionsState = {
 /** Paling lama menunggu layanan tampil tersambung setelah halaman resmi selesai. */
 export const CONNECT_WAIT_MS = 6000;
 
-const isConnected = (c: Connections | null, id: string) => !!c?.connected.some((s) => s.id === id);
+/**
+ * Layanan tampil selesai tersambung? Untuk layanan yang perlu disambungkan ulang (`reconnecting`) tersambung saja belum
+ * cukup: ia sudah tersambung sejak awal, jadi yang dinanti adalah `attention` `reconnect` hilang.
+ */
+const isConnected = (c: Connections | null, id: string, reconnecting = false) => {
+  const s = c?.connected.find((x) => x.id === id);
+  return !!s && !(reconnecting && needsReconnect(s));
+};
 
 /**
  * Pemilik data Terhubung: daftar dari `GET /connections`, detail per layanan dari `GET /connections/:id`, dan alur
@@ -74,6 +82,8 @@ export class ConnectionsController {
   private readonly loadingDetail = new Map<string, Promise<void>>();
   private readonly connecting = new Map<string, Promise<void>>();
   private readonly waiters = new Map<string, Set<() => void>>();
+  /** Penutup tiap penantian yang masih jalan, supaya `stop()` membersihkan timernya. */
+  private readonly cancelWaits = new Set<() => void>();
   private readonly permissionSeq = new Map<string, number>();
   private alive = true;
   /** Sebuah layar sudah meminta daftar atau detail, jadi layak dimuat ulang. */
@@ -107,6 +117,7 @@ export class ConnectionsController {
     this.alive = false;
     this.unsubscribe?.();
     this.unsubscribe = null;
+    for (const cancel of [...this.cancelWaits]) cancel();
   }
 
   // ---- Memuat ----
@@ -180,18 +191,22 @@ export class ConnectionsController {
     if (running) return running;
     this.setFlow(id, { phase: 'opening', message: null });
     const job = (async () => {
-      const name = findService(this.state.list.data, id)?.name ?? 'layanan ini';
+      const known = findService(this.state.list.data, id);
+      const name = known?.name ?? 'layanan ini';
+      // Layanan yang sudah tersambung tetapi perlu disambungkan ulang: selesai kalau `attention` hilang, bukan sekadar tersambung.
+      const reconnecting = needsReconnect(known);
       try {
         const start = await this.transport.startConnection(id);
         this.setFlow(id, { phase: 'waiting', message: null });
         if (this.transport.mode === 'contoh') {
-          await this.finish(id, name, { id, ok: true, reason: null });
+          await this.finish(id, name, { id, ok: true, reason: null }, reconnecting);
           return;
         }
-        const result = await this.openAuth(start.url, redirectUrlOf(start.callbackScheme));
+        // `callbackScheme` dari server diabaikan: skema aplikasi sendiri.
+        const result = await this.openAuth(start.url, CONNECT_REDIRECT_URL);
         if (result.type === 'success') {
-          await this.finish(id, name, parseCallbackUrl(result.url));
-        } else if (await this.waitConnected(id, 0)) {
+          await this.finish(id, name, parseCallbackUrl(result.url), reconnecting);
+        } else if (await this.waitConnected(id, 0, reconnecting)) {
           // Halaman ditutup setelah server sudah menyimpan sambungannya.
           this.setFlow(id, { phase: 'connected', message: null });
         } else {
@@ -213,9 +228,11 @@ export class ConnectionsController {
    */
   handleCallback = async (callback: ConnectCallback): Promise<void> => {
     if (!callback.id) return;
+    // Sudah selesai (misalnya oleh `connect()` yang menerima hasil sesinya): tidak ada yang perlu diulang.
+    if (this.state.flows[callback.id]?.phase === 'connected') return;
     if (!this.state.list.data) await this.load();
-    const name = findService(this.state.list.data, callback.id)?.name ?? 'layanan ini';
-    await this.finish(callback.id, name, callback);
+    const service = findService(this.state.list.data, callback.id);
+    await this.finish(callback.id, service?.name ?? 'layanan ini', callback, needsReconnect(service));
   };
 
   resetFlow = (id: string) => {
@@ -225,41 +242,50 @@ export class ConnectionsController {
     this.set({ ...this.state, flows });
   };
 
-  private async finish(id: string, name: string, callback: ConnectCallback) {
+  private async finish(id: string, name: string, callback: ConnectCallback, reconnecting: boolean) {
     if (!callback.ok) {
       this.setFlow(id, { phase: 'failed', message: failureText(name, callback.reason) });
       return;
     }
-    if (await this.waitConnected(id, CONNECT_WAIT_MS)) {
+    if (await this.waitConnected(id, CONNECT_WAIT_MS, reconnecting)) {
       this.setFlow(id, { phase: 'connected', message: null });
     } else {
       this.setFlow(id, { phase: 'failed', message: failureText(name, null) });
     }
   }
 
-  /** Layanan tampil tersambung? Cek daftar terbaru, lalu (kalau `ms` > 0) tunggu event `connection` paling lama `ms`. */
-  private async waitConnected(id: string, ms: number): Promise<boolean> {
-    if (isConnected(this.state.list.data, id)) return true;
+  /**
+   * Layanan tampil tersambung (dan, saat `reconnecting`, tidak lagi perlu disambungkan ulang)? Cek daftar terbaru, lalu
+   * (kalau `ms` > 0) tunggu event `connection` atau muat ulang daftar paling lama `ms`.
+   */
+  private async waitConnected(id: string, ms: number, reconnecting = false): Promise<boolean> {
+    if (isConnected(this.state.list.data, id, reconnecting)) return true;
     await this.load();
-    if (isConnected(this.state.list.data, id)) {
+    if (isConnected(this.state.list.data, id, reconnecting)) {
       void this.loadDetail(id);
       return true;
     }
     if (ms <= 0) return false;
     return new Promise<boolean>((resolve) => {
       let timer: ReturnType<typeof setTimeout> | undefined;
+      let finished = false;
       const done = (ok: boolean) => {
+        if (finished) return;
+        finished = true;
         clearTimeout(timer);
+        this.cancelWaits.delete(cancel);
         this.waiters.get(id)?.delete(wake);
         resolve(ok);
       };
+      const cancel = () => done(false);
       const wake = () => {
-        if (isConnected(this.state.list.data, id)) done(true);
+        if (isConnected(this.state.list.data, id, reconnecting)) done(true);
       };
       const set = this.waiters.get(id) ?? new Set<() => void>();
       set.add(wake);
       this.waiters.set(id, set);
-      timer = setTimeout(() => done(isConnected(this.state.list.data, id)), ms);
+      this.cancelWaits.add(cancel);
+      timer = setTimeout(() => done(isConnected(this.state.list.data, id, reconnecting)), ms);
     }).then((ok) => {
       if (ok) void this.loadDetail(id);
       return ok;
@@ -309,7 +335,7 @@ export class ConnectionsController {
       await this.transport.disconnectConnection(id);
       const was = findService(this.state.list.data, id);
       if (was) {
-        const { needsAttention: _a, lastUsed: _l, ...rest } = was;
+        const { attention: _a, lastUsed: _l, ...rest } = was;
         this.applyService({ ...rest, status: 'formerly', ring: false }, false, undefined);
       }
       const details = { ...this.state.details };
@@ -389,6 +415,8 @@ export class ConnectionsController {
   private setList(list: ListEntry) {
     if (!this.alive) return;
     this.set({ ...this.state, list });
+    // Muat ulang daftar juga membangunkan yang menunggu layanannya tampil tersambung.
+    for (const wakes of [...this.waiters.values()]) for (const wake of [...wakes]) wake();
   }
 
   private setDetail(id: string, entry: DetailEntry) {

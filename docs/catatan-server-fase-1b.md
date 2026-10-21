@@ -230,8 +230,17 @@ sudah ada, dan `start` membungkus `beginAuth`/`connectUrlFor` tiap modul:
   (`activity/log`); `account` dari profil OAuth (email, nama toko).
 - **`ring`**: layanan punya simpul bila ia bagian dari yang digambar di cincin (aturan yang sama dengan `home.ring`);
   setelah tersambung server menaikkan `home.rev` dan menyiarkan `home` dengan simpul baru di ujung.
-- **`needsAttention`**: token kedaluwarsa/dicabut (refresh gagal dengan `invalid_grant`), perangkat tidak terjangkau
-  (Imou/CCTV), atau webhook mati (Moota). Kalimat siap tampil: "Perlu disambungkan ulang" untuk yang pertama.
+- **`attention`** (`{ text, action }`, menggantikan `needsAttention`): token kedaluwarsa/dicabut (refresh gagal dengan
+  `invalid_grant`) = `action: "reconnect"`, teks "Perlu disambungkan ulang"; perangkat tidak terjangkau (Imou/CCTV) atau
+  webhook mati (Moota) = `action: "none"` (tombol "Sambungkan ulang" tidak tampil). `POST /connections/:id/start`
+  dibolehkan untuk layanan `connected` yang `attention.action` `reconnect`. Sambungan ulang yang berhasil menghapus
+  `attention`, menaikkan `rev`, dan menyiarkan `connection`; aplikasi menganggap selesai hanya setelah `attention` hilang.
+- **`start.url` harus `https:`**; `callbackScheme` diabaikan aplikasi (boleh dihilangkan).
+- **Akhir callback**: balas `302 Location: sekretarisai://terhubung/tersambung?...`. Peramban yang menolak skema
+  khusus (sebagian Samsung Internet/Firefox) harus mendapat halaman HTML kecil dengan tombol "Kembali ke aplikasi" yang
+  menuju alamat yang sama, bukan halaman kosong. Di Android alamat itu sampai dua kali ke aplikasi yang berjalan; itu
+  ditangani aplikasi (`+native-intent`), server tidak perlu apa-apa.
+- **Kunci cincin**: `home.ring.nodes[].key` untuk simpul layanan = `service.id`.
 - **`forget`**: memakai `src/privacy/forget.ts` (`planForget` + `runForget`) untuk sumber layanan itu (`FORGET_SOURCES`:
   `google`/`gmail`/`calendar`/`drive`, `notion`, `outlook`, `moota`, `github`, `plaud`, `meetings`, `rumah`); jumlah =
   `ForgetPlan` yang dihitung (pesan, catatan, ringkasan yang terhapus). Aplikasi sudah menampilkan layar konfirmasi
@@ -245,7 +254,7 @@ sudah ada, dan `start` membungkus `beginAuth`/`connectUrlFor` tiap modul:
   kasus domain ganda). Akhir callback: redirect ke `sekretarisai://terhubung/tersambung?id=<id>&ok=1` (atau `ok=0&reason=`),
   bukan halaman web "sudah tersambung" seperti di alur WhatsApp. Alur WhatsApp lama (tautan bertanda tangan) tetap jalan
   dan memakai penyimpanan yang sama, jadi sambungan dari WhatsApp muncul di aplikasi lewat event `connection`.
-- `rev`: satu penghitung per pengguna; naik saat layanan tersambung, diputus, atau `needsAttention` berubah.
+- `rev`: satu penghitung per pengguna; naik saat layanan tersambung, diputus, atau `attention` berubah.
 - **Izin**: `baca`/`baca_tulis` disimpan per koneksi dan DIPAKSA di alat agen (alat tulis ditolak untuk koneksi `baca`;
   registri `WRITE_TOOLS` sudah ada). Mengubah izin menaikkan `rev` dan menyiarkan `connection`.
 

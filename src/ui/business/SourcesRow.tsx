@@ -28,7 +28,7 @@ export function SourcesRow({ sources }: { sources: BusinessSource[] }) {
           key={s.key}
           accessibilityRole="button"
           accessibilityLabel={`Sambungkan ${s.label}`}
-          onPress={() => router.push(s.service ? `/terhubung/masuk?id=${s.service}` : '/terhubung')}
+          onPress={() => router.push(s.service ? `/terhubung/masuk?id=${encodeURIComponent(s.service)}` : '/terhubung')}
           style={{ minHeight: 48, justifyContent: 'center' }}
         >
           <Txt weight={600} color={c.green}>

@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { failureText } from '@/api/connections';
+import { joinAnimated, markJoinAnimated } from '@/api/joinSeen';
 import { useConnections } from '@/api/useConnections';
 import { useHome } from '@/api/useHome';
 import { serviceInfo } from '@/sample/services';
@@ -22,6 +23,14 @@ export default function Tersambung() {
   const { ring } = useHome();
   const { service, detail, flow, status, handleCallback, retry } = useConnections(serviceId);
   const fromCallback = typeof ok === 'string';
+  // Simpul baru hanya dianimasikan sekali per sambungan, juga kalau layar ini terbuka dua kali (lembar dan alamat kembali).
+  const [alreadyAnimated] = useState(() => joinAnimated(serviceId));
+  // Kunci simpul cincin layanan = id layanan (kontrak). Belum ada di cincin: tidak ada yang dianimasikan; begitu event
+  // `home` membawanya, simpul itu masuk dengan animasinya.
+  const joinKey = service?.ring && !alreadyAnimated ? ring.find((n) => n.key === service.id)?.key : undefined;
+  useEffect(() => {
+    if (joinKey) markJoinAnimated(joinKey);
+  }, [joinKey]);
   useEffect(() => {
     if (fromCallback && serviceId) {
       void handleCallback({ id: serviceId, ok: ok === '1', reason: typeof reason === 'string' ? reason : null });
@@ -59,7 +68,9 @@ export default function Tersambung() {
         <Txt color={c.muted} style={{ textAlign: 'center' }}>
           {flow.message ?? failureText(name, typeof reason === 'string' ? reason : null)}
         </Txt>
-        {serviceId ? link('Coba lagi', () => router.replace(`/terhubung/masuk?id=${serviceId}`)) : null}
+        {serviceId
+          ? link('Coba lagi', () => router.replace(`/terhubung/masuk?id=${encodeURIComponent(serviceId)}`))
+          : null}
         {link('Selesai', done)}
       </>,
     );
@@ -84,10 +95,6 @@ export default function Tersambung() {
   const permission = detail?.data?.permission;
   const permissionText = permission === 'baca_tulis' ? 'Baca dan tulis' : 'Baca saja';
   const joined = serviceInfo[service.id]?.joined ?? 'Mulai sekarang saya bisa membantu dari sini.';
-  // Simpul baru masuk di ujung cincin; kuncinya sama dengan id layanan bila server memakainya.
-  const joinKey = service.ring
-    ? (ring.find((n) => n.key === service.id)?.key ?? ring[ring.length - 1]?.key)
-    : undefined;
   return (
     <ScrollView
       style={{ backgroundColor: c.paper }}
@@ -132,7 +139,7 @@ export default function Tersambung() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Ubah"
-          onPress={() => router.push(`/terhubung/${service.id}`)}
+          onPress={() => router.push(`/terhubung/${encodeURIComponent(service.id)}`)}
           android_ripple={{ color: c.ripple }}
           style={{ height: 48, paddingHorizontal: 12, justifyContent: 'center' }}
         >

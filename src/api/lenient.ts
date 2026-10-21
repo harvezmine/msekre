@@ -20,6 +20,7 @@ import {
   historyLinkSchema,
   historyPageSchema,
   historyStatusSchema,
+  serviceAttentionSchema,
   serviceSchema,
   businessPointSchema,
   businessSummarySchema,
@@ -411,17 +412,32 @@ export function parseBusinessLenient(raw: unknown): Business | null {
  */
 export function parseServiceLenient(raw: unknown): Service | null {
   if (!isRecord(raw)) return null;
-  const parsed = serviceSchema.safeParse({ ...raw, ring: raw.ring === true });
+  // Perlu perhatian: objek `{ text, action }`, atau (lama) hanya kalimat, yang dibaca `action: none`.
+  const { since, lastUsed, account, attention, needsAttention, ...rest } = raw;
+  const attentionRaw = attention ?? needsAttention;
+  const parsedAttention =
+    typeof attentionRaw === 'string'
+      ? nonEmpty(attentionRaw)
+        ? { text: attentionRaw, action: 'none' as const }
+        : undefined
+      : serviceAttentionSchema.safeParse(attentionRaw).data;
+  const parsed = serviceSchema.safeParse({
+    ...rest,
+    ring: raw.ring === true,
+    ...(since !== undefined ? { since } : {}),
+    ...(lastUsed !== undefined ? { lastUsed } : {}),
+    ...(account !== undefined ? { account } : {}),
+    ...(parsedAttention ? { attention: parsedAttention } : {}),
+  });
   if (parsed.success) return parsed.data;
   // Waktu atau keterangan opsional yang rusak dibuang; layanannya tetap tampil.
-  const { since, lastUsed, account, needsAttention, ...rest } = raw;
   const trimmed = serviceSchema.safeParse({
     ...rest,
     ring: raw.ring === true,
     ...(serviceSchema.shape.since.safeParse(since).success ? { since } : {}),
     ...(serviceSchema.shape.lastUsed.safeParse(lastUsed).success ? { lastUsed } : {}),
     ...(nonEmpty(account) ? { account } : {}),
-    ...(nonEmpty(needsAttention) ? { needsAttention } : {}),
+    ...(parsedAttention ? { attention: parsedAttention } : {}),
   });
   return trimmed.success ? trimmed.data : null;
 }

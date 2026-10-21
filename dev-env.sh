@@ -8,3 +8,5 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:/opt/homebrew/bin:$PATH
 export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh" >/dev/null
 nvm use 24 >/dev/null
+# nvm use hanya menaruh Node 24 di depan PATH kalau berhasil; pastikan di sini juga.
+if [ -n "$NVM_BIN" ]; then export PATH="$NVM_BIN:$PATH"; fi

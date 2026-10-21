@@ -1,4 +1,5 @@
 import * as WebBrowser from 'expo-web-browser';
+import { beginAuthSession, endAuthSession } from './authSession';
 
 /** Hasil membuka halaman masuk resmi: kembali ke aplikasi dengan alamat, atau ditutup tanpa selesai. */
 export type AuthResult = { type: 'success'; url: string } | { type: 'cancel' };
@@ -11,6 +12,12 @@ export type OpenAuth = (url: string, redirectUrl: string) => Promise<AuthResult>
  * `success` bila alamat kembali tertangkap, selain itu `cancel` atau `dismiss`.
  */
 export const openAuthBrowser: OpenAuth = async (url, redirectUrl) => {
-  const result = await WebBrowser.openAuthSessionAsync(url, redirectUrl);
+  beginAuthSession();
+  let result: WebBrowser.WebBrowserAuthSessionResult;
+  try {
+    result = await WebBrowser.openAuthSessionAsync(url, redirectUrl);
+  } finally {
+    endAuthSession();
+  }
   return result.type === 'success' ? { type: 'success', url: result.url } : { type: 'cancel' };
 };

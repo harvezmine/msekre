@@ -1,8 +1,17 @@
 import type { OpenAuth } from '@/api/authBrowser';
-import { agoText, failureText, groupByCategory, parseCallbackUrl, redirectUrlOf, serviceLine } from '@/api/connections';
+import {
+  agoText,
+  failureText,
+  groupByCategory,
+  needsReconnect,
+  parseCallbackUrl,
+  serviceLine,
+  CONNECT_REDIRECT_URL,
+} from '@/api/connections';
 import { ConnectionsController } from '@/api/connectionsController';
 import {
   connectionDetailSchema,
+  connectionStartResSchema,
   connectionsSchema,
   streamEventSchema,
   type Service,
@@ -57,9 +66,9 @@ describe('teks bantu', () => {
     );
     expect(serviceLine(svc({ lastUsed: at(2) }), NOW)).toBe('Terakhir dipakai 2 menit lalu');
     expect(serviceLine(svc(), NOW)).toBe('Aktif');
-    expect(serviceLine(svc({ needsAttention: 'Perlu disambungkan ulang', account: 'a' }), NOW)).toBe(
-      'Perlu disambungkan ulang',
-    );
+    expect(
+      serviceLine(svc({ attention: { text: 'Perlu disambungkan ulang', action: 'reconnect' }, account: 'a' }), NOW),
+    ).toBe('Perlu disambungkan ulang');
   });
 
   test('alamat kembali dan kalimat gagal', () => {
@@ -74,8 +83,7 @@ describe('teks bantu', () => {
       reason: 'ditolak pengguna',
     });
     expect(parseCallbackUrl('sekretarisai://terhubung/tersambung')).toEqual({ id: null, ok: false, reason: null });
-    expect(redirectUrlOf('sekretarisai')).toBe('sekretarisai://terhubung/tersambung');
-    expect(redirectUrlOf('sekretarisai://terhubung/tersambung')).toBe('sekretarisai://terhubung/tersambung');
+    expect(CONNECT_REDIRECT_URL).toBe('sekretarisai://terhubung/tersambung');
     expect(failureText('Notion', 'ditolak')).toContain('Izin dari Notion belum diberikan');
     expect(failureText('Notion', null)).toContain('Belum berhasil tersambung ke Notion');
   });
@@ -96,7 +104,10 @@ describe('kontrak dan pembacaan longgar', () => {
     expect(all.catalog.map((s) => s.id)).toEqual(
       expect.arrayContaining(['m365', 'notion', 'plaud', 'tiktok', 'github', 'smartthings', 'homeassistant', 'gdrive']),
     );
-    expect(all.connected.find((s) => s.id === 'imou')!.needsAttention).toBe('Tidak terjangkau sejak 10.12');
+    expect(all.connected.find((s) => s.id === 'imou')!.attention).toEqual({
+      text: 'Tidak terjangkau sejak 10.12',
+      action: 'none',
+    });
     expect(all.connected.find((s) => s.id === 'moka')).toMatchObject({ account: 'Kopi Rindang', ring: true });
     expect(all.connected.find((s) => s.id === 'kotak')!.ring).toBe(false);
     for (const s of [...all.connected, ...all.catalog]) {
@@ -172,6 +183,35 @@ describe('kontrak dan pembacaan longgar', () => {
     });
     expect(parseEventLenient({ ...event, rev: 0 })).toBeNull();
     expect(parseEventLenient({ ...event, service: { id: 'x' } })).toBeNull();
+  });
+});
+
+describe('attention', () => {
+  test('kalimat saja dibaca action none; objek dibaca apa adanya; action asing dibaca none', () => {
+    const base = { id: 'a', name: 'A', icon: 'x', category: 'kerja', status: 'connected' };
+    expect(parseServiceLenient({ ...base, needsAttention: 'Perlu dilihat' })!.attention).toEqual({
+      text: 'Perlu dilihat',
+      action: 'none',
+    });
+    expect(parseServiceLenient({ ...base, attention: 'Perlu dilihat' })!.attention).toEqual({
+      text: 'Perlu dilihat',
+      action: 'none',
+    });
+    expect(parseServiceLenient({ ...base, attention: { text: 'Ulang', action: 'reconnect' } })!.attention).toEqual({
+      text: 'Ulang',
+      action: 'reconnect',
+    });
+    expect(parseServiceLenient({ ...base, attention: { text: 'Ulang', action: 'baru' } })!.attention!.action).toBe(
+      'none',
+    );
+    expect(parseServiceLenient({ ...base, attention: { text: '' } })!.attention).toBeUndefined();
+    expect(parseServiceLenient({ ...base, attention: 5 })!.attention).toBeUndefined();
+  });
+
+  test('alamat mulai harus https', () => {
+    expect(connectionStartResSchema.safeParse({ url: 'https://a.id/x' }).success).toBe(true);
+    expect(connectionStartResSchema.safeParse({ url: 'http://a.id/x' }).success).toBe(false);
+    expect(connectionStartResSchema.safeParse({ url: 'javascript:alert(1)' }).success).toBe(false);
   });
 });
 
@@ -301,6 +341,121 @@ describe('ConnectionsController', () => {
     late.transport.dispose();
   });
 
+  test('perlu disambungkan ulang: start boleh, selesai kalau attention hilang (bukan sekadar tersambung)', async () => {
+    const open = jest.fn(async () => ({ type: 'cancel' as const }));
+    const { transport, controller } = make('server', open);
+    await controller.load();
+    transport.expireConnection('gcal');
+    await settle();
+    const gcal = () => controller.getState().list.data!.connected.find((s) => s.id === 'gcal')!;
+    expect(gcal().attention).toEqual({ text: 'Perlu disambungkan ulang', action: 'reconnect' });
+    expect(needsReconnect(gcal())).toBe(true);
+    // Halaman ditutup sebelum server selesai: masih perlu disambungkan ulang, jadi dibatalkan (bukan "tersambung").
+    await controller.connect('gcal');
+    expect(controller.getState().flows.gcal!.phase).toBe('cancelled');
+    // Sekarang halaman kembali ok=1 dan server menyelesaikan 50 ms kemudian.
+    open.mockResolvedValue({
+      type: 'success' as const,
+      url: 'sekretarisai://terhubung/tersambung?id=gcal&ok=1',
+    } as never);
+    const job = controller.connect('gcal');
+    await settle(100);
+    await job;
+    expect(controller.getState().flows.gcal!.phase).toBe('connected');
+    expect(gcal().attention).toBeUndefined();
+    controller.stop();
+    transport.dispose();
+  });
+
+  test('layanan tersambung tanpa perlu disambungkan ulang tetap ditolak server saat start', async () => {
+    const { transport } = make();
+    await expect(transport.startConnection('gcal')).rejects.toBeTruthy();
+    await expect(transport.startConnection('imou')).rejects.toBeTruthy();
+    transport.dispose();
+  });
+
+  test('connect dan handleCallback bersamaan: satu alur, tidak dua kali selesai', async () => {
+    let resolveAuth!: (r: { type: 'success'; url: string }) => void;
+    const open: OpenAuth = () => new Promise((r) => (resolveAuth = r));
+    const { transport, controller } = make('server', open);
+    await controller.load();
+    const phases: string[] = [];
+    controller.subscribe(() => {
+      const phase = controller.getState().flows.notion?.phase ?? '-';
+      if (phases.at(-1) !== phase) phases.push(phase);
+    });
+    const job = controller.connect('notion');
+    await settle();
+    const url = 'sekretarisai://terhubung/tersambung?id=notion&ok=1';
+    const cb = controller.handleCallback({ id: 'notion', ok: true, reason: null });
+    resolveAuth({ type: 'success', url });
+    await settle(100);
+    await Promise.all([job, cb]);
+    expect(controller.getState().flows.notion!.phase).toBe('connected');
+    expect(phases.filter((p) => p === 'connected')).toHaveLength(1);
+    // Ulang setelah selesai: tidak berbuat apa-apa.
+    const count = phases.length;
+    const doneState = controller.getState();
+    await controller.handleCallback({ id: 'notion', ok: true, reason: null });
+    expect(phases).toHaveLength(count);
+    expect(controller.getState().flows).toBe(doneState.flows);
+    controller.stop();
+    transport.dispose();
+  });
+
+  test('start mengabaikan callbackScheme dari server dan membuka alamat kembali milik aplikasi', async () => {
+    const open = jest.fn(async () => ({ type: 'cancel' as const }));
+    const { transport, controller } = make('server', open);
+    jest.spyOn(transport, 'startConnection').mockResolvedValue({ url: 'https://x.id/a', callbackScheme: 'jahat' });
+    await controller.connect('notion');
+    expect(open).toHaveBeenCalledWith('https://x.id/a', 'sekretarisai://terhubung/tersambung');
+    controller.stop();
+    transport.dispose();
+  });
+
+  test('stop membersihkan timer penantian', async () => {
+    const { transport, controller } = make('server', async () => ({
+      type: 'success',
+      url: 'sekretarisai://terhubung/tersambung?id=notion&ok=1',
+    }));
+    jest.spyOn(transport, 'startConnection').mockResolvedValue({ url: 'https://x.id' });
+    await controller.load();
+    const job = controller.connect('notion');
+    await settle();
+    controller.stop();
+    await job;
+    expect(jest.getTimerCount()).toBe(0);
+    transport.dispose();
+  });
+
+  test('muat ulang daftar membangunkan penantian', async () => {
+    const { transport, controller } = make('server', async () => ({
+      type: 'success',
+      url: 'sekretarisai://terhubung/tersambung?id=notion&ok=1',
+    }));
+    jest.spyOn(transport, 'startConnection').mockResolvedValue({ url: 'https://x.id' });
+    await controller.load();
+    const job = controller.connect('notion');
+    await settle();
+    expect(controller.getState().flows.notion!.phase).toBe('waiting');
+    // Tersambung di server tanpa event; hanya muat ulang daftar yang melihatnya.
+    const list = controller.getState().list.data!;
+    const notion = list.catalog.find((s) => s.id === 'notion')!;
+    jest.spyOn(transport, 'connections').mockResolvedValue({
+      ...list,
+      catalog: list.catalog.filter((s) => s.id !== 'notion'),
+      connected: [...list.connected, { ...notion, status: 'connected' }],
+      rev: list.rev + 1,
+    });
+    await controller.load();
+    await settle();
+    await job;
+    expect(controller.getState().flows.notion!.phase).toBe('connected');
+    expect(jest.getTimerCount()).toBe(0);
+    controller.stop();
+    transport.dispose();
+  });
+
   test('server menolak (ok=0) dan permintaan mulai gagal: kalimat ramah', async () => {
     const denied = make('server', async () => ({
       type: 'success',
@@ -421,10 +576,18 @@ describe('ConnectionsController', () => {
     expect(controller.getState().list.data!.connected.some((s) => s.id === 'baru')).toBe(false);
     apply({
       type: 'connection',
-      service: svc({ id: 'gcal', name: 'Kalender', status: 'connected', needsAttention: 'Perlu disambungkan ulang' }),
+      service: svc({
+        id: 'gcal',
+        name: 'Kalender',
+        status: 'connected',
+        attention: { text: 'Perlu disambungkan ulang', action: 'reconnect' },
+      }),
       rev: rev + 3,
     });
-    expect(controller.getState().details.gcal!.data!.service.needsAttention).toBe('Perlu disambungkan ulang');
+    expect(controller.getState().details.gcal!.data!.service.attention).toEqual({
+      text: 'Perlu disambungkan ulang',
+      action: 'reconnect',
+    });
     apply({ type: 'connection', service: svc({ id: 'baru' }), removed: true, rev: rev + 4 });
     const l = controller.getState().list.data!;
     expect([...l.connected, ...l.catalog, ...l.formerly].some((s) => s.id === 'baru')).toBe(false);

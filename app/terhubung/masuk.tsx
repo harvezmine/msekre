@@ -2,6 +2,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
+import { needsReconnect } from '@/api/connections';
+import { clearJoinAnimated } from '@/api/joinSeen';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
 import { serviceInfo } from '@/sample/services';
@@ -38,7 +40,7 @@ function Isi({ id }: { id: string }) {
   useEffect(() => {
     if (flow.phase === 'connected' && armed.current) {
       armed.current = false;
-      close(() => router.replace(`/terhubung/tersambung?id=${id}`));
+      close(() => router.replace(`/terhubung/tersambung?id=${encodeURIComponent(id)}`));
     }
   }, [flow.phase, id, close]);
 
@@ -54,9 +56,11 @@ function Isi({ id }: { id: string }) {
   const working = flow.phase === 'opening' || flow.phase === 'waiting';
   const retry = flow.phase === 'failed' || flow.phase === 'cancelled';
   const soon = service.status === 'soon';
-  const already = service.status === 'connected' && flow.phase === 'idle';
+  const reconnect = needsReconnect(service);
+  const already = service.status === 'connected' && !reconnect && flow.phase === 'idle';
   const go = () => {
     armed.current = true;
+    clearJoinAnimated(id);
     void connect(id);
   };
   const label = soon
@@ -65,9 +69,11 @@ function Isi({ id }: { id: string }) {
       ? 'Menyambungkan…'
       : retry
         ? 'Coba lagi'
-        : mode === 'contoh'
-          ? 'Masuk (contoh)'
-          : `Buka halaman ${shortName}`;
+        : reconnect
+          ? 'Sambungkan ulang'
+          : mode === 'contoh'
+            ? 'Masuk (contoh)'
+            : `Buka halaman ${shortName}`;
   return (
     <View style={{ marginHorizontal: -20, gap: 16 }}>
       <View

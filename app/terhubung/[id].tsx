@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PERMISSION_OPTIONS, serviceLine } from '@/api/connections';
+import { needsReconnect, PERMISSION_OPTIONS, serviceLine } from '@/api/connections';
 import type { ConnectionPermission } from '@/api/contract';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
@@ -63,7 +63,7 @@ export default function DetailLayanan() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Sambungkan ${service.name}`}
-              onPress={() => router.replace(`/terhubung/masuk?id=${service.id}`)}
+              onPress={() => router.replace(`/terhubung/masuk?id=${encodeURIComponent(service.id)}`)}
             >
               <Txt weight={600} color={c.green} style={{ textAlign: 'center' }}>
                 Sambungkan
@@ -74,7 +74,8 @@ export default function DetailLayanan() {
       </View>
     );
   }
-  const warn = !!service.needsAttention;
+  const warn = !!service.attention;
+  const reconnect = needsReconnect(service);
   const change = async (permission: ConnectionPermission) => {
     const res = await setPermission(service.id, permission);
     if (!res.ok) dispatch({ type: 'showToast', text: res.message });
@@ -117,11 +118,11 @@ export default function DetailLayanan() {
           </View>
         </View>
 
-        {warn ? (
+        {warn && reconnect ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Sambungkan ulang ${service.name}`}
-            onPress={() => router.push(`/terhubung/masuk?id=${service.id}`)}
+            onPress={() => router.push(`/terhubung/masuk?id=${encodeURIComponent(service.id)}`)}
             style={{
               backgroundColor: c.clayBg,
               borderRadius: 20,
@@ -133,9 +134,27 @@ export default function DetailLayanan() {
           >
             <Icon name="info" size={22} color={c.clay} />
             <Txt style={{ flex: 1 }} color={c.clay}>
-              {service.needsAttention}. Ketuk untuk menyambungkan ulang.
+              {service.attention?.text}. Ketuk untuk menyambungkan ulang.
             </Txt>
           </Pressable>
+        ) : warn ? (
+          <View
+            accessible
+            accessibilityRole="text"
+            style={{
+              backgroundColor: c.clayBg,
+              borderRadius: 20,
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <Icon name="info" size={22} color={c.clay} />
+            <Txt style={{ flex: 1 }} color={c.clay}>
+              {service.attention?.text}
+            </Txt>
+          </View>
         ) : null}
 
         <Card style={{ gap: 12 }}>
@@ -212,14 +231,14 @@ export default function DetailLayanan() {
             label={`Hapus yang ${assistant} tahu dari layanan ini`}
             color={c.clay}
             border
-            onPress={() => router.push(`/terhubung/konfirmasi?id=${service.id}&aksi=lupa`)}
+            onPress={() => router.push(`/terhubung/konfirmasi?id=${encodeURIComponent(service.id)}&aksi=lupa`)}
             note={memoryNote}
           />
           <Action
             icon="x"
             label="Putuskan"
             color={c.ink}
-            onPress={() => router.push(`/terhubung/konfirmasi?id=${service.id}&aksi=putus`)}
+            onPress={() => router.push(`/terhubung/konfirmasi?id=${encodeURIComponent(service.id)}&aksi=putus`)}
           />
         </View>
       </ScrollView>

@@ -203,6 +203,8 @@ export interface FakeConnectionsContext {
   base: number;
   /** Kapan layanan yang baru disambungkan di sini tersambung (ISO). */
   connectedAt: ReadonlyMap<string, string>;
+  /** Layanan tersambung yang perlu disambungkan ulang. */
+  reconnect?: ReadonlySet<string>;
 }
 
 const ago = (base: number, minutes: number) => new Date(base - minutes * 60_000).toISOString();
@@ -224,9 +226,16 @@ function connected(s: SampleService, ctx: FakeConnectionsContext): Service {
     ...(since ? { since } : {}),
     ...(meta?.lastUsedMin !== undefined && s.reachable ? { lastUsed: ago(ctx.base, meta.lastUsedMin) } : {}),
     ring: s.ring !== undefined,
-    ...(s.reachable
-      ? {}
-      : { needsAttention: s.unreachableSince ? `Tidak terjangkau sejak ${s.unreachableSince}` : 'Tidak terjangkau' }),
+    ...(ctx.reconnect?.has(s.id)
+      ? { attention: { text: 'Perlu disambungkan ulang', action: 'reconnect' as const } }
+      : s.reachable
+        ? {}
+        : {
+            attention: {
+              text: s.unreachableSince ? `Tidak terjangkau sejak ${s.unreachableSince}` : 'Tidak terjangkau',
+              action: 'none' as const,
+            },
+          }),
   });
 }
 

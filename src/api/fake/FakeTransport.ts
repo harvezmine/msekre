@@ -272,6 +272,8 @@ export class FakeTransport implements Transport {
   /** Saat server tiruan dibuat: "terakhir dipakai" layanan dihitung mundur dari sini, jadi tidak berubah-ubah. */
   private readonly connectionsBase = Date.now();
   private readonly connectedAt = new Map<string, string>();
+  /** Layanan tersambung yang aksesnya kedaluwarsa: perlu disambungkan ulang (`attention.action` `reconnect`). */
+  private readonly needsReconnect = new Set<string>();
   /** Kemampuan yang diubah pengguna: `id:key` -> aktif. */
   private readonly capabilityOverrides = new Map<string, boolean>();
   private historyTimer: Promise<void> | null = null;
@@ -823,6 +825,7 @@ export class FakeTransport implements Transport {
       if (!this.sample.getState().services.some((x) => x.id === id)) throw notFound();
       this.sample.dispatch({ type: 'disconnect', id });
       this.connectedAt.delete(id);
+      this.needsReconnect.delete(id);
     });
   }
 
@@ -835,13 +838,28 @@ export class FakeTransport implements Transport {
       const state = this.sample.getState();
       const service = serviceFrom(state, id, this.connectionsContext());
       if (!service) throw notFound();
-      if (service.status === 'connected' || service.status === 'soon' || id === 'kotak') throw invalid();
+      // Yang sudah tersambung boleh `start` hanya kalau perlu disambungkan ulang.
+      const reconnect = service.status === 'connected' && service.attention?.action === 'reconnect';
+      if ((service.status === 'connected' && !reconnect) || service.status === 'soon' || id === 'kotak')
+        throw invalid();
       this.later(this.connectMs, () => {
+        if (reconnect) {
+          this.needsReconnect.delete(id);
+          this.scheduleConnections();
+          return;
+        }
         this.connectedAt.set(id, this.clock.iso());
         this.sample.dispatch({ type: 'connect', id });
       });
       return { url: startUrlOf(id, `contoh-${++this.counter}`), callbackScheme: 'sekretarisai' };
     });
+  }
+
+  /** Untuk tes dan contoh: akses layanan tersambung ini kedaluwarsa, jadi perlu disambungkan ulang. */
+  expireConnection(id: string) {
+    if (!this.sample.getState().services.some((s) => s.id === id)) return;
+    this.needsReconnect.add(id);
+    this.scheduleConnections();
   }
 
   history(query: Partial<Pick<HistoryQuery, 'kind' | 'before' | 'limit'>> = {}): Promise<HistoryPage> {
@@ -1162,7 +1180,7 @@ export class FakeTransport implements Transport {
   // ---- Terhubung ----
 
   private connectionsContext(): FakeConnectionsContext {
-    return { base: this.connectionsBase, connectedAt: this.connectedAt };
+    return { base: this.connectionsBase, connectedAt: this.connectedAt, reconnect: this.needsReconnect };
   }
 
   private connectionsSnapshot(): Map<string, Service> {

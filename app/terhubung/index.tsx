@@ -22,7 +22,7 @@ export default function Terhubung() {
   const dispatch = useSampleDispatch();
   const { mode } = useApi();
   const { connected, catalog, formerly, status, error, retry } = useConnections();
-  const attention = connected.filter((s) => s.needsAttention);
+  const attention = connected.filter((s) => s.attention);
   const loaded = status === 'ready';
 
   return (
@@ -73,8 +73,8 @@ export default function Terhubung() {
               <Pressable
                 key={s.id}
                 accessibilityRole="button"
-                accessibilityLabel={`Perlu dilihat: ${s.name}. ${s.needsAttention}`}
-                onPress={() => router.push(`/terhubung/${s.id}`)}
+                accessibilityLabel={`Perlu dilihat: ${s.name}. ${s.attention?.text}`}
+                onPress={() => router.push(`/terhubung/${encodeURIComponent(s.id)}`)}
                 android_ripple={{ color: c.ripple }}
                 style={{
                   backgroundColor: c.clayBg,
@@ -92,7 +92,7 @@ export default function Terhubung() {
                     {s.name}
                   </Txt>
                   <Txt v="caption" color={c.clay}>
-                    {s.needsAttention}
+                    {s.attention?.text}
                   </Txt>
                 </View>
                 <Icon name="chevR" size={20} color={c.clay} />
@@ -108,9 +108,9 @@ export default function Terhubung() {
                     icon={iconOr(s.icon, 'link')}
                     title={s.name}
                     subtitle={serviceLine(s)}
-                    warn={!!s.needsAttention}
+                    warn={!!s.attention}
                     last={i === connected.length - 1}
-                    onPress={() => router.push(`/terhubung/${s.id}`)}
+                    onPress={() => router.push(`/terhubung/${encodeURIComponent(s.id)}`)}
                   />
                 ))}
               </ListGroup>

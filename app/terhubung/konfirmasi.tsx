@@ -30,6 +30,8 @@ function Isi({ id, putus }: { id: string; putus: boolean }) {
   const run = async () => {
     if (putus) {
       const res = await disconnect(id);
+      // Sedang berjalan dari ketukan sebelumnya: jangan menutup lembar dan jangan membuat toast kosong.
+      if (!res.ok && !res.message) return;
       close(() => {
         if (!res.ok) return toast(res.message);
         toast(`${service.name} diputuskan.`);
@@ -39,6 +41,7 @@ function Isi({ id, putus }: { id: string; putus: boolean }) {
       });
     } else {
       const res = await forget(id);
+      if (!res.ok && !res.message) return;
       close(() =>
         toast(
           res.ok

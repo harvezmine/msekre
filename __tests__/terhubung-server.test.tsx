@@ -43,7 +43,7 @@ const connectionsBody = {
       category: 'rumah',
       status: 'connected',
       ring: true,
-      needsAttention: 'Perlu disambungkan ulang',
+      attention: { text: 'Perlu disambungkan ulang', action: 'reconnect' },
     },
     {
       id: 'baru',
@@ -360,4 +360,54 @@ test('mode gelap: detail layanan tampil', async () => {
   await showRoute('/terhubung/gmail', { api, scheme: 'dark' });
   expect(await screen.findByText('Yang bisa Nadia lakukan')).toBeOnTheScreen();
   expect(screen.getByText('Tidak ada yang Nadia ingat dari sini.')).toBeOnTheScreen();
+});
+
+test('perlu disambungkan ulang: detail menawarkan Sambungkan ulang; tanpa jalan, hanya kalimatnya', async () => {
+  const imou = connectionsBody.connected[1]!;
+  const withAttention = (attention: unknown) => ({
+    ...connectionsBody,
+    connected: connectionsBody.connected.map((x) => (x.id === 'imou' ? { ...x, attention } : x)),
+  });
+  const detail = (attention: unknown) => (path: string) =>
+    path === '/connections'
+      ? { body: withAttention(attention) }
+      : path === '/connections/imou'
+        ? {
+            body: {
+              service: { ...imou, attention },
+              capabilities: [],
+              permission: 'baca',
+              what: ['Memberi tahu kamera tidak terjangkau.'],
+              memoryCount: 0,
+            },
+          }
+        : undefined;
+  const reconnect = serverApi(detail({ text: 'Perlu disambungkan ulang', action: 'reconnect' }));
+  const view = await showRoute('/terhubung/imou', { api: reconnect.api });
+  expect(await screen.findByRole('button', { name: 'Sambungkan ulang Imou' })).toBeOnTheScreen();
+  await view.unmount();
+
+  const plain = serverApi((path, init) => detail({ text: 'Tidak terjangkau sejak 10.12', action: 'none' })(path));
+  await showRoute('/terhubung/imou', { api: plain.api });
+  expect(await screen.findByText('Memberi tahu kamera tidak terjangkau.')).toBeOnTheScreen();
+  expect(screen.getAllByText('Tidak terjangkau sejak 10.12').length).toBeGreaterThan(0);
+  expect(screen.queryByRole('button', { name: 'Sambungkan ulang Imou' })).toBeNull();
+});
+
+test('perlu disambungkan ulang: lembar masuk berlabel Sambungkan ulang dan tidak berkata sudah tersambung', async () => {
+  const { api } = serverApi((path) =>
+    path === '/connections/imou'
+      ? {
+          body: {
+            service: connectionsBody.connected[1],
+            capabilities: [],
+            permission: 'baca',
+            what: ['Memberi tahu kamera tidak terjangkau.'],
+          },
+        }
+      : undefined,
+  );
+  await showRoute('/terhubung/masuk?id=imou', { api });
+  expect(await screen.findByRole('button', { name: 'Sambungkan ulang' })).toBeEnabled();
+  expect(screen.queryByText('Imou sudah tersambung.')).toBeNull();
 });

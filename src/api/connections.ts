@@ -12,9 +12,12 @@ export function agoText(iso: string, now: number = Date.now()): string | null {
   return `${Math.floor(hours / 24)} hari lalu`;
 }
 
+/** Layanan tersambung yang perlu disambungkan ulang lewat halaman masuk resmi? */
+export const needsReconnect = (s: Service | undefined): boolean => s?.attention?.action === 'reconnect';
+
 /** Baris kedua daftar Terhubung: perlu perhatian, atau "akun · Terakhir dipakai 5 menit lalu". */
 export function serviceLine(s: Service, now: number = Date.now()): string {
-  if (s.needsAttention) return s.needsAttention;
+  if (s.attention) return s.attention.text;
   const used = s.lastUsed ? agoText(s.lastUsed, now) : null;
   const parts = [s.account, used ? `Terakhir dipakai ${used}` : null].filter((p): p is string => !!p);
   return parts.length ? parts.join(' · ') : 'Aktif';
@@ -67,10 +70,11 @@ export function parseCallbackUrl(url: string): ConnectCallback {
   return { id: params.get('id') || null, ok: params.get('ok') === '1', reason: params.get('reason') || null };
 }
 
-/** Alamat kembali yang dinanti aplikasi dari `callbackScheme` ("sekretarisai" atau sudah berupa alamat). */
-export function redirectUrlOf(callbackScheme: string): string {
-  return callbackScheme.includes('://') ? callbackScheme : `${callbackScheme}://terhubung/tersambung`;
-}
+/** Skema alamat milik aplikasi ini (sama dengan `scheme` di app.config.ts); skema dari server diabaikan. */
+export const APP_SCHEME = 'sekretarisai';
+
+/** Alamat kembali yang dinanti aplikasi dari halaman masuk resmi. */
+export const CONNECT_REDIRECT_URL = `${APP_SCHEME}://terhubung/tersambung`;
 
 /** Teks ramah untuk gagal menyambung; `reason` dari server dibaca bila dikenal. */
 export function failureText(name: string, reason: string | null): string {
