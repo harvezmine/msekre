@@ -778,7 +778,7 @@ hasil, dan `rev` seperti di 2.9). "Tutup kedai": kedai terpilih saja; di Semua a
 dijaga). Server memeriksanya saat rutinitas dibuat atau diubah dan menolaknya; menjalankan rutinitas dari WhatsApp
 atau chat juga tidak pernah mengubah perangkat yang dijaga. Mengunci dan menghidupkan kamera tidak dijaga dan boleh.
 Bila rutinitas tersimpan ternyata memuat aksi yang dijaga, aksi itu dilewati saat dijalankan dan `summary` menyebut
-perangkat yang tidak disentuh ("Pintu depan tidak disentuh karena dijaga PIN."). Server tiruan berlaku sama.
+perangkat yang tidak disentuh ("Pintu depan tidak disentuh karena dijaga PIN." bila PIN hidup, "Pintu depan tidak disentuh lewat rutinitas demi keamanan." bila PIN mati). Server tiruan berlaku sama.
 
 `PUT /box` dengan `{ "micOn": boolean }` → `{ "box": Box, "rev": number }`.
 

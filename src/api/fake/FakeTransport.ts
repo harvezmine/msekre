@@ -792,7 +792,9 @@ export class FakeTransport implements Transport {
         .devices.map(toDevice)
         .filter((d) => before.get(d.id) !== JSON.stringify(d));
       this.flushDevices();
-      const note = skipped.length ? ` ${[...new Set(skipped)].join(', ')} tidak disentuh karena dijaga PIN.` : '';
+      // Dilewati juga saat PIN mati, jadi alasannya tidak menyebut PIN di situ.
+      const reason = this.pinEnabled ? 'karena dijaga PIN' : 'lewat rutinitas demi keamanan';
+      const note = skipped.length ? ` ${[...new Set(skipped)].join(', ')} tidak disentuh ${reason}.` : '';
       return copy({ devices, summary: routineDone(routine, target) + note, rev: this.devicesRev });
     });
   }
