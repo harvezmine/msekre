@@ -155,6 +155,44 @@ Kontrak: `docs/api-v1.md` bagian 2.9 dan 2.14. Aplikasi sudah memakainya penuh l
 - `POST /routines/:id/run` mengembalikan hanya perangkat yang berubah; `PUT /box` mengatur mikrofon Kotak.
 
 
+## Kemampuan perangkat / remote virtual (Fase R4a)
+
+Kontrak: `docs/api-v1.md` 2.9 dan 2.14 ("Kemampuan dan keadaan"). Aplikasi menyusun halaman remote dari
+`Device.capabilities`; `state` membawa keadaan. Server membentuknya dari `HomeDevice` (`src/home/types.ts`: `kind`,
+`can: Command[]`, `state`) di tiap penyedia.
+
+- Jenis: `light` -> `lamp`, `switch`/`plug` -> `plug`, `ac`, `fan`, `tv`, `speaker`, `curtain` -> `curtain`, `lock`/`door`
+  -> `lock`, `camera`, `sensor`; sisanya (`washer`, `fridge`, `purifier`, `vacuum`, ...) -> `other` dengan kemampuan
+  dari `can` (minimal `power`).
+- Kemampuan dari perintah (`Command`) milik penyedia, bukan dari `kind` saja:
+
+  | `Command` / sumber | `Capability` kita |
+  |---|---|
+  | `on`/`off` (HA `turn_on`, SmartThings `switch`, Tuya `switch`/`switch_led`) | `power` |
+  | `brightness` (HA `brightness`, ST `switchLevel`, Tuya `bright_value`) | `brightness` 0-100 |
+  | `set_temperature` (ST `thermostatCoolingSetpoint`, LG `targetTemperature`) | `temperature` (min/max/step dari merek; bawaan 16-30/1) |
+  | `mode` (ST `airConditionerMode`, LG `airConOperationMode`) | `mode` (id = kata merek yang sudah diseragamkan) |
+  | `fan_speed` (ST `fanSpeed`/`airConditionerFanMode`) | `fan` |
+  | `volume`, `mute`/`unmute` (ST `audioVolume`/`audioMute`) | `volume`, `mute` |
+  | `input` (ST `mediaInputSource`) | `source` |
+  | `channel` (ST `tvChannel`) | `channel` |
+  | `start`/`pause` pada speaker (ST `mediaPlayback`) | `playback` |
+  | `open`/`close`/`stop` pada gorden (ST `windowShade`, Tuya `percent_control`) | `position` |
+  | `lock`/`unlock` | `lock` |
+  | `powerW`/`energyKwh` di `DeviceState` | `energy` |
+  | `battery` di `DeviceState` | `battery` |
+  | `temperature`, `humidity`, dll. di `DeviceState` (sensor) | `sensor.readings` |
+
+- Keadaan: `DeviceState.target` -> `state.temp`, `temperature` -> `state.roomTemp`, `input` -> `state.source`,
+  `energyKwh` -> `energyTodayKWh`, `open` -> `position` (100/0 bila merek tak memberi persen), `locked` -> `locked`.
+- `key`: bila merek tidak punya perintah tombol (kebanyakan cloud), jangan umumkan `keys`; TV Samsung via ST bisa
+  memberi `up/down/left/right/ok/back/home/menu` lewat `samsungvd.remoteControl` bila tersedia. Perangkat IR lewat
+  Kotak: tombol dipetakan ke kode IR yang dipelajari. Kemampuan hanya diumumkan bila bisa dijalankan.
+- Perangkat IR tanpa umpan balik: `stateIsAssumed: true` dan `state` = perintah terakhir yang diketahui.
+- Kesalahan: nilai di luar rentang atau pilihan asing 400 `tidak_valid`; kemampuan yang tak dimiliki 400
+  `tidak_didukung`. Aksi dijaga (`on:false`, `locked:false`, `privacy:true`) sama dengan aturan PIN yang ada.
+- Bidang usang `level`, `ac`, `roomTemp` tetap dikirim sampai aplikasi lama tidak dipakai lagi.
+
 ## Usaha (Fase 2a, Tugas 4; server menyusul)
 
 Kontrak: `docs/api-v1.md` bagian 2.15. Aplikasi sudah memakainya penuh lewat server tiruan.

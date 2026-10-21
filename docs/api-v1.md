@@ -361,6 +361,12 @@ Request (objek ketat, minimal satu dari `on`, `temp`, `mode`, `fan`, `level`; `p
 { "on": true, "level": 40 }
 ```
 
+Bidang permintaan lengkap (semua opsional, minimal satu selain `pin`; objek ketat): `on`, `temp`, `mode`, `fan`,
+`swing`, `timerMinutes`, `brightness` (`level` = nama lama yang sama), `colorTemp`, `color`, `volume`, `muted`,
+`playback` (`play|pause|next|prev`), `source`, `channel`, `key`, `position`, `locked`, `privacy`, `pin`. Artinya ada di
+2.14 ("Kemampuan dan keadaan"). Server menerjemahkannya ke kemampuan perangkat; bentuk lama (`on`, `temp`, `mode`,
+`fan`, `level`) tetap berlaku sama persis.
+
 Response 200: `{ "device": Device, "card": DeviceCard, "rev": 12 }`, contoh `card`:
 `{ "kind": "device", "deviceId": "ac-1", "name": "AC kamar", "on": true, "deviceKind": "ac", "switchable": true, "temp": 24 }`.
 `device` adalah keadaan sesudah perintah (layar Perangkat memakainya), `card` untuk kartu di chat, `rev` = nomor
@@ -369,11 +375,16 @@ Aplikasi membuang event `device` yang `rev`-nya lebih lama dari `rev` jawaban un
 jawaban perintah terakhir per perangkat yang menimpa layar. Jawaban perintah (`POST /home/devices/:id`,
 `POST /routines/:id/run`, `PUT /box`) dibaca longgar: kartu atau kalimat yang rusak diganti bawaan, bukan menggagalkan
 perintah yang sudah berhasil. Perangkat tidak
-terjangkau tidak berubah; jawabannya keadaan sebenarnya. `temp`/`mode`/`fan` hanya untuk AC dan `level` hanya untuk
-lampu; selain itu 400 `tidak_valid`.
+terjangkau tidak berubah; jawabannya keadaan sebenarnya. Nilai di luar rentang kemampuan (suhu di luar `min`-`max`,
+pilihan `mode`/`fan`/`source` yang tidak ada, volume di luar rentang, `timerMinutes` melebihi `maxMinutes`):
+400 `tidak_valid`. Bidang yang kemampuannya tidak dimiliki perangkat itu (misalnya `temp` untuk lampu, `key: "ok"` untuk
+perangkat tanpa `keys`): 400 `tidak_didukung`, teks ramah di aplikasi "Perangkat ini tidak punya tombol itu.".
 
 PIN (bawaan mati): bila pemilik menghidupkannya dan perangkat `sensitive`, aksi **mematikan** (kamera, alarm rumah)
 atau **membuka** (kunci pintu), yaitu `on: false`, butuh `pin`:
+
+Aksi yang dijaga: `on: false`, `locked: false` (membuka kunci), dan `privacy: true` (kamera berhenti merekam; sama
+dengan `on: false` untuk kamera). Mematikan alarm sama. Tidak pernah dari chat atau rutinitas.
 
 - tanpa `pin`: **428 `pin_diperlukan`**; aplikasi meminta PIN lalu mengulang dengan `pin`;
 - `pin` salah: **403 `pin_salah`**;
@@ -408,12 +419,74 @@ tidak `sensitive`. Server lama tanpa `deviceKind`: kartu dengan `temp` dibaca AC
   "brand": "LG", "via": "ir", "status": "Nyala · 24°" }
 ```
 
-- `kind`: `lamp`, `ac`, `camera`, `lock`, `plug`, `tv`, `sensor`, `box`, `other` (yang belum dikenal dibaca `other`).
-- `on`: lampu/AC/colokan nyala, kunci terkunci, kamera merekam. `level` (lampu, persen), `ac` (AC), `roomTemp`, `brand`.
-- `via`: `ir` (lewat inframerah dari Kotak, hanya perintah terakhir yang diketahui) atau `cloud`.
+- `kind`: `ac`, `tv`, `speaker`, `lamp`, `fan`, `plug`, `curtain`, `lock`, `camera`, `sensor`, `box`, `other` (yang
+  belum dikenal dibaca `other`).
+- `on`: lampu/AC/colokan/TV/speaker/kipas nyala, kunci terkunci, kamera merekam, tirai terbuka sebagian. `brand`.
+  **Usang tapi tetap dikirim** untuk aplikasi lama: `level` (= `state.brightness`), `ac` (= `state.temp/mode/fan`),
+  `roomTemp` (= `state.roomTemp`). Aplikasi baru membaca `state`; bila `state` kosong (server lama) aplikasi menyusunnya
+  dari bidang usang itu.
+- `capabilities`, `state`, `stateIsAssumed`: lihat "Kemampuan dan keadaan" di bawah. Server lama yang tidak
+  mengirimnya dibaca `capabilities: []`, `state: {}`.
+- `via`: `ir` (lewat inframerah dari Kotak, hanya perintah terakhir yang diketahui) atau `cloud`. Perangkat IR tanpa
+  umpan balik membawa `stateIsAssumed: true`: `state` adalah "terakhir diketahui" (perintah terakhir), bukan bacaan
+  perangkat; aplikasi menandainya (mis. "perkiraan") dan tidak menjadikannya kebenaran.
 - `sensitive`: butuh PIN saat dimatikan/dibuka kalau PIN dihidupkan. Beranda tidak menampilkan sakelar untuk baris
   rumah yang `sensitive`, walau `switchable` (lihat `house.lines[].sensitive`).
 - `reachable: false` + `unreachableSince` ("10.12"). `status` dibuat server, ditampilkan apa adanya.
+
+#### Kemampuan dan keadaan (remote virtual)
+
+`Device.capabilities` adalah daftar apa yang bisa dilakukan perangkat; aplikasi menyusun halaman remote dari sini,
+bukan dari `kind`. Tiap elemen punya `type`. Jenis yang belum dikenal aplikasi dibuang satu per satu (bukan
+menggagalkan perangkat); `keys` membuang tombol asing.
+
+| `type` | Bentuk | Dikendalikan lewat | Keadaan |
+|---|---|---|---|
+| `power` | - | `on` | `on` |
+| `temperature` | `min`, `max`, `step`, `unit: "C"` | `temp` | `temp`, `roomTemp` |
+| `mode` | `options: [{ id, label }]` | `mode` (id) | `mode` |
+| `fan` | `options: [{ id, label }]` | `fan` (id) | `fan` |
+| `swing` | - | `swing` | `swing` |
+| `timer` | `maxMinutes` | `timerMinutes` (0 membatalkan) | `timerMinutes` |
+| `brightness` | `min: 0`, `max: 100` | `brightness` (`level` lama) | `brightness` |
+| `colorTemp` | `minK`, `maxK` | `colorTemp` (Kelvin) | `colorTemp` |
+| `color` | `presets: [{ id, label, hex }]` | `color` (id preset atau `#RRGGBB`) | `color` |
+| `volume` | `min`, `max`, `step` | `volume`, `key: vol_up/vol_down` (+1/-1) | `volume` |
+| `mute` | - | `muted` | `muted` |
+| `playback` | - | `playback: play/pause/next/prev` | `playing`, `track` |
+| `source` | `options: [{ id, label }]` | `source` (id) | `source` |
+| `channel` | - | `channel`, `key: ch_up/ch_down`, angka | `channel` |
+| `keys` | `keys: [up, down, left, right, ok, back, home, menu, 0..9, vol_up, vol_down, ch_up, ch_down]` | `key` | tergantung tombol |
+| `position` | - (0-100; tirai: 0 tertutup) | `position` | `position` |
+| `lock` | - | `locked` (`on` lama) | `locked` |
+| `camera` | - | `privacy`, `on` | `privacy`, `snapshotMediaId`, `snapshotAt` |
+| `energy` | - | (baca saja) | `powerW`, `energyTodayKWh` |
+| `battery` | - | (baca saja) | `battery` |
+| `sensor` | `readings: [{ id, label, unit }]` | (baca saja) | `readings` (id -> angka), `roomTemp`, `humidity` |
+
+`Device.state` (semua opsional, dibaca longgar: bidang rusak dibuang, bukan menggagalkan perangkat): `on, temp, mode,
+fan, swing, timerMinutes, brightness, colorTemp, color, volume, muted, playing, track { title, artist?, artMediaId? },
+source, channel, position, locked, privacy, snapshotMediaId, snapshotAt (ISO 8601), powerW, energyTodayKWh, battery,
+readings, roomTemp, humidity`. `privacy: true` = lensa tertutup = `on: false`. `snapshotMediaId` diambil dengan
+`GET /media/:id` (2.10).
+
+**`key`** = satu tekanan tombol remote. Server menerapkannya ke perangkat dan menjawab perangkat yang diperbarui
+(`{ device, card, rev }`) seperti perintah lain. `vol_up`/`vol_down` mengubah `volume` sebesar 1 (dalam rentang) dan
+membuka bisu; `ch_up`/`ch_down` menggeser `channel` (berputar di 1-999); angka mengetik channel (sampai tiga angka,
+lalu mulai lagi); `up/down/left/right/ok/back/home/menu` hanya diteruskan (keadaan tidak berubah). Perangkat yang
+mati mengabaikan tombol (kecuali daya, yang bukan `key`). Tombol yang tidak ada di `keys`: 400 `tidak_didukung`.
+Aplikasi tidak menebak hasil `key` di layar kecuali volume.
+
+**Nilai kontinu** (`temp`, `brightness`, `volume`, `position`, `colorTemp`): aplikasi menampilkan nilai baru seketika
+saat digeser, tetapi hanya mengirim nilai akhir sekitar 400 ms setelah perubahan terakhir (juga dikirim saat layar
+ditutup); gagal: dikembalikan. Server boleh membatasi laju perintah IR.
+
+**Perangkat IR** (`via: "ir"`, `stateIsAssumed: true`): `state` adalah perintah terakhir yang diketahui. Server tidak
+boleh mengarang bacaan (mis. `powerW`, `roomTemp` hanya bila ada sensor).
+
+Kunci tetap dijaga seperti di 2.9: `locked: false` tanpa `pin` saat PIN hidup 428; saat PIN mati aplikasi lebih dulu
+bertanya "Buka kunci ...?" (aturan klien) lalu mengirim `locked: false` tanpa `pin`. `privacy: true` pada kamera sama
+dijaganya.
 
 `GET /devices?place=` → `{ place, places, rooms, devices, box, routines, rev }`. `place` kosong = tempat terpilih;
 `Semua` atau satu tempat; tempat tak dikenal 400. `rooms`: `{ place, name }` (Rumah punya ruangan tetap walau
