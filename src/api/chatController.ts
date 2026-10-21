@@ -1,4 +1,5 @@
 import { chatReducer, initialChatState, type ChatAction, type ChatState, type PendingMessage } from './chatState';
+import { cardFromDevice } from './devices';
 import type { DeviceCard, DeviceControlReq, DraftActionReq, SendMessageReq, StreamEvent } from './contract';
 import { DRAFT_CHANGED_TEXT, DRAFT_SENT_TEXT, friendlyError } from './errors';
 import { isApiFailure, type MediaSource, type Transport } from './transport';
@@ -87,6 +88,10 @@ export class ChatController {
       case 'thinking':
         this.dispatch({ type: 'thinking', runId: event.runId, on: event.on });
         this.watchThinking(event.runId, event.on);
+        break;
+      case 'device':
+        // Kartu perangkat terakhir di utas mengikuti perangkatnya, juga bila diubah dari Beranda atau Perangkat.
+        for (const device of event.devices ?? []) this.dispatch({ type: 'device', card: cardFromDevice(device) });
         break;
       case 'ping':
         break;
@@ -304,10 +309,10 @@ export class ChatController {
     }
   };
 
-  /** Atur perangkat dari kartu. Sebelum Fase 3 server membalas `belum_tersedia`: teks ramah lewat penerima galat. */
+  /** Atur perangkat dari kartu. Gagal: teks ramah lewat penerima galat dan hasilnya `null`. */
   controlDevice = async (deviceId: string, req: DeviceControlReq): Promise<DeviceCard | null> => {
     try {
-      const card = await this.transport.controlDevice(deviceId, req);
+      const { card } = await this.transport.controlDevice(deviceId, req);
       this.dispatch({ type: 'device', card });
       return card;
     } catch (e) {

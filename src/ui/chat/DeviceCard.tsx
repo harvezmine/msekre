@@ -1,34 +1,11 @@
 import * as Haptics from 'expo-haptics';
 import { Pressable, View } from 'react-native';
-import { AC_MAX, AC_MIN, deviceById, useSample } from '@/sample/store';
+import { AC_MAX, AC_MIN } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
 import { Toggle } from '../Toggle';
 import { Txt } from '../Txt';
 import { ChatCard } from './ChatCard';
-
-/**
- * Kartu AC di chat mode contoh: sakelar yang sama dengan Beranda dan pengatur suhu 16–30, untuk perangkat `deviceId`
- * di penyimpanan contoh (perilaku 0b). Di mode server kartunya dari data kontrak: {@link DeviceCardView}.
- */
-export function DeviceCard({ deviceId }: { deviceId: string }) {
-  const { state, dispatch } = useSample();
-  const device = deviceById(state, deviceId);
-  if (!device?.ac) return null;
-  const { name, on, roomTemp } = device;
-  const { temp, mode } = device.ac;
-  return (
-    <DeviceCardView
-      name={name}
-      on={on}
-      temp={temp}
-      status={on ? `Nyala · ${mode}` : 'Mati'}
-      footer={`Perintah terakhir: ${temp}° ${mode}${roomTemp !== undefined ? ` · suhu ruangan sekarang ${roomTemp}°` : ''}`}
-      onToggle={(next) => dispatch({ type: 'setAc', deviceId, on: next, source: 'chat' })}
-      onTemp={(next) => dispatch({ type: 'setAc', deviceId, temp: next, source: 'chat' })}
-    />
-  );
-}
 
 interface DeviceCardViewProps {
   name: string;
@@ -42,7 +19,7 @@ interface DeviceCardViewProps {
   onTemp: (temp: number) => void;
 }
 
-/** Tampilan kartu perangkat dari data; aksinya dikerjakan pemanggil (penyimpanan contoh, atau `POST /home/devices/:id`). */
+/** Tampilan kartu perangkat dari data kontrak; aksinya dikerjakan pemanggil (`POST /home/devices/:id`). */
 export function DeviceCardView({ name, on, temp, status, footer, onToggle, onTemp }: DeviceCardViewProps) {
   const { c } = useTheme();
   const step = (d: number) => {

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { deviceStatus, type Device } from '@/sample/store';
+import type { Device } from '@/api/contract';
 import { useTheme } from '@/theme/ThemeProvider';
+import { iconOr } from '../icons';
 import { Icon } from '../Icon';
 import { Toggle } from '../Toggle';
 import { Txt } from '../Txt';
@@ -19,8 +20,8 @@ interface Props {
  */
 export function DeviceTile({ device, width, onToggle, onOpen }: Props) {
   const { c } = useTheme();
-  const { name, icon, on, reachable } = device;
-  const status = deviceStatus(device);
+  const { name, on, reachable, status } = device;
+  const icon = iconOr(device.icon, 'bulb');
   const active = reachable && on;
   return (
     <View

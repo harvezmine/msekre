@@ -1,6 +1,5 @@
 import { Pressable, View } from 'react-native';
-import { BOX } from '@/sample/devices';
-import { useSample } from '@/sample/store';
+import type { Box } from '@/api/contract';
 import { useTheme } from '@/theme/ThemeProvider';
 import { onForest } from '@/theme/tokens';
 import { Card } from '../Card';
@@ -8,10 +7,9 @@ import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 
 /** Kartu Kotak Sekretaris AI di Ruang tamu (desain 2c): mic dengan Matikan/Nyalakan, speaker, suhu, kelembapan. */
-export function BoxCard() {
+export function BoxCard({ box, onMic }: { box: Box; onMic: (on: boolean) => void }) {
   const { c } = useTheme();
-  const { state, dispatch } = useSample();
-  const mic = state.boxMic;
+  const mic = box.micOn;
   return (
     <Card style={{ gap: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -30,9 +28,12 @@ export function BoxCard() {
         <View style={{ flex: 1 }}>
           <Txt v="subtitle">Kotak Sekretaris AI</Txt>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View testID="titik-online" style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.green }} />
-            <Txt v="caption" color={c.green}>
-              Online
+            <View
+              testID="titik-online"
+              style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: box.online ? c.green : c.clay }}
+            />
+            <Txt v="caption" color={box.online ? c.green : c.clay}>
+              {box.online ? 'Online' : 'Tidak terjangkau'}
             </Txt>
           </View>
         </View>
@@ -40,7 +41,7 @@ export function BoxCard() {
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt v="title" tabular>
-            {BOX.temp}°
+            {box.roomTemp}°
           </Txt>
           <Txt v="caption" color={c.muted}>
             Suhu ruangan
@@ -48,7 +49,7 @@ export function BoxCard() {
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt v="title" tabular>
-            {BOX.humidity}%
+            {box.humidity}%
           </Txt>
           <Txt v="caption" color={c.muted}>
             Kelembapan
@@ -77,7 +78,7 @@ export function BoxCard() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={mic ? 'Matikan mic' : 'Nyalakan mic'}
-          onPress={() => dispatch({ type: 'setBoxMic', on: !mic })}
+          onPress={() => onMic(!mic)}
           android_ripple={{ color: c.ripple }}
           style={{
             height: 48,
@@ -96,7 +97,7 @@ export function BoxCard() {
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Txt color={c.muted}>Speaker</Txt>
-        <Txt weight={500}>{BOX.speaker}</Txt>
+        <Txt weight={500}>{box.speaker}</Txt>
       </View>
     </Card>
   );

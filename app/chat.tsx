@@ -27,7 +27,7 @@ import { ChoicesCard } from '@/ui/chat/ChoicesCard';
 import { Composer } from '@/ui/chat/Composer';
 import { bannerText, ConnectionBanner, useLateOffline } from '@/ui/chat/ConnectionBanner';
 import { ConfirmSendCard } from '@/ui/chat/ConfirmSendCard';
-import { DeviceCard, DeviceCardView } from '@/ui/chat/DeviceCard';
+import { DeviceCardView } from '@/ui/chat/DeviceCard';
 import { FileCard } from '@/ui/chat/FileCard';
 import { ImageCard } from '@/ui/chat/ImageCard';
 import { NotesCard } from '@/ui/chat/NotesCard';
@@ -431,7 +431,6 @@ function PartView({
           );
         }
         case 'device':
-          if (contoh) return <DeviceCard deviceId={card.deviceId} />;
           return (
             <DeviceCardView
               name={card.name}

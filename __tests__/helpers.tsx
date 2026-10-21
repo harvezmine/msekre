@@ -4,6 +4,7 @@ import { AgendaProvider } from '@/api/AgendaProvider';
 import { ApiProvider, type Api } from '@/api/ApiProvider';
 import { ChatProvider } from '@/api/ChatProvider';
 import { ApiSampleProvider } from '@/api/ApiSampleProvider';
+import { DevicesProvider } from '@/api/DevicesProvider';
 import { HomeProvider } from '@/api/HomeProvider';
 import { FakeTransport, type FakeOptions } from '@/api/fake/FakeTransport';
 import { createMemorySession } from '@/api/session';
@@ -46,7 +47,9 @@ export async function renderWithProviders(ui: ReactElement, { state, actions = [
             <AuthProvider>
               <ChatProvider>
                 <HomeProvider>
-                  <AgendaProvider>{ui}</AgendaProvider>
+                  <AgendaProvider>
+                    <DevicesProvider>{ui}</DevicesProvider>
+                  </AgendaProvider>
                 </HomeProvider>
               </ChatProvider>
             </AuthProvider>

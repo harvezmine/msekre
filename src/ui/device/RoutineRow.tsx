@@ -1,7 +1,8 @@
 import { Pressable, View } from 'react-native';
-import type { Routine } from '@/sample/routines';
+import type { Routine } from '@/api/contract';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
+import { iconOr } from '../icons';
 import { Txt } from '../Txt';
 
 /** Satu rutinitas (desain 2c): ikon, nama, isi singkat, tombol Jalankan. Taruh di dalam `ListGroup`. */
@@ -28,12 +29,12 @@ export function RoutineRow({ routine, last, onRun }: { routine: Routine; last: b
           justifyContent: 'center',
         }}
       >
-        <Icon name={routine.icon} size={22} color={c.green} />
+        <Icon name={iconOr(routine.icon, 'bell')} size={22} color={c.green} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Txt weight={600}>{routine.name}</Txt>
         <Txt v="caption" color={c.muted}>
-          {routine.sub}
+          {routine.summary}
         </Txt>
       </View>
       <Pressable

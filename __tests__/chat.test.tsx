@@ -199,7 +199,20 @@ test('kartu perangkat membaca AC yang ditunjuk pesannya', async () => {
         at: wibIso(10, 20, '10.00'),
         from: 'assistant',
         via: 'app',
-        parts: [{ type: 'card', card: { kind: 'device', deviceId: 'dago-ac', name: 'AC kedai', on: true, temp: 23 } }],
+        parts: [
+          {
+            type: 'card',
+            card: {
+              kind: 'device',
+              deviceId: 'dago-ac',
+              name: 'AC kedai',
+              on: true,
+              temp: 23,
+              mode: 'Dingin',
+              note: 'suhu ruangan sekarang 28°',
+            },
+          },
+        ],
       },
     ],
   });
@@ -208,9 +221,11 @@ test('kartu perangkat membaca AC yang ditunjuk pesannya', async () => {
   expect(screen.getByText('23°')).toBeOnTheScreen();
   expect(screen.getByText('Perintah terakhir: 23° Dingin · suhu ruangan sekarang 28°')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Naikkan suhu' }));
+  await advance(0);
   expect(deviceById(latest, 'dago-ac')!.ac!.temp).toBe(24);
   expect(deviceById(latest, 'ac-kamar')!.ac!.temp).toBe(24);
   await fireEvent.press(screen.getByRole('switch', { name: 'AC kedai' }));
+  await advance(0);
   expect(deviceById(latest, 'dago-ac')!.on).toBe(false);
   expect(deviceById(latest, 'ac-kamar')!.on).toBe(true);
 });

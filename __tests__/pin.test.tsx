@@ -117,6 +117,9 @@ test('selagi PIN diperiksa server, titik terkunci dan Hapus tidak berlaku', asyn
     </>,
     { api },
   );
+  // Beranda dan daftar perangkat dimuat dulu (masing-masing 300 ms), baru lembar tahu perangkatnya.
+  await advance(300);
+  await advance(300);
   for (const d of '123456') await fireEvent.press(screen.getByRole('button', { name: d }));
   expect(screen.getByLabelText('PIN terisi 6 dari 6')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Hapus' }));
@@ -129,7 +132,7 @@ test('selagi PIN diperiksa server, titik terkunci dan Hapus tidak berlaku', asyn
 
 test('tanpa sinyal: pesan ramah, bukan "PIN salah", kamera tetap merekam', async () => {
   const api = createTestApi({ security: { pinEnabled: true, pin: '123456' } });
-  jest.spyOn(api.transport, 'verifyPin').mockRejectedValue(new ApiFailure('network'));
+  jest.spyOn(api.transport, 'controlDevice').mockRejectedValue(new ApiFailure('network'));
   await renderWithProviders(
     <>
       <Pin />

@@ -10,7 +10,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApi } from '@/api/ApiProvider';
 import type { Draft } from '@/api/contract';
 import { useHome } from '@/api/useHome';
 import { useSampleDispatch } from '@/sample/store';
@@ -46,18 +45,13 @@ export default function Beranda() {
   const { c } = useTheme();
   const live = useLive();
   const insets = useSafeAreaInsets();
-  const { mode } = useApi();
   const dispatch = useSampleDispatch();
   const { home, ring, status, error, retry, controlDevice } = useHome();
   const approval = home?.approvals[0] ?? null;
   const alert = home?.business?.alert ?? null;
 
-  // Sakelar AC: server asli lewat kendali perangkat; mode contoh menulis ke data contoh yang dipegang server tiruan.
+  // Sakelar AC: lewat kendali perangkat di server (asli atau tiruan); Beranda ikut event `home`.
   const switchAc = async (deviceId: string, on: boolean) => {
-    if (mode === 'contoh') {
-      dispatch({ type: 'setAc', deviceId, on, source: 'aplikasi' });
-      return;
-    }
     const failed = await controlDevice(deviceId, on);
     if (failed) dispatch({ type: 'showToast', text: failed });
   };

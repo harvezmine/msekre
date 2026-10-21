@@ -18,7 +18,7 @@ import {
   DRAFT_SENT_TEXT,
   FILE_DOWNLOAD_TEXT,
   FILE_NO_APP_TEXT,
-  UNAVAILABLE_TEXT,
+  ERROR_TEXT,
   UPGRADE_TEXT,
 } from '@/api/errors';
 import { wibIso } from '@/api/fake/clock';
@@ -26,7 +26,7 @@ import { FakeTransport, type FakeOptions } from '@/api/fake/FakeTransport';
 import { formatJam } from '@/api/format';
 import { createMemorySession } from '@/api/session';
 import { ApiFailure, type ConnectionStatus } from '@/api/transport';
-import { useSample, type SampleState } from '@/sample/store';
+import { deviceById, useSample, type SampleState } from '@/sample/store';
 import { dark } from '@/theme/tokens';
 
 let latest: SampleState;
@@ -557,7 +557,7 @@ describe('bagian dan kartu', () => {
     expect(latest.toast?.text).toBe('Pemutar suara segera hadir.');
   });
 
-  test('kartu perangkat dari kontrak: mengetuk sakelar memanggil kendali dan 501 jadi toast ramah', async () => {
+  test('kartu perangkat dari kontrak: sakelar dan suhu memanggil kendali, kartu mengikuti jawaban server', async () => {
     const { fake } = await mount({
       history: [
         message(1, [
@@ -573,12 +573,50 @@ describe('bagian dan kartu', () => {
     await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
     await advance(0);
     expect(spy).toHaveBeenCalledWith('ac-kamar', { on: false });
-    expect(latest.toast?.text).toBe(UNAVAILABLE_TEXT);
+    expect(screen.getByText('Mati')).toBeOnTheScreen();
+    expect(deviceById(fake.sample.getState(), 'ac-kamar')!.on).toBe(false);
     await fireEvent.press(screen.getByRole('button', { name: 'Naikkan suhu' }));
     await advance(0);
     expect(spy).toHaveBeenLastCalledWith('ac-kamar', { temp: 25 });
-    // kartu tetap seperti dari server
+    expect(deviceById(fake.sample.getState(), 'ac-kamar')!.ac!.temp).toBe(25);
+    expect(screen.getByText('25°')).toBeOnTheScreen();
+  });
+
+  test('kartu perangkat: kendali gagal jadi toast ramah dan kartu tidak berubah', async () => {
+    const { fake } = await mount({
+      history: [
+        message(1, [
+          {
+            type: 'card',
+            card: { kind: 'device', deviceId: 'ac-kamar', name: 'AC kamar', on: true, temp: 24, mode: 'Dingin' },
+          },
+        ]),
+      ],
+    });
+    fake.failNext('network');
+    await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
+    await advance(0);
+    expect(latest.toast?.text).toBe(ERROR_TEXT);
     expect(screen.getByText('Nyala · Dingin')).toBeOnTheScreen();
+    expect(deviceById(fake.sample.getState(), 'ac-kamar')!.on).toBe(true);
+  });
+
+  test('kartu perangkat di chat mengikuti perangkat yang diubah dari layar lain (event device)', async () => {
+    const { fake } = await mount({
+      history: [
+        message(1, [
+          {
+            type: 'card',
+            card: { kind: 'device', deviceId: 'ac-kamar', name: 'AC kamar', on: true, temp: 24, mode: 'Dingin' },
+          },
+        ]),
+      ],
+    });
+    await act(async () => {
+      fake.sample.dispatch({ type: 'setAc', deviceId: 'ac-kamar', on: false });
+    });
+    await settle();
+    expect(screen.getByText('Mati')).toBeOnTheScreen();
   });
 
   test('mode gelap memakai warna palet gelap', async () => {

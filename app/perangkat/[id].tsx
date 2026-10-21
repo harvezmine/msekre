@@ -1,7 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AC_MAX, AC_MIN, deviceById, useSample, type AcFan, type AcMode } from '@/sample/store';
+import { useDeviceControl } from '@/api/useDeviceControl';
+import { useHome } from '@/api/useHome';
+import { AC_MAX, AC_MIN, useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { Dial } from '@/ui/device/Dial';
@@ -10,24 +12,34 @@ import type { IconName } from '@/ui/icons';
 import { Segmented } from '@/ui/Segmented';
 import { Txt } from '@/ui/Txt';
 
-const MODES: { mode: AcMode; icon: IconName }[] = [
+const MODES: { mode: string; icon: IconName }[] = [
   { mode: 'Dingin', icon: 'snow' },
   { mode: 'Kering', icon: 'drop' },
   { mode: 'Kipas', icon: 'fan' },
   { mode: 'Otomatis', icon: 'auto' },
 ];
-const FANS: readonly AcFan[] = ['Pelan', 'Sedang', 'Kencang', 'Otomatis'];
+const FANS: readonly string[] = ['Pelan', 'Sedang', 'Kencang', 'Otomatis'];
 
-// Detail AC (desain 2d): putaran suhu, mode, kipas, jadwal, dan tombol nyala/mati. Memakai keadaan AC yang sama dengan
-// Beranda dan chat.
+// Detail AC (desain 2d): putaran suhu, mode, kipas, jadwal, dan tombol nyala/mati. Semua perintah lewat server
+// (`controlDevice`), jadi keadaan AC-nya sama dengan Beranda dan chat.
 export default function DetailAc() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { state, dispatch } = useSample();
-  const device = deviceById(state, typeof id === 'string' ? id : '');
+  const dispatch = useSampleDispatch();
+  const { home } = useHome();
+  const { data, find, control } = useDeviceControl(home?.place);
+  const device = find(typeof id === 'string' ? id : '');
 
   if (!device || device.kind !== 'ac' || !device.ac) {
+    // Belum selesai dimuat: tunggu dulu, jangan langsung bilang tidak ada.
+    if (!data) {
+      return (
+        <View style={{ flex: 1, backgroundColor: c.paper }}>
+          <BackHeader title="Perangkat" />
+        </View>
+      );
+    }
     return (
       <View style={{ flex: 1, backgroundColor: c.paper }}>
         <BackHeader title="Perangkat" />
@@ -50,8 +62,7 @@ export default function DetailAc() {
 
   const { name, on, roomTemp, brand, via } = device;
   const { temp, mode, fan } = device.ac;
-  const set = (patch: { on?: boolean; temp?: number; mode?: AcMode; fan?: AcFan }) =>
-    dispatch({ type: 'setAc', deviceId: device.id, ...patch });
+  const set = (patch: { on?: boolean; temp?: number; mode?: string; fan?: string }) => void control(device.id, patch);
   const sub =
     via === 'cloud' ? `lewat aplikasi ${brand ?? 'merek'}` : `${brand ? `${brand} · ` : ''}lewat Kotak Sekretaris AI`;
 
@@ -185,7 +196,7 @@ export default function DetailAc() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Tambah jadwal"
-              onPress={() => dispatch({ type: 'showToast', text: 'Jadwal baru dibuat di Fase 3.' })}
+              onPress={() => dispatch({ type: 'showToast', text: 'Jadwal baru segera hadir.' })}
               android_ripple={{ color: c.ripple }}
               style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12 }}
             >

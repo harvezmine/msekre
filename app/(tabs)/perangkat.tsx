@@ -2,9 +2,10 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSecurity } from '@/api/useSecurity';
-import { ROUTINES, routineActions, routineDone, type Routine } from '@/sample/routines';
-import { PLACES, useSample, type Device } from '@/sample/store';
+import type { Device, Routine } from '@/api/contract';
+import { useDeviceControl } from '@/api/useDeviceControl';
+import { useHome } from '@/api/useHome';
+import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BoxCard } from '@/ui/device/BoxCard';
 import { DeviceTile } from '@/ui/device/DeviceTile';
@@ -16,43 +17,54 @@ import { PlaceButton } from '@/ui/PlaceButton';
 import { Initials } from '@/ui/Initials';
 import { Txt } from '@/ui/Txt';
 
-const HOME_ROOMS = ['Ruang tamu', 'Kamar', 'Dapur', 'Teras'];
 const GAP = 12;
 
 export default function Perangkat() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { state, dispatch } = useSample();
+  const dispatch = useSampleDispatch();
+  const { home } = useHome();
+  const place = home?.place;
+  const {
+    data,
+    devices,
+    rooms: roomList,
+    routines,
+    box,
+    status,
+    error,
+    retry,
+    control,
+    runRoutine,
+    setBoxMic,
+  } = useDeviceControl(place);
   const [picked, setPicked] = useState<string | null>(null);
-  const security = useSecurity({ load: false });
 
-  const all = state.place === 'Semua';
-  const placeDevices = state.devices.filter((d) => all || d.place === state.place);
-  const rooms = state.place === 'Rumah' ? HOME_ROOMS : [...new Set(placeDevices.map((d) => d.room))];
-  const room = picked && rooms.includes(picked) ? picked : rooms[0]!;
+  const all = place === 'Semua';
+  const rooms = roomList.map((r) => r.name);
+  const room = picked && rooms.includes(picked) ? picked : rooms[0];
   const tileWidth = (width - 32 - GAP) / 2;
+  const toast = (text: string) => dispatch({ type: 'showToast', text });
 
-  const toggle = async (d: Device, next: boolean) => {
-    // PIN opsional (bawaan mati): aksi yang dijaga hanya minta PIN bila pemilik mengaktifkannya di Akun > Keamanan.
-    if (!next && d.needsPin && (await security.pinRequired())) {
-      router.push({ pathname: '/pin', params: { id: d.id } });
-    } else {
-      dispatch({ type: 'toggleDevice', id: d.id, on: next });
-    }
-  };
+  // Sakelar ubin: perintah lewat server. Aksi yang dijaga (kamera, kunci) butuh PIN bila pemilik menghidupkannya; lembar
+  // PIN dibuka otomatis oleh `control`.
   const tile = (d: Device) => (
     <DeviceTile
       key={d.id}
       device={d}
       width={tileWidth}
-      onToggle={(next) => void toggle(d, next)}
+      onToggle={(next) => void control(d.id, { on: next })}
       onOpen={d.kind === 'ac' ? () => router.push({ pathname: '/perangkat/[id]', params: { id: d.id } }) : undefined}
     />
   );
-  const run = (r: Routine) => {
-    for (const a of routineActions(r, state)) dispatch(a);
-    dispatch({ type: 'showToast', text: routineDone(r, state) });
+  const run = async (r: Routine) => {
+    const result = await runRoutine(r.id, place ?? 'Semua');
+    toast(result.ok ? result.summary : result.message);
+  };
+  const toggleMic = async (on: boolean) => {
+    const failed = await setBoxMic(on);
+    if (failed) toast(failed);
   };
 
   return (
@@ -108,37 +120,68 @@ export default function Perangkat() {
         <Txt v="title" accessibilityRole="header" style={{ paddingTop: 16, paddingHorizontal: 20 }}>
           Perangkat
         </Txt>
-        {all ? null : <RoomTabs rooms={rooms} value={room} onChange={setPicked} />}
+        {all || !room ? null : <RoomTabs rooms={rooms} value={room} onChange={setPicked} />}
 
-        <View style={{ paddingTop: 16, paddingHorizontal: 16, gap: 12 }}>
-          {all ? (
-            PLACES.filter((p) => p !== 'Semua').map((p) => (
-              <View key={p} style={{ gap: 12 }}>
-                <Txt v="subtitle" accessibilityRole="header" style={{ paddingHorizontal: 4, paddingTop: 4 }}>
-                  {p}
+        {!data ? (
+          status === 'error' ? (
+            <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 16, alignItems: 'flex-start' }}>
+              <Txt>{error}</Txt>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Coba lagi"
+                onPress={() => void retry()}
+                style={{
+                  height: 48,
+                  paddingHorizontal: 24,
+                  borderRadius: 24,
+                  backgroundColor: c.green,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Txt weight={600} color={c.onGreen}>
+                  Coba lagi
                 </Txt>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP }}>
-                  {state.devices.filter((d) => d.place === p).map(tile)}
+              </Pressable>
+            </View>
+          ) : null
+        ) : (
+          <View style={{ paddingTop: 16, paddingHorizontal: 16, gap: 12 }}>
+            {all ? (
+              data.places.map((p) => (
+                <View key={p} style={{ gap: 12 }}>
+                  <Txt v="subtitle" accessibilityRole="header" style={{ paddingHorizontal: 4, paddingTop: 4 }}>
+                    {p}
+                  </Txt>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP }}>
+                    {devices.filter((d) => d.place === p).map(tile)}
+                  </View>
                 </View>
-              </View>
-            ))
-          ) : (
-            <>
-              {state.place === 'Rumah' && room === 'Ruang tamu' ? <BoxCard /> : null}
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP }}>
-                {placeDevices.filter((d) => d.room === room).map(tile)}
-              </View>
-            </>
-          )}
-          <Txt v="subtitle" accessibilityRole="header" style={{ paddingTop: 12, paddingHorizontal: 4 }}>
-            Rutinitas
-          </Txt>
-          <ListGroup>
-            {ROUTINES.map((r, i) => (
-              <RoutineRow key={r.id} routine={r} last={i === ROUTINES.length - 1} onRun={() => run(r)} />
-            ))}
-          </ListGroup>
-        </View>
+              ))
+            ) : (
+              <>
+                {box && place === 'Rumah' && room === 'Ruang tamu' ? (
+                  <BoxCard box={box} onMic={(on) => void toggleMic(on)} />
+                ) : null}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP }}>
+                  {devices.filter((d) => d.room === room).map(tile)}
+                </View>
+              </>
+            )}
+            {routines.length > 0 ? (
+              <>
+                <Txt v="subtitle" accessibilityRole="header" style={{ paddingTop: 12, paddingHorizontal: 4 }}>
+                  Rutinitas
+                </Txt>
+                <ListGroup>
+                  {routines.map((r, i) => (
+                    <RoutineRow key={r.id} routine={r} last={i === routines.length - 1} onRun={() => void run(r)} />
+                  ))}
+                </ListGroup>
+              </>
+            ) : null}
+          </View>
+        )}
       </ScrollView>
     </View>
   );

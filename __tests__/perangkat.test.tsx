@@ -3,7 +3,10 @@ import { router } from 'expo-router';
 import { useEffect } from 'react';
 import Tambah from '../app/perangkat/tambah';
 import Perangkat from '../app/(tabs)/perangkat';
-import { createTestApi, renderWithProviders } from './helpers';
+import Beranda from '../app/(tabs)/index';
+import { ERROR_TEXT } from '@/api/errors';
+import { ApiFailure } from '@/api/transport';
+import { createTestApi, renderWithProviders, stateAfter } from './helpers';
 import { dark } from '@/theme/tokens';
 import { deviceById, deviceStatus, houseCard, useSample, type SampleState } from '@/sample/store';
 
@@ -231,4 +234,56 @@ test('Tambah perangkat: kartu Kotak dan sembilan merek dengan toast', async () =
   await fireEvent.press(screen.getByRole('button', { name: 'Pasang Kotak' }));
   expect(latest.toast?.text).toBe('Pemasangan lewat Bluetooth dibangun bersama kotaknya.');
   await act(async () => {});
+});
+
+test('kendali gagal: sakelar dikembalikan dan toast ramah muncul', async () => {
+  const api = createTestApi({ sample: stateAfter(rumah) });
+  await show({ actions: rumah, api });
+  jest.spyOn(api.transport, 'controlDevice').mockRejectedValue(new ApiFailure('network'));
+  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu utama, Nyala · 80%' }));
+  await act(async () => {});
+  expect(status('lampu-utama')).toBe('Nyala · 80%');
+  expect(screen.getByRole('switch', { name: 'Lampu utama, Nyala · 80%' })).toBeOnTheScreen();
+  expect(latest.toast?.text).toBe(ERROR_TEXT);
+});
+
+test('mic Kotak gagal: kembali seperti semula dan toast', async () => {
+  const api = createTestApi({ sample: stateAfter(rumah) });
+  await show({ actions: rumah, api });
+  jest.spyOn(api.transport, 'setBoxMic').mockRejectedValue(new ApiFailure('network'));
+  await fireEvent.press(screen.getByRole('button', { name: 'Matikan mic' }));
+  await act(async () => {});
+  expect(screen.getByText('Mic menyala')).toBeOnTheScreen();
+  expect(latest.toast?.text).toBe(ERROR_TEXT);
+});
+
+test('rutinitas gagal: toast ramah, perangkat tidak berubah', async () => {
+  const api = createTestApi({ sample: stateAfter(rumah) });
+  await show({ actions: rumah, api });
+  jest.spyOn(api.transport, 'runRoutine').mockRejectedValue(new ApiFailure('network'));
+  await fireEvent.press(screen.getByRole('button', { name: 'Jalankan Tidur' }));
+  await act(async () => {});
+  expect(latest.toast?.text).toBe(ERROR_TEXT);
+  expect(status('lampu-utama')).toBe('Nyala · 80%');
+});
+
+test('server menjawab pin_diperlukan walau aplikasi mengira tidak: lembar PIN dibuka dan kamera dikembalikan', async () => {
+  const api = createTestApi({ sample: stateAfter(rumah), security: { pinEnabled: false } });
+  await show({ actions: rumah, api });
+  jest
+    .spyOn(api.transport, 'controlDevice')
+    .mockRejectedValue(new ApiFailure('pin_required', { status: 428, error: 'pin_diperlukan' }));
+  await fireEvent.press(screen.getByRole('switch', { name: /^Kamera ruang tamu, / }));
+  await act(async () => {});
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'kamera-tamu' } });
+  expect(status('kamera-tamu')).toBe('Merekam');
+});
+
+test('sakelar AC Beranda dan kartu chat lewat controlDevice di mode contoh', async () => {
+  const api = createTestApi();
+  const spy = jest.spyOn(api.transport, 'controlDevice');
+  await renderWithProviders(<Beranda />, { api });
+  await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
+  expect(spy).toHaveBeenCalledWith('ac-kamar', { on: false });
+  expect(screen.getByText('AC kamar mati')).toBeOnTheScreen();
 });
