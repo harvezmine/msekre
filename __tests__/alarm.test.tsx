@@ -200,12 +200,18 @@ test('id yang tidak ada dan tanpa catatan di HP atau judul: layar kosong; mode s
     await renderWithProviders(<Alarm />);
     await advance(0);
     expect(screen.queryByText('Geser untuk mematikan')).toBeNull();
+    // Bukan layar kosong: ada kabar memuat dan jalan keluar.
+    expect(screen.getByText('Memuat alarm…')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Tutup' }));
+    expect(router.back).toHaveBeenCalled();
   } finally {
     jest.mocked(useLocalSearchParams).mockReturnValue({});
   }
   await renderWithProviders(<Alarm />, { api: createTestApi({ mode: 'server' }) });
   await advance(0);
   expect(screen.queryByText('Geser untuk mematikan')).toBeNull();
+  expect(screen.getByText('Tidak ada alarm yang sedang berbunyi.')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Ke Beranda' })).toBeOnTheScreen();
 });
 
 test('Tunda tanpa internet: alarm tundaan tetap dipasang di HP, layar menutup, kabarnya diulang nanti', async () => {

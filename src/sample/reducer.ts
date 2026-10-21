@@ -78,7 +78,6 @@ export type SampleAction =
   | { type: 'addAgenda'; item: Omit<AgendaItem, 'id'> }
   | { type: 'snooze'; id: string; until: string }
   | { type: 'finishLeftover'; choice: 'today' | 'drop' }
-  | { type: 'toggleTask'; id: string }
   /** Tandai item (tugas atau pengingat) selesai atau belum, dari server tiruan. */
   | { type: 'setDone'; id: string; done: boolean }
   | { type: 'connect'; id: string }
@@ -312,12 +311,6 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
         agenda: [...state.agenda, { id, date: TODAY, time: '17.00', title: state.leftover.title, kind: 'task' }],
       };
     }
-
-    case 'toggleTask':
-      return {
-        ...state,
-        agenda: state.agenda.map((a) => (a.id === action.id && a.kind === 'task' ? { ...a, done: !a.done } : a)),
-      };
 
     case 'setDone':
       return {

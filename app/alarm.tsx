@@ -154,7 +154,44 @@ export default function Alarm() {
   }, [live, expired]);
 
   const busy = useRef(false);
-  if (!item) return null;
+  if (!item) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: light.voice,
+          paddingTop: insets.top + 24,
+          paddingBottom: insets.bottom + 36,
+          paddingHorizontal: 28,
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 32,
+        }}
+      >
+        <StatusBar style="light" />
+        <Inti size={96} onDark paused={!live} />
+        <Txt testID="alarm-kosong" v="title" color={onForest.strong} style={{ textAlign: 'center' }}>
+          {id ? 'Memuat alarm…' : 'Tidak ada alarm yang sedang berbunyi.'}
+        </Txt>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={id ? 'Tutup' : 'Ke Beranda'}
+          onPress={leave}
+          style={{
+            height: 56,
+            paddingHorizontal: 40,
+            borderRadius: 28,
+            backgroundColor: onForest.strong,
+            justifyContent: 'center',
+          }}
+        >
+          <Txt v="subtitle" color="#0E3A2C">
+            {id ? 'Tutup' : 'Ke Beranda'}
+          </Txt>
+        </Pressable>
+      </View>
+    );
+  }
   const isFlight = /bandara|penerbangan|pesawat|terbang/i.test(`${item.title} ${item.note ?? ''}`);
   // "Tanya" butuh item dari server dan sesi aktif; alarm dari catatan HP hanya bisa ditunda atau dimatikan.
   const canAsk = full !== null && online;

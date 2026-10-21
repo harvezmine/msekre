@@ -3,6 +3,7 @@ import { FakeTransport } from './fake/FakeTransport';
 import { HttpTransport } from './http';
 import { loadMode, readApiUrl, saveMode, type DataMode } from './mode';
 import { createSecureSession, type Session } from './session';
+import { readWaNumber } from './waNumber';
 import type { Transport } from './transport';
 
 /** Kunci sesi per mode, supaya token server tiruan tidak pernah terkirim ke server asli (dan sebaliknya). */
@@ -36,7 +37,16 @@ export function createApi(mode: DataMode, apiUrl: string | null): Api {
     return { mode, session, transport: new HttpTransport(apiUrl, session) };
   }
   const session = createSecureSession(SESSION_KEYS.contoh);
-  return { mode: 'contoh', session, transport: new FakeTransport(session, { latencyMs: FAKE_LATENCY_MS }) };
+  return {
+    mode: 'contoh',
+    session,
+    transport: new FakeTransport(session, {
+      latencyMs: FAKE_LATENCY_MS,
+      // Nomor sungguhan dari konfigurasi build, supaya "Mulai lewat WhatsApp" di APK pratinjau tidak menuju nomor palsu.
+      // Kosong (tes, build tanpa nomor): bawaan server tiruan.
+      ...(readWaNumber() ? { waNumber: readWaNumber() } : {}),
+    }),
+  };
 }
 
 export const ApiContext = createContext<ApiValue | null>(null);

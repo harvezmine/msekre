@@ -520,8 +520,15 @@ export class VoiceController {
     this.fetching += 1;
     try {
       const source = await this.deps.transport.mediaUrl(mediaId);
-      if (this.disposed || epoch !== this.epoch || this.state.muted || source.kind !== 'uri') return;
-      if (this.fetching > 0) this.fetching -= 1;
+      // Selesai diambil, apa pun hasilnya: hitungan ambilan turun dulu supaya fase bicara tidak menggantung.
+      if (epoch === this.epoch && this.fetching > 0) this.fetching -= 1;
+      if (this.disposed || epoch !== this.epoch) return;
+      if (this.state.muted || source.kind !== 'uri') {
+        if (this.state.phase === 'speaking' && this.playing === 0 && this.fetching === 0 && !this.speech) {
+          this.set({ phase: 'idle' });
+        }
+        return;
+      }
       this.playSource({ uri: source.uri, headers: source.headers });
     } catch {
       if (epoch === this.epoch && this.fetching > 0) this.fetching -= 1;

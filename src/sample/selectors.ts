@@ -61,7 +61,7 @@ export function agendaOn(state: SampleState, date: string): AgendaItem[] {
 }
 
 /** Baris paling banyak di kartu "Agenda hari ini" Beranda (desain 1a). */
-export const HOME_AGENDA_ROWS = 3;
+const HOME_AGENDA_ROWS = 3;
 
 /**
  * Kartu "Agenda hari ini" di Beranda (desain 1a): tiga item pertama hari ini menurut jam, tanpa tugas (tugas ada di
@@ -71,11 +71,6 @@ export function homeAgenda(state: SampleState): AgendaItem[] {
   return agendaOn(state, TODAY)
     .filter((a) => a.kind !== 'task')
     .slice(0, HOME_AGENDA_ROWS);
-}
-
-/** Draf tertua yang masih menunggu persetujuan, untuk kartu "Butuh persetujuan Anda" di Beranda. */
-export function pendingApproval(state: SampleState): Outgoing | null {
-  return Object.values(state.outgoing).find((o) => o.status === 'draft') ?? null;
 }
 
 /** Kalimat kartu persetujuan: "Balasan untuk Pak Budi soal harga sewa sudah siap. Kirim?". */

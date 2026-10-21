@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Draft } from '@/api/contract';
+import { useApi } from '@/api/ApiProvider';
 import { greetingFor } from '@/api/format';
 import { useAgenda } from '@/api/useAgenda';
 import { useDeviceControl } from '@/api/useDeviceControl';
@@ -49,6 +50,7 @@ export default function Beranda() {
   const live = useLive();
   const openSuara = useOpenVoice();
   const insets = useSafeAreaInsets();
+  const { mode } = useApi();
   const { home, ring, status, error, retry } = useHome();
   // Sapaan menurut jam di zona pengguna (dari agenda, yang jamnya dimajukan sendiri); belum ada: jam HP.
   const { now } = useAgenda();
@@ -125,6 +127,11 @@ export default function Beranda() {
               <Txt v="subtitle" weight={400} color={c.muted}>
                 {home.summary}
               </Txt>
+              {mode === 'contoh' ? (
+                <Txt v="caption" color={c.muted}>
+                  Data contoh
+                </Txt>
+              ) : null}
             </View>
 
             <View style={{ paddingHorizontal: 20, paddingTop: 16, alignItems: 'center' }}>

@@ -10,13 +10,14 @@ import {
   homeAgenda,
   houseCard,
   historyRows,
-  pendingApproval,
   ringNodes,
   serviceStatus,
   type SampleAction,
   type SampleState,
 } from '@/sample/store';
 
+// Draf tertua yang menunggu persetujuan (kartu "Butuh persetujuan" Beranda dibentuk dari ini oleh fake/home.ts).
+const pendingApproval = (s: SampleState) => Object.values(s.outgoing).find((o) => o.status === 'draft') ?? null;
 const run = (actions: SampleAction[], from: SampleState = init) => actions.reduce(reduce, from);
 const dev = (s: SampleState, id: string) => deviceById(s, id)!;
 const status = (s: SampleState, id: string) => deviceStatus(dev(s, id));
@@ -290,15 +291,9 @@ test('addAgenda: id baru, tampil di tanggalnya, dicatat; hari ini masuk Beranda'
   );
 });
 
-test('snooze, toggleTask, finishLeftover', () => {
+test('snooze, finishLeftover', () => {
   let s = run([{ type: 'snooze', id: 'jemput:2025-10-20', until: '07.10' }]);
   expect(s.agenda.find((a) => a.id === 'jemput:2025-10-20')!.snoozedUntil).toBe('07.10');
-  s = run([{ type: 'toggleTask', id: 'a3' }]);
-  expect(s.agenda.find((a) => a.id === 'a3')!.done).toBe(true);
-  s = reduce(s, { type: 'toggleTask', id: 'a3' });
-  expect(s.agenda.find((a) => a.id === 'a3')!.done).toBe(false);
-  // hanya tugas yang bisa dicentang
-  expect(run([{ type: 'toggleTask', id: 'a1' }]).agenda.find((a) => a.id === 'a1')!.done).toBeUndefined();
 
   const title = init.leftover!.title;
   s = run([{ type: 'finishLeftover', choice: 'today' }]);

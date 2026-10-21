@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
 import type { DataMode } from '@/api/mode';
@@ -15,6 +15,8 @@ const OPTIONS: { id: DataMode; title: string; note: string }[] = [
 
 // Lembar pilihan mode data (menu Coba). Server tidak bisa dipilih sebelum alamatnya diatur.
 export default function Mode() {
+  // Hanya untuk pengembangan: di build rilis tidak ada jalan ke mode server dari sini.
+  if (!__DEV__) return <Redirect href="/" />;
   return (
     <Sheet onClose={() => router.back()}>
       <Pilihan />

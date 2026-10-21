@@ -297,6 +297,17 @@ describe('VoiceController dengan HttpTransport', () => {
     });
   });
 
+  test('suara balasan bukan alamat (contoh): hitungan ambilan turun, tidak menggantung di "berbicara"', async () => {
+    const ctx = build();
+    ctx.transport.mediaUrl = async () => ({ kind: 'sampleFile' });
+    const ws = await open(ctx);
+    ws.serve({ type: 'reply', text: 'Halo', messageId: 'm1' });
+    ws.serve({ type: 'speech', mediaId: 'ucapan-1', mime: 'audio/mpeg' });
+    await flush();
+    expect(ctx.played).toHaveLength(0);
+    expect(ctx.controller.getState().phase).toBe('idle');
+  });
+
   test('menyela mengirim cancel ke server dan menghentikan suara', async () => {
     const ctx = build();
     const ws = await open(ctx);

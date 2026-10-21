@@ -268,21 +268,26 @@ export default function Akun() {
           </ListGroup>
         ))}
 
-        {__DEV__ ? (
+        {/* Mode contoh (APK pratinjau) dan build pengembangan: jalan pintas untuk mencoba layar-layar awal. */}
+        {demo || __DEV__ ? (
           <View style={{ gap: 8 }}>
             <Txt weight={600} style={{ fontSize: 15, lineHeight: 20, paddingHorizontal: 4, paddingTop: 8 }}>
               Coba
             </Txt>
             <ListGroup>
               <ListRow icon="auto" title="Layar pertama kali" onPress={() => router.push('/mulai')} />
-              <ListRow
-                icon="globe"
-                title="Mode data"
-                subtitle={mode === 'server' ? 'Server' : 'Contoh'}
-                onPress={() => router.push('/mode')}
-              />
-              <ListRow icon="clock" title="Alarm" onPress={() => router.push('/alarm')} />
-              <ListRow icon="info" title="Pemeriksa Inti" last onPress={() => router.push('/inti')} />
+              {__DEV__ ? (
+                <ListRow
+                  icon="globe"
+                  title="Mode data"
+                  subtitle={mode === 'server' ? 'Server' : 'Contoh'}
+                  onPress={() => router.push('/mode')}
+                />
+              ) : null}
+              <ListRow icon="clock" title="Alarm" last={!__DEV__} onPress={() => router.push('/alarm')} />
+              {__DEV__ ? (
+                <ListRow icon="info" title="Pemeriksa Inti" last onPress={() => router.push('/inti')} />
+              ) : null}
             </ListGroup>
           </View>
         ) : null}

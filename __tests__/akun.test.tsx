@@ -108,6 +108,24 @@ test('bagian Coba (hanya development) membuka layar uji', async () => {
   expect(router.push).toHaveBeenLastCalledWith('/inti');
 });
 
+test('mode contoh: Coba tampil (jalan ke layar pertama kali); Mode data hanya untuk pengembangan', async () => {
+  await show();
+  expect(screen.getByText('Coba')).toBeOnTheScreen();
+  expect(screen.getByText('Mode data')).toBeOnTheScreen(); // Jest berjalan sebagai __DEV__
+  const dev = (globalThis as { __DEV__?: boolean }).__DEV__;
+  (globalThis as { __DEV__?: boolean }).__DEV__ = false;
+  try {
+    await screen.unmount();
+    await show();
+    expect(screen.getByText('Coba')).toBeOnTheScreen();
+    expect(screen.getByText('Layar pertama kali')).toBeOnTheScreen();
+    expect(screen.queryByText('Mode data')).toBeNull();
+    expect(screen.queryByText('Pemeriksa Inti')).toBeNull();
+  } finally {
+    (globalThis as { __DEV__?: boolean }).__DEV__ = dev;
+  }
+});
+
 test('avatar RW di Beranda membuka Akun', async () => {
   await renderWithProviders(<Beranda />);
   await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));

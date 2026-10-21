@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -91,118 +91,121 @@ function SuaraAktif() {
   return (
     <View style={{ flex: 1, backgroundColor: c.voice }}>
       <StatusBar style="light" />
-      <ScrollView
-        // Lembar izin tampil: isi di belakangnya tidak dibaca TalkBack.
-        importantForAccessibility={voice.permission ? 'no-hide-descendants' : 'auto'}
-        accessibilityElementsHidden={voice.permission !== null}
-        bounces={false}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingTop: insets.top + 24,
-          paddingBottom: insets.bottom + 36,
-        }}
-      >
-        <View style={{ paddingHorizontal: 28, gap: 8, minHeight: 72 }}>
-          {voice.transcript ? (
-            <>
-              <Txt v="caption" color={onForest.soft}>
-                Anda
-              </Txt>
-              <Txt
-                testID="suara-ucapan"
-                weight={500}
-                color={voice.transcriptFinal ? onForest.text : onForest.hint}
-                style={{ fontSize: 20, lineHeight: 28 }}
-                maxFontSizeMultiplier={1.4}
-              >
-                {voice.transcript}
-              </Txt>
-            </>
-          ) : null}
-        </View>
-        <View
-          style={{
-            flex: 1,
-            minHeight: 240,
-            maxHeight: 340,
-            alignItems: 'center',
-            justifyContent: 'center',
-            alignSelf: 'stretch',
+      {/* Edge-to-edge: jendela tidak mengecil saat papan ketik muncul, jadi 'padding' menaikkan isi (kolom ketik dan draf). */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+        <ScrollView
+          // Lembar izin tampil: isi di belakangnya tidak dibaca TalkBack.
+          importantForAccessibility={voice.permission ? 'no-hide-descendants' : 'auto'}
+          accessibilityElementsHidden={voice.permission !== null}
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingTop: insets.top + 24,
+            paddingBottom: insets.bottom + 36,
           }}
         >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Tahan untuk bicara"
-            accessibilityHint="Tahan sambil bicara, lepas untuk mengirim"
-            accessibilityState={{ busy: phase === 'listening' }}
-            onPressIn={() => void voice.holdStart()}
-            onPressOut={() => void voice.holdEnd()}
-          >
-            <Inti size={200} state={INTI[phase]} onDark paused={!live} level={voice.level} />
-          </Pressable>
-          <Txt
-            v="caption"
-            color={onForest.soft}
-            accessibilityLiveRegion="polite"
-            style={{ marginTop: 12, paddingHorizontal: 28, textAlign: 'center' }}
-          >
-            {label}
-          </Txt>
-        </View>
-        <View style={{ paddingHorizontal: 28, gap: 8, minHeight: 72 }}>
-          {voice.reply ? (
-            <>
-              <Txt v="caption" color={onForest.soft}>
-                {assistantName}
-              </Txt>
-              <Txt
-                testID="suara-balasan"
-                accessibilityLiveRegion="polite"
-                weight={600}
-                color={onForest.strong}
-                style={{ fontSize: 26, lineHeight: 34, letterSpacing: -0.26 }}
-                maxFontSizeMultiplier={1.4}
-              >
-                {voice.reply}
-              </Txt>
-            </>
-          ) : null}
-        </View>
-        {voice.confirm ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-            <ConfirmArea card={voice.confirm.card} messageId={voice.confirm.messageId} />
+          <View style={{ paddingHorizontal: 28, gap: 8, minHeight: 72 }}>
+            {voice.transcript ? (
+              <>
+                <Txt v="caption" color={onForest.soft}>
+                  Anda
+                </Txt>
+                <Txt
+                  testID="suara-ucapan"
+                  weight={500}
+                  color={voice.transcriptFinal ? onForest.text : onForest.hint}
+                  style={{ fontSize: 20, lineHeight: 28 }}
+                  maxFontSizeMultiplier={1.4}
+                >
+                  {voice.transcript}
+                </Txt>
+              </>
+            ) : null}
           </View>
-        ) : null}
-        {typing ? <TypeBar onSend={(text) => voice.sendText(text)} /> : null}
-        <View style={{ paddingHorizontal: 20, paddingTop: 24, flexDirection: 'row', alignItems: 'flex-start' }}>
-          <RoundAction
-            icon={muted ? 'speakerOff' : 'speaker'}
-            label={muted ? 'Suarakan' : 'Bisukan'}
-            pressed={muted}
-            onPress={() => voice.setMuted(!muted)}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Selesai"
-            onPress={() => router.back()}
+          <View
             style={{
-              height: 56,
-              paddingHorizontal: 40,
-              borderRadius: 28,
-              backgroundColor: onForest.strong,
+              flex: 1,
+              minHeight: 240,
+              maxHeight: 340,
+              alignItems: 'center',
               justifyContent: 'center',
+              alignSelf: 'stretch',
             }}
           >
-            {/* warna forest di atas tombol terang, sama di dua mode */}
-            <Txt v="subtitle" color="#0E3A2C">
-              Selesai
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tahan untuk bicara"
+              accessibilityHint="Tahan sambil bicara, lepas untuk mengirim"
+              accessibilityState={{ busy: phase === 'listening' }}
+              onPressIn={() => void voice.holdStart()}
+              onPressOut={() => void voice.holdEnd()}
+            >
+              <Inti size={200} state={INTI[phase]} onDark paused={!live} level={voice.level} />
+            </Pressable>
+            <Txt
+              v="caption"
+              color={onForest.soft}
+              accessibilityLiveRegion="polite"
+              style={{ marginTop: 12, paddingHorizontal: 28, textAlign: 'center' }}
+            >
+              {label}
             </Txt>
-          </Pressable>
-          <RoundAction icon="keyboard" label="Ketik" pressed={typing} onPress={() => voice.setTyping(!typing)} />
-        </View>
-      </ScrollView>
+          </View>
+          <View style={{ paddingHorizontal: 28, gap: 8, minHeight: 72 }}>
+            {voice.reply ? (
+              <>
+                <Txt v="caption" color={onForest.soft}>
+                  {assistantName}
+                </Txt>
+                <Txt
+                  testID="suara-balasan"
+                  accessibilityLiveRegion="polite"
+                  weight={600}
+                  color={onForest.strong}
+                  style={{ fontSize: 26, lineHeight: 34, letterSpacing: -0.26 }}
+                  maxFontSizeMultiplier={1.4}
+                >
+                  {voice.reply}
+                </Txt>
+              </>
+            ) : null}
+          </View>
+          {voice.confirm ? (
+            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+              <ConfirmArea card={voice.confirm.card} messageId={voice.confirm.messageId} />
+            </View>
+          ) : null}
+          {typing ? <TypeBar onSend={(text) => voice.sendText(text)} /> : null}
+          <View style={{ paddingHorizontal: 20, paddingTop: 24, flexDirection: 'row', alignItems: 'flex-start' }}>
+            <RoundAction
+              icon={muted ? 'speakerOff' : 'speaker'}
+              label={muted ? 'Suarakan' : 'Bisukan'}
+              pressed={muted}
+              onPress={() => voice.setMuted(!muted)}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Selesai"
+              onPress={() => router.back()}
+              style={{
+                height: 56,
+                paddingHorizontal: 40,
+                borderRadius: 28,
+                backgroundColor: onForest.strong,
+                justifyContent: 'center',
+              }}
+            >
+              {/* warna forest di atas tombol terang, sama di dua mode */}
+              <Txt v="subtitle" color="#0E3A2C">
+                Selesai
+              </Txt>
+            </Pressable>
+            <RoundAction icon="keyboard" label="Ketik" pressed={typing} onPress={() => voice.setTyping(!typing)} />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
       {voice.permission ? (
         <PermissionPanel
           blocked={voice.permission !== 'explain'}
