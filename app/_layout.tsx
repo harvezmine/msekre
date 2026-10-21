@@ -14,7 +14,6 @@ import { AfterSignIn } from '@/api/AfterSignIn';
 import { AccountProvider } from '@/api/AccountProvider';
 import { AgendaProvider } from '@/api/AgendaProvider';
 import { ApiProvider, useApi } from '@/api/ApiProvider';
-import { ApiSampleProvider } from '@/api/ApiSampleProvider';
 import { ChatProvider } from '@/api/ChatProvider';
 import { BusinessProvider } from '@/api/BusinessProvider';
 import { ConnectionsProvider } from '@/api/ConnectionsProvider';
@@ -28,6 +27,7 @@ import { AuthProvider, useAuth } from '@/api/useAuth';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { LaunchSplash, useLaunchSplash } from '@/ui/LaunchSplash';
 import { ToastHost } from '@/ui/Toast';
+import { ToastProvider } from '@/ui/toastStore';
 
 // Tautan langsung ke /chat, /suara, /inti tetap punya tab di bawahnya.
 export const unstable_settings = { anchor: '(tabs)' };
@@ -220,8 +220,8 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
-        <ApiProvider>
-          <ApiSampleProvider>
+        <ToastProvider>
+          <ApiProvider>
             <AuthProvider>
               <ChatProvider>
                 <HomeProvider>
@@ -243,8 +243,8 @@ export default function RootLayout() {
                 </HomeProvider>
               </ChatProvider>
             </AuthProvider>
-          </ApiSampleProvider>
-        </ApiProvider>
+          </ApiProvider>
+        </ToastProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

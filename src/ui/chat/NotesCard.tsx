@@ -1,9 +1,9 @@
 import { Pressable, View } from 'react-native';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 import { ChatCard } from './ChatCard';
+import { useToast } from '@/ui/toastStore';
 
 export interface NotesInfo {
   title: string;
@@ -14,7 +14,7 @@ export interface NotesInfo {
 /** Kartu notulen rapat: tiga keputusan dan tautan Baca notulen (layar notulen menyusul di tugas lain). */
 export function NotesCard({ notes, onOpen }: { notes: NotesInfo; onOpen?: () => void }) {
   const { c } = useTheme();
-  const dispatch = useSampleDispatch();
+  const toast = useToast();
   return (
     <ChatCard>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -50,7 +50,7 @@ export function NotesCard({ notes, onOpen }: { notes: NotesInfo; onOpen?: () => 
       <Pressable
         accessibilityRole="link"
         accessibilityLabel="Baca notulen"
-        onPress={onOpen ?? (() => dispatch({ type: 'showToast', text: 'Notulen lengkap tampil di Fase 1.' }))}
+        onPress={onOpen ?? (() => toast('Notulen lengkap segera hadir.'))}
         hitSlop={{ top: 4, bottom: 4 }}
         style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}
       >

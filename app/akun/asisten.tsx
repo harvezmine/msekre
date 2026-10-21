@@ -7,17 +7,17 @@ import { ASSISTANT_NAME_MAX } from '@/api/contract';
 import type { AssistantStyle } from '@/api/contract';
 import { INVALID_NAME_TEXT } from '@/api/errors';
 import { useAccount } from '@/api/useAccount';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { PrimaryButton } from '@/ui/PrimaryButton';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 // Nama dan gaya asisten (di bawah Akun): nama 2 sampai 20 huruf dengan contoh sapaan langsung, dan gaya bicara.
 export default function Asisten() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const dispatch = useSampleDispatch();
+  const toast = useToast();
   const { account, status, error, retry, setAssistant, busy } = useAccount();
   // Yang belum diubah pengguna mengikuti Akun (termasuk yang datang belakangan); yang diubah menjadi miliknya.
   const [name, setName] = useState<string | null>(null);
@@ -56,7 +56,7 @@ export default function Asisten() {
       ...(shownStyle !== current.style ? { style: shownStyle } : {}),
     });
     if (res.ok) {
-      dispatch({ type: 'showToast', text: `Tersimpan. Sekarang saya ${trimmed}.` });
+      toast(`Tersimpan. Sekarang saya ${trimmed}.`);
       router.back();
     } else {
       setProblem(res.message);

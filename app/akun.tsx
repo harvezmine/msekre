@@ -5,12 +5,12 @@ import { HELP_TEXT, openWhatsApp, planText, RENEW_TEXT, STYLES, WA_UNAVAILABLE_T
 import type { AccountPlan } from '@/api/contract';
 import { formatPhoneDisplay } from '@/api/format';
 import { useAccount } from '@/api/useAccount';
+import { useConnections } from '@/api/useConnections';
 import { getAlarmScheduler } from '@/alarm';
 import { alarmBlocked, useAlarmStatus } from '@/alarm/useAlarmStatus';
 import { usePush, type PushPermission } from '@/api/usePush';
 import { useSecurity } from '@/api/useSecurity';
 import { useProfile, type Profile } from '@/api/useProfile';
-import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { Initials } from '@/ui/Initials';
@@ -18,6 +18,7 @@ import type { IconName } from '@/ui/icons';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Txt } from '@/ui/Txt';
 import { Wordmark } from '@/ui/Wordmark';
+import { useToast } from '@/ui/toastStore';
 
 interface Row {
   icon: IconName;
@@ -47,11 +48,10 @@ const NOTIF_STATUS: Record<PushPermission, string> = {
   denied: 'Dimatikan di pengaturan HP',
 };
 
-// Akun (desain 2q). Baris yang layarnya belum ada memunculkan toast: di mode contoh dengan nama fasenya, di mode server
-// cukup "segera hadir" (pengguna tidak perlu tahu soal fase).
+// Akun (desain 2q). Baris yang layarnya belum ada memunculkan toast "segera hadir".
 export default function Akun() {
   const { c } = useTheme();
-  const { state, dispatch } = useSample();
+  const connections = useConnections();
   const { mode } = useApi();
   const profile = useProfile();
   const { account: data, status: accountStatus, retry } = useAccount();
@@ -65,10 +65,8 @@ export default function Akun() {
   const renew = async () => {
     if (!(await openWhatsApp(RENEW_TEXT))) toast(WA_UNAVAILABLE_TEXT);
   };
-  const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const toast = useToast();
   const demo = mode === 'contoh';
-  /** Toast layar yang belum ada: teks contoh bernama fase, atau teks netral di mode server. */
-  const later = (contoh: string, server: string) => (demo ? contoh : server);
   const help = async () => {
     if (!(await openWhatsApp(HELP_TEXT))) toast(WA_UNAVAILABLE_TEXT);
   };
@@ -135,7 +133,8 @@ export default function Akun() {
       {
         icon: 'link',
         title: 'Terhubung',
-        subtitle: demo ? `${state.services.length} layanan dan perangkat` : undefined,
+        subtitle:
+          connections.connected.length > 0 ? `${connections.connected.length} layanan dan perangkat` : undefined,
         go: { route: '/terhubung' },
       },
     ],
@@ -145,9 +144,7 @@ export default function Akun() {
         title: 'Bantuan',
         subtitle: 'Tanya jawab dan hubungi tim',
         // Mode server: lapor kendala lewat WhatsApp Sekretaris AI; nomor belum diatur: toast ramah.
-        go: demo
-          ? { toast: later('Bantuan dibangun di Fase 5.', 'Bantuan segera hadir.') }
-          : { run: () => void help() },
+        go: demo ? { toast: 'Bantuan segera hadir.' } : { run: () => void help() },
       },
       {
         icon: 'history',

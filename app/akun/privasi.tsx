@@ -3,20 +3,19 @@ import { Linking, Pressable, ScrollView, View } from 'react-native';
 import { ERASE_TEXT, openWhatsApp, PRIVACY_URL, WA_UNAVAILABLE_TEXT } from '@/api/account';
 import { useAccount } from '@/api/useAccount';
 import { useAssistantName } from '@/api/useProfile';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 // Privasi (di bawah Akun): apa yang diingat asisten dari tiap layanan, dengan jalan menghapusnya. Hapus akun tetap lewat
 // WhatsApp.
 export default function Privasi() {
   const { c } = useTheme();
   const assistant = useAssistantName();
-  const dispatch = useSampleDispatch();
   const { account, status, error, retry } = useAccount();
-  const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const toast = useToast();
   const erase = async () => {
     if (!(await openWhatsApp(ERASE_TEXT))) toast(WA_UNAVAILABLE_TEXT);
   };

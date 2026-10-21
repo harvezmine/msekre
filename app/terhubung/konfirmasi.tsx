@@ -2,10 +2,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 // Lembar konfirmasi dari detail layanan: hapus yang Nadia pelajari (aksi=lupa) atau putuskan (aksi=putus).
 export default function Konfirmasi() {
@@ -20,13 +20,12 @@ export default function Konfirmasi() {
 function Isi({ id, putus }: { id: string; putus: boolean }) {
   const { c } = useTheme();
   const assistant = useAssistantName();
-  const dispatch = useSampleDispatch();
   const { service, forget, disconnect, busy } = useConnections(id);
   const { close } = useSheet();
+  const toast = useToast();
   if (!service) {
     return <Txt style={{ paddingVertical: 24, textAlign: 'center' }}>Layanan ini tidak ditemukan.</Txt>;
   }
-  const toast = (text: string) => dispatch({ type: 'showToast', text });
   const run = async () => {
     if (putus) {
       const res = await disconnect(id);

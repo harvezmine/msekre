@@ -4,8 +4,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { ERROR_TEXT } from '@/api/errors';
 import { HttpTransport, type SocketLike } from '@/api/http';
 import { createMemorySession } from '@/api/session';
-import { advance, mockParams, restoreParams, sampleState, showRoute } from './harness';
-import { createTestApi } from './helpers';
+import { advance, mockParams, restoreParams, showRoute } from './harness';
+import { createTestApi, toastNow } from './helpers';
 
 jest.mock('expo-web-browser', () => ({ openAuthSessionAsync: jest.fn() }));
 
@@ -276,7 +276,7 @@ test('mode server: izin diubah lewat PUT, gagal dikembalikan; hapus yang Nadia t
   await fireEvent.press(screen.getByRole('radio', { name: 'Baca dan tulis' }));
   await act(async () => {});
   expect(screen.getByRole('radio', { name: 'Baca saja' })).toBeChecked();
-  expect(sampleState().toast?.text).toBe(ERROR_TEXT);
+  expect(toastNow()?.text).toBe(ERROR_TEXT);
   putFails = false;
   await fireEvent.press(screen.getByRole('radio', { name: 'Baca dan tulis' }));
   await act(async () => {});
@@ -292,7 +292,7 @@ test('mode server: izin diubah lewat PUT, gagal dikembalikan; hapus yang Nadia t
   await fireEvent.press(await screen.findByRole('button', { name: 'Ya, hapus' }));
   await advance(300);
   expect(fetch.mock.calls.some(([u]) => String(u).endsWith('/connections/gmail/forget'))).toBe(true);
-  expect(sampleState().toast?.text).toBe('Yang Nadia pelajari dari Gmail sudah dihapus.');
+  expect(toastNow()?.text).toBe('Yang Nadia pelajari dari Gmail sudah dihapus.');
 });
 
 test('mode server: putuskan memanggil DELETE dan layanan pindah ke Pernah tersambung', async () => {
@@ -323,7 +323,7 @@ test('mode server: putuskan memanggil DELETE dan layanan pindah ke Pernah tersam
   expect(fetch.mock.calls.some(([u, i]) => String(u).endsWith('/connections/gmail') && i.method === 'DELETE')).toBe(
     true,
   );
-  expect(sampleState().toast?.text).toBe('Gmail diputuskan.');
+  expect(toastNow()?.text).toBe('Gmail diputuskan.');
   expect(router.push).toHaveBeenLastCalledWith('/terhubung');
 });
 

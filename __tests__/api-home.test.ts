@@ -129,7 +129,6 @@ describe('event stream home', () => {
   test('perubahan yang tidak menyentuh Beranda tidak menyiarkan apa-apa', async () => {
     const { transport, homes } = setup();
     await transport.home();
-    transport.sample.dispatch({ type: 'showToast', text: 'Halo' });
     transport.sample.dispatch({ type: 'setBoxMic', on: false });
     await settle();
     expect(homes).toHaveLength(0);

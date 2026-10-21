@@ -6,7 +6,7 @@ import { failureText } from '@/api/connections';
 import { joinAnimated, markJoinAnimated } from '@/api/joinSeen';
 import { useConnections } from '@/api/useConnections';
 import { useHome } from '@/api/useHome';
-import { serviceInfo } from '@/sample/services';
+import { serviceJoined } from '@/api/serviceCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Orbit } from '@/ui/orbit/Orbit';
 import { Txt } from '@/ui/Txt';
@@ -94,7 +94,7 @@ export default function Tersambung() {
   const name = service.name.replace(' & Tokopedia', '');
   const permission = detail?.data?.permission;
   const permissionText = permission === 'baca_tulis' ? 'Baca dan tulis' : 'Baca saja';
-  const joined = serviceInfo[service.id]?.joined ?? 'Mulai sekarang saya bisa membantu dari sini.';
+  const joined = serviceJoined(service.id) ?? 'Mulai sekarang saya bisa membantu dari sini.';
   return (
     <ScrollView
       style={{ backgroundColor: c.paper }}

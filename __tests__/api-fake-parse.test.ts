@@ -1,5 +1,5 @@
 import { TODAY } from '@/sample/agenda';
-import { addDays, addMinutes, dayLabel, daysInMonth, weekdayIndex } from '@/sample/dates';
+import { addDays, addMinutes, dayLabel, daysInMonth, weekdayIndex } from '@/api/dates';
 import { parseAgenda } from '@/api/fake/parseAgenda';
 
 test('Ingatkan saya bayar pajak motor tanggal 25', () => {

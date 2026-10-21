@@ -6,7 +6,6 @@ import { getAlarmScheduler } from '@/alarm';
 import { TEST_ALARM_DELAY_MS, TEST_ALARM_ID } from '@/alarm/testAlarm';
 import type { Grant } from '@/alarm/types';
 import { useAlarmStatus } from '@/alarm/useAlarmStatus';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
 import type { IconName } from '@/ui/icons';
@@ -14,6 +13,7 @@ import { ListGroup, ListRow } from '@/ui/ListRow';
 import { PrimaryButton } from '@/ui/PrimaryButton';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 /**
  * Panduan izin alarm: kenapa HP perlu izin tambahan, tiga pemeriksaan (alarm tepat waktu, tampil di layar kunci,
@@ -54,7 +54,7 @@ const STATE_TEXT: Record<Grant, string> = {
 function Isi() {
   const { c } = useTheme();
   const { close } = useSheet();
-  const toast = useSampleDispatch();
+  const toast = useToast();
   const { native, status, openSettings } = useAlarmStatus();
   const [tested, setTested] = useState(false);
   const tips = brandTips(Device.manufacturer);
@@ -70,13 +70,11 @@ function Isi() {
     if (ok) return setTested(true);
     // Notifikasi mati: alarm terpasang tapi tidak akan terdengar, jadi tidak dianggap berhasil (dan tidak dikabarkan ke server).
     const now = await scheduler.status();
-    toast({
-      type: 'showToast',
-      text:
-        now.notifications === 'denied'
-          ? 'Notifikasi masih mati, jadi alarm tidak akan terdengar. Nyalakan notifikasinya dulu ya.'
-          : 'Alarm percobaan belum bisa dipasang. Nyalakan izin di atas dulu ya.',
-    });
+    toast(
+      now.notifications === 'denied'
+        ? 'Notifikasi masih mati, jadi alarm tidak akan terdengar. Nyalakan notifikasinya dulu ya.'
+        : 'Alarm percobaan belum bisa dipasang. Nyalakan izin di atas dulu ya.',
+    );
   };
 
   if (!native) {

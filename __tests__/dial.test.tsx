@@ -2,11 +2,11 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import DetailAc, { TEMP_DEBOUNCE_MS } from '../app/perangkat/[id]';
-import { createTestApi, renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders, useSample } from './helpers';
 import { ERROR_TEXT } from '@/api/errors';
 import type { FakeTransport } from '@/api/fake/FakeTransport';
 import { ToastHost } from '@/ui/Toast';
-import { deviceById, initialSampleState, MAIN_AC_ID, useSample, type SampleState } from '@/sample/store';
+import { deviceById, initialSampleState, MAIN_AC_ID, type SampleState } from '@/sample/store';
 import {
   angleOf,
   arcFromTemp,

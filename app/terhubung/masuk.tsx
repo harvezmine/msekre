@@ -6,7 +6,7 @@ import { needsReconnect } from '@/api/connections';
 import { clearJoinAnimated } from '@/api/joinSeen';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
-import { serviceInfo } from '@/sample/services';
+import { serviceDomain } from '@/api/serviceCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
@@ -52,7 +52,7 @@ function Isi({ id }: { id: string }) {
     );
   }
   const shortName = service.name.replace(' & Tokopedia', '');
-  const domain = serviceInfo[id]?.domain;
+  const domain = serviceDomain(id);
   const working = flow.phase === 'opening' || flow.phase === 'waiting';
   const retry = flow.phase === 'failed' || flow.phase === 'cancelled';
   const soon = service.status === 'soon';

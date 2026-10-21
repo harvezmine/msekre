@@ -1,11 +1,9 @@
 import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApi } from '@/api/ApiProvider';
 import { groupByCategory, serviceLine } from '@/api/connections';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { CatalogGroup } from '@/ui/connect/CatalogRow';
 import { Icon } from '@/ui/Icon';
@@ -13,14 +11,14 @@ import { IconButton } from '@/ui/IconButton';
 import { iconOr } from '@/ui/icons';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 // Daftar Terhubung (desain 2h, 2i): yang sudah tersambung, katalog menurut kelompok, Rumah, dan Lainnya.
 export default function Terhubung() {
   const { c } = useTheme();
   const assistant = useAssistantName();
   const insets = useSafeAreaInsets();
-  const dispatch = useSampleDispatch();
-  const { mode } = useApi();
+  const toast = useToast();
   const { connected, catalog, formerly, status, error, retry } = useConnections();
   const attention = connected.filter((s) => s.attention);
   const loaded = status === 'ready';
@@ -142,15 +140,7 @@ export default function Terhubung() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Sambungkan layanan lain"
-          onPress={() =>
-            dispatch({
-              type: 'showToast',
-              text:
-                mode === 'contoh'
-                  ? 'Menyambungkan layanan lain dibangun di Fase 5.'
-                  : 'Menyambungkan layanan lain segera hadir.',
-            })
-          }
+          onPress={() => toast('Menyambungkan layanan lain segera hadir.')}
           android_ripple={{ color: c.ripple }}
           style={{
             backgroundColor: c.card,

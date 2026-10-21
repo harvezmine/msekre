@@ -12,7 +12,6 @@ import {
   type TextInputInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApi } from '@/api/ApiProvider';
 import { presentCard } from '@/api/devices';
 import { formatFileMeta } from '@/api/format';
 import { setChatFocused } from '@/api/pushPresence';
@@ -20,7 +19,6 @@ import { useAssistantName } from '@/api/useProfile';
 import type { ChatState } from '@/api/chatState';
 import type { Message, Part } from '@/api/contract';
 import { useChat, type ChatActions } from '@/api/useChat';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { AssistantLine, UserBubble, ViaTag } from '@/ui/chat/Bubble';
 import { AudioRow } from '@/ui/chat/AudioRow';
@@ -42,6 +40,7 @@ import type { IconName } from '@/ui/icons';
 import { Inti } from '@/ui/inti/Inti';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
+import { useToast } from '@/ui/toastStore';
 
 /** Jarak (dp) dari dasar utas yang masih dianggap "di dasar". */
 const NEAR_BOTTOM = 80;
@@ -64,9 +63,7 @@ export default function Chat() {
   const insets = useSafeAreaInsets();
   const live = useLive();
   const { kosong, draf, pesan } = useLocalSearchParams<{ kosong?: string; draf?: string; pesan?: string }>();
-  const { mode } = useApi();
-  const dispatch = useSampleDispatch();
-  const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const toast = useToast();
   const chat = useChat({
     onError: toast,
     onPinRequired: (id) => router.push({ pathname: '/pin', params: { id } }),
@@ -230,14 +227,7 @@ export default function Chat() {
           data={data}
           keyExtractor={(row) => row.key}
           renderItem={({ item }) => (
-            <ThreadRow
-              row={item}
-              actions={chat.actions}
-              busyDrafts={chat.busyDrafts}
-              contoh={mode !== 'server'}
-              toast={toast}
-              paused={!live}
-            />
+            <ThreadRow row={item} actions={chat.actions} busyDrafts={chat.busyDrafts} toast={toast} paused={!live} />
           )}
           ItemSeparatorComponent={Gap}
           style={{ flex: 1 }}
@@ -273,13 +263,13 @@ export default function Chat() {
         inputRef={input}
         strongMic={showEmpty}
         disabledText={composerOff}
-        onAttach={mode === 'server' ? () => toast(SOON.attach) : undefined}
+        onAttach={() => toast(SOON.attach)}
       />
     </KeyboardAvoidingView>
   );
 }
 
-/** Teks netral untuk yang belum ada di mode server; mode contoh memakai teks Fase-nya sendiri. */
+/** Teks untuk yang belum ada. */
 const SOON = {
   attach: 'Lampiran segera hadir.',
   audio: 'Pemutar suara segera hadir.',
@@ -342,20 +332,13 @@ interface ThreadRowProps {
   row: Row;
   actions: ChatActions;
   busyDrafts: ReadonlySet<string>;
-  contoh: boolean;
   toast: (text: string) => void;
   paused: boolean;
 }
 
 /** Baris yang isinya sama tidak digambar ulang: `buildRows` membuat objek baris baru tiap perubahan keadaan. */
 function sameRow(a: ThreadRowProps, b: ThreadRowProps): boolean {
-  if (
-    a.actions !== b.actions ||
-    a.busyDrafts !== b.busyDrafts ||
-    a.contoh !== b.contoh ||
-    a.toast !== b.toast ||
-    a.paused !== b.paused
-  )
+  if (a.actions !== b.actions || a.busyDrafts !== b.busyDrafts || a.toast !== b.toast || a.paused !== b.paused)
     return false;
   const x = a.row;
   const y = b.row;
@@ -374,7 +357,7 @@ function sameRow(a: ThreadRowProps, b: ThreadRowProps): boolean {
   );
 }
 
-const ThreadRow = memo(function ThreadRow({ row, actions, busyDrafts, contoh, toast, paused }: ThreadRowProps) {
+const ThreadRow = memo(function ThreadRow({ row, actions, busyDrafts, toast, paused }: ThreadRowProps) {
   if (row.kind === 'thinking') return <Thinking paused={paused} />;
   if (row.kind === 'pending') {
     const { pending } = row;
@@ -396,7 +379,6 @@ const ThreadRow = memo(function ThreadRow({ row, actions, busyDrafts, contoh, to
       chosenId={row.chosenId}
       actions={actions}
       busyDrafts={busyDrafts}
-      contoh={contoh}
       toast={toast}
     />
   );
@@ -416,7 +398,6 @@ function PartView({
   chosenId,
   actions,
   busyDrafts,
-  contoh,
   toast,
 }: {
   part: Part;
@@ -425,7 +406,6 @@ function PartView({
   chosenId?: string;
   actions: ChatActions;
   busyDrafts: ReadonlySet<string>;
-  contoh: boolean;
   toast: (text: string) => void;
 }) {
   switch (part.type) {
@@ -449,7 +429,7 @@ function PartView({
     case 'image':
       return <ImageCard image={part} mediaUrl={actions.mediaUrl} />;
     case 'audio':
-      return <AudioRow audio={part} onPlay={() => toast(contoh ? 'Pemutar suara dibangun di Fase 6.' : SOON.audio)} />;
+      return <AudioRow audio={part} onPlay={() => toast(SOON.audio)} />;
     case 'document':
       return (
         <FileCard
@@ -506,7 +486,7 @@ function PartView({
           );
         }
         case 'notes':
-          return <NotesCard notes={card} onOpen={contoh ? undefined : () => toast(SOON.notes)} />;
+          return <NotesCard notes={card} onOpen={() => toast(SOON.notes)} />;
         case 'payment':
           return <PaymentCard payment={card} />;
         case 'qris':

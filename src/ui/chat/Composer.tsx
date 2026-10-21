@@ -3,11 +3,11 @@ import { useEffect, useState, type Ref } from 'react';
 import { Keyboard, Pressable, TextInput, View, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAssistantName } from '@/api/useProfile';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
 import { Icon } from '../Icon';
 import { IconButton } from '../IconButton';
+import { useToast } from '@/ui/toastStore';
 
 interface Props {
   value: string;
@@ -18,7 +18,7 @@ interface Props {
   strongMic?: boolean;
   /** Kalau diisi, kolom ketik dimatikan dan teks ini menjadi petunjuknya (akun tidak aktif, aplikasi perlu diperbarui). */
   disabledText?: string;
-  /** Ketukan Lampiran. Bawaannya toast contoh Fase 1. */
+  /** Ketukan Lampiran. Bawaannya toast "segera hadir". */
   onAttach?: () => void;
 }
 
@@ -26,7 +26,7 @@ interface Props {
 export function Composer({ value, onChangeText, onSend, inputRef, strongMic = false, disabledText, onAttach }: Props) {
   const assistantName = useAssistantName();
   const { c } = useTheme();
-  const dispatch = useSampleDispatch();
+  const toast = useToast();
   const insets = useSafeAreaInsets();
   // Saat keyboard terbuka, area gestur di bawah tertutup keyboard: tak perlu jarak tambahan.
   const [keyboard, setKeyboard] = useState(false);
@@ -57,7 +57,7 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
         icon="clip"
         label="Lampiran"
         color={c.muted}
-        onPress={onAttach ?? (() => dispatch({ type: 'showToast', text: 'Lampiran dibangun di Fase 1.' }))}
+        onPress={onAttach ?? (() => toast('Lampiran segera hadir.'))}
       />
       <TextInput
         ref={inputRef}

@@ -4,8 +4,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import Pin from '../app/pin';
 import { ApiFailure } from '@/api/transport';
-import { createTestApi, renderWithProviders } from './helpers';
-import { deviceById, useSample, type SampleState } from '@/sample/store';
+import { createTestApi, renderWithProviders, toastNow, useSample } from './helpers';
+import { deviceById, type SampleState } from '@/sample/store';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -108,7 +108,7 @@ test('Lupa PIN: kode dikirim ke WhatsApp, lalu PIN baru dibuat dan dipakai', asy
   await type('654321');
   expect(screen.getByText('Ulangi PIN')).toBeOnTheScreen();
   await type('654321');
-  expect(latest.toast?.text).toBe('PIN baru tersimpan.');
+  expect(toastNow()?.text).toBe('PIN baru tersimpan.');
   // Kembali ke lembar PIN: PIN lama tidak berlaku lagi, PIN baru mematikan kamera.
   expect(screen.getByText('Masukkan PIN')).toBeOnTheScreen();
   await type('123456');

@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import Beranda from '../app/(tabs)/index';
 import Terhubung from '../app/terhubung/index';
 import { advance, currentStack, go, mockParams, restoreParams, sampleState, showRoute } from './harness';
-import { createTestApi, renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders, toastNow } from './helpers';
 
 async function show(start = '/terhubung') {
   await showRoute(start);
@@ -55,16 +55,10 @@ test('Rumah membuka Tambah perangkat', async () => {
   expect(router.push).toHaveBeenCalledWith('/perangkat/tambah');
 });
 
-test('Sambungkan layanan lain memunculkan toast Fase 5', async () => {
+test('Sambungkan layanan lain memunculkan toast "segera hadir"', async () => {
   await show();
   await fireEvent.press(await screen.findByRole('button', { name: 'Sambungkan layanan lain' }));
-  expect(sampleState().toast?.text).toBe('Menyambungkan layanan lain dibangun di Fase 5.');
-});
-
-test('Sambungkan layanan lain di mode server: toast netral, tanpa menyebut fase', async () => {
-  await showRoute('/terhubung', { api: createTestApi({ mode: 'server', token: 'tok' }) });
-  await fireEvent.press(await screen.findByRole('button', { name: 'Sambungkan layanan lain' }));
-  expect(sampleState().toast?.text).toBe('Menyambungkan layanan lain segera hadir.');
+  expect(toastNow()?.text).toBe('Menyambungkan layanan lain segera hadir.');
 });
 
 test('alur 4: Sambungkan TikTok, Masuk (contoh), tersambung, Selesai, Beranda punya 8 simpul', async () => {
@@ -169,7 +163,7 @@ test('izin gagal di server: pilihan tampil dulu, lalu kembali dan toast ramah', 
   await advance(300);
   expect(screen.getByRole('radio', { name: 'Baca saja' })).toBeChecked();
   expect(sampleState().services.find((s) => s.id === 'moka')!.permission).toBe('read');
-  expect(sampleState().toast?.text).toMatch(/kendala/);
+  expect(toastNow()?.text).toMatch(/kendala/);
 });
 
 test('Hapus yang Nadia tahu: konfirmasi, lalu jumlahnya hilang dan toast', async () => {
@@ -188,7 +182,7 @@ test('Hapus yang Nadia tahu: konfirmasi, lalu jumlahnya hilang dan toast', async
   await advance(250);
   expect(sampleState().forgotten).toContain('moka');
   expect(sampleState().services.some((s) => s.id === 'moka')).toBe(true);
-  expect(sampleState().toast?.text).toBe('Yang Nadia pelajari dari Moka sudah dihapus.');
+  expect(toastNow()?.text).toBe('Yang Nadia pelajari dari Moka sudah dihapus.');
   expect(router.back).toHaveBeenCalled();
 });
 
@@ -197,7 +191,7 @@ test('Batal di konfirmasi tidak mengubah apa pun', async () => {
   await fireEvent.press(await screen.findByRole('button', { name: 'Batal' }));
   await advance(250);
   expect(sampleState().services.some((s) => s.id === 'moka')).toBe(true);
-  expect(sampleState().toast).toBeNull();
+  expect(toastNow()).toBeNull();
 });
 
 test('Putuskan: konfirmasi, simpul hilang dari cincin Beranda, pindah ke Pernah tersambung dengan toast', async () => {
@@ -207,7 +201,7 @@ test('Putuskan: konfirmasi, simpul hilang dari cincin Beranda, pindah ke Pernah 
   await fireEvent.press(await screen.findByRole('button', { name: 'Ya, putuskan' }));
   await advance(250);
   expect(sampleState().services.some((s) => s.id === 'moka')).toBe(false);
-  expect(sampleState().toast?.text).toBe('Moka diputuskan.');
+  expect(toastNow()?.text).toBe('Moka diputuskan.');
   expect(router.dismissTo).toHaveBeenCalledWith('/');
   expect(router.push).toHaveBeenLastCalledWith('/terhubung');
   // Moka bisa disambungkan lagi dari daftar.

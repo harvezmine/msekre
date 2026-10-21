@@ -5,13 +5,13 @@ import { needsReconnect, PERMISSION_OPTIONS, serviceLine } from '@/api/connectio
 import type { ConnectionPermission } from '@/api/contract';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '@/ui/Card';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
 import { iconOr, type IconName } from '@/ui/icons';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 const permissionText = (assistant: string): Record<ConnectionPermission, string> => ({
   baca: `${assistant} melihat data, tidak mengubah apa pun.`,
@@ -26,7 +26,7 @@ export default function DetailLayanan() {
   const assistant = useAssistantName();
   const PERMISSION_TEXT = permissionText(assistant);
   const insets = useSafeAreaInsets();
-  const dispatch = useSampleDispatch();
+  const toast = useToast();
   const { detail, service: listed, setPermission, reloadDetail } = useConnections(serviceId);
   const back = (
     <View style={{ paddingTop: insets.top, height: 64 + insets.top, justifyContent: 'center', paddingHorizontal: 8 }}>
@@ -78,7 +78,7 @@ export default function DetailLayanan() {
   const reconnect = needsReconnect(service);
   const change = async (permission: ConnectionPermission) => {
     const res = await setPermission(service.id, permission);
-    if (!res.ok) dispatch({ type: 'showToast', text: res.message });
+    if (!res.ok) toast(res.message);
   };
   const memory = data.memoryCount;
   const memoryNote =

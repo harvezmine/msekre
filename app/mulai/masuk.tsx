@@ -17,12 +17,12 @@ import { cleanPhone, groupPhone } from '@/api/format';
 import { isApiFailure } from '@/api/transport';
 import { useAuth } from '@/api/useAuth';
 import { readWaNumber, waStartUrl } from '@/api/waNumber';
-import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { IconButton } from '@/ui/IconButton';
 import { PrimaryButton } from '@/ui/PrimaryButton';
 import { StepDots } from '@/ui/StepDots';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 const CODE_LENGTH = 6;
 
@@ -37,7 +37,7 @@ const clock = (s: number) => `${pad(Math.floor(s / 60))}.${pad(s % 60)}`;
 export default function MulaiMasuk() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const { dispatch } = useSample();
+  const toast = useToast();
   const { mode } = useApi();
   const { start, verify } = useAuth();
   const [phone, setPhone] = useState(mode === 'contoh' ? '81220457781' : '');
@@ -112,10 +112,7 @@ export default function MulaiMasuk() {
       const res = await start(toE164(phone));
       waitFor(toE164(phone), res.resendInSec);
       codeRef.current?.focus();
-      dispatch({
-        type: 'showToast',
-        text: again ? 'Kode baru dikirim lewat WhatsApp.' : 'Kode dikirim lewat WhatsApp.',
-      });
+      toast(again ? 'Kode baru dikirim lewat WhatsApp.' : 'Kode dikirim lewat WhatsApp.');
     });
   const submit = () =>
     run('verify', async () => {

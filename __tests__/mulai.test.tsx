@@ -1,30 +1,14 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { Keyboard } from 'react-native';
-import { useEffect } from 'react';
 import Mulai from '../app/mulai/index';
 import Masuk from '../app/mulai/masuk';
 import Pilih from '../app/mulai/pilih';
-import { renderWithProviders } from './helpers';
-import { useSample, type SampleState } from '@/sample/store';
+import { renderWithProviders, toastNow } from './helpers';
 
 beforeEach(() => jest.clearAllMocks());
 
-let latest: SampleState;
-function Probe() {
-  const { state } = useSample();
-  useEffect(() => {
-    latest = state;
-  });
-  return null;
-}
-const withProbe = (ui: React.ReactElement) =>
-  renderWithProviders(
-    <>
-      {ui}
-      <Probe />
-    </>,
-  );
+const withProbe = (ui: React.ReactElement) => renderWithProviders(<>{ui}</>);
 
 test('layar 1: sapaan, titik pertama aktif, Mulai ke masuk', async () => {
   await renderWithProviders(<Mulai />);
@@ -92,7 +76,7 @@ test('Kirim kode memulai hitung mundur dari jawaban server; Kirim ulang kode set
   await withProbe(<Masuk />);
   expect(screen.queryByText(/Kirim ulang kode dalam/)).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode' }));
-  expect(latest.toast?.text).toBe('Kode dikirim lewat WhatsApp.');
+  expect(toastNow()?.text).toBe('Kode dikirim lewat WhatsApp.');
   expect(screen.getByText('Kirim ulang kode dalam 01.00')).toBeTruthy();
   await act(async () => {
     jest.advanceTimersByTime(2000);
@@ -103,7 +87,7 @@ test('Kirim kode memulai hitung mundur dari jawaban server; Kirim ulang kode set
   });
   expect(screen.queryByText(/Kirim ulang kode dalam/)).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim ulang kode' }));
-  expect(latest.toast?.text).toBe('Kode baru dikirim lewat WhatsApp.');
+  expect(toastNow()?.text).toBe('Kode baru dikirim lewat WhatsApp.');
   expect(screen.getByText('Kirim ulang kode dalam 01.00')).toBeTruthy();
 });
 
@@ -127,7 +111,6 @@ test('layar 3: Jadwal dipilih lebih dulu, tombol mengikuti pilihan pertama', asy
   await fireEvent.press(box('Usaha'));
   expect(screen.getByRole('button', { name: 'Lanjut ke Beranda' })).toBeTruthy();
   await fireEvent.press(screen.getByRole('button', { name: 'Lanjut ke Beranda' }));
-  expect(latest.onboarded).toBe(true);
   expect(router.dismissAll).toHaveBeenCalledTimes(1);
   expect(router.replace).toHaveBeenCalledWith('/');
 });
@@ -135,8 +118,7 @@ test('layar 3: Jadwal dipilih lebih dulu, tombol mengikuti pilihan pertama', asy
 test('tombol utama selesai dengan toast dan membuka Beranda', async () => {
   await withProbe(<Pilih />);
   await fireEvent.press(screen.getByRole('button', { name: 'Sambungkan Google Kalender' }));
-  expect(latest.onboarded).toBe(true);
-  expect(latest.toast?.text).toBe('Google Kalender bisa disambungkan dari Terhubung.');
+  expect(toastNow()?.text).toBe('Google Kalender bisa disambungkan dari Terhubung.');
   expect(router.dismissAll).toHaveBeenCalledTimes(1);
   expect(router.replace).toHaveBeenCalledWith('/');
 });
@@ -144,7 +126,6 @@ test('tombol utama selesai dengan toast dan membuka Beranda', async () => {
 test('Lewati dulu langsung ke Beranda', async () => {
   await withProbe(<Pilih />);
   await fireEvent.press(screen.getByRole('button', { name: 'Lewati dulu' }));
-  expect(latest.onboarded).toBe(true);
   expect(router.dismissAll).toHaveBeenCalledTimes(1);
   expect(router.replace).toHaveBeenCalledWith('/');
 });

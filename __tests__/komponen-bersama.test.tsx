@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router, useIsFocused } from 'expo-router';
 import { AccessibilityInfo, BackHandler, StyleSheet, Text } from 'react-native';
 import Tempat from '../app/tempat';
-import { useSample, type SampleState } from '@/sample/store';
+import { type SampleState } from '@/sample/store';
 import { FilterChips } from '@/ui/FilterChips';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Segmented } from '@/ui/Segmented';
@@ -10,7 +10,7 @@ import { Sheet, useSheet } from '@/ui/Sheet';
 import { shouldDismiss } from '@/ui/sheetMath';
 import { setTabBarShown } from '@/ui/tabBarShown';
 import { Toast, ToastHost } from '@/ui/Toast';
-import { renderWithProviders } from './helpers';
+import { renderWithProviders, testToasts, useSample } from './helpers';
 import { Redraw, redraw } from './redraw';
 
 beforeEach(() => jest.clearAllMocks());
@@ -126,19 +126,13 @@ test('Toast: tampil dengan teks dan sebagai pesan yang dibacakan', async () => {
 });
 
 test('ToastHost: tampil dari penyimpanan dan hilang sendiri setelah 2,6 detik', async () => {
-  let dispatch!: ReturnType<typeof useSample>['dispatch'];
-  function Probe() {
-    dispatch = useSample().dispatch;
-    return null;
-  }
   await renderWithProviders(
     <>
       <ToastHost />
-      <Probe />
     </>,
   );
   expect(screen.queryByText('Kiriman dibatalkan.')).not.toBeOnTheScreen();
-  await act(async () => dispatch({ type: 'showToast', text: 'Kiriman dibatalkan.' }));
+  await act(async () => testToasts.show('Kiriman dibatalkan.'));
   expect(screen.getByText('Kiriman dibatalkan.')).toBeOnTheScreen();
   await advance(2500);
   expect(screen.getByText('Kiriman dibatalkan.')).toBeOnTheScreen();
@@ -148,22 +142,16 @@ test('ToastHost: tampil dari penyimpanan dan hilang sendiri setelah 2,6 detik', 
 
 test('ToastHost: teks yang sama dua kali memulai ulang 2,6 detik dan dibacakan lagi', async () => {
   const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
-  let dispatch!: ReturnType<typeof useSample>['dispatch'];
-  function Probe() {
-    dispatch = useSample().dispatch;
-    return null;
-  }
   await renderWithProviders(
     <>
       <ToastHost />
-      <Probe />
     </>,
   );
-  await act(async () => dispatch({ type: 'showToast', text: 'Tersimpan di agenda.' }));
+  await act(async () => testToasts.show('Tersimpan di agenda.'));
   expect(announce).toHaveBeenCalledTimes(1);
   expect(announce).toHaveBeenLastCalledWith('Tersimpan di agenda.');
   await advance(2000);
-  await act(async () => dispatch({ type: 'showToast', text: 'Tersimpan di agenda.' }));
+  await act(async () => testToasts.show('Tersimpan di agenda.'));
   expect(announce).toHaveBeenCalledTimes(2);
   // waktu toast pertama sudah lewat, tapi toast kedua masih tampil
   await advance(2500);
@@ -273,18 +261,12 @@ test('Sheet: ambang geser memakai tinggi panel yang terukur; sentakan cepat juga
 });
 
 test('ToastHost: duduk 16 dp di atas tepi bawah, ditambah tinggi tab bar hanya saat tab bar terlihat', async () => {
-  let dispatch!: ReturnType<typeof useSample>['dispatch'];
-  function Probe() {
-    dispatch = useSample().dispatch;
-    return null;
-  }
   await renderWithProviders(
     <>
       <ToastHost />
-      <Probe />
     </>,
   );
-  await act(async () => dispatch({ type: 'showToast', text: 'Satu' }));
+  await act(async () => testToasts.show('Satu'));
   const bottom = () => StyleSheet.flatten(screen.getByTestId('toast').parent!.props.style).bottom as number;
   const base = bottom();
   await act(async () => setTabBarShown(true));

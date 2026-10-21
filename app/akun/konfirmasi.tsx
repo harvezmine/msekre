@@ -1,10 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { useAccount } from '@/api/useAccount';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 // Lembar konfirmasi dari pengaturan Akun: keluarkan HP lain (aksi=hp).
 export default function Konfirmasi() {
@@ -18,7 +18,7 @@ export default function Konfirmasi() {
 
 function Isi({ id }: { id: string }) {
   const { c } = useTheme();
-  const dispatch = useSampleDispatch();
+  const toast = useToast();
   const { account, removePhone, busy } = useAccount();
   const { close } = useSheet();
   const phone = account?.phones.find((p) => p.id === id);
@@ -28,8 +28,8 @@ function Isi({ id }: { id: string }) {
   const run = async () => {
     const res = await removePhone(id);
     close(() => {
-      if (res.ok) dispatch({ type: 'showToast', text: `${phone.name} dikeluarkan.` });
-      else if (res.message) dispatch({ type: 'showToast', text: res.message });
+      if (res.ok) toast(`${phone.name} dikeluarkan.`);
+      else if (res.message) toast(res.message);
     });
   };
   const working = busy.phone(id);

@@ -1,4 +1,4 @@
-import { AC_MAX, AC_MIN } from '@/sample/devices';
+import { AC_MAX, AC_MIN } from '@/api/constants';
 
 /** Ukuran putaran suhu (desain 2d, dial()): 280×280, jari-jari 116, busur 270° dari 135° sampai 405°. */
 export const DIAL = { size: 280, radius: 116, stroke: 16, knob: 15, start: 135, sweep: 270 } as const;

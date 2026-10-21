@@ -6,13 +6,13 @@ import { formatJam } from '@/api/format';
 import { countdownText, groupByDay, HISTORY_FILTERS, linkHref, remainingSec, STATUS_TEXT } from '@/api/history';
 import { useHistory } from '@/api/useHistory';
 import { useAssistantName } from '@/api/useProfile';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { FilterChips } from '@/ui/FilterChips';
 import { Icon } from '@/ui/Icon';
 import { iconOr } from '@/ui/icons';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 const LABELS = HISTORY_FILTERS.map((f) => f.label);
 /** Jarak dari ujung bawah (dp) saat halaman berikutnya mulai dimuat. */
@@ -23,11 +23,10 @@ const NEAR_END = 240;
 export default function Riwayat() {
   const { c } = useTheme();
   const assistant = useAssistantName();
-  const dispatch = useSampleDispatch();
   const [label, setLabel] = useState(LABELS[0]!);
   const kind = HISTORY_FILTERS.find((f) => f.label === label)?.kind;
   const h = useHistory(kind);
-  const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const toast = useToast();
   const cancel = async (entry: HistoryEntry) => {
     const res = await h.cancel(entry);
     if (res.ok) toast('Kiriman dibatalkan.');

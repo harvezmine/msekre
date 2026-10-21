@@ -35,13 +35,13 @@ import Konfirmasi from '../app/terhubung/konfirmasi';
 import Terhubung from '../app/terhubung/index';
 import Masuk from '../app/terhubung/masuk';
 import Tersambung from '../app/terhubung/tersambung';
-import { renderWithProviders } from './helpers';
+import { renderWithProviders, useSample } from './helpers';
 import { AfterSignIn } from '@/api/AfterSignIn';
 import { useApi } from '@/api/ApiProvider';
 import { canOpen, REDIRECT_APP, REDIRECT_ENTRY, routeKind } from '@/api/routeAccess';
 import type { DataMode } from '@/api/mode';
 import { useAuth, type AuthStatus } from '@/api/useAuth';
-import { useSample, type SampleState } from '@/sample/store';
+import { type SampleState } from '@/sample/store';
 import { ToastHost } from '@/ui/Toast';
 
 /** Peta rute ke layar, sama dengan struktur `app/`. */

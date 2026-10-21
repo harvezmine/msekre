@@ -1,10 +1,10 @@
 import { use } from 'react';
 import { DEFAULT_ASSISTANT } from '@/brand';
-import { user } from '@/sample/profile';
 import { AssistantNameContext } from './AccountProvider';
 import { ApiContext } from './ApiProvider';
 import { AuthContext } from './useAuth';
 import type { Me } from './contract';
+import { DEMO_USER as user } from './demo';
 
 export interface Profile {
   /** Nama asisten pilihan pengguna, atau {@link DEFAULT_ASSISTANT} sebelum `GET /me` selesai (atau tanpa sesi). */

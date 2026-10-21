@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Device, Routine } from '@/api/contract';
 import { useDeviceControl } from '@/api/useDeviceControl';
 import { useHome } from '@/api/useHome';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BoxCard } from '@/ui/device/BoxCard';
 import { DeviceTile } from '@/ui/device/DeviceTile';
@@ -16,6 +15,7 @@ import { ListGroup } from '@/ui/ListRow';
 import { PlaceButton } from '@/ui/PlaceButton';
 import { Initials } from '@/ui/Initials';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 const GAP = 12;
 
@@ -23,7 +23,6 @@ export default function Perangkat() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const dispatch = useSampleDispatch();
   const { home } = useHome();
   const place = home?.place;
   const {
@@ -49,7 +48,7 @@ export default function Perangkat() {
   const rooms = roomList.map((r) => r.name);
   const room = picked && rooms.includes(picked) ? picked : rooms[0];
   const tileWidth = (width - 32 - GAP) / 2;
-  const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const toast = useToast();
 
   // Sakelar ubin: perintah lewat server. Aksi yang dijaga (kamera, kunci) butuh PIN bila pemilik menghidupkannya; lembar
   // PIN dibuka otomatis oleh `control`.

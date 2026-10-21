@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BusinessStock } from '@/api/contract';
 import { useBusiness } from '@/api/useBusiness';
 import { useHome } from '@/api/useHome';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { MoneyInCard } from '@/ui/business/MoneyInCard';
 import { OrdersCard } from '@/ui/business/OrdersCard';
@@ -16,15 +15,15 @@ import { Card } from '@/ui/Card';
 import { PlaceButton } from '@/ui/PlaceButton';
 import { Initials } from '@/ui/Initials';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 export default function Usaha() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const dispatch = useSampleDispatch();
   const { home } = useHome();
   const place = home?.place ?? null;
   const { data, hasData, status, error, retry, reorder, isReordering, mediaUrl } = useBusiness(place, 'hari');
-  const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const toast = useToast();
 
   const openDraft = (draftId: string, messageId?: string) =>
     router.push({ pathname: '/chat', params: messageId ? { draf: draftId, pesan: messageId } : { draf: draftId } });

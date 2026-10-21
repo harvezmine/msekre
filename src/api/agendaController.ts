@@ -1,4 +1,4 @@
-import { addDays, weekdayIndex } from '@/sample/dates';
+import { addDays, weekdayIndex } from '@/api/dates';
 import { friendlyError } from './errors';
 import type { AgendaItem, AgendaNew, AgendaRes, StreamEvent } from './contract';
 import type { Transport, Unsubscribe } from './transport';

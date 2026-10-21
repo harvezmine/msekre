@@ -3,8 +3,8 @@ import { useApi } from '@/api/ApiProvider';
 import { FILE_DOWNLOAD_TEXT, FILE_NO_APP_TEXT } from '@/api/errors';
 import type { MediaSource } from '@/api/transport';
 import { NoViewerError, openDocument, shareDocument, type LocalDocument } from '@/files/documents';
-import { useSampleDispatch } from '@/sample/store';
 import { useMediaDownload } from './useMedia';
+import { useToast } from '@/ui/toastStore';
 
 export interface DocumentRef {
   mediaId: string;
@@ -20,7 +20,7 @@ export interface DocumentRef {
  * kartu berkas di chat dan kartu laporan di Usaha.
  */
 export function useDocumentActions(file: DocumentRef, mediaUrl: (mediaId: string) => Promise<MediaSource>) {
-  const dispatch = useSampleDispatch();
+  const toast = useToast();
   const { transport } = useApi();
   const download = useMediaDownload(mediaUrl);
   const [busy, setBusy] = useState<'open' | 'share' | null>(null);
@@ -33,7 +33,7 @@ export function useDocumentActions(file: DocumentRef, mediaUrl: (mediaId: string
     try {
       doc = await download(file.mediaId, file.name, file.mime, file.size);
     } catch {
-      dispatch({ type: 'showToast', text: FILE_DOWNLOAD_TEXT });
+      toast(FILE_DOWNLOAD_TEXT);
       // Unduhan ditolak karena sesi sudah dicabut? Satu pemeriksaan ringan: 401 menghapus sesi seperti request lain.
       void transport.me().catch(() => {});
       return;
@@ -45,7 +45,7 @@ export function useDocumentActions(file: DocumentRef, mediaUrl: (mediaId: string
     try {
       await action(doc);
     } catch (e) {
-      dispatch({ type: 'showToast', text: e instanceof NoViewerError ? FILE_NO_APP_TEXT : FILE_DOWNLOAD_TEXT });
+      toast(e instanceof NoViewerError ? FILE_NO_APP_TEXT : FILE_DOWNLOAD_TEXT);
     }
   };
   return {

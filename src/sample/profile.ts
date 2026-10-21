@@ -1,4 +1,6 @@
-/** Pengguna contoh Fase 0b. Di Fase 2 diganti respons /app/v1/home. */
-export const user = { name: 'Rina', initials: 'RW' };
+import { DEMO_USER } from '@/api/demo';
+
+/** Pengguna contoh. */
+export const user = DEMO_USER;
 
 export const homeSummary = 'Ada 3 hal yang perlu Anda hari ini.';

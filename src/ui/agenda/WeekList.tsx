@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { addDays, dayLabel, weekdayIndex } from '@/sample/dates';
+import { addDays, dayLabel, weekdayIndex } from '@/api/dates';
 import type { AgendaItem as Item } from '@/api/contract';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Txt } from '../Txt';

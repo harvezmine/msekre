@@ -1,7 +1,7 @@
 import { initialAgenda, initialLeftover, TODAY } from './agenda';
 import { clampTemp, initialDevices, MAIN_AC_ID } from './devices';
 import { initialBusiness, initialHistory } from './history';
-import { addMinutes } from './dates';
+import { addMinutes } from '@/api/dates';
 import { initialOutgoing } from './outgoing';
 import { initialServices, serviceCatalog } from './services';
 import type {
@@ -40,13 +40,6 @@ export interface SampleState {
   formerly: string[];
   history: HistoryEntry[];
   business: Business;
-  /** Toast yang sedang tampil. `id` baru setiap kali, jadi teks yang sama dua kali tetap tampil dan dibacakan ulang. */
-  toast: { id: number; text: string } | null;
-  /**
-   * Penanda contoh saja: layar pertama kali sudah dilewati. Di Fase 0b tidak ada pengalihan ke /mulai; penjaga
-   * onboarding sungguhan dibangun di Fase 1.
-   */
-  onboarded: boolean;
   /** Pencacah untuk id baru, supaya reducer tetap murni. */
   seq: number;
 }
@@ -85,11 +78,7 @@ export type SampleAction =
   | { type: 'connect'; id: string }
   | { type: 'disconnect'; id: string }
   | { type: 'forget'; id: string }
-  | { type: 'setPermission'; id: string; permission: Permission }
-  | { type: 'showToast'; text: string }
-  /** Dengan `id`: hanya menutup toast itu, bukan toast yang lebih baru. */
-  | { type: 'hideToast'; id?: number }
-  | { type: 'finishOnboarding' };
+  | { type: 'setPermission'; id: string; permission: Permission };
 
 export const initialSampleState: SampleState = {
   place: 'Semua',
@@ -103,8 +92,6 @@ export const initialSampleState: SampleState = {
   formerly: [],
   history: initialHistory,
   business: initialBusiness,
-  toast: null,
-  onboarded: false,
   seq: 0,
 };
 
@@ -120,10 +107,6 @@ function withHistory(state: SampleState, entry: Omit<HistoryEntry, 'id' | 'day'>
     id,
     state: { ...state, seq: state.seq + 1, history: [{ ...entry, id, day: 'Hari ini' }, ...state.history] },
   };
-}
-
-function withToast(state: SampleState, text: string): SampleState {
-  return { ...state, seq: state.seq + 1, toast: { id: state.seq + 1, text } };
 }
 
 function setOutgoing(state: SampleState, id: string, patch: Partial<Outgoing>): SampleState {
@@ -253,7 +236,7 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
     case 'cancelSend': {
       const o = state.outgoing[action.id];
       if (o?.status !== 'held') return state;
-      return withToast(setOutgoing(state, o.id, { status: 'cancelled' }), `Kiriman ke ${o.to} dibatalkan.`);
+      return setOutgoing(state, o.id, { status: 'cancelled' });
     }
 
     case 'markSent': {
@@ -379,13 +362,5 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
         },
       ).state;
     }
-
-    case 'showToast':
-      return withToast(state, action.text);
-    case 'hideToast':
-      if (state.toast === null || (action.id !== undefined && action.id !== state.toast.id)) return state;
-      return { ...state, toast: null };
-    case 'finishOnboarding':
-      return { ...state, onboarded: true };
   }
 }

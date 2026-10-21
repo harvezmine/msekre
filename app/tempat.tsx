@@ -1,8 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
-import { useApi } from '@/api/ApiProvider';
 import { useHome } from '@/api/useHome';
-import { PLACES, useSample, type Place } from '@/sample/store';
+import { useToast } from '@/ui/toastStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
 import { Sheet, useSheet } from '@/ui/Sheet';
@@ -19,28 +18,17 @@ export default function Tempat() {
 
 function Pilihan() {
   const { c } = useTheme();
-  const { state, dispatch } = useSample();
-  const { mode } = useApi();
+  const toast = useToast();
   const { home, setPlace } = useHome();
   const { close } = useSheet();
-  const current = home?.place ?? state.place;
-  // Tempat milik pengguna dari server (`Home.places`), `Semua` lebih dulu. Mode server tidak pernah memakai tempat contoh;
-  // sebelum Beranda terisi, hanya tempat yang sedang dipilih. Mode contoh memakai daftar contoh sebagai cadangan.
-  const places: string[] = home
-    ? ['Semua', ...home.places.filter((p) => p !== 'Semua')]
-    : mode === 'contoh'
-      ? [...PLACES]
-      : [current];
+  const current = home?.place ?? 'Semua';
+  // Tempat milik pengguna dari server (`Home.places`), `Semua` lebih dulu; sebelum Beranda terisi, hanya yang sedang dipilih.
+  const places: string[] = home ? ['Semua', ...home.places.filter((p) => p !== 'Semua')] : [current];
   const pick = (place: string) =>
     close(() => {
-      // Layar yang belum pindah ke kontrak membaca tempat dari data contoh, jadi ikut berubah saat itu juga (hanya mode
-      // contoh); yang menentukan tetap server (`PUT /places/current`). Gagal: pilihan lama dikembalikan.
-      const before = state.place;
-      if (mode === 'contoh') dispatch({ type: 'setPlace', place: place as Place });
+      // Yang menentukan server (`PUT /places/current`); gagal: pilihan lama tetap dan ada toast.
       void setPlace(place).then((failed) => {
-        if (!failed) return;
-        if (mode === 'contoh') dispatch({ type: 'setPlace', place: before });
-        dispatch({ type: 'showToast', text: failed });
+        if (failed) toast(failed);
       });
     });
   return (

@@ -3,7 +3,6 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { friendlyError } from '@/api/errors';
 import { useSecurity } from '@/api/useSecurity';
-import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { PinPad, type PinVerdict } from '@/ui/device/PinPad';
@@ -11,6 +10,7 @@ import { PinReset } from '@/ui/device/PinReset';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Toggle } from '@/ui/Toggle';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 const MISMATCH = 'PIN belum sama, ulangi ya.';
 
@@ -36,11 +36,10 @@ const COPY: Record<Step, { title: string; subtitle: string }> = {
 export default function Keamanan() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const { dispatch } = useSample();
   const security = useSecurity();
   const [flow, setFlow] = useState<Flow | null>(null);
   const busy = useRef(false);
-  const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const toast = useToast();
   const { state } = security;
 
   const finish = (text: string) => {

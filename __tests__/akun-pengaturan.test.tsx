@@ -7,7 +7,7 @@ import { ERROR_TEXT, INVALID_NAME_TEXT } from '@/api/errors';
 import { waUrl } from '@/api/waNumber';
 import { dark } from '@/theme/tokens';
 import { advance, currentRoute, currentStack, go, mockParams, restoreParams, sampleState, showRoute } from './harness';
-import { createTestApi } from './helpers';
+import { createTestApi, toastNow } from './helpers';
 
 const WA = '6281110003333';
 const config = Constants.expoConfig as { extra?: Record<string, unknown> };
@@ -84,7 +84,7 @@ describe('Nama dan gaya asisten', () => {
     await fireEvent.changeText(screen.getByLabelText('Nama asisten'), ' Sari ');
     await fireEvent.press(screen.getByRole('button', { name: 'Simpan' }));
     await settle();
-    expect(sampleState().toast?.text).toBe('Tersimpan. Sekarang saya Sari.');
+    expect(toastNow()?.text).toBe('Tersimpan. Sekarang saya Sari.');
     expect(router.back).toHaveBeenCalled();
     expect(currentRoute()).toBe('/');
     expect(screen.getByRole('button', { name: 'Bicara dengan Sari' })).toBeOnTheScreen();
@@ -158,7 +158,7 @@ describe('Sapaan harian', () => {
     await fireEvent.press(screen.getByRole('switch', { name: 'Sapa saya tiap pagi' }));
     await settle();
     expect(screen.getByRole('switch', { name: 'Sapa saya tiap pagi' })).toBeChecked();
-    expect(sampleState().toast?.text).toBe(ERROR_TEXT);
+    expect(toastNow()?.text).toBe(ERROR_TEXT);
   });
 
   test('jam di luar pilihan (diatur dari tempat lain) tetap tampil dan terpilih', async () => {
@@ -200,7 +200,7 @@ describe('Notifikasi', () => {
     await fireEvent.press(screen.getByRole('switch', { name: 'Pesan dari asisten' }));
     await settle();
     expect(screen.getByRole('switch', { name: 'Pesan dari asisten' })).toBeChecked();
-    expect(sampleState().toast?.text).toBe(ERROR_TEXT);
+    expect(toastNow()?.text).toBe(ERROR_TEXT);
     expect((await api.transport.account()).notifications.pesan).toBe(true);
   });
 });
@@ -226,7 +226,7 @@ describe('HP yang terhubung', () => {
     await advance(300);
     await settle();
     expect(api.transport.removedPhones).toEqual(['hp-lama']);
-    expect(sampleState().toast?.text).toBe('Galaxy A54 dikeluarkan.');
+    expect(toastNow()?.text).toBe('Galaxy A54 dikeluarkan.');
     expect(router.back).toHaveBeenCalled();
     expect(currentStack()).toEqual(['/akun/hp']);
     expect(screen.queryByText('Galaxy A54')).toBeNull();
@@ -243,7 +243,7 @@ describe('HP yang terhubung', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Ya, keluarkan' }));
     await advance(300);
     await settle();
-    expect(sampleState().toast?.text).toBe(ERROR_TEXT);
+    expect(toastNow()?.text).toBe(ERROR_TEXT);
     expect(screen.getByText('Galaxy A54')).toBeOnTheScreen();
   });
 
@@ -287,7 +287,7 @@ describe('Privasi', () => {
     expect(open).toHaveBeenCalledWith(waUrl(WA, ERASE_TEXT));
     delete config.extra;
     await fireEvent.press(screen.getByRole('button', { name: 'Buka WhatsApp' }));
-    expect(sampleState().toast?.text).toBe(WA_UNAVAILABLE_TEXT);
+    expect(toastNow()?.text).toBe(WA_UNAVAILABLE_TEXT);
     expect(open).toHaveBeenCalledTimes(1);
   });
 
@@ -299,7 +299,7 @@ describe('Privasi', () => {
     open.mockRejectedValueOnce(new Error('tidak ada peramban'));
     await fireEvent.press(screen.getByRole('link', { name: 'Baca kebijakan privasi' }));
     await settle();
-    expect(sampleState().toast?.text).toMatch(/kebijakan privasi belum bisa dibuka/);
+    expect(toastNow()?.text).toMatch(/kebijakan privasi belum bisa dibuka/);
   });
 });
 
@@ -327,7 +327,7 @@ describe('Langganan di Akun', () => {
     expect(open).toHaveBeenCalledWith(waUrl(WA, RENEW_TEXT));
     delete config.extra;
     await fireEvent.press(screen.getByRole('button', { name: 'Perpanjang' }));
-    expect(sampleState().toast?.text).toBe(WA_UNAVAILABLE_TEXT);
+    expect(toastNow()?.text).toBe(WA_UNAVAILABLE_TEXT);
   });
 
   test('Bantuan (mode server) membuka WhatsApp untuk melapor kendala; tanpa nomor: toast, tanpa menyebut fase', async () => {
@@ -337,7 +337,7 @@ describe('Langganan di Akun', () => {
     expect(open).toHaveBeenCalledWith(`https://wa.me/${WA}?text=Halo%2C%20saya%20mau%20lapor%20kendala.`);
     delete config.extra;
     await fireEvent.press(screen.getByRole('button', { name: /^Bantuan/ }));
-    expect(sampleState().toast?.text).toBe(WA_UNAVAILABLE_TEXT);
+    expect(toastNow()?.text).toBe(WA_UNAVAILABLE_TEXT);
     expect(open).toHaveBeenCalledTimes(1);
   });
 

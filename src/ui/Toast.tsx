@@ -8,9 +8,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useTabBarShown } from './tabBarShown';
+import { useToastState } from './toastStore';
 import { Txt } from './Txt';
 
 export const TOAST_MS = 2600;
@@ -51,21 +51,21 @@ export function Toast({ text }: { text: string }) {
 }
 
 /**
- * Dipasang sekali di akar aplikasi. Membaca `state.toast`, dibacakan pembaca layar, dan hilang sendiri setelah
+ * Dipasang sekali di akar aplikasi. Membaca toast dari `ToastProvider`, dibacakan pembaca layar, dan hilang sendiri setelah
  * 2,6 detik. Toast baru (juga dengan teks yang sama) memulai ulang waktunya dan dibacakan lagi.
  */
 export function ToastHost() {
-  const { state, dispatch } = useSample();
+  const { toast, hide } = useToastState();
   const insets = useSafeAreaInsets();
   const tabBar = useTabBarShown();
-  const id = state.toast?.id;
-  const text = state.toast?.text;
+  const id = toast?.id;
+  const text = toast?.text;
   useEffect(() => {
     if (id === undefined || text === undefined) return;
     AccessibilityInfo.announceForAccessibility(text);
-    const t = setTimeout(() => dispatch({ type: 'hideToast', id }), TOAST_MS);
+    const t = setTimeout(() => hide(id), TOAST_MS);
     return () => clearTimeout(t);
-  }, [id, text, dispatch]);
+  }, [id, text, hide]);
   if (id === undefined || text === undefined) return null;
   return (
     <Animated.View

@@ -5,7 +5,7 @@ import { GestureDetector, GestureStateManager, usePanGesture } from 'react-nativ
 import { useSharedValue } from 'react-native-reanimated';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
-import { AC_MAX, AC_MIN } from '@/sample/devices';
+import { AC_MAX, AC_MIN } from '@/api/constants';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Txt } from '../Txt';
 import {

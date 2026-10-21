@@ -1,13 +1,11 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import Agenda from '../app/(tabs)/agenda';
 import Akun from '../app/akun';
 import Alarm from '../app/alarm';
 import IzinAlarm, { brandTips } from '../app/izin-alarm';
-import { createTestApi, renderWithProviders } from './helpers';
-import { useSample, type SampleState } from '@/sample/store';
+import { createTestApi, renderWithProviders, toastNow } from './helpers';
 import { MemoryAlarmScheduler, setAlarmScheduler } from '@/alarm';
 import { TEST_ALARM_DELAY_MS, TEST_ALARM_ID } from '@/alarm/testAlarm';
 import { AlarmSyncHost } from '@/alarm/useAlarmSync';
@@ -19,15 +17,6 @@ jest.mock('expo-device', () => ({
     return mockManufacturer;
   },
 }));
-
-let latest: SampleState;
-function Probe() {
-  const { state } = useSample();
-  useEffect(() => {
-    latest = state;
-  });
-  return null;
-}
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -161,14 +150,13 @@ describe('panduan izin alarm', () => {
     const view = await renderWithProviders(
       <>
         <IzinAlarm />
-        <Probe />
       </>,
     );
     await advance(0);
     await fireEvent.press(screen.getByRole('button', { name: 'Coba alarm 1 menit lagi' }));
     await advance(0);
     expect(screen.queryByText(/Alarm akan berbunyi/)).toBeNull();
-    expect(latest.toast?.text).toBe(
+    expect(toastNow()?.text).toBe(
       'Notifikasi masih mati, jadi alarm tidak akan terdengar. Nyalakan notifikasinya dulu ya.',
     );
     await view.unmount();

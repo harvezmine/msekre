@@ -2,11 +2,11 @@ import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
 import type { DataMode } from '@/api/mode';
-import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 const OPTIONS: { id: DataMode; title: string; note: string }[] = [
   { id: 'contoh', title: 'Contoh', note: 'Data tiruan di aplikasi, tanpa jaringan' },
@@ -25,13 +25,13 @@ export default function Mode() {
 function Pilihan() {
   const { c } = useTheme();
   const { mode, canUseServer, setMode } = useApi();
-  const { dispatch } = useSample();
+  const toast = useToast();
   const { close } = useSheet();
   const pick = (id: DataMode) => {
     if (id === mode) return close();
     close(() => {
       void setMode(id).then((ok) => {
-        if (ok) dispatch({ type: 'showToast', text: `Mode data: ${id === 'server' ? 'Server' : 'Contoh'}.` });
+        if (ok) toast(`Mode data: ${id === 'server' ? 'Server' : 'Contoh'}.`);
       });
     });
   };

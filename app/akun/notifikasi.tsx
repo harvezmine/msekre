@@ -5,12 +5,12 @@ import { alarmBlocked, useAlarmStatus } from '@/alarm/useAlarmStatus';
 import { NOTIFICATION_KINDS } from '@/api/account';
 import { usePush, type PushPermission } from '@/api/usePush';
 import { useAccount } from '@/api/useAccount';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Toggle } from '@/ui/Toggle';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 const PERMISSION_TEXT: Record<PushPermission, string> = {
   granted: 'Aktif di HP ini',
@@ -21,11 +21,10 @@ const PERMISSION_TEXT: Record<PushPermission, string> = {
 // Notifikasi (di bawah Akun): izin dari HP, izin alarm, dan jenis notifikasi mana yang dikirim.
 export default function Notifikasi() {
   const { c } = useTheme();
-  const dispatch = useSampleDispatch();
   const { permission, canAskAgain } = usePush();
   const alarm = useAlarmStatus();
   const { account, status, error, retry, setNotifications } = useAccount();
-  const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const toast = useToast();
   const change = async (key: (typeof NOTIFICATION_KINDS)[number]['key'], on: boolean) => {
     const res = await setNotifications({ [key]: on });
     if (!res.ok && res.message) toast(res.message);

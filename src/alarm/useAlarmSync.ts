@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
 import { useAgenda } from '@/api/useAgenda';
 import { useAuth } from '@/api/useAuth';
-import { addDays } from '@/sample/dates';
+import { addDays } from '@/api/dates';
 import { getAlarmScheduler } from './index';
 import { AlarmSync, ALARM_HORIZON_DAYS } from './sync';
 

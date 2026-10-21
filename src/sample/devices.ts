@@ -1,10 +1,10 @@
+import { AC_MAX, AC_MIN, BRANDS, PIN_LENGTH } from '@/api/constants';
 import type { Device } from './types';
 
 /** AC utama: kartu Rumah di Beranda, kartu AC di chat, dan Mode Suara ("Matikan AC kamar"). */
 export const MAIN_AC_ID = 'ac-kamar';
-/** Batas suhu AC. Penyimpanan membatasi setiap perubahan ke rentang ini. */
-export const AC_MIN = 16;
-export const AC_MAX = 30;
+
+export { AC_MAX, AC_MIN, BRANDS, PIN_LENGTH };
 /** Baris kartu Rumah di Beranda, berurutan (desain 1a). */
 export const HOME_CARD_DEVICES = [MAIN_AC_ID, 'pintu-depan', 'kamera-tamu'];
 
@@ -251,19 +251,5 @@ export function houseLine(d: Device): string {
 /** Isi kartu Kotak Sekretaris AI di Perangkat (Ruang tamu, Rumah): data contoh. */
 export const BOX = { speaker: 'JBL Ruang Tamu', temp: 27, humidity: 68 } as const;
 
-/** Merek di "Tambah perangkat" (desain 2f): monogram dan nama. */
-export const BRANDS = [
-  { m: 'LG', n: 'LG' },
-  { m: 'S', n: 'Samsung SmartThings' },
-  { m: 'Hue', n: 'Philips Hue' },
-  { m: 'A', n: 'Aqara' },
-  { m: 'eW', n: 'eWeLink / Sonoff' },
-  { m: 'I', n: 'Imou' },
-  { m: 'EZ', n: 'EZVIZ' },
-  { m: 'T', n: 'Tuya' },
-  { m: 'HA', n: 'Home Assistant' },
-] as const;
-
 /** PIN contoh Fase 0b. PIN sungguhan diatur dan diperiksa di Fase 3. */
 export const SAMPLE_PIN = '123456';
-export const PIN_LENGTH = 6;

@@ -5,8 +5,8 @@ import { WA_UNAVAILABLE_TEXT } from '@/api/account';
 import Akun from '../app/akun';
 import Beranda from '../app/(tabs)/index';
 import Usaha from '../app/(tabs)/usaha';
-import { createTestApi, renderWithProviders } from './helpers';
-import { useSample, type SampleState } from '@/sample/store';
+import { createTestApi, renderWithProviders, toastNow, useSample } from './helpers';
+import { type SampleState } from '@/sample/store';
 import { dark } from '@/theme/tokens';
 
 beforeEach(() => jest.clearAllMocks());
@@ -56,10 +56,10 @@ test('PIN membuka Keamanan; keterangannya mengikuti keadaan PIN', async () => {
   expect(router.push).toHaveBeenCalledWith('/akun/keamanan');
 });
 
-test('Bantuan (belum dibangun) memunculkan toast yang menyebut fase', async () => {
+test('Bantuan di mode contoh memunculkan toast "segera hadir"', async () => {
   await show();
   await fireEvent.press(screen.getByRole('button', { name: /^Bantuan/ }));
-  expect(latest.toast?.text).toBe('Bantuan dibangun di Fase 5.');
+  expect(toastNow()?.text).toBe('Bantuan segera hadir.');
   expect(router.push).not.toHaveBeenCalled();
 });
 
@@ -91,8 +91,8 @@ test('mode server: Bantuan tanpa nomor WhatsApp memberi kalimat ramah, tanpa men
     { api },
   );
   await fireEvent.press(screen.getByRole('button', { name: /^Bantuan/ }));
-  expect(latest.toast?.text).toBe(WA_UNAVAILABLE_TEXT);
-  expect(latest.toast?.text).not.toMatch(/Fase|dibangun/);
+  expect(toastNow()?.text).toBe(WA_UNAVAILABLE_TEXT);
+  expect(toastNow()?.text).not.toMatch(/Fase|dibangun/);
   // Tidak ada keterangan contoh milik akun lain.
   expect(screen.queryByText(/ramah dan singkat/)).toBeNull();
 });

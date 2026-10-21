@@ -1,5 +1,5 @@
 import { NOW, TODAY } from '@/sample/agenda';
-import { addDays, weekdayIndex } from '@/sample/dates';
+import { addDays, weekdayIndex } from '@/api/dates';
 import type { SampleState } from '@/sample/reducer';
 import type { AgendaItem as SampleItem, Leftover } from '@/sample/types';
 import type { AgendaItem, AgendaNew, AgendaParseRes } from '../contract';

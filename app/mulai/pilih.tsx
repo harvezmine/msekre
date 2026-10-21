@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePush } from '@/api/usePush';
-import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
@@ -11,6 +10,7 @@ import type { IconName } from '@/ui/icons';
 import { PrimaryButton } from '@/ui/PrimaryButton';
 import { StepDots } from '@/ui/StepDots';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 type Minat = 'jadwal' | 'rumah' | 'usaha';
 const OPTIONS: { id: Minat; icon: IconName; title: string; sub: string }[] = [
@@ -40,16 +40,15 @@ const NEXT: Record<Minat, { button: string; helper: string; toast: string }> = {
 export default function MulaiPilih() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const { dispatch } = useSample();
+  const toast = useToast();
   const { offerAfterOnboarding } = usePush();
   const [picked, setPicked] = useState<Minat[]>(['jadwal']);
   const first = OPTIONS.find((o) => picked.includes(o.id))?.id;
   const next = first ? NEXT[first] : undefined;
 
   const toggle = (id: Minat) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
-  const finish = (toast?: string) => {
-    dispatch({ type: 'finishOnboarding' });
-    if (toast) dispatch({ type: 'showToast', text: toast });
+  const finish = (message?: string) => {
+    if (message) toast(message);
     // Tumpukan menjadi tepat [Beranda]: "kembali" dari Beranda tidak mendarat di layar masuk atau pilihan ini.
     router.dismissAll();
     router.replace('/');

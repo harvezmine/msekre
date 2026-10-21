@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '@/api/ApiProvider';
 import type { AgendaItem } from '@/api/contract';
 import { useAgenda } from '@/api/useAgenda';
+import { dayLabel } from '@/api/dates';
+import { DEMO_ALARM_ID } from '@/api/demo';
 import { useAuth } from '@/api/useAuth';
 import { useAssistantName } from '@/api/useProfile';
 import { getAlarmScheduler } from '@/alarm';
@@ -14,15 +16,13 @@ import { SNOOZE_MINUTES, snoozeAlarm } from '@/alarm/snooze';
 import { localAlarmItem, TEST_ALARM_ID, testAlarmItem } from '@/alarm/testAlarm';
 import { ringWindowEnd } from '@/alarm/ringWindow';
 import type { ScheduledAlarm } from '@/alarm/types';
-import { ALARM_SAMPLE_ID } from '@/sample/agenda';
-import { dayLabel } from '@/sample/dates';
-import { useSampleDispatch } from '@/sample/store';
 import { light, onForest } from '@/theme/tokens';
 import { Icon } from '@/ui/Icon';
 import { Inti } from '@/ui/inti/Inti';
 import { SwipeToConfirm } from '@/ui/SwipeToConfirm';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
+import { useToast } from '@/ui/toastStore';
 
 const BUZZ_MS = 2000;
 
@@ -40,14 +40,14 @@ export default function Alarm() {
   const assistantName = useAssistantName();
   const insets = useSafeAreaInsets();
   const live = useLive();
-  const toast = useSampleDispatch();
+  const toast = useToast();
   const { mode } = useApi();
   const { status: auth } = useAuth();
   const agenda = useAgenda();
   const params = useLocalSearchParams<{ id?: string; preview?: string }>();
   const preview = one(params.preview) === '1';
   // Mode contoh tanpa id (dibuka dari menu uji): pengingat contoh. Mode server tanpa id: tidak ada yang dibunyikan.
-  const id = one(params.id) ?? (mode === 'contoh' ? ALARM_SAMPLE_ID : undefined);
+  const id = one(params.id) ?? (mode === 'contoh' ? DEMO_ALARM_ID : undefined);
   // Hanya dengan sesi aktif (atau mode contoh) item bisa dimuat, tunda dikabarkan ke server, dan chat dibuka.
   const online = mode === 'contoh' || auth === 'signedIn';
   const [loaded, setLoaded] = useState<AgendaItem | null>(null);
@@ -155,7 +155,7 @@ export default function Alarm() {
 
   const busy = useRef(false);
   if (!item) return null;
-  const isFlight = item.id === ALARM_SAMPLE_ID;
+  const isFlight = /bandara|penerbangan|pesawat|terbang/i.test(`${item.title} ${item.note ?? ''}`);
   // "Tanya" butuh item dari server dan sesi aktif; alarm dari catatan HP hanya bisa ditunda atau dimatikan.
   const canAsk = full !== null && online;
 
@@ -193,7 +193,7 @@ export default function Alarm() {
     const result = await snoozeAlarm({ scheduler, item, snooze: online ? agenda.snooze : null });
     await scheduler.releaseLockScreen();
     if (!result.armed) {
-      toast({ type: 'showToast', text: 'Alarm belum bisa bunyi di HP ini. Cek izinnya di Akun.' });
+      toast('Alarm belum bisa bunyi di HP ini. Cek izinnya di Akun.');
     }
     leave();
   };
@@ -205,7 +205,7 @@ export default function Alarm() {
     const unlocked = preview || (await getAlarmScheduler().dismissKeyguard());
     busy.current = false;
     if (!unlocked) {
-      toast({ type: 'showToast', text: `Buka kunci HP dulu untuk bertanya ke ${assistantName}.` });
+      toast(`Buka kunci HP dulu untuk bertanya ke ${assistantName}.`);
       return;
     }
     router.replace('/chat');

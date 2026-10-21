@@ -4,13 +4,14 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDeviceControl } from '@/api/useDeviceControl';
 import { useHome } from '@/api/useHome';
-import { AC_MAX, AC_MIN, useSampleDispatch } from '@/sample/store';
+import { AC_MAX, AC_MIN } from '@/api/constants';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { Dial } from '@/ui/device/Dial';
 import { Icon } from '@/ui/Icon';
 import type { IconName } from '@/ui/icons';
 import { Segmented } from '@/ui/Segmented';
+import { useToast } from '@/ui/toastStore';
 import { Txt } from '@/ui/Txt';
 
 const MODES: { mode: string; icon: IconName }[] = [
@@ -29,7 +30,7 @@ export default function DetailAc() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const dispatch = useSampleDispatch();
+  const toast = useToast();
   const { home } = useHome();
   const { data, find, control } = useDeviceControl(home?.place);
   const deviceId = typeof id === 'string' ? id : '';
@@ -215,7 +216,7 @@ export default function DetailAc() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Tambah jadwal"
-              onPress={() => dispatch({ type: 'showToast', text: 'Jadwal baru segera hadir.' })}
+              onPress={() => toast('Jadwal baru segera hadir.')}
               android_ripple={{ color: c.ripple }}
               style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12 }}
             >

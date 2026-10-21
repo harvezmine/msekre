@@ -6,7 +6,7 @@ import { File } from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
 import Chat from '../app/chat';
-import { createTestApi, renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders, toastNow } from './helpers';
 import { ChatController, FIND_DRAFT_MAX_PAGES, THINKING_MAX_MS } from '@/api/chatController';
 import { isChatThinking } from '@/api/chatState';
 import { useChatController } from '@/api/ChatProvider';
@@ -26,17 +26,8 @@ import { FakeTransport, type FakeOptions } from '@/api/fake/FakeTransport';
 import { formatJam } from '@/api/format';
 import { createMemorySession } from '@/api/session';
 import { ApiFailure, type ConnectionStatus } from '@/api/transport';
-import { deviceById, useSample, type SampleState } from '@/sample/store';
+import { deviceById } from '@/sample/store';
 import { dark } from '@/theme/tokens';
-
-let latest: SampleState;
-function Probe() {
-  const { state } = useSample();
-  useEffect(() => {
-    latest = state;
-  });
-  return null;
-}
 
 async function advance(ms: number) {
   await act(async () => {
@@ -51,7 +42,6 @@ async function mount(options: FakeOptions & { scheme?: 'light' | 'dark' } = {}) 
   await renderWithProviders(
     <>
       <Chat />
-      <Probe />
     </>,
     { api, scheme },
   );
@@ -396,7 +386,7 @@ describe('kartu draf', () => {
     fake.failNext('server');
     await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
     await advance(1);
-    expect(latest.toast?.text).toBe('Lagi ada kendala, sudah dilaporkan ke tim. Coba lagi sebentar ya.');
+    expect(toastNow()?.text).toBe('Lagi ada kendala, sudah dilaporkan ke tim. Coba lagi sebentar ya.');
     expect(screen.getByRole('button', { name: 'Kirim' }).props.accessibilityState.disabled).toBe(false);
   });
 
@@ -411,7 +401,7 @@ describe('kartu draf', () => {
     expect(screen.getByRole('button', { name: 'Kirim' })).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
     for (let i = 0; i < 4; i++) await advance(0);
-    expect(latest.toast?.text).toBe(DRAFT_CHANGED_TEXT);
+    expect(toastNow()?.text).toBe(DRAFT_CHANGED_TEXT);
     expect(screen.getByText('Dibatalkan · tidak jadi terkirim')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Kirim' })).toBeNull();
   });
@@ -427,7 +417,7 @@ describe('kartu draf', () => {
     lost.mockRestore();
     await fireEvent.press(screen.getByRole('button', { name: 'Batalkan' }));
     for (let i = 0; i < 4; i++) await advance(0);
-    expect(latest.toast?.text).toBe(DRAFT_SENT_TEXT);
+    expect(toastNow()?.text).toBe(DRAFT_SENT_TEXT);
     expect(screen.getByText(/^Terkirim \d\d\.\d\d$/)).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Batalkan' })).toBeNull();
   });
@@ -554,7 +544,7 @@ describe('bagian dan kartu', () => {
     expect(screen.getByTestId('qris-kedaluwarsa')).toBeOnTheScreen();
     expect(screen.queryByTestId('qris-kode')).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Putar pesan suara' }));
-    expect(latest.toast?.text).toBe('Pemutar suara segera hadir.');
+    expect(toastNow()?.text).toBe('Pemutar suara segera hadir.');
   });
 
   test('kartu perangkat dari kontrak: sakelar dan suhu memanggil kendali, kartu mengikuti jawaban server', async () => {
@@ -596,7 +586,7 @@ describe('bagian dan kartu', () => {
     fake.failNext('network');
     await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
     await advance(0);
-    expect(latest.toast?.text).toBe(ERROR_TEXT);
+    expect(toastNow()?.text).toBe(ERROR_TEXT);
     expect(screen.getByText('Nyala · Dingin')).toBeOnTheScreen();
     expect(deviceById(fake.sample.getState(), 'ac-kamar')!.on).toBe(true);
   });
@@ -701,7 +691,7 @@ describe('bagian dan kartu', () => {
     await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
     await advance(0);
     expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'ac-kamar' } });
-    expect(latest.toast).toBeNull();
+    expect(toastNow()).toBeNull();
   });
 
   test('kartu perangkat di chat mengikuti perangkat yang diubah dari layar lain (event device)', async () => {
@@ -751,7 +741,7 @@ describe('"Lihat draf" (?draf=)', () => {
       const { fake } = await mount({ history: oldDraft() });
       await settle();
       await settle();
-      expect(latest.toast).toBeNull();
+      expect(toastNow()).toBeNull();
       // Halaman lama (dengan penanda `before`) dimuat untuk menemukan draf.
       expect(pages.mock.calls.some((call) => call[0] !== undefined)).toBe(true);
       // Daftar terbalik: pesan paling lama (berisi draf) ada di ujung data.
@@ -778,7 +768,7 @@ describe('"Lihat draf" (?draf=)', () => {
       await settle();
       await settle();
       // Id draf tidak cocok, tapi pesan x1 ada di halaman lama: ketemu, tanpa toast.
-      expect(latest.toast).toBeNull();
+      expect(toastNow()).toBeNull();
     } finally {
       scroll.mockRestore();
     }
@@ -793,7 +783,7 @@ describe('"Lihat draf" (?draf=)', () => {
       await settle();
       await settle();
       await settle();
-      expect(latest.toast?.text).toBe('Drafnya tidak ketemu, mungkin sudah dikirim atau dibuang.');
+      expect(toastNow()?.text).toBe('Drafnya tidak ketemu, mungkin sudah dikirim atau dibuang.');
       // Halaman pertama + halaman lama yang ada (45 pesan = dua halaman), lalu berhenti.
       expect(pages.mock.calls.length).toBeLessThanOrEqual(1 + FIND_DRAFT_MAX_PAGES);
       expect(scroll).not.toHaveBeenCalled();
@@ -904,7 +894,7 @@ describe('dokumen: unduh lalu buka atau bagikan', () => {
       flags: 1,
     });
     expect(Sharing.shareAsync).not.toHaveBeenCalled();
-    expect(latest.toast).toBeNull();
+    expect(toastNow()).toBeNull();
     jest.restoreAllMocks();
   });
 
@@ -919,11 +909,11 @@ describe('dokumen: unduh lalu buka atau bagikan', () => {
       mimeType: 'application/pdf',
       dialogTitle: 'Laporan.pdf',
     });
-    expect(latest.toast).toBeNull();
+    expect(toastNow()).toBeNull();
     jest.mocked(Sharing.isAvailableAsync).mockResolvedValue(false);
     await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
     await settle();
-    expect(latest.toast?.text).toBe(FILE_NO_APP_TEXT);
+    expect(toastNow()?.text).toBe(FILE_NO_APP_TEXT);
     jest.restoreAllMocks();
   });
 
@@ -963,12 +953,12 @@ describe('dokumen: unduh lalu buka atau bagikan', () => {
     jest.mocked(File.downloadFileAsync).mockRejectedValueOnce(new Error('UnableToDownload 404'));
     await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
     await settle();
-    expect(latest.toast?.text).toBe(FILE_DOWNLOAD_TEXT);
+    expect(toastNow()?.text).toBe(FILE_DOWNLOAD_TEXT);
     expect(IntentLauncher.startActivityAsync).not.toHaveBeenCalled();
     media.mockRejectedValue(new ApiFailure('network'));
     await fireEvent.press(screen.getByRole('button', { name: 'Bagikan' }));
     await settle();
-    expect(latest.toast?.text).toBe(FILE_DOWNLOAD_TEXT);
+    expect(toastNow()?.text).toBe(FILE_DOWNLOAD_TEXT);
     expect(Sharing.shareAsync).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Buka' })).toBeEnabled();
   });
@@ -1016,7 +1006,7 @@ describe('dokumen: unduh lalu buka atau bagikan', () => {
     jest.mocked(File.downloadFileAsync).mockRejectedValueOnce(new Error('UnableToDownload 401'));
     await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
     await settle();
-    expect(latest.toast?.text).toBe(FILE_DOWNLOAD_TEXT);
+    expect(toastNow()?.text).toBe(FILE_DOWNLOAD_TEXT);
     expect(me).toHaveBeenCalledTimes(1);
   });
 
@@ -1036,7 +1026,7 @@ describe('dokumen: unduh lalu buka atau bagikan', () => {
   test('Lampiran tetap "segera hadir"', async () => {
     await mount({ history: [doc] });
     await fireEvent.press(screen.getByRole('button', { name: 'Lampiran' }));
-    expect(latest.toast?.text).toBe('Lampiran segera hadir.');
+    expect(toastNow()?.text).toBe('Lampiran segera hadir.');
   });
 });
 

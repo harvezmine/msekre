@@ -36,7 +36,6 @@ test('keadaan awal sama dengan desain', () => {
     heldUntil: '10.47',
     sentAt: '10.42',
   });
-  expect(init.toast).toBeNull();
   expect(new Set(init.devices.map((d) => d.place))).toEqual(new Set(['Rumah', 'Kedai Dago', 'Kedai Riau']));
   for (const k of ['Kedai Dago', 'Kedai Riau']) {
     const ds = init.devices.filter((d) => d.place === k);
@@ -212,14 +211,13 @@ test('editDraft hanya saat masih draf; teks kosong diabaikan', () => {
   expect(sent.outgoing[BUDI]!.text).toBe(init.outgoing[BUDI]!.text);
 });
 
-test('cancelSend hanya dari held: entri tercoret tanpa Batalkan, toast', () => {
+test('cancelSend hanya dari held: entri tercoret tanpa Batalkan', () => {
   expect(run([{ type: 'cancelSend', id: BUDI }])).toBe(init);
   const s = run([
     { type: 'sendDraft', id: BUDI },
     { type: 'cancelSend', id: BUDI },
   ]);
   expect(s.outgoing[BUDI]!.status).toBe('cancelled');
-  expect(s.toast?.text).toBe('Kiriman ke Pak Budi dibatalkan.');
   expect(historyRows(s)[0]).toMatchObject({ struck: true, undoable: false, title: 'Mengirim balasan ke Pak Budi' });
   expect(historyRows(s)[0]!.until).toBeUndefined();
   expect(
@@ -421,21 +419,6 @@ test('kejadian di luar filter masuk jenis lainnya: tidak tampil di Pesan, tetap 
   expect(historyRows(s)).toHaveLength(init.history.length + 6);
   // entri contoh tetap sama
   expect(s.history.slice(6)).toEqual(init.history);
-});
-
-test('toast, onboarding', () => {
-  const one = run([{ type: 'showToast', text: 'Halo' }]);
-  expect(one.toast).toEqual({ id: expect.any(Number), text: 'Halo' });
-  expect(run([{ type: 'hideToast' }], one).toast).toBeNull();
-  // teks yang sama dua kali tetap toast baru
-  const two = run([{ type: 'showToast', text: 'Halo' }], one);
-  expect(two.toast!.text).toBe('Halo');
-  expect(two.toast!.id).not.toBe(one.toast!.id);
-  // menutup toast lama tidak menutup yang baru
-  expect(run([{ type: 'hideToast', id: one.toast!.id }], two)).toBe(two);
-  expect(run([{ type: 'hideToast', id: two.toast!.id }], two).toast).toBeNull();
-  expect(run([{ type: 'hideToast' }])).toBe(init);
-  expect(run([{ type: 'finishOnboarding' }]).onboarded).toBe(true);
 });
 
 test('homeAgenda: paling banyak tiga item hari ini urut jam, tanpa tugas', () => {

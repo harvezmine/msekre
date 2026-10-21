@@ -5,8 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { AgendaItem as Item } from '@/api/contract';
 import { alarmBlocked, useAlarmStatus } from '@/alarm/useAlarmStatus';
 import { useAgenda } from '@/api/useAgenda';
-import { daysInMonth, dayLabel, isoDate, parts } from '@/sample/dates';
-import { useSampleDispatch } from '@/sample/store';
+import { daysInMonth, dayLabel, isoDate, parts } from '@/api/dates';
 import { useTheme } from '@/theme/ThemeProvider';
 import { AgendaItem, isPast } from '@/ui/agenda/AgendaItem';
 import { MonthGrid } from '@/ui/agenda/MonthGrid';
@@ -17,6 +16,7 @@ import { Icon } from '@/ui/Icon';
 import { Segmented } from '@/ui/Segmented';
 import { Initials } from '@/ui/Initials';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 const SEGMENTS = ['Hari ini', 'Minggu ini', 'Kalender'] as const;
 type Segment = (typeof SEGMENTS)[number];
@@ -24,7 +24,7 @@ type Segment = (typeof SEGMENTS)[number];
 export default function Agenda() {
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const toast = useSampleDispatch();
+  const toast = useToast();
   const alarm = useAlarmStatus();
   const agenda = useAgenda();
   const { itemsOn, marked, leftover, ensureRange } = agenda;
@@ -41,7 +41,7 @@ export default function Agenda() {
   }, [segment, TODAY, ensureRange]);
 
   const say = (error: string | null) => {
-    if (error) toast({ type: 'showToast', text: error });
+    if (error) toast(error);
   };
 
   if (!TODAY || !NOW) {

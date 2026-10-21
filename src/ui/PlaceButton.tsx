@@ -1,8 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable } from 'react-native';
 import { useHome } from '@/api/useHome';
-import type { Place } from '@/sample/types';
-import { useSampleState } from '@/sample/store';
+import type { Place } from '@/api/contract';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from './Icon';
 import { Txt } from './Txt';
@@ -10,10 +9,9 @@ import { Txt } from './Txt';
 /** Tombol tempat di kiri atas (Beranda, Perangkat, Usaha): menampilkan tempat terpilih, membuka pemilih tempat. */
 export function PlaceButton({ labelFor }: { labelFor?: (place: Place) => string }) {
   const { c } = useTheme();
-  const state = useSampleState();
-  // Tempat dari Beranda (`GET /home`); sebelum terisi, dari data contoh (di mode contoh keduanya sama).
+  // Tempat dari Beranda (`GET /home`); sebelum terisi, `Semua`.
   const { home } = useHome();
-  const place = (home?.place ?? state.place) as Place;
+  const place = home?.place ?? 'Semua';
   const label = labelFor ? labelFor(place) : place;
   return (
     <Pressable

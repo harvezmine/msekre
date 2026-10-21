@@ -1,4 +1,5 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
+import { toastNow } from './helpers';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { Linking } from 'react-native';
@@ -6,7 +7,7 @@ import { DRAFT_SENT_TEXT, ERROR_TEXT, INVALID_NAME_TEXT } from '@/api/errors';
 import { HttpTransport, type SocketLike } from '@/api/http';
 import { createMemorySession } from '@/api/session';
 import { dark } from '@/theme/tokens';
-import { advance, mockParams, restoreParams, sampleState, showRoute } from './harness';
+import { advance, mockParams, restoreParams, showRoute } from './harness';
 
 const BASE = 'https://app.sekertaris.com';
 const me = {
@@ -231,7 +232,7 @@ describe('Riwayat lewat HttpTransport', () => {
     await settle();
     await fireEvent.press(screen.getByRole('button', { name: 'Batalkan' }));
     await settle();
-    expect(sampleState().toast?.text).toBe(DRAFT_SENT_TEXT);
+    expect(toastNow()?.text).toBe(DRAFT_SENT_TEXT);
     expect(screen.getByText('Terkirim')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Batalkan' })).toBeNull();
   });
@@ -332,7 +333,7 @@ describe('Akun lewat HttpTransport', () => {
     await fireEvent.press(screen.getByRole('switch', { name: 'Usaha' }));
     await settle();
     expect(screen.getByRole('switch', { name: 'Usaha' })).toBeChecked();
-    expect(sampleState().toast?.text).toBe(ERROR_TEXT);
+    expect(toastNow()?.text).toBe(ERROR_TEXT);
     fail = false;
     await fireEvent.press(screen.getByRole('switch', { name: 'Usaha' }));
     await settle();

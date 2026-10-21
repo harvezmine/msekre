@@ -2,11 +2,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useDevices } from '@/api/useDevices';
 import { useHome } from '@/api/useHome';
-import { useSampleDispatch } from '@/sample/store';
 import { PinPad } from '@/ui/device/PinPad';
 import { PinReset } from '@/ui/device/PinReset';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 // Lembar PIN untuk mematikan perangkat yang dijaga (kamera, kunci). Dibuka dari Perangkat dengan ?id=<perangkat>, hanya
 // bila PIN diaktifkan (Akun > Keamanan). PIN dikirim bersama perintahnya (POST /home/devices/:id) dan diperiksa server;
@@ -21,7 +21,7 @@ export default function Pin() {
 }
 
 function Isi({ id }: { id: string }) {
-  const dispatch = useSampleDispatch();
+  const toast = useToast();
   const { close } = useSheet();
   const { home } = useHome();
   const { find, controlDevice } = useDevices(home?.place);
@@ -36,7 +36,7 @@ function Isi({ id }: { id: string }) {
         onCancel={() => setResetting(false)}
         onDone={() => {
           setResetting(false);
-          dispatch({ type: 'showToast', text: 'PIN baru tersimpan.' });
+          toast('PIN baru tersimpan.');
         }}
       />
     );

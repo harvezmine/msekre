@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { Pressable, View } from 'react-native';
 import type { DeviceKind } from '@/api/contract';
-import { AC_MAX, AC_MIN } from '@/sample/store';
+import { AC_MAX, AC_MIN } from '@/api/constants';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
 import type { IconName } from '../icons';

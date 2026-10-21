@@ -1,5 +1,5 @@
 import { TODAY } from '@/sample/agenda';
-import { addDays, dayLabel, daysInMonth, isoDate, parts } from '@/sample/dates';
+import { addDays, dayLabel, daysInMonth, isoDate, parts } from '@/api/dates';
 
 export interface ParsedAgenda {
   kind: 'reminder' | 'task';

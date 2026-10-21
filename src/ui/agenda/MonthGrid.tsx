@@ -1,5 +1,5 @@
 import { Pressable, View } from 'react-native';
-import { DAY_SHORT, daysInMonth, isoDate, MONTH_NAMES, parts, weekdayIndex } from '@/sample/dates';
+import { DAY_SHORT, daysInMonth, isoDate, MONTH_NAMES, parts, weekdayIndex } from '@/api/dates';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Txt } from '../Txt';
 

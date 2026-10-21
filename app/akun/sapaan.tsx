@@ -2,21 +2,20 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { GREETING_TIMES } from '@/api/account';
 import { useAccount } from '@/api/useAccount';
 import { useAssistantName } from '@/api/useProfile';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { FilterChips } from '@/ui/FilterChips';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Toggle } from '@/ui/Toggle';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 // Sapaan harian (di bawah Akun): satu sapaan tiap pagi, bisa dimatikan. Pengingat yang Anda minta tetap dikirim.
 export default function Sapaan() {
   const { c } = useTheme();
   const assistant = useAssistantName();
-  const dispatch = useSampleDispatch();
   const { account, status, error, retry, setGreeting } = useAccount();
-  const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const toast = useToast();
 
   if (!account) {
     return (

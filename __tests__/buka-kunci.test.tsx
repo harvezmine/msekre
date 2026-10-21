@@ -2,8 +2,8 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import BukaKunci from '../app/buka-kunci';
-import { deviceById, useSample, type SampleState } from '@/sample/store';
-import { createTestApi, renderWithProviders } from './helpers';
+import { deviceById, type SampleState } from '@/sample/store';
+import { createTestApi, renderWithProviders, useSample } from './helpers';
 
 beforeEach(() => {
   jest.clearAllMocks();

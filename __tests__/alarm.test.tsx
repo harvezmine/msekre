@@ -6,11 +6,11 @@ import { useEffect } from 'react';
 import Agenda from '../app/(tabs)/agenda';
 import Alarm from '../app/alarm';
 import { ALARM_WINDOW_MS, ringWindowEnd } from '@/alarm/ringWindow';
-import { createTestApi, renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders, toastNow, useSample } from './helpers';
 import { Redraw, redraw } from './redraw';
 import { MemoryAlarmScheduler, setAlarmScheduler } from '@/alarm';
 import { getPendingSnoozes, PendingSnoozes, setPendingSnoozes } from '@/alarm/pendingSnooze';
-import { useSample, type SampleState } from '@/sample/store';
+import { type SampleState } from '@/sample/store';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -118,7 +118,7 @@ test('Tanya Nadia: HP terkunci dan tidak jadi dibuka, tetap di layar alarm dan m
   await fireEvent.press(screen.getByRole('button', { name: 'Tanya Nadia' }));
   await advance(0);
   expect(router.replace).not.toHaveBeenCalled();
-  expect(latest.toast?.text).toBe('Buka kunci HP dulu untuk bertanya ke Nadia.');
+  expect(toastNow()?.text).toBe('Buka kunci HP dulu untuk bertanya ke Nadia.');
   // Dibuka kemudian: bisa lagi.
   scheduler.unlockResult = true;
   await fireEvent.press(screen.getByRole('button', { name: 'Tanya Nadia' }));

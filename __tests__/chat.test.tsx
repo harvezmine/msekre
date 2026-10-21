@@ -5,11 +5,11 @@ import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { AccessibilityInfo } from 'react-native';
 import Chat from '../app/chat';
-import { createTestApi, renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders, toastNow, useSample } from './helpers';
 import { formatJam } from '@/api/format';
 import { wibIso } from '@/api/fake/clock';
 import { BUDI_DRAFT_ID as BUDI, supplierOrderDraft } from '@/sample/outgoing';
-import { deviceById, historyRows, useSample, type SampleState } from '@/sample/store';
+import { deviceById, historyRows, type SampleState } from '@/sample/store';
 import { QR_SIZE, qrCells } from '@/ui/chat/qrPattern';
 
 let latest: SampleState;
@@ -132,7 +132,6 @@ test('Kirim menahan kiriman dan mencatat Riwayat; Batalkan membatalkannya', asyn
   expect(screen.getByText('Dibatalkan · tidak jadi terkirim')).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Batalkan' })).toBeNull();
   expect(latest.outgoing[BUDI]!.status).toBe('cancelled');
-  expect(latest.toast?.text).toBe('Kiriman ke Pak Budi dibatalkan.');
   expect(historyRows(latest)[0]).toMatchObject({ struck: true, undoable: false });
 });
 
@@ -309,7 +308,7 @@ test('pola QR contoh selalu sama dan punya tiga mata penjuru', () => {
 test('tidak ada tombol mati: Baca notulen dan Lampiran memunculkan toast; Buka dan Bagikan mengunduh berkas contoh', async () => {
   await renderChat();
   await fireEvent.press(screen.getByRole('link', { name: 'Baca notulen' }));
-  expect(latest.toast?.text).toBe('Notulen lengkap tampil di Fase 1.');
+  expect(toastNow()?.text).toBe('Notulen lengkap segera hadir.');
   await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
   for (let i = 0; i < 6; i++) await advance(300);
   // iOS (bawaan tes): berkas contoh dibuka lewat lembar bagikan.
@@ -318,7 +317,7 @@ test('tidak ada tombol mati: Baca notulen dan Lampiran memunculkan toast; Buka d
   for (let i = 0; i < 6; i++) await advance(300);
   expect(Sharing.shareAsync).toHaveBeenCalledTimes(2);
   await fireEvent.press(screen.getByRole('button', { name: 'Lampiran' }));
-  expect(latest.toast?.text).toBe('Lampiran dibangun di Fase 1.');
+  expect(toastNow()?.text).toBe('Lampiran segera hadir.');
 });
 
 test('mic: mint dengan ikon hijau di utas, hijau penuh dengan ikon putih di keadaan kosong', async () => {

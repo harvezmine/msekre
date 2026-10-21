@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { StyleSheet } from 'react-native';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import { createTestApi, renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders, toastNow } from './helpers';
 import Tempat from '../app/tempat';
 import { ERROR_TEXT } from '@/api/errors';
 import { ApiFailure } from '@/api/transport';
@@ -271,7 +271,7 @@ describe('Beranda lewat kontrak (server tiruan memegang data)', () => {
     await act(async () => {
       jest.advanceTimersByTime(250);
     });
-    expect(store(api).getState().toast?.text).toBe(ERROR_TEXT);
+    expect(toastNow()?.text).toBe(ERROR_TEXT);
   });
 
   test('mode gelap: kartu dari server tampil sama', async () => {
@@ -300,5 +300,5 @@ test('memilih tempat yang gagal di server mengembalikan pilihan semula dan membe
   });
   // Pilihan sementara (penyimpanan contoh) dikembalikan; Beranda tetap di Semua.
   expect(api.transport.sample.getState().place).toBe('Semua');
-  expect(api.transport.sample.getState().toast?.text).toBe(ERROR_TEXT);
+  expect(toastNow()?.text).toBe(ERROR_TEXT);
 });

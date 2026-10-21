@@ -1,10 +1,9 @@
 import { render } from '@testing-library/react-native';
-import type { ReactElement } from 'react';
+import { useSyncExternalStore, type ReactElement } from 'react';
 import { AccountProvider } from '@/api/AccountProvider';
 import { AgendaProvider } from '@/api/AgendaProvider';
-import { ApiProvider, type Api } from '@/api/ApiProvider';
+import { ApiProvider, useApi, type Api } from '@/api/ApiProvider';
 import { ChatProvider } from '@/api/ChatProvider';
-import { ApiSampleProvider } from '@/api/ApiSampleProvider';
 import { BusinessProvider } from '@/api/BusinessProvider';
 import { ConnectionsProvider } from '@/api/ConnectionsProvider';
 import { DevicesProvider } from '@/api/DevicesProvider';
@@ -14,7 +13,14 @@ import { FakeTransport, type FakeOptions } from '@/api/fake/FakeTransport';
 import { createMemorySession } from '@/api/session';
 import { AuthProvider } from '@/api/useAuth';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { initialSampleState, sampleReducer, type SampleAction, type SampleState } from '@/sample/store';
+import {
+  createSampleStore,
+  initialSampleState,
+  sampleReducer,
+  type SampleAction,
+  type SampleState,
+} from '@/sample/store';
+import { createToastStore, ToastProvider } from '@/ui/toastStore';
 import { ThemeProvider, type Scheme } from '@/theme/ThemeProvider';
 
 interface Options {
@@ -39,15 +45,32 @@ export function stateAfter(actions: SampleAction[], from: SampleState = initialS
   return actions.reduce(sampleReducer, from);
 }
 
+/** Toast yang dipakai semua tes: dikosongkan tiap `renderWithProviders`. */
+export const testToasts = createToastStore();
+/** Toast yang sedang tampil (atau `null`). */
+export const toastNow = () => testToasts.get();
+
+const none = createSampleStore();
+
+/** Keadaan penyimpanan contoh milik server tiruan (hanya bila sumber datanya FakeTransport), untuk menengok isinya di tes. */
+export function useSample(): { state: SampleState } {
+  const { transport } = useApi();
+  // Sumber data bukan server tiruan (HttpTransport): tidak ada penyimpanan contoh untuk ditengok.
+  const store = transport instanceof FakeTransport ? transport.sample : none;
+  const state = useSyncExternalStore(store.subscribe, store.getState);
+  return { state };
+}
+
 /** Render dengan tema dan penyimpanan contoh, seperti di akar aplikasi. */
 export async function renderWithProviders(ui: ReactElement, { state, actions = [], scheme, api }: Options = {}) {
   // Mode contoh: keadaan awal dipasang di penyimpanan milik server tiruan (itu yang dilihat layar dan skenario).
   const seeded = stateAfter(actions, state);
+  testToasts.hide();
   return render(
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider scheme={scheme}>
-        <ApiProvider initial={api ?? createTestApi({ sample: seeded })} apiUrl={null}>
-          <ApiSampleProvider initial={seeded}>
+        <ToastProvider store={testToasts}>
+          <ApiProvider initial={api ?? createTestApi({ sample: seeded })} apiUrl={null}>
             <AuthProvider>
               <ChatProvider>
                 <HomeProvider>
@@ -65,8 +88,8 @@ export async function renderWithProviders(ui: ReactElement, { state, actions = [
                 </HomeProvider>
               </ChatProvider>
             </AuthProvider>
-          </ApiSampleProvider>
-        </ApiProvider>
+          </ApiProvider>
+        </ToastProvider>
       </ThemeProvider>
     </GestureHandlerRootView>,
   );

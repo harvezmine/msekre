@@ -6,9 +6,9 @@ import Perangkat from '../app/(tabs)/perangkat';
 import Beranda from '../app/(tabs)/index';
 import { ERROR_TEXT } from '@/api/errors';
 import { ApiFailure } from '@/api/transport';
-import { createTestApi, renderWithProviders, stateAfter } from './helpers';
+import { createTestApi, renderWithProviders, stateAfter, toastNow, useSample } from './helpers';
 import { dark } from '@/theme/tokens';
-import { deviceById, deviceStatus, houseCard, useSample, type SampleState } from '@/sample/store';
+import { deviceById, deviceStatus, houseCard, type SampleState } from '@/sample/store';
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -158,7 +158,7 @@ test('rutinitas Saya pulang: lampu teras nyala, AC kamar 25°, riwayat, toast', 
   expect(status('lampu-teras')).toBe('Nyala');
   expect(status('ac-kamar')).toBe('Nyala · 25°');
   expect(latest.history.length).toBeGreaterThan(before);
-  expect(latest.toast?.text).toBe('Rutinitas Saya pulang dijalankan.');
+  expect(toastNow()?.text).toBe('Rutinitas Saya pulang dijalankan.');
 });
 
 test('rutinitas Tidur: lampu rumah mati, AC 26°, pintu terkunci', async () => {
@@ -183,7 +183,7 @@ test('rutinitas Tutup kedai: lampu dan AC kedai mati, CCTV merekam', async () =>
   expect(status('dago-lampu')).toBe('Mati');
   expect(status('dago-ac')).toBe('Mati');
   expect(status('dago-cctv')).toBe('Merekam');
-  expect(latest.toast?.text).toBe('Rutinitas Tutup kedai dijalankan di Kedai Dago.');
+  expect(toastNow()?.text).toBe('Rutinitas Tutup kedai dijalankan di Kedai Dago.');
   // Kedai Riau tidak tersentuh saat Kedai Dago dipilih.
   expect(status('riau-lampu')).toBe('Nyala');
 });
@@ -194,7 +194,7 @@ test('rutinitas Tutup kedai di Semua: kedua kedai, rumah tidak', async () => {
   expect(status('dago-lampu')).toBe('Mati');
   expect(status('riau-lampu')).toBe('Mati');
   expect(status('lampu-teras')).toBe('Nyala');
-  expect(latest.toast?.text).toBe('Rutinitas Tutup kedai dijalankan di semua kedai.');
+  expect(toastNow()?.text).toBe('Rutinitas Tutup kedai dijalankan di semua kedai.');
 });
 
 test('Kedai Dago menampilkan perangkat kedai, tanpa kartu Kotak', async () => {
@@ -233,9 +233,9 @@ test('Tambah perangkat: kartu Kotak dan sembilan merek dengan toast', async () =
   expect(screen.getByText('Home Assistant')).toBeOnTheScreen();
   expect(screen.getByText('eW')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Philips Hue' }));
-  expect(latest.toast?.text).toBe('Masuk ke akun Philips Hue dibangun di Fase 3.');
+  expect(toastNow()?.text).toBe('Masuk ke akun Philips Hue segera hadir.');
   await fireEvent.press(screen.getByRole('button', { name: 'Pasang Kotak' }));
-  expect(latest.toast?.text).toBe('Pemasangan lewat Bluetooth dibangun bersama kotaknya.');
+  expect(toastNow()?.text).toBe('Pemasangan lewat Bluetooth segera hadir.');
   await act(async () => {});
 });
 
@@ -248,9 +248,9 @@ test('Tambah perangkat di mode server: toast netral, tanpa menyebut fase', async
     { api: createTestApi({ mode: 'server', token: 'tok' }) },
   );
   await fireEvent.press(screen.getByRole('button', { name: 'Philips Hue' }));
-  expect(latest.toast?.text).toBe('Masuk ke akun Philips Hue segera hadir.');
+  expect(toastNow()?.text).toBe('Masuk ke akun Philips Hue segera hadir.');
   await fireEvent.press(screen.getByRole('button', { name: 'Pasang Kotak' }));
-  expect(latest.toast?.text).toBe('Pemasangan lewat Bluetooth segera hadir.');
+  expect(toastNow()?.text).toBe('Pemasangan lewat Bluetooth segera hadir.');
   await act(async () => {});
 });
 
@@ -262,7 +262,7 @@ test('kendali gagal: sakelar dikembalikan dan toast ramah muncul', async () => {
   await act(async () => {});
   expect(status('lampu-utama')).toBe('Nyala · 80%');
   expect(screen.getByRole('switch', { name: 'Lampu utama, Nyala · 80%' })).toBeOnTheScreen();
-  expect(latest.toast?.text).toBe(ERROR_TEXT);
+  expect(toastNow()?.text).toBe(ERROR_TEXT);
 });
 
 test('mic Kotak gagal: kembali seperti semula dan toast', async () => {
@@ -272,7 +272,7 @@ test('mic Kotak gagal: kembali seperti semula dan toast', async () => {
   await fireEvent.press(screen.getByRole('button', { name: 'Matikan mic' }));
   await act(async () => {});
   expect(screen.getByText('Mic menyala')).toBeOnTheScreen();
-  expect(latest.toast?.text).toBe(ERROR_TEXT);
+  expect(toastNow()?.text).toBe(ERROR_TEXT);
 });
 
 test('rutinitas gagal: toast ramah, perangkat tidak berubah', async () => {
@@ -281,7 +281,7 @@ test('rutinitas gagal: toast ramah, perangkat tidak berubah', async () => {
   jest.spyOn(api.transport, 'runRoutine').mockRejectedValue(new ApiFailure('network'));
   await fireEvent.press(screen.getByRole('button', { name: 'Jalankan Tidur' }));
   await act(async () => {});
-  expect(latest.toast?.text).toBe(ERROR_TEXT);
+  expect(toastNow()?.text).toBe(ERROR_TEXT);
   expect(status('lampu-utama')).toBe('Nyala · 80%');
 });
 

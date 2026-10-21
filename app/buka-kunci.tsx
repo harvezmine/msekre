@@ -3,10 +3,10 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useDevices } from '@/api/useDevices';
 import { useHome } from '@/api/useHome';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 // Lembar konfirmasi membuka kunci pintu saat PIN mati (bukan PIN): "Buka kunci {nama}?". Dibuka dari Perangkat dengan
 // ?id=<kunci>. Kalau PIN dihidupkan, lembar PIN (/pin) yang dipakai.
@@ -21,7 +21,7 @@ export default function BukaKunci() {
 
 function Isi({ id }: { id: string }) {
   const { c } = useTheme();
-  const dispatch = useSampleDispatch();
+  const toast = useToast();
   const { close } = useSheet();
   const { home } = useHome();
   const { find, controlDevice } = useDevices(home?.place);
@@ -38,7 +38,7 @@ function Isi({ id }: { id: string }) {
     if (result.ok) return close();
     if (result.reason === 'pin') return close(() => router.push({ pathname: '/pin', params: { id: device.id } }));
     if (result.reason === 'confirm') return close();
-    close(() => dispatch({ type: 'showToast', text: result.message }));
+    close(() => toast(result.message));
   };
   return (
     <View style={{ gap: 8 }}>

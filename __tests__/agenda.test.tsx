@@ -4,9 +4,9 @@ import { useEffect } from 'react';
 import Agenda from '../app/(tabs)/agenda';
 import Tambah, { PREVIEW_DEBOUNCE_MS } from '../app/agenda/tambah';
 import { ERROR_TEXT } from '@/api/errors';
-import { createTestApi, renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders, toastNow, useSample } from './helpers';
 import { AgendaItem } from '@/ui/agenda/AgendaItem';
-import { useSample, type SampleState } from '@/sample/store';
+import { type SampleState } from '@/sample/store';
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -174,7 +174,7 @@ test('Tambah: Simpan nonaktif sampai ada teks, pratinjau dari teks, Simpan menam
     kind: 'reminder',
     way: 'alarm',
   });
-  expect(latest.toast?.text).toBe('Tersimpan di agenda.');
+  expect(toastNow()?.text).toBe('Tersimpan di agenda.');
   expect(router.back).not.toHaveBeenCalled();
   await act(async () => {
     jest.advanceTimersByTime(250);

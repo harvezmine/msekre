@@ -1,20 +1,17 @@
 import { Pressable, ScrollView, View } from 'react-native';
-import { useApi } from '@/api/ApiProvider';
-import { BRANDS } from '@/sample/devices';
-import { useSample } from '@/sample/store';
+import { BRANDS } from '@/api/constants';
 import { useTheme } from '@/theme/ThemeProvider';
 import { onForest } from '@/theme/tokens';
 import { BackHeader } from '@/ui/BackHeader';
 import { Icon } from '@/ui/Icon';
 import { ListGroup } from '@/ui/ListRow';
+import { useToast } from '@/ui/toastStore';
 import { Txt } from '@/ui/Txt';
 
 // Tambah perangkat (desain 2f): pasang Kotak, atau masuk dengan akun merek.
 export default function TambahPerangkat() {
   const { c } = useTheme();
-  const { dispatch } = useSample();
-  const { mode } = useApi();
-  const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const toast = useToast();
   return (
     <View style={{ flex: 1, backgroundColor: c.paper }}>
       <BackHeader title="Tambah perangkat" />
@@ -39,13 +36,7 @@ export default function TambahPerangkat() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Pasang Kotak"
-            onPress={() =>
-              toast(
-                mode === 'contoh'
-                  ? 'Pemasangan lewat Bluetooth dibangun bersama kotaknya.'
-                  : 'Pemasangan lewat Bluetooth segera hadir.',
-              )
-            }
+            onPress={() => toast('Pemasangan lewat Bluetooth segera hadir.')}
             android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
             style={{
               height: 52,
@@ -75,11 +66,7 @@ export default function TambahPerangkat() {
               key={b.n}
               accessibilityRole="button"
               accessibilityLabel={b.n}
-              onPress={() =>
-                toast(
-                  mode === 'contoh' ? `Masuk ke akun ${b.n} dibangun di Fase 3.` : `Masuk ke akun ${b.n} segera hadir.`,
-                )
-              }
+              onPress={() => toast(`Masuk ke akun ${b.n} segera hadir.`)}
               android_ripple={{ color: c.ripple }}
               style={{
                 minHeight: 60,

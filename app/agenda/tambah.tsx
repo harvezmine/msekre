@@ -3,8 +3,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import type { AgendaNew } from '@/api/contract';
 import { useAgenda } from '@/api/useAgenda';
-import { dayLabel } from '@/sample/dates';
-import { useSampleDispatch } from '@/sample/store';
+import { dayLabel } from '@/api/dates';
 import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
 import { KIND_ICON } from '@/ui/agenda/AgendaItem';
@@ -12,6 +11,7 @@ import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
+import { useToast } from '@/ui/toastStore';
 
 /** Nama jenis item di pratinjau. */
 const KIND_LABEL: Record<AgendaNew['kind'], string> = {
@@ -44,7 +44,7 @@ export default function Tambah() {
 function Isi() {
   const { c } = useTheme();
   const { close } = useSheet();
-  const dispatch = useSampleDispatch();
+  const toast = useToast();
   const agenda = useAgenda();
   const { preview: ask, add } = agenda;
   const [text, setText] = useState('');
@@ -83,7 +83,7 @@ function Isi() {
     const failed = await add(parsed.item);
     setSaving(false);
     if (failed) return setError(failed);
-    dispatch({ type: 'showToast', text: 'Tersimpan di agenda.' });
+    toast('Tersimpan di agenda.');
     close();
   };
 
