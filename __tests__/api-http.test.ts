@@ -790,8 +790,15 @@ describe('kegagalan khusus', () => {
       body: JSON.stringify({ pinEnabled: true }),
     });
     expect(call(fetch, 1).headers.Authorization).toBe('Bearer tok');
+    await transport.setSecurity({ pinEnabled: false, pin: '123456' });
+    expect(call(fetch, 2)).toMatchObject({ method: 'PUT', body: JSON.stringify({ pinEnabled: false, pin: '123456' }) });
+    await transport.setPin({ pin: '135790', enable: true });
+    expect(call(fetch, 3)).toMatchObject({
+      method: 'POST',
+      body: JSON.stringify({ pin: '135790', enable: true }),
+    });
     await transport.setPin({ pin: '654321', currentPin: '123456' });
-    expect(call(fetch, 2)).toMatchObject({
+    expect(call(fetch, 4)).toMatchObject({
       url: `${BASE}/app/v1/account/pin`,
       method: 'POST',
       body: JSON.stringify({ pin: '654321', currentPin: '123456' }),
@@ -834,7 +841,7 @@ describe('kegagalan khusus', () => {
     const e = await transport.controlDevice('ac1', { on: true }).catch((x: unknown) => x);
     expect(e).toMatchObject({ code: 'unavailable', status: 501, error: 'belum_tersedia' });
     expect(friendlyError(e)).toBe(UNAVAILABLE_TEXT);
-    expect(UNAVAILABLE_TEXT).toBe('Kendali perangkat dari chat segera hadir.');
+    expect(UNAVAILABLE_TEXT).toBe('Kendali perangkat ini segera hadir.');
   });
 });
 
@@ -967,6 +974,7 @@ describe('pembacaan longgar', () => {
 describe('Beranda', () => {
   const homeBody = {
     place: 'Semua',
+    places: ['Rumah', 'Kedai Dago'],
     greetingName: 'Rina',
     summary: 'Ada 3 hal yang perlu Anda hari ini.',
     approvals: [],
@@ -1037,6 +1045,7 @@ describe('Agenda', () => {
     to: '2026-11-01',
     today: '2026-10-21',
     now: '06.30',
+    tzOffsetMinutes: 420,
     rev: 7,
   };
 

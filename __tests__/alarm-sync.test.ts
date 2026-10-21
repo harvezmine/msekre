@@ -1,5 +1,6 @@
 import type { AgendaItem } from '@/api/contract';
 import { MemoryAlarmScheduler } from '@/alarm';
+import { PendingSnoozes } from '@/alarm/pendingSnooze';
 import { ALARM_HORIZON_MS, AlarmSync, desiredAlarms } from '@/alarm/sync';
 import { TEST_ALARM_ID } from '@/alarm/testAlarm';
 
@@ -55,15 +56,16 @@ describe('desiredAlarms', () => {
   });
 });
 
-describe('AlarmSync', () => {
-  function setup(now = NOW) {
-    const scheduler = new MemoryAlarmScheduler({ native: true });
-    const ack = jest.fn(async (_id: string, _at: string) => true);
-    const sync = new AlarmSync(scheduler, () => now);
-    return { scheduler, ack, sync };
-  }
-  const ids = async (s: MemoryAlarmScheduler) => (await s.list()).map((a) => a.id);
+function setup(now = NOW) {
+  const scheduler = new MemoryAlarmScheduler({ native: true });
+  const ack = jest.fn(async (_id: string, _at: string) => true);
+  const snoozes = new PendingSnoozes(false);
+  const sync = new AlarmSync(scheduler, () => now, snoozes);
+  return { scheduler, ack, sync, snoozes };
+}
+const ids = async (s: MemoryAlarmScheduler) => (await s.list()).map((a) => a.id);
 
+describe('AlarmSync', () => {
   test('menjadwalkan yang baru dan mengabarkan server sekali per id dan waktu', async () => {
     const { scheduler, ack, sync } = setup();
     const items = [item('a', 10), item('b', 20)];
@@ -78,12 +80,19 @@ describe('AlarmSync', () => {
     expect(ack).toHaveBeenCalledTimes(2);
   });
 
-  test('yang tidak berubah tidak dijadwalkan ulang', async () => {
+  test('dijadwalkan ulang tiap penyamaan: daftar yang tersimpan bukan bukti alarmnya masih terpasang', async () => {
     const { scheduler, ack, sync } = setup();
     const spy = jest.spyOn(scheduler, 'schedule');
     await sync.sync([item('a', 10)], ack);
     await sync.sync([item('a', 10)], ack);
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledTimes(2);
+    // Alarm yang diam-diam hilang (henti paksa, penghemat baterai) terpasang lagi, walau daftar masih menyebutnya.
+    const hide = jest.spyOn(scheduler, 'list').mockResolvedValue([{ id: 'a', at: NOW + 10 * 60_000, title: 'x' }]);
+    scheduler.alarms.clear();
+    await sync.sync([item('a', 10)], ack);
+    hide.mockRestore();
+    expect(await ids(scheduler)).toEqual(['a']);
+    expect(spy).toHaveBeenCalledTimes(3);
   });
 
   test('ditunda: dijadwalkan ulang di waktu baru dan dikabarkan lagi', async () => {
@@ -126,15 +135,35 @@ describe('AlarmSync', () => {
     expect(ack).toHaveBeenCalledTimes(1);
   });
 
-  test('kabar ke server gagal: dicoba lagi pada sinkron berikutnya, tanpa menjadwalkan ulang', async () => {
-    const { scheduler, sync } = setup();
-    const spy = jest.spyOn(scheduler, 'schedule');
+  test('kabar ke server gagal: dicoba lagi pada sinkron berikutnya; yang berhasil tidak diulang', async () => {
+    const { sync } = setup();
     const ack = jest.fn().mockResolvedValueOnce(false).mockResolvedValue(true);
     await sync.sync([item('a', 10)], ack);
     await sync.sync([item('a', 10)], ack);
     await sync.sync([item('a', 10)], ack);
     expect(ack).toHaveBeenCalledTimes(2);
-    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  test('notifikasi mati: alarm terpasang tapi tidak terdengar, jadi TIDAK dikabarkan; setelah dinyalakan baru dikabarkan', async () => {
+    const { scheduler, ack, sync } = setup();
+    scheduler.statusValue = { ...scheduler.statusValue, notifications: 'denied' };
+    await sync.sync([item('a', 10)], ack);
+    expect(ack).not.toHaveBeenCalled();
+    scheduler.statusValue = { ...scheduler.statusValue, notifications: 'granted' };
+    await sync.sync([item('a', 10)], ack);
+    expect(ack).toHaveBeenCalledTimes(1);
+  });
+
+  test('kejadian berulang: tiap kejadian punya alarm dan tanda terimanya sendiri', async () => {
+    const { scheduler, ack, sync } = setup();
+    const a = item('jemput:2026-10-21', 10, { kind: 'recurring', seriesId: 'jemput', repeat: 'Tiap Senin' });
+    const b = item('jemput:2026-10-28', 24 * 60, { kind: 'recurring', seriesId: 'jemput', repeat: 'Tiap Senin' });
+    await sync.sync([a, b], ack);
+    expect(await ids(scheduler)).toEqual(['jemput:2026-10-21', 'jemput:2026-10-28']);
+    expect(ack.mock.calls.map((c) => c[0])).toEqual(['jemput:2026-10-21', 'jemput:2026-10-28']);
+    // Satu kejadian selesai: hanya alarm kejadian itu yang dibatalkan.
+    await sync.sync([{ ...a, done: true }, b], ack);
+    expect(await ids(scheduler)).toEqual(['jemput:2026-10-28']);
   });
 
   test('panggilan bersamaan digabung: yang terakhir dijalankan sekali setelah yang berjalan', async () => {
@@ -155,5 +184,66 @@ describe('AlarmSync', () => {
     expect(await ids(scheduler)).toEqual([]);
     await sync.sync([item('a', 10)], ack);
     expect(ack).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('tunda yang belum sampai ke server', () => {
+  const pending = (id: string, offsetMin: number) => ({ id, until: iso(offsetMin), title: `Pengingat ${id}` });
+
+  test('tetap terjadwal di HP walau server belum tahu (jadwal lama sudah lewat), tanpa tanda terima', async () => {
+    const { scheduler, ack, sync, snoozes } = setup();
+    await snoozes.put(pending('a', 10));
+    // Server masih menyebut waktu semula yang sudah lewat: tanpa catatan tunda, alarm ini dibuang.
+    const snooze = jest.fn(async () => 'gagal');
+    await sync.sync([item('a', -5)], ack, snooze);
+    expect(await scheduler.list()).toMatchObject([{ id: 'a', at: NOW + 10 * 60_000 }]);
+    expect(ack).not.toHaveBeenCalled();
+    // Kabarnya dicoba ulang tiap penyamaan.
+    expect(snooze).toHaveBeenCalledWith('a', iso(10));
+    await sync.sync([item('a', -5)], ack, snooze);
+    expect(snooze).toHaveBeenCalledTimes(2);
+    expect(await snoozes.list()).toHaveLength(1);
+  });
+
+  test('server akhirnya menerima: catatan dihapus dan alarm dikabarkan', async () => {
+    const { scheduler, ack, sync, snoozes } = setup();
+    await snoozes.put(pending('a', 10));
+    const snooze = jest.fn().mockResolvedValueOnce('gagal').mockResolvedValue(null);
+    await sync.sync([item('a', -5)], ack, snooze);
+    await sync.sync([item('a', -5)], ack, snooze);
+    expect(await snoozes.list()).toEqual([]);
+    expect(ack.mock.calls).toEqual([['a', iso(10)]]);
+    expect(await ids(scheduler)).toEqual(['a']);
+  });
+
+  test('server sudah menyebut tundaan itu (atau yang lebih akhir): catatan dihapus tanpa mengulang kabar', async () => {
+    const { ack, sync, snoozes } = setup();
+    await snoozes.put(pending('a', 10));
+    await snoozes.put(pending('b', 10));
+    const snooze = jest.fn(async () => null);
+    await sync.sync([item('a', -5, { snoozedUntil: iso(10) }), item('b', -5, { snoozedUntil: iso(30) })], ack, snooze);
+    expect(snooze).not.toHaveBeenCalled();
+    expect(await snoozes.list()).toEqual([]);
+    expect(ack.mock.calls.map((c) => c[1])).toEqual([iso(10), iso(30)]);
+  });
+
+  test('tunda yang sudah lewat, atau itemnya sudah selesai: catatan dibuang dan alarm tidak dipasang', async () => {
+    const { scheduler, ack, sync, snoozes } = setup();
+    await snoozes.put(pending('lewat', -1));
+    await snoozes.put(pending('selesai', 10));
+    await sync.sync(
+      [item('selesai', -5, { done: true })],
+      ack,
+      jest.fn(async () => null),
+    );
+    expect(await snoozes.list()).toEqual([]);
+    expect(await ids(scheduler)).toEqual([]);
+  });
+
+  test('clear membuang catatan tunda (keluar dari akun)', async () => {
+    const { sync, snoozes } = setup();
+    await snoozes.put(pending('a', 10));
+    await sync.clear();
+    expect(await snoozes.list()).toEqual([]);
   });
 });

@@ -74,18 +74,24 @@ export class BusinessController {
     if (running) return running;
     const entry = this.state.entries[key];
     if (!entry?.data && entry?.status !== 'loading') this.setEntry(key, { data: null, status: 'loading', error: null });
-    const job = this.transport.business(place, period).then(
-      (data) => {
-        this.loading.delete(key);
-        // Jawaban terakhir dianggap benar (juga bila `rev`-nya lebih kecil, misalnya server diganti).
-        this.setEntry(key, { data, status: 'ready', error: null });
-      },
-      (e: unknown) => {
-        this.loading.delete(key);
+    const job = (async () => {
+      try {
+        // `rev` tidak pernah turun: jawaban yang lebih lama dari keadaan sekarang (event masuk selagi memuat) dibuang
+        // dan dimuat sekali lagi.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const data = await this.transport.business(place, period);
+          const have = this.state.entries[key]?.data;
+          if (have && data.rev < have.rev) continue;
+          this.setEntry(key, { data, status: 'ready', error: null });
+          break;
+        }
+      } catch (e) {
         if (!this.state.entries[key]?.data && this.alive)
           this.setEntry(key, { data: null, status: 'error', error: friendlyError(e) });
-      },
-    );
+      } finally {
+        this.loading.delete(key);
+      }
+    })();
     this.loading.set(key, job);
     return job;
   };

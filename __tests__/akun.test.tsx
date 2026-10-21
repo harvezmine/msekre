@@ -62,6 +62,32 @@ test('baris lain memunculkan toast yang menyebut fase', async () => {
   expect(router.push).not.toHaveBeenCalled();
 });
 
+test('mode server: toast layar yang belum ada netral ("segera hadir"), tanpa menyebut fase atau isian contoh', async () => {
+  const api = createTestApi({ mode: 'server', token: 'tok' });
+  await renderWithProviders(
+    <>
+      <Akun />
+      <Probe />
+    </>,
+    { api },
+  );
+  const texts: string[] = [];
+  for (const name of [/^Nama dan gaya asisten/, /^Privasi/, /^HP yang terhubung/, /^Bantuan/, /^Kelola$/]) {
+    await fireEvent.press(screen.getByRole('button', { name }));
+    texts.push(latest.toast!.text);
+  }
+  expect(texts).toEqual([
+    'Pengaturan asisten segera hadir.',
+    'Pengaturan privasi segera hadir.',
+    'Daftar HP segera hadir.',
+    'Bantuan segera hadir.',
+    'Kelola langganan segera hadir.',
+  ]);
+  expect(texts.join(' ')).not.toMatch(/Fase|dibangun/);
+  // Tidak ada keterangan contoh milik akun lain.
+  expect(screen.queryByText(/Pixel 8|ramah dan singkat/)).toBeNull();
+});
+
 test('bagian Coba (hanya development) membuka layar uji', async () => {
   await show();
   await fireEvent.press(row('Layar pertama kali'));

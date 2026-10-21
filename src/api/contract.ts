@@ -31,7 +31,7 @@
  * | POST /agenda                   | AgendaAddReq         | AgendaItemRes                     |
  * | PATCH /agenda/:id              | AgendaPatchReq       | AgendaItemRes                     |
  * | POST /agenda/leftover          | AgendaLeftoverReq    | AgendaLeftoverRes                 |
- * | POST /agenda/:id/alarm-ack     | AlarmAckReq          | OkRes                             |
+ * | POST /agenda/:id/alarm-ack     | AlarmAckReq          | OkRes (milik sesi)                |
  * | GET  /devices?place=           | -                    | DevicesRes (Perangkat)            |
  * | POST /home/devices/:id         | DeviceControlReq     | DeviceControlRes                  |
  * | POST /routines/:id/run         | RoutineRunReq        | RoutineRunRes                     |
@@ -50,13 +50,15 @@
  * - 400 `kode_salah`: kode masuk salah, kedaluwarsa, atau belum diminta;
  * - 401 `tidak_masuk`: token tidak ada, salah, atau sudah keluar. Aplikasi menghapus sesi dan kembali ke layar masuk;
  * - 403 `diblokir`: akun dinonaktifkan atau diblokir di admin. Sesi tidak dihapus;
- * - 403 `pin_salah`: PIN (atau PIN lama) tidak cocok. Berbeda dari `diblokir`: sesi tidak dihapus, akun tetap aktif;
+ * - 403 `pin_salah`: PIN (atau PIN lama, atau PIN untuk mematikan permintaan PIN) tidak cocok atau hilang. Berbeda dari `diblokir`: sesi tidak dihapus, akun tetap aktif;
  * - 428 `pin_diperlukan`: aksi perangkat yang dijaga (matikan kamera/alarm, buka kunci) butuh `pin` di isi request,
  *   karena pemilik menghidupkan PIN. Aplikasi lalu meminta PIN dan mengulang dengan `pin`;
  * - 404 `tidak_ditemukan`: id draf, pesan, atau media tidak ada (atau milik orang lain);
  * - 404 `belum_terdaftar`: dari `auth/start`, nomor itu belum punya akun. Aplikasi ini add-on: akun dan masa coba
  *   hanya dibuat lewat WhatsApp. Isinya membawa `waNumber` (nomor WhatsApp Sekretaris AI, E.164 tanpa "+") supaya
  *   aplikasi bisa mengarahkan pengguna memulai lewat WhatsApp. Tidak ada kode yang dikirim;
+ * - 422 `tidak_paham`: dari `POST /agenda/parse`, kalimatnya tidak berisi waktu atau isi yang bisa dibaca. Aplikasi menampilkan
+ *   teks ramah dengan contoh kalimat;
  * - 409 `status_draf`: aksi draf tidak boleh dari status sekarang (lihat aturan draf);
  * - 409 `sudah_dipilih`: pilihan di pesan itu sudah diambil;
  * - 426 `perlu_pembaruan`: versi aplikasi terlalu lama (dari `X-App-Version` / `X-Contract-Version`);
@@ -191,10 +193,22 @@ const pinSchema = z.string().regex(/^\d{6}$/);
  * Pembayaran tidak pernah memakai PIN.
  */
 export const securityResSchema = z.object({ pinEnabled: z.boolean(), hasPin: z.boolean() });
-/** `pinEnabled: true` tanpa PIN dibalas 400 `tidak_valid`: buat PIN dulu. */
-export const securityUpdateReqSchema = z.strictObject({ pinEnabled: z.boolean() });
-/** Buat PIN (belum ada) atau ganti PIN (`currentPin` wajib; salah: 403 `pin_salah`). */
-export const pinSetReqSchema = z.strictObject({ pin: pinSchema, currentPin: pinSchema.optional() });
+/**
+ * `pinEnabled: true` tanpa PIN dibalas 400 `tidak_valid`: buat PIN dulu. `pinEnabled: false` WAJIB membawa `pin` (PIN
+ * yang sekarang): hilang atau salah dibalas 403 `pin_salah`, jadi permintaan PIN tidak bisa dimatikan tanpa PIN walau
+ * memakai token yang sah.
+ */
+export const securityUpdateReqSchema = z.strictObject({ pinEnabled: z.boolean(), pin: pinSchema.optional() });
+/**
+ * Buat PIN (belum ada) atau ganti PIN (`currentPin` wajib; salah: 403 `pin_salah`). `enable: true` sekalian menghidupkan
+ * permintaan PIN dalam satu langkah (atomik: PIN tersimpan dan permintaan PIN hidup, atau tidak ada yang berubah), supaya
+ * pengguna tidak tertinggal dengan PIN yang sudah dibuat tapi belum dihidupkan.
+ */
+export const pinSetReqSchema = z.strictObject({
+  pin: pinSchema,
+  currentPin: pinSchema.optional(),
+  enable: z.boolean().optional(),
+});
 export const pinVerifyReqSchema = z.strictObject({ pin: pinSchema });
 
 // ---- Draf (kiriman ke orang lain) ----
@@ -552,6 +566,8 @@ export const ringNodeSchema = z.object({
 export const homeSchema = z.object({
   /** Tempat terpilih: `Semua` atau salah satu tempat pengguna. */
   place: z.string().min(1),
+  /** Semua tempat nyata milik pengguna (tanpa `Semua`), untuk pemilih tempat. Kosong = hanya `Semua`. */
+  places: z.array(z.string().min(1)),
   /** Nama untuk sapaan, atau `null` (sapaan netral). */
   greetingName: z.string().min(1).nullable(),
   summary: z.string(),
@@ -589,6 +605,7 @@ export const agendaNewSchema = z.object({
   at: isoDateTimeSchema,
   title: z.string().trim().min(1).max(300),
   kind: agendaKindSchema,
+  /** Tanpa `way`, pengingat dibaca `notif` (notifikasi biasa): hanya `alarm` yang membunyikan alarm di HP. */
   way: agendaWaySchema.optional(),
   /** Keterangan berulang yang sudah jadi, contoh "Tiap Senin". */
   repeat: z.string().min(1).optional(),
@@ -596,7 +613,13 @@ export const agendaNewSchema = z.object({
 });
 
 export const agendaItemSchema = agendaNewSchema.extend({
+  /**
+   * Id kejadian. Item berulang punya id sendiri per kejadian, `<seriesId>:<YYYY-MM-DD>` (tanggal kejadian itu); tunda,
+   * selesai, dan tanda terima alarm berlaku per kejadian.
+   */
   id: idSchema,
+  /** Id deret untuk item berulang (kejadian yang sama deret punya `seriesId` sama); kosong untuk item sekali. */
+  seriesId: idSchema.optional(),
   /** Tugas atau pengingat yang sudah selesai. */
   done: z.boolean().optional(),
   /** Ditunda: alarm dan pengingat berikutnya berbunyi pada saat ini, bukan pada `at`. */
@@ -619,6 +642,11 @@ export const agendaResSchema = z.object({
   /** "Hari ini" dan jam sekarang menurut zona pengguna di server; aplikasi memakainya untuk garis "sekarang". */
   today: dateSchema,
   now: clockSchema,
+  /**
+   * Selisih zona waktu pengguna dari UTC dalam menit (WIB 420, WITA 480, WIT 540). Jam yang berasal dari waktu ISO (misalnya
+   * "Ditunda sampai") ditampilkan dengan selisih ini, bukan zona HP, supaya sama dengan `time`.
+   */
+  tzOffsetMinutes: z.number().int().min(-720).max(840),
   /** Nomor perubahan agenda per pengguna. Naik setiap agenda berubah. */
   rev: z.number().int().positive(),
 });
@@ -640,7 +668,12 @@ export const agendaPatchReqSchema = z
 export const agendaLeftoverReqSchema = z.strictObject({ choice: z.enum(['today', 'drop']) });
 /** `today`: tugas dibuat di agenda hari ini (`item`); `drop`: dilepas (`item` `null`). */
 export const agendaLeftoverResSchema = z.object({ item: agendaItemSchema.nullable() });
-/** HP sudah menjadwalkan alarm lokal untuk item itu pada `scheduledFor` (ISO 8601). */
+/**
+ * HP sudah menjadwalkan alarm lokal yang AKAN TERDENGAR untuk item itu pada `scheduledFor` (ISO 8601). Tanda terima milik
+ * sesi yang mengirimnya (token): gugur saat sesi itu keluar, saat `DELETE /push-tokens` mencabut HP itu, dan saat ganti
+ * akun. Server hanya menahan pengingat WhatsApp kalau HP itu terlihat dalam 12 jam terakhir (stream tersambung atau
+ * request apa pun).
+ */
 export const alarmAckReqSchema = z.strictObject({ scheduledFor: isoDateTimeSchema });
 
 // ---- Usaha ----
@@ -796,6 +829,7 @@ export const apiErrorCodeSchema = z.enum([
   'pin_salah',
   'pin_diperlukan',
   'belum_terdaftar',
+  'tidak_paham',
   'perlu_pembaruan',
   'terlalu_sering',
   'server',

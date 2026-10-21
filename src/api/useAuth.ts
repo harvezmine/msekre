@@ -1,5 +1,6 @@
 import { createContext, createElement, use, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
+import { clearDocumentCache } from '@/files/documents';
 import { useApi } from './ApiProvider';
 import type { AuthStartRes, AuthVerifyRes, Me } from './contract';
 import type { Transport } from './transport';
@@ -61,7 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (alive) setState({ transport, status, me });
     };
     const off = session.onChange((token) => {
-      if (token === null) set('signedOut', null);
+      if (token !== null) return;
+      set('signedOut', null);
+      // Dokumen yang diunduh akun ini tidak boleh tertinggal di HP setelah keluar (juga saat sesi dicabut server).
+      clearDocumentCache();
     });
     void (async () => {
       if (!(await session.get())) return set('signedOut', null);

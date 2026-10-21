@@ -11,6 +11,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Draft } from '@/api/contract';
+import { greetingFor } from '@/api/format';
+import { useAgenda } from '@/api/useAgenda';
 import { useHome } from '@/api/useHome';
 import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -47,6 +49,9 @@ export default function Beranda() {
   const insets = useSafeAreaInsets();
   const dispatch = useSampleDispatch();
   const { home, ring, status, error, retry, controlDevice } = useHome();
+  // Sapaan menurut jam di zona pengguna (dari agenda, yang jamnya dimajukan sendiri); belum ada: jam HP.
+  const { now } = useAgenda();
+  const hello = greetingFor(now ? Number(now.slice(0, 2)) : new Date().getHours());
   const approval = home?.approvals[0] ?? null;
   const alert = home?.business?.alert ?? null;
 
@@ -113,7 +118,7 @@ export default function Beranda() {
         ) : (
           <FadeIn>
             <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 8 }}>
-              <Txt v="display">{home.greetingName ? `Selamat pagi, ${home.greetingName}` : 'Selamat pagi'}</Txt>
+              <Txt v="display">{home.greetingName ? `${hello}, ${home.greetingName}` : hello}</Txt>
               <Txt v="subtitle" weight={400} color={c.muted}>
                 {home.summary}
               </Txt>
@@ -169,72 +174,76 @@ export default function Beranda() {
                 </View>
               ) : null}
 
-              <Card style={{ paddingBottom: 8 }}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 4,
-                  }}
-                >
-                  <Txt v="subtitle">Agenda hari ini</Txt>
-                  <Pressable
-                    accessibilityRole="link"
-                    onPress={() => router.navigate('/agenda')}
-                    style={{ paddingVertical: 12, paddingLeft: 12 }}
-                  >
-                    <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
-                      Lihat semua
-                    </Txt>
-                  </Pressable>
-                </View>
-                {home.agendaToday.map((a, i) => (
+              {home.agendaToday.length > 0 ? (
+                <Card style={{ paddingBottom: 8 }}>
                   <View
-                    key={a.id}
                     style={{
                       flexDirection: 'row',
-                      gap: 16,
-                      paddingVertical: 12,
-                      borderBottomWidth: i < home.agendaToday.length - 1 ? 1 : 0,
-                      borderBottomColor: c.line,
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 4,
                     }}
                   >
-                    <Txt weight={600} tabular style={{ width: 52 }}>
-                      {a.time}
-                    </Txt>
-                    <Txt style={{ flex: 1 }}>{a.title}</Txt>
-                  </View>
-                ))}
-              </Card>
-
-              <Card style={{ gap: 4 }}>
-                <Txt v="subtitle" style={{ marginBottom: 8 }}>
-                  Rumah
-                </Txt>
-                {home.house.lines.map((line) => {
-                  // Baris AC punya sakelar dan ikon berwarna; baris lain hanya keterangan.
-                  const ac = line.on !== undefined;
-                  return (
-                    <View
-                      key={line.deviceId}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 }}
+                    <Txt v="subtitle">Agenda hari ini</Txt>
+                    <Pressable
+                      accessibilityRole="link"
+                      onPress={() => router.navigate('/agenda')}
+                      style={{ paddingVertical: 12, paddingLeft: 12 }}
                     >
-                      <IconTile icon={iconOr(line.icon, 'home')} tinted={ac} />
-                      <Txt weight={ac ? 500 : undefined} style={{ flex: 1 }}>
-                        {line.text}
+                      <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
+                        Lihat semua
                       </Txt>
-                      {ac && line.switchable ? (
-                        <Toggle
-                          value={line.on === true}
-                          onChange={(on) => void switchAc(line.deviceId, on)}
-                          label={line.label ?? line.text}
-                        />
-                      ) : null}
+                    </Pressable>
+                  </View>
+                  {home.agendaToday.map((a, i) => (
+                    <View
+                      key={a.id}
+                      style={{
+                        flexDirection: 'row',
+                        gap: 16,
+                        paddingVertical: 12,
+                        borderBottomWidth: i < home.agendaToday.length - 1 ? 1 : 0,
+                        borderBottomColor: c.line,
+                      }}
+                    >
+                      <Txt weight={600} tabular style={{ width: 52 }}>
+                        {a.time}
+                      </Txt>
+                      <Txt style={{ flex: 1 }}>{a.title}</Txt>
                     </View>
-                  );
-                })}
-              </Card>
+                  ))}
+                </Card>
+              ) : null}
+
+              {home.house.lines.length > 0 ? (
+                <Card style={{ gap: 4 }}>
+                  <Txt v="subtitle" style={{ marginBottom: 8 }}>
+                    Rumah
+                  </Txt>
+                  {home.house.lines.map((line) => {
+                    // Baris AC punya sakelar dan ikon berwarna; baris lain hanya keterangan.
+                    const ac = line.on !== undefined;
+                    return (
+                      <View
+                        key={line.deviceId}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 }}
+                      >
+                        <IconTile icon={iconOr(line.icon, 'home')} tinted={ac} />
+                        <Txt weight={ac ? 500 : undefined} style={{ flex: 1 }}>
+                          {line.text}
+                        </Txt>
+                        {ac && line.switchable ? (
+                          <Toggle
+                            value={line.on === true}
+                            onChange={(on) => void switchAc(line.deviceId, on)}
+                            label={line.label ?? line.text}
+                          />
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </Card>
+              ) : null}
 
               {home.business ? (
                 <Card style={{ gap: 12 }}>

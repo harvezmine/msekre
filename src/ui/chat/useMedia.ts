@@ -35,14 +35,14 @@ export function useMedia(
  */
 export function useMediaDownload(mediaUrl: (mediaId: string) => Promise<MediaSource>) {
   return useCallback(
-    async (mediaId: string, name: string, mime: string): Promise<LocalDocument> => {
+    async (mediaId: string, name: string, mime: string, size?: number): Promise<LocalDocument> => {
       let source: MediaSource;
       try {
         source = await mediaUrl(mediaId);
       } catch (e) {
         throw new FileDownloadError(e);
       }
-      return downloadDocument(source, mediaId, name, mime);
+      return downloadDocument(source, mediaId, name, mime, size);
     },
     [mediaUrl],
   );

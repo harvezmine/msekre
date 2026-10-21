@@ -319,8 +319,14 @@ test('keamanan: PIN opsional, 6 angka', () => {
   ok(securityResSchema, { pinEnabled: false, hasPin: false });
   bad(securityResSchema, { pinEnabled: false });
   ok(securityUpdateReqSchema, { pinEnabled: true });
-  bad(securityUpdateReqSchema, { pinEnabled: true, pin: '123456' });
+  // Mematikan membawa PIN yang sekarang; PIN harus 6 angka.
+  ok(securityUpdateReqSchema, { pinEnabled: false, pin: '123456' });
+  bad(securityUpdateReqSchema, { pinEnabled: false, pin: '12345' });
+  bad(securityUpdateReqSchema, { pinEnabled: false, nama: 'x' });
   ok(pinSetReqSchema, { pin: '123456' });
+  // Membuat PIN sekalian menghidupkan permintaan PIN (atomik).
+  ok(pinSetReqSchema, { pin: '123456', enable: true });
+  bad(pinSetReqSchema, { pin: '123456', enable: 'ya' });
   ok(pinSetReqSchema, { pin: '123456', currentPin: '654321' });
   for (const pin of ['12345', '1234567', 'abcdef', '12 456', 123456]) bad(pinSetReqSchema, { pin });
   bad(pinSetReqSchema, { pin: '123456', currentPin: '1' });

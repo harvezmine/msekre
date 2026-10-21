@@ -22,6 +22,7 @@ jest.mock('expo-router', () => ({
     push: jest.fn(),
     replace: jest.fn(),
     back: jest.fn(),
+    canGoBack: jest.fn(() => true),
     navigate: jest.fn(),
     dismissTo: jest.fn(),
     dismissAll: jest.fn(),
@@ -57,9 +58,23 @@ jest.mock('expo-file-system', () => {
       this.uri = parts.map((p) => (typeof p === 'string' ? p : (p as { uri: string }).uri)).join('/');
     }
     create = jest.fn();
+    exists = true;
+    /** Folder yang dibuang (`delete`), dari yang pertama. */
+    static deleted: string[] = [];
+    delete() {
+      Directory.deleted.push(this.uri);
+    }
   }
   class File {
     uri: string;
+    /** Berkas yang "sudah ada di HP": alamat -> ukuran (byte). Tes mengisinya sendiri. */
+    static existing = new Map<string, number>();
+    get exists() {
+      return File.existing.has(this.uri);
+    }
+    get size() {
+      return File.existing.get(this.uri) ?? 0;
+    }
     constructor(...parts: unknown[]) {
       this.uri = parts.map((p) => (typeof p === 'string' ? p : (p as { uri: string }).uri)).join('/');
     }

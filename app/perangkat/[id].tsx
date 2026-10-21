@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDeviceControl } from '@/api/useDeviceControl';
@@ -19,6 +20,8 @@ const MODES: { mode: string; icon: IconName }[] = [
   { mode: 'Otomatis', icon: 'auto' },
 ];
 const FANS: readonly string[] = ['Pelan', 'Sedang', 'Kencang', 'Otomatis'];
+/** Jeda setelah perubahan suhu terakhir sebelum dikirim ke server: memutar putaran tidak membanjiri server. */
+export const TEMP_DEBOUNCE_MS = 500;
 
 // Detail AC (desain 2d): putaran suhu, mode, kipas, jadwal, dan tombol nyala/mati. Semua perintah lewat server
 // (`controlDevice`), jadi keadaan AC-nya sama dengan Beranda dan chat.
@@ -29,7 +32,32 @@ export default function DetailAc() {
   const dispatch = useSampleDispatch();
   const { home } = useHome();
   const { data, find, control } = useDeviceControl(home?.place);
-  const device = find(typeof id === 'string' ? id : '');
+  const deviceId = typeof id === 'string' ? id : '';
+  const device = find(deviceId);
+
+  // Suhu: layar langsung menampilkan angka baru, tapi ke server hanya nilai akhir, ~500 ms setelah perubahan terakhir.
+  const [pendingTemp, setPendingTemp] = useState<number | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flush = useRef<(() => void) | null>(null);
+  const send = (temp: number) => {
+    setPendingTemp(temp);
+    if (timer.current) clearTimeout(timer.current);
+    const go = () => {
+      timer.current = null;
+      flush.current = null;
+      void control(deviceId, { temp }).finally(() => setPendingTemp((p) => (p === temp ? null : p)));
+    };
+    flush.current = go;
+    timer.current = setTimeout(go, TEMP_DEBOUNCE_MS);
+  };
+  // Meninggalkan layar sebelum jedanya habis: nilai terakhir tetap dikirim.
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+      flush.current?.();
+    },
+    [],
+  );
 
   if (!device || device.kind !== 'ac' || !device.ac) {
     // Belum selesai dimuat: tunggu dulu, jangan langsung bilang tidak ada.
@@ -61,8 +89,9 @@ export default function DetailAc() {
   }
 
   const { name, on, roomTemp, brand, via } = device;
-  const { temp, mode, fan } = device.ac;
-  const set = (patch: { on?: boolean; temp?: number; mode?: string; fan?: string }) => void control(device.id, patch);
+  const { mode, fan } = device.ac;
+  const temp = pendingTemp ?? device.ac.temp;
+  const set = (patch: { on?: boolean; mode?: string; fan?: string }) => void control(device.id, patch);
   const sub =
     via === 'cloud' ? `lewat aplikasi ${brand ?? 'merek'}` : `${brand ? `${brand} · ` : ''}lewat Kotak Sekretaris AI`;
 
@@ -72,20 +101,10 @@ export default function DetailAc() {
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: Math.max(24, insets.bottom + 12), gap: 16 }}
       >
-        <Dial name={name} temp={temp} caption={on ? mode : 'Mati'} dimmed={!on} onChange={(t) => set({ temp: t })} />
+        <Dial name={name} temp={temp} caption={on ? mode : 'Mati'} dimmed={!on} onChange={send} />
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: -8 }}>
-          <RoundButton
-            label="Turunkan suhu"
-            icon="minus"
-            disabled={temp <= AC_MIN}
-            onPress={() => set({ temp: temp - 1 })}
-          />
-          <RoundButton
-            label="Naikkan suhu"
-            icon="plus"
-            disabled={temp >= AC_MAX}
-            onPress={() => set({ temp: temp + 1 })}
-          />
+          <RoundButton label="Turunkan suhu" icon="minus" disabled={temp <= AC_MIN} onPress={() => send(temp - 1)} />
+          <RoundButton label="Naikkan suhu" icon="plus" disabled={temp >= AC_MAX} onPress={() => send(temp + 1)} />
         </View>
 
         {via === 'ir' ? (

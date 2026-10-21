@@ -429,6 +429,7 @@ function PartView({
             name: part.name,
             mime: part.mime,
             meta: formatFileMeta(part.sizeBytes, part.mime),
+            size: part.sizeBytes,
           }}
           mediaUrl={actions.mediaUrl}
         />

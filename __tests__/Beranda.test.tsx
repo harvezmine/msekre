@@ -283,3 +283,22 @@ describe('Beranda lewat kontrak (server tiruan memegang data)', () => {
     expect(StyleSheet.flatten(screen.getByText('Rp2.610.000').props.style).color).toBe('#ECF2EA');
   });
 });
+
+test('memilih tempat yang gagal di server mengembalikan pilihan semula dan memberi tahu', async () => {
+  const api = createTestApi();
+  await renderWithProviders(
+    <>
+      <Beranda />
+      <Tempat />
+    </>,
+    { api },
+  );
+  api.transport.failNext('network');
+  await fireEvent.press(screen.getByRole('radio', { name: 'Rumah' }));
+  await act(async () => {
+    jest.advanceTimersByTime(250);
+  });
+  // Pilihan sementara (penyimpanan contoh) dikembalikan; Beranda tetap di Semua.
+  expect(api.transport.sample.getState().place).toBe('Semua');
+  expect(api.transport.sample.getState().toast?.text).toBe(ERROR_TEXT);
+});

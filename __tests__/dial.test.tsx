@@ -1,8 +1,8 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
-import DetailAc from '../app/perangkat/[id]';
-import { renderWithProviders } from './helpers';
+import DetailAc, { TEMP_DEBOUNCE_MS } from '../app/perangkat/[id]';
+import { createTestApi, renderWithProviders } from './helpers';
 import { deviceById, initialSampleState, MAIN_AC_ID, useSample, type SampleState } from '@/sample/store';
 import {
   angleOf,
@@ -36,6 +36,12 @@ function Probe() {
 const ac = () => deviceById(latest, MAIN_AC_ID)!;
 const action = (name: 'increment' | 'decrement') => ({ nativeEvent: { actionName: name } });
 const dial = () => screen.getByRole('adjustable', { name: 'Suhu AC kamar' });
+
+/** Lewati jeda sebelum suhu dikirim ke server. */
+const settle = () =>
+  act(async () => {
+    jest.advanceTimersByTime(TEMP_DEBOUNCE_MS);
+  });
 
 async function show() {
   await renderWithProviders(
@@ -144,18 +150,24 @@ test('aksi naik dan turun pada putaran mengubah suhu satu derajat', async () => 
   await show();
   expect(dial().props.accessibilityValue).toEqual({ text: '24 derajat' });
   await fireEvent(dial(), 'accessibilityAction', action('increment'));
-  expect(ac().ac!.temp).toBe(25);
+  // Angka langsung berubah di layar; ke server baru terkirim setelah jeda.
   expect(dial().props.accessibilityValue).toEqual({ text: '25 derajat' });
+  expect(ac().ac!.temp).toBe(24);
+  await settle();
+  expect(ac().ac!.temp).toBe(25);
   await fireEvent(dial(), 'accessibilityAction', action('decrement'));
+  await settle();
   expect(ac().ac!.temp).toBe(24);
 });
 
 test('suhu tertahan di 30 dan 16, tombolnya mati di batas', async () => {
   await show();
   for (let i = 0; i < 20; i++) await fireEvent(dial(), 'accessibilityAction', action('increment'));
+  await settle();
   expect(ac().ac!.temp).toBe(30);
   expect(screen.getByRole('button', { name: 'Naikkan suhu' })).toBeDisabled();
   for (let i = 0; i < 20; i++) await fireEvent(dial(), 'accessibilityAction', action('decrement'));
+  await settle();
   expect(ac().ac!.temp).toBe(16);
   expect(screen.getByRole('button', { name: 'Turunkan suhu' })).toBeDisabled();
 });
@@ -164,10 +176,39 @@ test('tombol plus dan minus mengubah suhu AC yang sama dengan Beranda', async ()
   await show();
   await fireEvent.press(screen.getByRole('button', { name: 'Naikkan suhu' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Naikkan suhu' }));
+  await settle();
   expect(ac().ac!.temp).toBe(26);
   await fireEvent.press(screen.getByRole('button', { name: 'Turunkan suhu' }));
+  await settle();
   expect(ac().ac!.temp).toBe(25);
   expect(screen.getByText('25°')).toBeOnTheScreen();
+});
+
+test('banyak perubahan suhu beruntun hanya dikirim sekali, nilai akhirnya, setelah jeda', async () => {
+  const api = createTestApi();
+  const control = jest.spyOn(api.transport, 'controlDevice');
+  await renderWithProviders(<DetailAc />, { api });
+  for (let i = 0; i < 4; i++) await fireEvent.press(screen.getByRole('button', { name: 'Naikkan suhu' }));
+  await act(async () => {
+    jest.advanceTimersByTime(TEMP_DEBOUNCE_MS - 1);
+  });
+  expect(control).not.toHaveBeenCalled();
+  expect(screen.getByText('28°')).toBeOnTheScreen();
+  await act(async () => {
+    jest.advanceTimersByTime(1);
+  });
+  expect(control).toHaveBeenCalledTimes(1);
+  expect(control).toHaveBeenCalledWith(MAIN_AC_ID, { temp: 28 });
+});
+
+test('meninggalkan layar sebelum jedanya habis tetap mengirim suhu terakhir', async () => {
+  const api = createTestApi();
+  const control = jest.spyOn(api.transport, 'controlDevice');
+  const { unmount } = await renderWithProviders(<DetailAc />, { api });
+  await fireEvent.press(screen.getByRole('button', { name: 'Naikkan suhu' }));
+  expect(control).not.toHaveBeenCalled();
+  await unmount();
+  expect(control).toHaveBeenCalledWith(MAIN_AC_ID, { temp: 25 });
 });
 
 test('mode dan kecepatan kipas memperbarui penyimpanan', async () => {

@@ -1,6 +1,5 @@
 import { backoffDelay } from './backoff';
 import {
-  agendaItemResSchema,
   agendaLeftoverResSchema,
   agendaParseResSchema,
   API_PREFIX,
@@ -57,6 +56,7 @@ import {
   parseChangedPageLenient,
   parseDraftResLenient,
   parseEventLenient,
+  parseAgendaItemResLenient,
   parseAgendaLenient,
   parseBusinessLenient,
   parseDevicesLenient,
@@ -246,7 +246,7 @@ export class HttpTransport implements Transport {
   }
 
   async agendaItem(id: string): Promise<AgendaItem> {
-    const res = await this.request('GET', `/agenda/${encodeURIComponent(id)}`, agendaItemResSchema);
+    const res = await this.request('GET', `/agenda/${encodeURIComponent(id)}`, reader(parseAgendaItemResLenient));
     return res.item;
   }
 
@@ -255,12 +255,14 @@ export class HttpTransport implements Transport {
   }
 
   async agendaAdd(item: AgendaNew): Promise<AgendaItem> {
-    const res = await this.request('POST', '/agenda', agendaItemResSchema, { body: { item } });
+    const res = await this.request('POST', '/agenda', reader(parseAgendaItemResLenient), { body: { item } });
     return res.item;
   }
 
   async agendaPatch(id: string, req: AgendaPatchReq): Promise<AgendaItem> {
-    const res = await this.request('PATCH', `/agenda/${encodeURIComponent(id)}`, agendaItemResSchema, { body: req });
+    const res = await this.request('PATCH', `/agenda/${encodeURIComponent(id)}`, reader(parseAgendaItemResLenient), {
+      body: req,
+    });
     return res.item;
   }
 
@@ -615,6 +617,7 @@ function failureFor(status: number, data: unknown): ApiFailure {
   if (status === 404 && error === 'belum_terdaftar') {
     return new ApiFailure('not_registered', { ...details, waNumber: waNumber(data) });
   }
+  if (status === 422 && error === 'tidak_paham') return new ApiFailure('not_understood', details);
   if (status === 426) return new ApiFailure('upgrade_required', details);
   if (status === 429) return new ApiFailure('rate_limited', { ...details, retryInSec: retryInSec(data) });
   if (status === 501) return new ApiFailure('unavailable', details);

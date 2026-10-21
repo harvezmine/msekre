@@ -84,7 +84,7 @@ import {
   defaultRange,
   FAKE_NOW,
   FAKE_TODAY,
-  hhmmOfIso,
+  FAKE_TZ_MINUTES,
   leftoverOf,
   previewOf,
   toContractItem,
@@ -485,6 +485,7 @@ export class FakeTransport implements Transport {
         to: query.to!,
         today: FAKE_TODAY,
         now: FAKE_NOW,
+        tzOffsetMinutes: FAKE_TZ_MINUTES,
         rev: this.agendaRev,
       });
     });
@@ -502,7 +503,7 @@ export class FakeTransport implements Transport {
     return this.call(true, () => {
       const req = parse(agendaParseReqSchema, { text });
       const preview = previewOf(req.text);
-      if (!preview) throw invalid();
+      if (!preview) throw new ApiFailure('not_understood', { status: 422, error: 'tidak_paham' });
       return preview;
     });
   }
@@ -533,7 +534,7 @@ export class FakeTransport implements Transport {
       if (!this.sample.getState().agenda.some((a) => a.id === id)) throw notFound();
       if (patch.done !== undefined) this.sample.dispatch({ type: 'setDone', id, done: patch.done });
       if (patch.snoozeUntil !== undefined) {
-        this.sample.dispatch({ type: 'snooze', id, until: hhmmOfIso(patch.snoozeUntil) });
+        this.sample.dispatch({ type: 'snooze', id, until: patch.snoozeUntil });
       }
       return copy(toContractItem(this.sample.getState().agenda.find((a) => a.id === id)!));
     });
@@ -574,8 +575,10 @@ export class FakeTransport implements Transport {
 
   setSecurity(req: SecurityUpdateReq): Promise<SecurityRes> {
     return this.call(true, () => {
-      const { pinEnabled } = parse(securityUpdateReqSchema, req);
+      const { pinEnabled, pin } = parse(securityUpdateReqSchema, req);
       if (pinEnabled && this.pinValue === null) throw invalid();
+      // Mematikan permintaan PIN butuh PIN yang sekarang: tanpa itu, token yang sah saja tidak cukup.
+      if (!pinEnabled && this.pinValue !== null && pin !== this.pinValue) throw wrongPin();
       this.pinEnabled = pinEnabled;
       return this.securityState();
     });
@@ -583,12 +586,14 @@ export class FakeTransport implements Transport {
 
   setPin(req: PinSetReq): Promise<SecurityRes> {
     return this.call(true, () => {
-      const { pin, currentPin } = parse(pinSetReqSchema, req);
+      const { pin, currentPin, enable } = parse(pinSetReqSchema, req);
       if (this.pinValue !== null) {
         if (currentPin === undefined) throw invalid();
         if (currentPin !== this.pinValue) throw wrongPin();
       }
+      // Atomik: PIN dan permintaan PIN berubah bersama, atau tidak sama sekali.
       this.pinValue = pin;
+      if (enable) this.pinEnabled = true;
       return this.securityState();
     });
   }

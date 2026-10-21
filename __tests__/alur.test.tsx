@@ -107,15 +107,23 @@ test('alur Usaha: Pesan lagi membuka chat dengan kartu draf pesanan; Kirim tampi
 });
 
 test('alur 3: alarm Tunda 10 menit, kembali ke Agenda, item ditunda sampai 07.10', async () => {
-  await showRoute('/agenda');
-  await go('/alarm');
-  expect(currentRoute()).toBe('/alarm');
-  expect(screen.getByText('Berangkat ke bandara')).toBeOnTheScreen();
-  await fireEvent.press(screen.getByRole('button', { name: 'Tunda 10 menit' }));
-  expect(currentRoute()).toBe('/agenda');
-  await fireEvent.press(screen.getByRole('tab', { name: 'Minggu ini' }));
-  expect(screen.getByText('Berangkat ke bandara')).toBeOnTheScreen();
-  expect(screen.getByText('Ditunda sampai 07.10')).toBeOnTheScreen();
+  // Jam sekarang sebelum alarm (di jam contoh 0b), jadi tundanya 10 menit dari waktu alarm itu: 07.10.
+  const real = Date.now();
+  jest.setSystemTime(new Date('2025-10-20T03:42:00.000Z'));
+  try {
+    await showRoute('/agenda');
+    await go('/alarm');
+    expect(currentRoute()).toBe('/alarm');
+    expect(screen.getByText('Berangkat ke bandara')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Tunda 10 menit' }));
+    expect(currentRoute()).toBe('/agenda');
+    await advance(0);
+    await fireEvent.press(screen.getByRole('tab', { name: 'Minggu ini' }));
+    expect(screen.getByText('Berangkat ke bandara')).toBeOnTheScreen();
+    expect(screen.getByText('Ditunda sampai 07.10')).toBeOnTheScreen();
+  } finally {
+    jest.setSystemTime(real);
+  }
 });
 
 test('alur 4: Terhubung, Sambungkan TikTok Shop, Masuk, Selesai, Beranda punya 8 simpul', async () => {

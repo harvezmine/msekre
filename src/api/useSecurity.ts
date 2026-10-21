@@ -15,10 +15,17 @@ export interface Security {
    * supaya perubahan dari layar lain terbaca; `false` hanya bila server memastikan PIN mati. Gagal bertanya: `true`.
    */
   pinRequired(): Promise<boolean>;
-  /** Hidupkan atau matikan permintaan PIN. Melempar `ApiFailure`. */
-  setEnabled(pinEnabled: boolean): Promise<SecurityRes>;
-  /** Buat PIN; dengan `currentPin` berarti mengganti. Melempar `ApiFailure` (`pin_wrong` bila PIN lama salah). */
-  setPin(pin: string, currentPin?: string): Promise<SecurityRes>;
+  /**
+   * Hidupkan atau matikan permintaan PIN. Mematikan WAJIB membawa `pin` (PIN yang sekarang; server membalas `pin_wrong`
+   * kalau hilang atau salah). Melempar `ApiFailure`.
+   */
+  setEnabled(pinEnabled: boolean, pin?: string): Promise<SecurityRes>;
+  /**
+   * Buat PIN; dengan `currentPin` berarti mengganti. `enable: true` sekalian menghidupkan permintaan PIN dalam satu
+   * langkah di server (atomik), jadi gagal menghidupkan tidak meninggalkan PIN yang setengah jadi. Melempar `ApiFailure`
+   * (`pin_wrong` bila PIN lama salah).
+   */
+  setPin(pin: string, currentPin?: string, enable?: boolean): Promise<SecurityRes>;
   /** `true` bila PIN cocok. Melempar `ApiFailure` untuk kendala selain salah PIN. */
   verify(pin: string): Promise<boolean>;
 }
@@ -82,9 +89,16 @@ export function useSecurity({ load = true }: { load?: boolean } = {}): Security 
       const next = await refresh();
       return next === null || next.pinEnabled;
     },
-    setEnabled: async (pinEnabled) => keep(await transport.setSecurity({ pinEnabled })),
-    setPin: async (pin, currentPin) =>
-      keep(await transport.setPin(currentPin === undefined ? { pin } : { pin, currentPin })),
+    setEnabled: async (pinEnabled, pin) =>
+      keep(await transport.setSecurity(pin === undefined ? { pinEnabled } : { pinEnabled, pin })),
+    setPin: async (pin, currentPin, enable) =>
+      keep(
+        await transport.setPin({
+          pin,
+          ...(currentPin === undefined ? {} : { currentPin }),
+          ...(enable ? { enable: true } : {}),
+        }),
+      ),
     verify: (pin) => transport.verifyPin(pin),
   };
 }

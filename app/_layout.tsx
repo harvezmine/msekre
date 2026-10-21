@@ -74,7 +74,6 @@ function Navigator() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="chat" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="suara" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
-          <Stack.Screen name="alarm" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
           <Stack.Screen name="inti" />
           <Stack.Screen
             name="agenda/tambah"
@@ -150,6 +149,8 @@ function Navigator() {
             }}
           />
         </Stack.Protected>
+        {/* Alarm yang berbunyi harus selalu bisa dimatikan, juga tanpa sesi (sesi habis, atau belum selesai diperiksa). */}
+        <Stack.Screen name="alarm" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen
           name="mode"
           options={{

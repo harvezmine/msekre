@@ -1,5 +1,6 @@
 import { homeSummary } from '@/sample/profile';
 import type { SampleState } from '@/sample/reducer';
+import { PLACES } from '@/sample/types';
 import { approvalText, homeAgenda, houseCard, ringNodes } from '@/sample/selectors';
 import { changeText, stockLeft } from '../business';
 import type { Home } from '../contract';
@@ -25,6 +26,7 @@ export function homeFrom(state: SampleState, greetingName: string | null): Omit<
   const stock = biz.lowStock[0];
   return {
     place: state.place,
+    places: PLACES.filter((p) => p !== 'Semua'),
     greetingName,
     summary: homeSummary,
     approvals: Object.values(state.outgoing)

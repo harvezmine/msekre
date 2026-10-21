@@ -4,6 +4,7 @@ import type { AgendaItem, Leftover } from './types';
 export const TODAY = '2025-10-20';
 export const NOW = '09.41';
 
+// Item berulang punya id sendiri per kejadian, `<seriesId>:<tanggal>`, seperti di server (docs/api-v1.md bagian 2.13).
 export const initialAgenda: AgendaItem[] = [
   {
     id: 'a1',
@@ -24,7 +25,8 @@ export const initialAgenda: AgendaItem[] = [
   },
   { id: 'a3', date: TODAY, time: '15.00', title: 'Cek stok Kedai Riau', kind: 'task' },
   {
-    id: 'a4',
+    id: 'jemput:2025-10-20',
+    seriesId: 'jemput',
     date: TODAY,
     time: '16.00',
     title: 'Jemput Kayla les',
@@ -33,7 +35,8 @@ export const initialAgenda: AgendaItem[] = [
     repeat: 'Tiap Senin',
   },
   {
-    id: 'a5',
+    id: 'rapat-manajer:2025-10-20',
+    seriesId: 'rapat-manajer',
     date: TODAY,
     time: '19.00',
     title: 'Rapat manajer kedai',
@@ -62,7 +65,8 @@ export const initialAgenda: AgendaItem[] = [
   { id: 'a8', date: '2025-10-23', time: '14.00', title: 'Rapat dengan Bu Sari', kind: 'meeting', note: 'Zoom' },
   { id: 'a9', date: '2025-10-24', time: '19.30', title: 'Makan malam keluarga', kind: 'reminder', way: 'alarm' },
   {
-    id: 'a11',
+    id: 'jemput:2025-10-26',
+    seriesId: 'jemput',
     date: '2025-10-26',
     time: '16.00',
     title: 'Jemput Kayla les',

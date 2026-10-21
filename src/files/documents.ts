@@ -34,8 +34,33 @@ const FLAG_GRANT_READ_URI_PERMISSION = 1;
 const ACTION_VIEW = 'android.intent.action.VIEW';
 const SAMPLE_TEXT = 'Ini berkas contoh dari Sekretaris AI. Berkas yang asli muncul saat Anda sudah masuk.\n';
 
-/** Nama yang aman dipakai sebagai nama berkas di HP. */
-const safe = (text: string) => text.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim() || 'berkas';
+/**
+ * Nama yang aman dipakai sebagai nama berkas atau folder di HP: tanpa pemisah jalur, tanpa karakter terlarang, dan tanpa
+ * `..` (nama seperti `..` atau `a/../b` tidak boleh keluar dari folder berkasnya).
+ */
+const safe = (text: string) => {
+  const clean = text
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+    .replace(/\.{2,}/g, '.')
+    .trim();
+  return clean === '' || clean === '.' ? 'berkas' : clean;
+};
+
+/** Folder unduhan di cache aplikasi. */
+const CACHE_FOLDER = 'berkas';
+
+/**
+ * Buang semua berkas yang pernah diunduh (cache). Dipanggil saat keluar: dokumen akun sebelumnya tidak boleh tertinggal di
+ * HP. Gagal membuang tidak dilempar.
+ */
+export function clearDocumentCache(): void {
+  try {
+    const dir = new Directory(Paths.cache, CACHE_FOLDER);
+    if (dir.exists) dir.delete();
+  } catch {
+    // Cache dibersihkan sistem sendiri cepat atau lambat.
+  }
+}
 
 /**
  * Unduh dokumen ke cache aplikasi. Alamat server asli diunduh dengan header `Authorization` (alamat `/media/:id` tidak
@@ -47,13 +72,19 @@ export async function downloadDocument(
   mediaId: string,
   name: string,
   mime: string,
+  size?: number,
 ): Promise<LocalDocument> {
   try {
     // Satu folder per berkas: nama aslinya tetap terlihat di aplikasi pembuka dan lembar bagikan.
-    const dir = new Directory(Paths.cache, 'berkas', safe(mediaId));
+    const dir = new Directory(Paths.cache, CACHE_FOLDER, safe(mediaId));
     dir.create({ idempotent: true, intermediates: true });
     if (source.kind === 'uri') {
-      const file = await File.downloadFileAsync(source.uri, new File(dir, safe(name)), {
+      const target = new File(dir, safe(name));
+      // Sudah diunduh dengan ukuran yang sama: dipakai lagi, tanpa mengunduh ulang.
+      if (size !== undefined && size > 0 && target.exists && target.size === size) {
+        return { uri: target.uri, name, mime };
+      }
+      const file = await File.downloadFileAsync(source.uri, target, {
         headers: source.headers,
         idempotent: true,
       });

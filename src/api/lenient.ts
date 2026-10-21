@@ -176,6 +176,9 @@ export function parseDraftResLenient(raw: unknown): DraftActionRes | null {
   return draft.success ? { draft: draft.data, rev: 0 } : null;
 }
 
+/** Selisih zona WIB dari UTC dalam menit, dipakai bila server tidak menyebut zona pengguna. */
+export const DEFAULT_TZ_MINUTES = 420;
+
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 
@@ -227,6 +230,7 @@ export function parseHomeLenient(raw: unknown): Home | null {
   });
   const coerced = homeSchema.safeParse({
     place: raw.place,
+    places: list(raw.places).filter(nonEmpty),
     greetingName: nonEmpty(raw.greetingName) ? raw.greetingName : null,
     summary: typeof raw.summary === 'string' ? raw.summary : '',
     approvals,
@@ -239,10 +243,39 @@ export function parseHomeLenient(raw: unknown): Home | null {
   return coerced.success ? coerced.data : null;
 }
 
-/** Satu item agenda; `null` kalau tidak sah (kontrak lebih baru atau rusak). Item yang rusak dibuang, bukan menggagalkan daftar. */
+/** Bidang item agenda yang boleh dibuang kalau rusak (kontrak lebih baru), tanpa membuang itemnya. */
+const AGENDA_EXTRAS = [
+  'way',
+  'repeat',
+  'note',
+  'snoozedUntil',
+  'seriesId',
+  'notesMessageId',
+  'done',
+  'allDay',
+] as const;
+
+/**
+ * Satu item agenda. Bidang tambahan yang rusak atau bernilai baru (cara pengingat yang belum dikenal, misalnya) dibuang dan
+ * itemnya tetap dipakai; `null` kalau bidang intinya (id, tanggal, jam, judul, jenis) tidak sah (kontrak lebih baru atau
+ * rusak). Item yang rusak dibuang satu per satu dari daftar, bukan menggagalkan daftar.
+ */
 export function parseAgendaItemLenient(raw: unknown): AgendaItem | null {
   const item = agendaItemSchema.safeParse(raw);
-  return item.success ? item.data : null;
+  if (item.success) return item.data;
+  if (!isRecord(raw)) return null;
+  const kept: Record<string, unknown> = { ...raw };
+  for (const key of AGENDA_EXTRAS) {
+    if (key in kept && !agendaItemSchema.shape[key].safeParse(kept[key]).success) delete kept[key];
+  }
+  const coerced = agendaItemSchema.safeParse(kept);
+  return coerced.success ? coerced.data : null;
+}
+
+/** Jawaban yang membungkus satu item (`GET /agenda/:id`, `POST /agenda`, `PATCH /agenda/:id`): `{ item }`, dibaca longgar. */
+export function parseAgendaItemResLenient(raw: unknown): { item: AgendaItem } | null {
+  const item = parseAgendaItemLenient(isRecord(raw) ? raw.item : undefined);
+  return item ? { item } : null;
 }
 
 function parseAgendaItems(raw: unknown[]): AgendaItem[] {
@@ -258,7 +291,14 @@ export function parseAgendaLenient(raw: unknown): AgendaRes | null {
   if (strict.success) return strict.data;
   if (!isRecord(raw) || !Array.isArray(raw.items)) return null;
   const leftover = parseAgendaItemLenient(raw.leftover);
-  const coerced = agendaResSchema.safeParse({ ...raw, items: parseAgendaItems(raw.items), leftover });
+  // Server yang belum mengirim zona waktu: WIB (420), zona yang dipakai sebagian besar pengguna.
+  const tz = z.number().int().safeParse(raw.tzOffsetMinutes);
+  const coerced = agendaResSchema.safeParse({
+    ...raw,
+    items: parseAgendaItems(raw.items),
+    leftover,
+    tzOffsetMinutes: tz.success ? tz.data : DEFAULT_TZ_MINUTES,
+  });
   return coerced.success ? coerced.data : null;
 }
 

@@ -34,6 +34,8 @@ describe('GET /home di server tiruan', () => {
       'Bayar listrik Kedai Dago',
       'Jemput Kayla les',
     ]);
+    // Tempat milik pengguna dari server (tanpa Semua), untuk pemilih tempat.
+    expect(home.places).toEqual(['Rumah', 'Kedai Dago', 'Kedai Riau']);
     expect(home.approvals).toHaveLength(1);
     expect(home.approvals[0]).toMatchObject({ id: BUDI_DRAFT_ID, status: 'draft', to: 'Pak Budi' });
     expect(home.approvals[0]!.ask).toBe('Balasan untuk Pak Budi soal harga sewa sudah siap. Kirim?');
@@ -190,6 +192,7 @@ describe('event stream home', () => {
 describe('bacaan longgar Beranda', () => {
   const good = (): Home => ({
     place: 'Semua',
+    places: ['Rumah', 'Kedai Dago'],
     greetingName: null,
     summary: 'Ada 3 hal.',
     approvals: [],
@@ -208,6 +211,17 @@ describe('bacaan longgar Beranda', () => {
       ring: { nodes: [{ key: 'x', icon: 'ikon-baru', label: 'X', reachable: true }] },
     };
     expect(parseHomeLenient(future)?.ring.nodes[0]!.icon).toBe('ikon-baru');
+  });
+
+  test('places: yang rusak dibuang; server lama tanpa places dibaca kosong (hanya Semua)', () => {
+    expect(parseHomeLenient({ ...good(), places: ['Rumah', 5, '', 'Kedai Dago'], summary: 5 })?.places).toEqual([
+      'Rumah',
+      'Kedai Dago',
+    ]);
+    const old: Partial<Home> = good();
+    delete old.places;
+    expect(parseHomeLenient(old)?.places).toEqual([]);
+    expect(homeSchema.safeParse(old).success).toBe(false);
   });
 
   test('baris rusak dibuang, bagian lain bertahan; tanpa place atau rev ditolak', () => {

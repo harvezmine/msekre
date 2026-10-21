@@ -37,7 +37,8 @@ function hour24(h: number, part: string | undefined): number {
  */
 export function parseAgenda(input: string): ParsedAgenda | null {
   let rest = input.trim();
-  if (!rest) return null;
+  // Tanpa satu huruf pun tidak ada yang bisa dibaca (server asli: 422 tidak_paham).
+  if (!/\p{L}/u.test(rest)) return null;
 
   const kind: ParsedAgenda['kind'] = /\bingatkan\b/i.test(rest) ? 'reminder' : 'task';
   rest = rest.replace(/\bingatkan(\s+(saya|aku))?\b/gi, ' ');

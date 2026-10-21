@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
+import { Directory } from 'expo-file-system';
 import { AccessibilityInfo, AppState, Linking, Text, TextInput } from 'react-native';
 import { canOpen, routeKind, type RouteKind } from '@/api/routeAccess';
 import { ERROR_TEXT, NOT_REGISTERED_TEXT, WRONG_CODE_TEXT } from '@/api/errors';
@@ -358,15 +359,10 @@ describe('penjaga rute (mode server)', () => {
   const server = (token: string | null = null) => createTestApi({ mode: 'server', token, requireSession: true });
 
   test('aturan: layar masuk hanya untuk yang belum masuk, layar aplikasi hanya setelah masuk, /mode selalu terbuka', () => {
-    expect(['/mulai', '/mulai/masuk', '/mode', '/mulai/pilih', '/', '/akun', '/chat'].map(routeKind)).toEqual([
-      'entry',
-      'entry',
-      'open',
-      'app',
-      'app',
-      'app',
-      'app',
-    ]);
+    // /alarm terbuka tanpa sesi: alarm yang berbunyi harus bisa dimatikan walau sesi habis.
+    expect(['/mulai', '/mulai/masuk', '/mode', '/alarm', '/mulai/pilih', '/', '/akun', '/chat'].map(routeKind)).toEqual(
+      ['entry', 'entry', 'open', 'open', 'app', 'app', 'app', 'app'],
+    );
     const open = (kind: RouteKind, mode: 'contoh' | 'server', status: AuthStatus) => canOpen(kind, mode, status);
     for (const status of ['checking', 'signedOut', 'signedIn'] as const) {
       for (const kind of ['app', 'entry', 'open'] as const) expect(open(kind, 'contoh', status)).toBe(true);
@@ -487,6 +483,17 @@ describe('keluar', () => {
     await waitFor(() => expect(currentRoute()).toBe('/mulai'));
     expect(currentStack()).toEqual(['/mulai']);
     expect(await api.session.get()).toBeNull();
+  });
+
+  test('keluar, atau sesi dicabut server, membuang dokumen yang sudah diunduh dari cache', async () => {
+    const deleted = (Directory as unknown as { deleted: string[] }).deleted;
+    deleted.length = 0;
+    const api = createTestApi({ token: 'token' });
+    await showRoute('/', { api });
+    await act(async () => {
+      await api.session.clear();
+    });
+    expect(deleted).toEqual(['file:///cache/berkas']);
   });
 
   test('sesi dihapus di HP lebih dulu, server menyusul di belakang layar; ketukan ganda sekali saja', async () => {

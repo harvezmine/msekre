@@ -1,4 +1,5 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
+import { AppState, BackHandler } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
@@ -6,9 +7,38 @@ import Agenda from '../app/(tabs)/agenda';
 import Alarm from '../app/alarm';
 import { createTestApi, renderWithProviders } from './helpers';
 import { Redraw, redraw } from './redraw';
+import { MemoryAlarmScheduler, setAlarmScheduler } from '@/alarm';
+import { getPendingSnoozes, PendingSnoozes, setPendingSnoozes } from '@/alarm/pendingSnooze';
 import { useSample, type SampleState } from '@/sample/store';
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  setPendingSnoozes(new PendingSnoozes(false));
+});
+afterEach(() => {
+  setAlarmScheduler(null);
+  setPendingSnoozes(null);
+});
+
+function install(options: ConstructorParameters<typeof MemoryAlarmScheduler>[0] = { native: true }) {
+  const scheduler = new MemoryAlarmScheduler(options);
+  setAlarmScheduler(scheduler);
+  return scheduler;
+}
+
+/** Jam sekarang di jam contoh 0b (10.42 WIB, 20 Okt 2025): sebelum alarm contoh besok pagi. */
+const SAMPLE_NOW_ISO = '2025-10-20T03:42:00.000Z';
+
+/** Jalankan `body` dengan jam sistem di `iso`, lalu kembalikan jam semula. */
+async function atTime(iso: string, body: () => Promise<void>) {
+  const real = Date.now();
+  jest.setSystemTime(new Date(iso));
+  try {
+    await body();
+  } finally {
+    jest.setSystemTime(real);
+  }
+}
 
 let latest: SampleState;
 function Probe() {
@@ -35,7 +65,7 @@ test('alarm contoh: pengingat, jam besar, judul, dan catatan penerbangan', async
 });
 
 test('alarm dari item lain memakai jam dan judulnya, tanpa catatan penerbangan', async () => {
-  jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'a4' });
+  jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'jemput:2025-10-20' });
   try {
     await renderWithProviders(<Alarm />);
     expect(screen.getByText('16.00')).toBeOnTheScreen();
@@ -47,24 +77,51 @@ test('alarm dari item lain memakai jam dan judulnya, tanpa catatan penerbangan',
 });
 
 test('Tunda 10 menit kembali ke Agenda, yang menulis "Ditunda sampai 07.10"', async () => {
+  await atTime(SAMPLE_NOW_ISO, async () => {
+    await renderWithProviders(
+      <>
+        <Alarm />
+        <Probe />
+      </>,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Tunda 10 menit' }));
+    await advance(0);
+    expect(router.back).toHaveBeenCalled();
+    // Tersimpan sebagai waktu lengkap (ISO), 10 menit setelah waktu alarm yang belum jatuh tempo.
+    expect(latest.agenda.find((a) => a.id === 'a10')!.snoozedUntil).toBe('2025-10-21T00:10:00.000Z');
+
+    await renderWithProviders(<Agenda />, { state: latest });
+    await fireEvent.press(screen.getByRole('tab', { name: 'Minggu ini' }));
+    expect(screen.getByText('Ditunda sampai 07.10')).toBeOnTheScreen();
+  });
+});
+
+test('Tanya Nadia menggantikan alarm dengan chat setelah HP dibuka', async () => {
+  const scheduler = install();
+  await renderWithProviders(<Alarm />);
+  await fireEvent.press(screen.getByRole('button', { name: 'Tanya Nadia' }));
+  await advance(0);
+  expect(scheduler.unlockAsked).toBe(1);
+  expect(router.replace).toHaveBeenCalledWith('/chat');
+});
+
+test('Tanya Nadia: HP terkunci dan tidak jadi dibuka, tetap di layar alarm dan memberi tahu', async () => {
+  const scheduler = install();
+  scheduler.unlockResult = false;
   await renderWithProviders(
     <>
       <Alarm />
       <Probe />
     </>,
   );
-  await fireEvent.press(screen.getByRole('button', { name: 'Tunda 10 menit' }));
-  expect(router.back).toHaveBeenCalled();
-  expect(latest.agenda.find((a) => a.id === 'a10')!.snoozedUntil).toBe('07.10');
-
-  await renderWithProviders(<Agenda />, { state: latest });
-  await fireEvent.press(screen.getByRole('tab', { name: 'Minggu ini' }));
-  expect(screen.getByText('Ditunda sampai 07.10')).toBeOnTheScreen();
-});
-
-test('Tanya Nadia menggantikan alarm dengan chat', async () => {
-  await renderWithProviders(<Alarm />);
   await fireEvent.press(screen.getByRole('button', { name: 'Tanya Nadia' }));
+  await advance(0);
+  expect(router.replace).not.toHaveBeenCalled();
+  expect(latest.toast?.text).toBe('Buka kunci HP dulu untuk bertanya ke Nadia.');
+  // Dibuka kemudian: bisa lagi.
+  scheduler.unlockResult = true;
+  await fireEvent.press(screen.getByRole('button', { name: 'Tanya Nadia' }));
+  await advance(0);
   expect(router.replace).toHaveBeenCalledWith('/chat');
 });
 
@@ -126,7 +183,7 @@ test('tautan /alarm?id= memuat item dari server walau di luar rentang agenda', a
   }
 });
 
-test('id yang tidak ada: layar kosong; mode server tanpa id juga tidak membunyikan apa-apa', async () => {
+test('id yang tidak ada dan tanpa catatan di HP atau judul: layar kosong; mode server tanpa id juga tidak membunyikan apa-apa', async () => {
   jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'tidak-ada' });
   try {
     await renderWithProviders(<Alarm />);
@@ -140,11 +197,182 @@ test('id yang tidak ada: layar kosong; mode server tanpa id juga tidak membunyik
   expect(screen.queryByText('Geser untuk mematikan')).toBeNull();
 });
 
-test('Tunda yang gagal tetap di layar alarm dan memberi tahu dengan ramah', async () => {
+test('Tunda tanpa internet: alarm tundaan tetap dipasang di HP, layar menutup, kabarnya diulang nanti', async () => {
+  const scheduler = install();
   const api = createTestApi();
-  await renderWithProviders(<Alarm />, { api });
-  api.transport.failNext('network');
-  await fireEvent.press(screen.getByRole('button', { name: 'Tunda 10 menit' }));
-  await advance(0);
-  expect(router.back).not.toHaveBeenCalled();
+  await atTime(SAMPLE_NOW_ISO, async () => {
+    await renderWithProviders(<Alarm />, { api });
+    api.transport.failNext('network');
+    await fireEvent.press(screen.getByRole('button', { name: 'Tunda 10 menit' }));
+    await advance(0);
+    await advance(0);
+    expect(router.back).toHaveBeenCalled();
+    // Terpasang di HP walau server tidak terjangkau; server belum tahu, tanpa tanda terima.
+    expect(await scheduler.list()).toEqual([
+      expect.objectContaining({ id: 'a10', at: Date.parse('2025-10-21T00:10:00.000Z') }),
+    ]);
+    expect(api.transport.alarmAcks).toEqual([]);
+    expect((await getPendingSnoozes().list()).map((p) => p.id)).toEqual(['a10']);
+  });
+});
+
+test('Tunda terlambat: 10 menit dari saat ditekan, bukan dari waktu alarm yang sudah lewat', async () => {
+  const scheduler = install();
+  const api = createTestApi();
+  // Alarm a10 jatuh tempo 07.00 WIB (00:00Z) dan baru ditekan 07.25.
+  await atTime('2025-10-21T00:25:00.000Z', async () => {
+    await renderWithProviders(<Alarm />, { api });
+    await fireEvent.press(screen.getByRole('button', { name: 'Tunda 10 menit' }));
+    await advance(0);
+    await advance(0);
+    expect((await scheduler.list())[0]!.at).toBe(Date.parse('2025-10-21T00:35:00.000Z'));
+    expect(api.transport.sample.getState().agenda.find((a) => a.id === 'a10')!.snoozedUntil).toBe(
+      '2025-10-21T00:35:00.000Z',
+    );
+    // Sudah sampai ke server: tidak ada tunda yang menunggu.
+    expect(await getPendingSnoozes().list()).toEqual([]);
+  });
+});
+
+describe('layar alarm tanpa data dari server', () => {
+  afterEach(() => jest.mocked(useLocalSearchParams).mockReturnValue({}));
+
+  test('item tidak bisa dimuat (tanpa internet): tampil dari catatan alarm di HP, dengan Tunda dan Matikan, tanpa Tanya', async () => {
+    const scheduler = install();
+    await atTime(SAMPLE_NOW_ISO, async () => {
+      scheduler.ringing.set('x9', { id: 'x9', at: Date.now(), title: 'Minum obat', note: 'Setelah makan' });
+      jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'x9' });
+      const api = createTestApi({ mode: 'server', token: 'tok' });
+      api.transport.failNext('network');
+      await renderWithProviders(<Alarm />, { api });
+      await advance(0);
+      expect(screen.getByText('Minum obat')).toBeOnTheScreen();
+      expect(screen.getByText('Setelah makan')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Tunda 10 menit' })).toBeOnTheScreen();
+      expect(screen.getByTestId('swipe-to-confirm')).toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: 'Tanya Nadia' })).toBeNull();
+      // Matikan tetap bekerja.
+      await fireEvent(screen.getByTestId('swipe-to-confirm'), 'accessibilityAction', {
+        nativeEvent: { actionName: 'activate' },
+      });
+      await advance(0);
+      expect(router.back).toHaveBeenCalledTimes(1);
+      expect(scheduler.ringing.has('x9')).toBe(false);
+    });
+  });
+
+  test('hanya judul di tautan (tanpa catatan di HP dan tanpa sesi): tetap ada judul dan Matikan', async () => {
+    install();
+    jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'x1', title: 'Rapat pagi' });
+    await renderWithProviders(<Alarm />, { api: createTestApi({ mode: 'server' }) });
+    await advance(0);
+    expect(screen.getByText('Rapat pagi')).toBeOnTheScreen();
+    expect(screen.getByText('Geser untuk mematikan')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Tanya Nadia' })).toBeNull();
+  });
+
+  test('mode server belum masuk: Tunda hanya dipasang di HP, tanpa menghubungi server dan tanpa catatan tunda', async () => {
+    const scheduler = install();
+    const api = createTestApi({ mode: 'server' });
+    const patch = jest.spyOn(api.transport, 'agendaPatch');
+    jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'x1', title: 'Rapat pagi' });
+    await atTime(SAMPLE_NOW_ISO, async () => {
+      await renderWithProviders(<Alarm />, { api });
+      await advance(0);
+      await fireEvent.press(screen.getByRole('button', { name: 'Tunda 10 menit' }));
+      await advance(0);
+      await advance(0);
+      expect(await scheduler.list()).toEqual([expect.objectContaining({ id: 'x1', title: 'Rapat pagi' })]);
+      expect(patch).not.toHaveBeenCalled();
+      expect(await getPendingSnoozes().list()).toEqual([]);
+      expect(router.back).toHaveBeenCalled();
+    });
+  });
+
+  test('tidak bisa kembali (satu-satunya layar): ke awal aplikasi, bukan kembali ke ketiadaan', async () => {
+    install();
+    jest.mocked(router.canGoBack).mockReturnValueOnce(false);
+    jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'x1', title: 'Rapat pagi' });
+    await renderWithProviders(<Alarm />, { api: createTestApi({ mode: 'server' }) });
+    await advance(0);
+    await fireEvent(screen.getByTestId('swipe-to-confirm'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'activate' },
+    });
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/');
+  });
+});
+
+describe('layar alarm melepas izin di atas layar kunci', () => {
+  test('ditutup tanpa Matikan atau Tunda (Kembali, atau layar lain menggantikan): izin dilepas', async () => {
+    const scheduler = install();
+    const { unmount } = await renderWithProviders(<Alarm />);
+    await advance(0);
+    expect(scheduler.released).toBe(0);
+    await unmount();
+    expect(scheduler.released).toBe(1);
+  });
+
+  test('aplikasi ke latar: izin dilepas; kembali ke depan tidak melepas lagi', async () => {
+    const scheduler = install();
+    const listeners: ((s: string) => void)[] = [];
+    jest.mocked(AppState.addEventListener).mockImplementation(((_: string, cb: (s: string) => void) => {
+      listeners.push(cb);
+      return { remove: jest.fn() };
+    }) as never);
+    try {
+      await renderWithProviders(<Alarm />);
+      await advance(0);
+      await act(async () => listeners.forEach((l) => l('active')));
+      expect(scheduler.released).toBe(0);
+      await act(async () => listeners.forEach((l) => l('background')));
+      expect(scheduler.released).toBe(1);
+    } finally {
+      jest.mocked(AppState.addEventListener).mockImplementation((() => ({ remove: jest.fn() })) as never);
+    }
+  });
+
+  test('tombol Kembali Android: izin dilepas dan Kembali berjalan seperti biasa', async () => {
+    const scheduler = install();
+    let handler: (() => boolean | null | undefined) | undefined;
+    const spy = jest.spyOn(BackHandler, 'addEventListener').mockImplementation(((_: string, cb: () => boolean) => {
+      handler = cb;
+      return { remove: jest.fn() };
+    }) as never);
+    try {
+      await renderWithProviders(<Alarm />);
+      await advance(0);
+      expect(handler?.()).toBe(false);
+      expect(scheduler.released).toBe(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('pratinjau dari Agenda: Matikan dan Tunda hanya menutup layar, alarm yang sebenarnya tidak disentuh', async () => {
+    const scheduler = install();
+    const api = createTestApi();
+    await scheduler.schedule({ id: 'a10', at: Date.parse('2025-10-21T00:00:00.000Z'), title: 'Berangkat ke bandara' });
+    const patch = jest.spyOn(api.transport, 'agendaPatch');
+    jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'a10', preview: '1' });
+    try {
+      await renderWithProviders(<Alarm />, { api });
+      await advance(0);
+      expect(screen.getByText('Ini hanya pratinjau. Alarm yang sebenarnya tidak berubah.')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('button', { name: 'Tunda 10 menit' }));
+      await advance(0);
+      expect(router.back).toHaveBeenCalledTimes(1);
+      await fireEvent(screen.getByTestId('swipe-to-confirm'), 'accessibilityAction', {
+        nativeEvent: { actionName: 'activate' },
+      });
+      await advance(0);
+      expect(router.back).toHaveBeenCalledTimes(2);
+      expect(patch).not.toHaveBeenCalled();
+      expect(await scheduler.list()).toEqual([
+        expect.objectContaining({ id: 'a10', at: Date.parse('2025-10-21T00:00:00.000Z') }),
+      ]);
+    } finally {
+      jest.mocked(useLocalSearchParams).mockReturnValue({});
+    }
+  });
 });

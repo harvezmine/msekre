@@ -21,11 +21,12 @@ const FREE_LINE = 'Longgar, belum ada rencana.';
 interface Props extends ItemHandlers {
   today: string;
   now: string;
+  tzOffsetMinutes?: number | null;
   itemsOn: (date: string) => Item[];
 }
 
 /** Segmen Minggu ini: tiap hari punya judul dan daftar item yang sama dengan Hari ini. */
-export function WeekList({ today, now, itemsOn, onToggle, onLongPress }: Props) {
+export function WeekList({ today, now, tzOffsetMinutes, itemsOn, onToggle, onLongPress }: Props) {
   const { c } = useTheme();
   return (
     <View style={{ paddingHorizontal: 16, paddingBottom: 96 }}>
@@ -60,6 +61,7 @@ export function WeekList({ today, now, itemsOn, onToggle, onLongPress }: Props) 
                   key={item.id}
                   item={item}
                   past={isPast(item, today, now)}
+                  tzOffsetMinutes={tzOffsetMinutes}
                   onToggle={onToggle}
                   onLongPress={onLongPress}
                 />

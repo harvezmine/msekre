@@ -1,3 +1,4 @@
+import { addDays, weekdayIndex } from '@/sample/dates';
 import { friendlyError } from './errors';
 import type { AgendaItem, AgendaNew, AgendaRes, StreamEvent } from './contract';
 import type { Transport, Unsubscribe } from './transport';
@@ -9,9 +10,14 @@ export interface AgendaState {
   items: AgendaItem[];
   /** Sisa tugas kemarin, atau `null`. */
   leftover: AgendaItem | null;
-  /** "Hari ini" (YYYY-MM-DD) dan jam sekarang (HH.MM) menurut server, atau `null` sebelum jawaban pertama. */
+  /**
+   * "Hari ini" (YYYY-MM-DD) dan jam sekarang (HH.MM) menurut zona pengguna, atau `null` sebelum jawaban pertama. Dari jawaban
+   * server, lalu dimajukan sendiri tiap menit (garis "sekarang" dan "kemarin" berganti walau aplikasi tidak ditutup).
+   */
   today: string | null;
   now: string | null;
+  /** Selisih zona waktu pengguna dari UTC dalam menit (dari server), atau `null` sebelum jawaban pertama. */
+  tzOffsetMinutes: number | null;
   /** Rentang tanggal yang sudah dimuat (kedua ujung termasuk). */
   ranges: { from: string; to: string }[];
   /** `loading`: belum ada jawaban; `error`: belum ada jawaban dan gagal memuat. */
@@ -25,11 +31,22 @@ const INITIAL: AgendaState = {
   leftover: null,
   today: null,
   now: null,
+  tzOffsetMinutes: null,
   ranges: [],
   status: 'loading',
   error: null,
   rev: 0,
 };
+
+/** Jeda memeriksa apakah menit atau hari sudah berganti. */
+const TICK_MS = 15_000;
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Rentang bawaan `GET /agenda`: Senin pekan ini sampai Minggu pekan depan. */
+function defaultRangeFor(today: string): { from: string; to: string } {
+  const monday = addDays(today, -weekdayIndex(today));
+  return { from: monday, to: addDays(monday, 13) };
+}
 
 const byTime = (a: AgendaItem, b: AgendaItem) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
 
@@ -37,9 +54,11 @@ const byTime = (a: AgendaItem, b: AgendaItem) => a.date.localeCompare(b.date) ||
 export type PreviewResult = { ok: true; item: AgendaNew; guessedTime: boolean } | { ok: false; error: string };
 
 /**
- * Pemilik data Agenda: muat dari `GET /agenda` (rentang bawaan dulu, rentang lain sesuai layar), perbarui lewat event
+ * Pemilik data Agenda: muat dari `GET /agenda` (rentang bawaan, ditambah rentang lain sesuai layar), perbarui lewat event
  * stream `agenda` (upsert; `rev` yang lebih lama dibuang), muat ulang tiap koneksi stream terbuka dan saat aplikasi
- * kembali ke depan. Aksinya (tambah, selesai, tunda, sisa kemarin) bertanya ke server dan memakai jawabannya.
+ * kembali ke depan. `rev` tidak pernah turun: jawaban muat yang `rev`-nya lebih lama dari keadaan sekarang (event datang
+ * selagi memuat) dibuang dan dimuat sekali lagi. Aksinya (tambah, selesai, tunda, sisa kemarin) bertanya ke server dan
+ * memakai jawabannya.
  */
 export class AgendaController {
   private state: AgendaState = INITIAL;
@@ -47,6 +66,9 @@ export class AgendaController {
   private unsubscribe: Unsubscribe | null = null;
   private loading: Promise<void> | null = null;
   private alive = true;
+  /** Jam server pada jawaban terakhir dan kapan HP menerimanya, untuk memajukan `today` dan `now` sendiri. */
+  private clock: { today: string; minutes: number; at: number } | null = null;
+  private ticker: ReturnType<typeof setInterval> | null = null;
   /** Pembacaan item tunggal yang sedang jalan, per id. */
   private readonly fetching = new Map<string, Promise<AgendaItem | null>>();
 
@@ -69,6 +91,7 @@ export class AgendaController {
       () => {},
       () => void this.load(),
     );
+    this.ticker = setInterval(() => this.tick(), TICK_MS);
     void this.load();
   }
 
@@ -76,23 +99,28 @@ export class AgendaController {
     this.alive = false;
     this.unsubscribe?.();
     this.unsubscribe = null;
+    if (this.ticker) clearInterval(this.ticker);
+    this.ticker = null;
   }
 
   /**
-   * Muat ulang semua rentang yang sudah dimuat (atau rentang bawaan kalau belum ada). Yang terakhir diambil dianggap
-   * benar, juga bila `rev`-nya lebih kecil (misalnya server diganti).
+   * Muat ulang rentang bawaan (pekan ini dan pekan depan) dan semua rentang lain yang sudah dimuat. Jawaban yang `rev`-nya
+   * lebih lama dari keadaan sekarang (ada event yang masuk selagi memuat) dibuang dan dimuat sekali lagi, supaya
+   * perubahan yang lebih baru tidak tertimpa.
    */
   load = (): Promise<void> => {
     if (this.loading) return this.loading;
     if (this.state.status === 'error') this.set({ ...this.state, status: 'loading', error: null });
-    const ranges = this.state.ranges;
     this.loading = (async () => {
       try {
-        if (ranges.length === 0) {
-          this.applyRange(await this.transport.agenda(), true);
-        } else {
-          const results = await Promise.all(ranges.map((r) => this.transport.agenda(r)));
-          results.forEach((res, i) => this.applyRange(res, i === 0));
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const results = await Promise.all(this.rangesToLoad().map((r) => this.transport.agenda(r)));
+          let stale = false;
+          for (const res of results) {
+            if (res.rev < this.state.rev) stale = true;
+            else this.applyRange(res);
+          }
+          if (!stale) break;
         }
       } catch (e) {
         // Agenda yang sudah tampil tetap tampil; hanya layar kosong yang menampilkan kegagalan.
@@ -104,12 +132,26 @@ export class AgendaController {
     return this.loading;
   };
 
+  /** Rentang yang dimuat: bawaan dan yang sudah dimuat (digabung); sebelum jawaban pertama, bawaan server (`undefined`). */
+  private rangesToLoad(): ({ from: string; to: string } | undefined)[] {
+    const today = this.state.today;
+    if (today === null || this.state.ranges.length === 0) return [undefined];
+    return mergeRanges([...this.state.ranges, defaultRangeFor(today)]);
+  }
+
   /** Pastikan rentang tanggal ini sudah dimuat (kalender bulan lain). Teks ramah kalau gagal, selain itu `null`. */
   ensureRange = async (from: string, to: string): Promise<string | null> => {
     const covered = this.state.ranges.some((r) => r.from <= from && r.to >= to);
     if (covered) return null;
     try {
-      this.applyRange(await this.transport.agenda({ from, to }), false);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const res = await this.transport.agenda({ from, to });
+        // Jawaban lebih lama dari keadaan sekarang: dibuang dan diminta sekali lagi; rentangnya belum dianggap termuat.
+        if (res.rev >= this.state.rev) {
+          this.applyRange(res);
+          break;
+        }
+      }
       return null;
     } catch (e) {
       return friendlyError(e);
@@ -212,15 +254,34 @@ export class AgendaController {
     }
   };
 
+  /** Majukan `today` dan `now` sesuai waktu yang berlalu sejak jawaban server; hari berganti: muat ulang rentangnya. */
+  private tick() {
+    if (!this.alive || !this.clock) return;
+    const { today, now } = this.localClock(this.clock);
+    if (today === this.state.today && now === this.state.now) return;
+    const newDay = today !== this.state.today;
+    this.set({ ...this.state, today, now });
+    if (newDay) void this.load();
+  }
+
+  private localClock({ today, minutes, at }: { today: string; minutes: number; at: number }) {
+    const total = minutes + Math.floor((Date.now() - at) / 60_000);
+    const days = Math.floor(total / 1440);
+    const m = total - days * 1440;
+    return { today: days === 0 ? today : addDays(today, days), now: `${pad(Math.floor(m / 60))}.${pad(m % 60)}` };
+  }
+
   private onEvent(event: StreamEvent) {
     if (event.type !== 'agenda' || !this.alive) return;
     if (event.rev < this.state.rev) return;
     this.upsert(event.items ?? [], event.removed ?? [], event.leftover, event.rev);
   }
 
-  /** Gabungkan jawaban rentang: item dalam rentang diganti seluruhnya (yang hilang berarti terhapus). */
-  private applyRange(res: AgendaRes, force: boolean) {
+  /** Gabungkan jawaban rentang: item dalam rentang diganti seluruhnya (yang hilang berarti terhapus). `rev` tidak turun. */
+  private applyRange(res: AgendaRes) {
     if (!this.alive) return;
+    const [h = 0, m = 0] = res.now.split('.').map(Number);
+    this.clock = { today: res.today, minutes: h * 60 + m, at: Date.now() };
     const { from, to } = res;
     const outside = this.state.items.filter((i) => i.date < from || i.date > to);
     const items = [...outside, ...res.items].sort(byTime);
@@ -230,10 +291,11 @@ export class AgendaController {
       leftover: res.leftover,
       today: res.today,
       now: res.now,
+      tzOffsetMinutes: res.tzOffsetMinutes,
       ranges,
       status: 'ready',
       error: null,
-      rev: force ? res.rev : Math.max(this.state.rev, res.rev),
+      rev: Math.max(this.state.rev, res.rev),
     });
   }
 

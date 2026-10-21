@@ -1,5 +1,5 @@
 import type { StreamEvent } from '@/api/contract';
-import { cleanPhone, formatJam, formatPhoneDisplay, formatTanggal, groupPhone } from '@/api/format';
+import { cleanPhone, formatJam, greetingFor, formatPhoneDisplay, formatTanggal, groupPhone } from '@/api/format';
 import { applyThinking, isThinking, NO_RUNS } from '@/api/thinking';
 
 describe('formatJam', () => {
@@ -37,6 +37,29 @@ describe('formatJam', () => {
   test('dua digit selalu, juga untuk 00.00 dan 09.05', () => {
     expect(inZone(0, '2026-10-20T00:00:00Z')).toBe('00.00');
     expect(inZone(0, '2026-10-20T09:05:00Z')).toBe('09.05');
+  });
+
+  test('dengan zona waktu pengguna dari server: jamnya menurut zona itu, apa pun zona HP', () => {
+    const iso = '2026-10-20T03:47:00.000Z';
+    // HP di WIT, tapi pengguna WIB (420): jam menurut WIB.
+    jest.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(-WIT * 60);
+    expect(formatJam(iso, 420)).toBe('10.47');
+    expect(formatJam(iso, 480)).toBe('11.47');
+    expect(formatJam(iso, 0)).toBe('03.47');
+    expect(formatJam(iso, -300)).toBe('22.47');
+    // Lewat tengah malam di zona pengguna.
+    expect(formatJam('2026-10-20T17:05:00.000Z', 420)).toBe('00.05');
+    // Tanpa zona dari server: zona HP.
+    expect(formatJam(iso)).toBe('12.47');
+    expect(formatJam(iso, null)).toBe('12.47');
+  });
+
+  test('sapaan menurut jam: pagi 04-10, siang 11-14, sore 15-17, selain itu malam', () => {
+    const at = (h: number) => greetingFor(h);
+    expect([4, 10].map(at)).toEqual(['Selamat pagi', 'Selamat pagi']);
+    expect([11, 14].map(at)).toEqual(['Selamat siang', 'Selamat siang']);
+    expect([15, 17].map(at)).toEqual(['Selamat sore', 'Selamat sore']);
+    expect([18, 23, 0, 3].map(at)).toEqual(['Selamat malam', 'Selamat malam', 'Selamat malam', 'Selamat malam']);
   });
 
   test('waktu yang tidak terbaca', () => {

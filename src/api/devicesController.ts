@@ -105,19 +105,25 @@ export class DevicesController {
     const entry = this.state.entries[place];
     if (!entry?.data && entry?.status !== 'loading')
       this.setEntry(place, { data: null, status: 'loading', error: null });
-    const job = this.transport.devices(place).then(
-      (data) => {
-        this.loading.delete(place);
-        // Jawaban terakhir dianggap benar (juga bila `rev`-nya lebih kecil, misalnya server diganti).
-        this.setEntry(place, { data, status: 'ready', error: null });
-      },
-      (e: unknown) => {
-        this.loading.delete(place);
+    const job = (async () => {
+      try {
+        // `rev` tidak pernah turun: jawaban yang lebih lama dari keadaan sekarang (event masuk selagi memuat) dibuang
+        // dan dimuat sekali lagi.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const data = await this.transport.devices(place);
+          const have = this.state.entries[place]?.data;
+          if (have && data.rev < have.rev) continue;
+          this.setEntry(place, { data, status: 'ready', error: null });
+          break;
+        }
+      } catch (e) {
         const current = this.state.entries[place];
         if (!current?.data && this.alive)
           this.setEntry(place, { data: null, status: 'error', error: friendlyError(e) });
-      },
-    );
+      } finally {
+        this.loading.delete(place);
+      }
+    })();
     this.loading.set(place, job);
     return job;
   };

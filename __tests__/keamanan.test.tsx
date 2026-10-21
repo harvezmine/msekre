@@ -68,6 +68,26 @@ test('menghidupkan tanpa PIN: Buat PIN, ulangi, lalu PIN aktif', async () => {
   expect(screen.getByRole('button', { name: 'Ganti PIN' })).toBeOnTheScreen();
 });
 
+test('membuat PIN: satu langkah atomik di server (PIN dan permintaan PIN bersama), bukan dua panggilan terpisah', async () => {
+  const api = await show();
+  const setPin = jest.spyOn(api.transport, 'setPin');
+  const setSecurity = jest.spyOn(api.transport, 'setSecurity');
+  await fireEvent.press(toggle());
+  await type('135790');
+  await type('135790');
+  expect(setPin).toHaveBeenCalledTimes(1);
+  expect(setPin).toHaveBeenCalledWith({ pin: '135790', enable: true });
+  expect(setSecurity).not.toHaveBeenCalled();
+});
+
+test('mematikan permintaan PIN mengirim PIN yang baru dibuktikan', async () => {
+  const api = await show({ security: { pinEnabled: true, pin: '123456' } });
+  const setSecurity = jest.spyOn(api.transport, 'setSecurity');
+  await fireEvent.press(toggle());
+  await type('123456');
+  expect(setSecurity).toHaveBeenCalledWith({ pinEnabled: false, pin: '123456' });
+});
+
 test('PIN yang diulang berbeda: "PIN belum sama, ulangi ya." dan belum ada PIN', async () => {
   const api = await show();
   await fireEvent.press(toggle());

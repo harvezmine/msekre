@@ -293,8 +293,8 @@ test('addAgenda: id baru, tampil di tanggalnya, dicatat; hari ini masuk Beranda'
 });
 
 test('snooze, toggleTask, finishLeftover', () => {
-  let s = run([{ type: 'snooze', id: 'a4', until: '07.10' }]);
-  expect(s.agenda.find((a) => a.id === 'a4')!.snoozedUntil).toBe('07.10');
+  let s = run([{ type: 'snooze', id: 'jemput:2025-10-20', until: '07.10' }]);
+  expect(s.agenda.find((a) => a.id === 'jemput:2025-10-20')!.snoozedUntil).toBe('07.10');
   s = run([{ type: 'toggleTask', id: 'a3' }]);
   expect(s.agenda.find((a) => a.id === 'a3')!.done).toBe(true);
   s = reduce(s, { type: 'toggleTask', id: 'a3' });

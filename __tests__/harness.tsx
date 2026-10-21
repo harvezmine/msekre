@@ -180,6 +180,7 @@ function Rute({ start }: { start: string }) {
       stack = stack.slice(0, 1);
       redraw();
     });
+    jest.mocked(router.canGoBack).mockImplementation(() => stack.length > 1);
     jest.mocked(router.back).mockImplementation(() => {
       if (stack.length > 1) stack = stack.slice(0, -1);
       redraw();

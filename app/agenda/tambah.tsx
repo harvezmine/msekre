@@ -7,10 +7,19 @@ import { dayLabel } from '@/sample/dates';
 import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
+import { KIND_ICON } from '@/ui/agenda/AgendaItem';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
+
+/** Nama jenis item di pratinjau. */
+const KIND_LABEL: Record<AgendaNew['kind'], string> = {
+  reminder: 'Pengingat',
+  task: 'Tugas',
+  meeting: 'Rapat',
+  recurring: 'Rutin',
+};
 
 /** Jeda setelah mengetik sebelum pratinjau diminta ke server. */
 export const PREVIEW_DEBOUNCE_MS = 400;
@@ -156,12 +165,12 @@ function Isi() {
                   justifyContent: 'center',
                 }}
               >
-                <Icon name={parsed.item.kind === 'reminder' ? 'bell' : 'task'} size={22} color={c.green} />
+                <Icon name={KIND_ICON[parsed.item.kind]} size={22} color={c.green} />
               </View>
               <View style={{ flex: 1 }}>
                 <Txt weight={600}>{parsed.item.title}</Txt>
                 <Txt v="caption" color={c.green}>
-                  {parsed.item.kind === 'reminder' ? 'Pengingat' : 'Tugas'}
+                  {KIND_LABEL[parsed.item.kind]}
                 </Txt>
               </View>
             </View>
@@ -172,7 +181,7 @@ function Isi() {
             </View>
             {parsed.guessedTime ? (
               <Txt v="caption" color={c.micSub}>
-                Jamnya saya tebak. Ketuk untuk mengubah.
+                Jamnya saya tebak.
               </Txt>
             ) : null}
           </View>

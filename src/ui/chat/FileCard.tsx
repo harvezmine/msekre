@@ -11,6 +11,8 @@ export interface FileInfo {
   name: string;
   mime: string;
   meta: string;
+  /** Ukuran berkas (byte): berkas yang sudah diunduh dengan ukuran sama dipakai lagi. */
+  size?: number;
 }
 
 /**

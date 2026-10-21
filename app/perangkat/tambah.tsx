@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, View } from 'react-native';
+import { useApi } from '@/api/ApiProvider';
 import { BRANDS } from '@/sample/devices';
 import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -12,6 +13,7 @@ import { Txt } from '@/ui/Txt';
 export default function TambahPerangkat() {
   const { c } = useTheme();
   const { dispatch } = useSample();
+  const { mode } = useApi();
   const toast = (text: string) => dispatch({ type: 'showToast', text });
   return (
     <View style={{ flex: 1, backgroundColor: c.paper }}>
@@ -37,7 +39,13 @@ export default function TambahPerangkat() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Pasang Kotak"
-            onPress={() => toast('Pemasangan lewat Bluetooth dibangun bersama kotaknya.')}
+            onPress={() =>
+              toast(
+                mode === 'contoh'
+                  ? 'Pemasangan lewat Bluetooth dibangun bersama kotaknya.'
+                  : 'Pemasangan lewat Bluetooth segera hadir.',
+              )
+            }
             android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
             style={{
               height: 52,
@@ -67,7 +75,11 @@ export default function TambahPerangkat() {
               key={b.n}
               accessibilityRole="button"
               accessibilityLabel={b.n}
-              onPress={() => toast(`Masuk ke akun ${b.n} dibangun di Fase 3.`)}
+              onPress={() =>
+                toast(
+                  mode === 'contoh' ? `Masuk ke akun ${b.n} dibangun di Fase 3.` : `Masuk ke akun ${b.n} segera hadir.`,
+                )
+              }
               android_ripple={{ color: c.ripple }}
               style={{
                 minHeight: 60,

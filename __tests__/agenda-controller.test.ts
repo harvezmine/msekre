@@ -1,4 +1,5 @@
 import { AgendaController } from '@/api/agendaController';
+import type { AgendaItem } from '@/api/contract';
 import { ERROR_TEXT } from '@/api/errors';
 import { FakeTransport } from '@/api/fake/FakeTransport';
 import { createMemorySession } from '@/api/session';
@@ -163,4 +164,126 @@ test('event dengan rev lebih lama dari yang dipegang dibuang; yang lebih baru di
   expect(controller.getState().items.some((i) => i.id === 'a2')).toBe(false);
   expect(controller.getState().leftover).toBeNull();
   controller.stop();
+});
+
+test('event masuk selagi memuat: jawaban muat yang lebih lama dibuang, keadaan tidak mundur, lalu dimuat sekali lagi', async () => {
+  const { transport, controller, state } = await setup();
+  const older = await transport.agenda();
+  let release!: (res: typeof older) => void;
+  const spy = jest.spyOn(transport, 'agenda').mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  const loading = controller.load();
+  transport.sample.dispatch({ type: 'setDone', id: 'a3', done: true });
+  await settle();
+  expect(state().items.find((i) => i.id === 'a3')?.done).toBe(true);
+  const rev = state().rev;
+  release(older);
+  await loading;
+  // Jawaban lama tidak menimpa perubahan yang lebih baru, `rev` tidak turun, dan server ditanya sekali lagi.
+  expect(state().items.find((i) => i.id === 'a3')?.done).toBe(true);
+  expect(state().rev).toBe(rev);
+  expect(spy).toHaveBeenCalledTimes(2);
+  controller.stop();
+});
+
+test('rentang lain yang dimuat selagi ada event: jawaban lama dibuang, rentangnya tidak dianggap termuat', async () => {
+  const { transport, controller, state } = await setup();
+  const older = await transport.agenda({ from: '2025-11-03', to: '2025-11-30' });
+  let release!: (res: typeof older) => void;
+  const spy = jest.spyOn(transport, 'agenda').mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  const ensuring = controller.ensureRange('2025-11-03', '2025-11-30');
+  transport.sample.dispatch({ type: 'setDone', id: 'a3', done: true });
+  await settle();
+  release(older);
+  expect(await ensuring).toBeNull();
+  // Diminta lagi, dan sekarang sama baru dengan event.
+  expect(spy).toHaveBeenCalledTimes(2);
+  expect(state().ranges).toEqual([{ from: '2025-10-20', to: '2025-11-30' }]);
+  controller.stop();
+});
+
+describe('jam dan rentang yang berjalan sendiri', () => {
+  /** Server palsu: jamnya berjalan seperti jam sungguhan dari (today, now); rentang apa adanya. */
+  function stub(today: string, now: string, rev = 1) {
+    const startedAt = Date.now();
+    const [h, m] = now.split('.').map(Number);
+    const agenda = jest.fn(async (range?: { from: string; to: string }) => {
+      const total = h! * 60 + m! + Math.floor((Date.now() - startedAt) / 60_000);
+      const days = Math.floor(total / 1440);
+      const minutes = total % 1440;
+      const day = new Date(Date.parse(`${today}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return {
+        items: [] as AgendaItem[],
+        leftover: null,
+        from: range?.from ?? '2025-10-20',
+        to: range?.to ?? '2025-11-02',
+        today: day,
+        now: `${pad(Math.floor(minutes / 60))}.${pad(minutes % 60)}`,
+        tzOffsetMinutes: 480,
+        rev,
+      };
+    });
+    const transport = { subscribe: () => () => {}, agenda } as unknown as FakeTransport;
+    return { agenda, controller: new AgendaController(transport) };
+  }
+
+  test('jam "sekarang" maju sendiri tiap menit, dan zona waktu pengguna ikut dari server', async () => {
+    const { controller } = stub('2025-10-20', '09.41');
+    controller.start();
+    await settle();
+    expect(controller.getState()).toMatchObject({ today: '2025-10-20', now: '09.41', tzOffsetMinutes: 480 });
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(controller.getState().now).toBe('09.42');
+    await jest.advanceTimersByTimeAsync(18 * 60_000);
+    expect(controller.getState().now).toBe('10.00');
+    controller.stop();
+  });
+
+  test('lewat tengah malam: hari ini berganti dan rentangnya dimuat ulang', async () => {
+    const { controller, agenda } = stub('2025-10-20', '23.58');
+    controller.start();
+    await settle();
+    expect(agenda).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(3 * 60_000);
+    expect(controller.getState()).toMatchObject({ today: '2025-10-21', now: '00.01' });
+    expect(agenda).toHaveBeenCalledTimes(2);
+    controller.stop();
+  });
+
+  test('pergantian pekan: muat ulang selalu menyertakan rentang bawaan (pekan ini dan depan) bersama rentang yang sudah ada', async () => {
+    // Minggu 26 Okt 2025, 23.59: pekan ini mulai Senin 20 Okt; sebentar lagi pekan baru.
+    const { controller, agenda } = stub('2025-10-26', '23.59');
+    controller.start();
+    await settle();
+    expect(agenda).toHaveBeenLastCalledWith(undefined);
+    await jest.advanceTimersByTimeAsync(2 * 60_000);
+    expect(controller.getState().today).toBe('2025-10-27');
+    // Senin 27 Okt: bawaan 27 Okt sampai 9 Nov, digabung dengan yang sudah dimuat (20 Okt sampai 2 Nov).
+    expect(agenda).toHaveBeenLastCalledWith({ from: '2025-10-20', to: '2025-11-09' });
+    controller.stop();
+  });
+
+  test('rentang bulan yang dibuka di Kalender ikut dimuat ulang bersama rentang bawaan', async () => {
+    const { controller, agenda } = stub('2025-10-20', '09.41');
+    controller.start();
+    await settle();
+    await controller.ensureRange('2026-01-01', '2026-01-31');
+    agenda.mockClear();
+    await controller.load();
+    expect(agenda.mock.calls.map((c) => c[0])).toEqual([
+      { from: '2025-10-20', to: '2025-11-02' },
+      { from: '2026-01-01', to: '2026-01-31' },
+    ]);
+    controller.stop();
+  });
 });

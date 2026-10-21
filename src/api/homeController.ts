@@ -64,28 +64,36 @@ export class HomeController {
     this.unsubscribe = null;
   }
 
-  /** Muat Beranda dari server. Yang terakhir diambil dianggap benar (juga bila `rev`-nya lebih kecil, misalnya server diganti). */
+  /**
+   * Muat Beranda dari server. `rev` tidak pernah turun: jawaban yang lebih lama dari Beranda sekarang (ada event yang masuk
+   * selagi memuat) dibuang dan dimuat sekali lagi.
+   */
   load = (): Promise<void> => {
     if (this.loading) return this.loading;
     if (this.state.home === null && this.state.status !== 'loading') this.set({ ...this.state, status: 'loading' });
-    this.loading = this.transport.home().then(
-      (home) => {
-        this.loading = null;
-        this.apply(home, true);
-      },
-      (e: unknown) => {
-        this.loading = null;
+    this.loading = (async () => {
+      try {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const home = await this.transport.home();
+          if (!this.isStale(home)) {
+            this.apply(home);
+            break;
+          }
+        }
+      } catch (e) {
         // Beranda yang sudah tampil tetap tampil; hanya layar kosong yang menampilkan kegagalan.
         if (this.state.home === null && this.alive) this.set({ ...INITIAL, status: 'error', error: friendlyError(e) });
-      },
-    );
+      } finally {
+        this.loading = null;
+      }
+    })();
     return this.loading;
   };
 
   /** Pilih tempat. `null` kalau berhasil, selain itu teks ramah untuk ditampilkan. */
   setPlace = async (place: string): Promise<string | null> => {
     try {
-      this.apply(await this.transport.setPlace(place), false);
+      this.apply(await this.transport.setPlace(place));
       return null;
     } catch (e) {
       return friendlyError(e);
@@ -105,14 +113,17 @@ export class HomeController {
   };
 
   private onEvent(event: StreamEvent) {
-    if (event.type === 'home') this.apply(event.home, false);
+    if (event.type === 'home') this.apply(event.home);
   }
 
-  /** `force`: ganti walau `rev` tidak lebih baru. Selain itu hanya `rev` yang lebih baru (atau sama dari jawaban sendiri) menang. */
-  private apply(home: Home, force: boolean) {
-    if (!this.alive) return;
-    const current = this.state.home;
-    if (!force && current && home.rev < current.rev) return;
+  /** Lebih lama dari Beranda yang dipegang. */
+  private isStale(home: Home): boolean {
+    return this.state.home !== null && home.rev < this.state.home.rev;
+  }
+
+  /** Hanya `rev` yang sama atau lebih baru yang menang; `rev` tidak pernah turun. */
+  private apply(home: Home) {
+    if (!this.alive || this.isStale(home)) return;
     const next: OrbitNode[] = home.ring.nodes.map((n) => ({
       key: n.key,
       icon: iconOr(n.icon, 'link'),

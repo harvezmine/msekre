@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
+import { useApi } from '@/api/ApiProvider';
 import { useHome } from '@/api/useHome';
 import { PLACES, useSample, type Place } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -19,16 +20,27 @@ export default function Tempat() {
 function Pilihan() {
   const { c } = useTheme();
   const { state, dispatch } = useSample();
+  const { mode } = useApi();
   const { home, setPlace } = useHome();
   const { close } = useSheet();
   const current = home?.place ?? state.place;
-  const pick = (place: Place) =>
+  // Tempat milik pengguna dari server (`Home.places`), `Semua` lebih dulu. Mode server tidak pernah memakai tempat contoh;
+  // sebelum Beranda terisi, hanya tempat yang sedang dipilih. Mode contoh memakai daftar contoh sebagai cadangan.
+  const places: string[] = home
+    ? ['Semua', ...home.places.filter((p) => p !== 'Semua')]
+    : mode === 'contoh'
+      ? [...PLACES]
+      : [current];
+  const pick = (place: string) =>
     close(() => {
-      // Layar yang belum pindah ke kontrak (Perangkat, Usaha) membaca tempat dari data contoh, jadi ikut berubah
-      // saat itu juga; yang menentukan tetap server (`PUT /places/current`).
-      dispatch({ type: 'setPlace', place });
+      // Layar yang belum pindah ke kontrak membaca tempat dari data contoh, jadi ikut berubah saat itu juga (hanya mode
+      // contoh); yang menentukan tetap server (`PUT /places/current`). Gagal: pilihan lama dikembalikan.
+      const before = state.place;
+      if (mode === 'contoh') dispatch({ type: 'setPlace', place: place as Place });
       void setPlace(place).then((failed) => {
-        if (failed) dispatch({ type: 'showToast', text: failed });
+        if (!failed) return;
+        if (mode === 'contoh') dispatch({ type: 'setPlace', place: before });
+        dispatch({ type: 'showToast', text: failed });
       });
     });
   return (
@@ -37,7 +49,7 @@ function Pilihan() {
         Pilih tempat
       </Txt>
       <View accessibilityRole="radiogroup">
-        {PLACES.map((p, i) => {
+        {places.map((p, i) => {
           const selected = p === current;
           return (
             <Pressable
@@ -52,7 +64,7 @@ function Pilihan() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                borderBottomWidth: i < PLACES.length - 1 ? 1 : 0,
+                borderBottomWidth: i < places.length - 1 ? 1 : 0,
                 borderBottomColor: c.line,
               }}
             >

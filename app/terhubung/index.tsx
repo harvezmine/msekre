@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useApi } from '@/api/ApiProvider';
 import { initialServices, serviceDef, serviceGroups, serviceInfo } from '@/sample/services';
 import { serviceStatus, useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -14,6 +15,7 @@ export default function Terhubung() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const { state, dispatch } = useSample();
+  const { mode } = useApi();
   const connected = new Set(state.services.map((s) => s.id));
   const groups = [
     ...serviceGroups,
@@ -133,7 +135,15 @@ export default function Terhubung() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Sambungkan layanan lain"
-          onPress={() => dispatch({ type: 'showToast', text: 'Menyambungkan layanan lain dibangun di Fase 5.' })}
+          onPress={() =>
+            dispatch({
+              type: 'showToast',
+              text:
+                mode === 'contoh'
+                  ? 'Menyambungkan layanan lain dibangun di Fase 5.'
+                  : 'Menyambungkan layanan lain segera hadir.',
+            })
+          }
           android_ripple={{ color: c.ripple }}
           style={{
             backgroundColor: c.card,

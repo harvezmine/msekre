@@ -49,7 +49,8 @@ const NOTIF_STATUS: Record<PushPermission, string> = {
   denied: 'Dimatikan di pengaturan HP',
 };
 
-// Akun (desain 2q). Baris yang layarnya belum ada memunculkan toast dengan nama fasenya.
+// Akun (desain 2q). Baris yang layarnya belum ada memunculkan toast: di mode contoh dengan nama fasenya, di mode server
+// cukup "segera hadir" (pengguna tidak perlu tahu soal fase).
 export default function Akun() {
   const { c } = useTheme();
   const { state, dispatch } = useSample();
@@ -60,14 +61,17 @@ export default function Akun() {
   const alarm = useAlarmStatus();
   const account = accountOf(profile);
   const toast = (text: string) => dispatch({ type: 'showToast', text });
+  const demo = mode === 'contoh';
+  /** Toast layar yang belum ada: teks contoh bernama fase, atau teks netral di mode server. */
+  const later = (contoh: string, server: string) => (demo ? contoh : server);
 
   const sections: Row[][] = [
     [
       {
         icon: 'user',
         title: 'Nama dan gaya asisten',
-        subtitle: 'Nadia · ramah dan singkat',
-        go: { toast: 'Pengaturan asisten dibangun di Fase 2.' },
+        subtitle: demo ? 'Nadia · ramah dan singkat' : undefined,
+        go: { toast: later('Pengaturan asisten dibangun di Fase 2.', 'Pengaturan asisten segera hadir.') },
       },
     ],
     [
@@ -81,7 +85,7 @@ export default function Akun() {
         icon: 'shield',
         title: 'Privasi',
         subtitle: 'Lihat dan hapus yang Nadia tahu, per layanan',
-        go: { toast: 'Pengaturan privasi dibangun di Fase 5.' },
+        go: { toast: later('Pengaturan privasi dibangun di Fase 5.', 'Pengaturan privasi segera hadir.') },
       },
     ],
     [
@@ -111,13 +115,13 @@ export default function Akun() {
       {
         icon: 'phone',
         title: 'HP yang terhubung',
-        subtitle: 'Pixel 8 (HP ini) dan 1 lainnya',
-        go: { toast: 'Daftar HP dibangun di Fase 2.' },
+        subtitle: demo ? 'Pixel 8 (HP ini) dan 1 lainnya' : undefined,
+        go: { toast: later('Daftar HP dibangun di Fase 2.', 'Daftar HP segera hadir.') },
       },
       {
         icon: 'link',
         title: 'Terhubung',
-        subtitle: `${state.services.length} layanan dan perangkat`,
+        subtitle: demo ? `${state.services.length} layanan dan perangkat` : undefined,
         go: { route: '/terhubung' },
       },
     ],
@@ -126,7 +130,7 @@ export default function Akun() {
         icon: 'help',
         title: 'Bantuan',
         subtitle: 'Tanya jawab dan hubungi tim',
-        go: { toast: 'Bantuan dibangun di Fase 5.' },
+        go: { toast: later('Bantuan dibangun di Fase 5.', 'Bantuan segera hadir.') },
       },
       { icon: 'history', title: 'Riwayat', subtitle: 'Semua yang sudah Nadia kerjakan', go: { route: '/riwayat' } },
     ],
@@ -187,7 +191,7 @@ export default function Akun() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Kelola"
-            onPress={() => toast('Kelola langganan dibangun di Fase 5.')}
+            onPress={() => toast(later('Kelola langganan dibangun di Fase 5.', 'Kelola langganan segera hadir.'))}
             android_ripple={{ color: c.ripple }}
             style={{ height: 48, paddingHorizontal: 16, justifyContent: 'center' }}
           >

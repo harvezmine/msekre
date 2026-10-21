@@ -5,7 +5,8 @@ export const ERROR_TEXT = 'Lagi ada kendala, sudah dilaporkan ke tim. Coba lagi 
 export const WRONG_CODE_TEXT = 'Kodenya belum cocok. Coba cek lagi pesan WhatsApp-nya.';
 export const BLOCKED_TEXT = 'Akun ini sedang tidak aktif. Hubungi tim Sekretaris AI lewat WhatsApp.';
 export const UPGRADE_TEXT = 'Ada versi aplikasi yang lebih baru. Perbarui dulu ya.';
-export const UNAVAILABLE_TEXT = 'Kendali perangkat dari chat segera hadir.';
+export const UNAVAILABLE_TEXT = 'Kendali perangkat ini segera hadir.';
+export const NOT_UNDERSTOOD_TEXT = 'Saya belum paham waktunya. Coba tulis misalnya: besok jam 9 rapat.';
 export const NOT_REGISTERED_TEXT = 'Nomor ini belum memakai Sekretaris AI. Mulai dulu lewat WhatsApp ya.';
 export const PIN_NEEDED_TEXT = 'Aksi ini perlu PIN. Masukkan PIN dulu ya.';
 export const WRONG_PIN_TEXT = 'PIN belum cocok, coba lagi.';
@@ -30,6 +31,8 @@ export function friendlyError(e: unknown): string {
       return WRONG_PIN_TEXT;
     case 'upgrade_required':
       return UPGRADE_TEXT;
+    case 'not_understood':
+      return NOT_UNDERSTOOD_TEXT;
     case 'unavailable':
       return UNAVAILABLE_TEXT;
     case 'rate_limited':

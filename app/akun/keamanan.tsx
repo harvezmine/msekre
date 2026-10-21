@@ -53,7 +53,7 @@ export default function Keamanan() {
       if (f.step === 'current') {
         if (!(await security.verify(pin))) return false;
         if (f.kind === 'disable') {
-          await security.setEnabled(false);
+          await security.setEnabled(false, pin);
           finish('Permintaan PIN dimatikan.');
         } else {
           setFlow({ kind: f.kind, step: 'new', current: pin });
@@ -69,8 +69,8 @@ export default function Keamanan() {
         await security.setPin(pin, f.current);
         finish('PIN diganti.');
       } else {
-        await security.setPin(pin);
-        await security.setEnabled(true);
+        // Satu langkah di server: PIN tersimpan dan permintaan PIN hidup, atau tidak ada yang berubah.
+        await security.setPin(pin, undefined, true);
         finish('PIN dibuat. Kamera, alarm rumah, dan kunci pintu sekarang minta PIN.');
       }
       return true;

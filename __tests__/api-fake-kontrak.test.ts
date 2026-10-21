@@ -347,6 +347,40 @@ describe('paritas dengan server', () => {
     await expect(transport.verifyPin('12')).rejects.toMatchObject({ error: 'tidak_valid' });
   });
 
+  test('mematikan permintaan PIN wajib membawa PIN yang sekarang: hilang atau salah 403 pin_salah, benar berhasil', async () => {
+    const { transport } = setup({ security: { pinEnabled: true, pin: '123456' } });
+    await expect(transport.setSecurity({ pinEnabled: false })).rejects.toMatchObject({
+      code: 'pin_wrong',
+      status: 403,
+      error: 'pin_salah',
+    });
+    await expect(transport.setSecurity({ pinEnabled: false, pin: '000000' })).rejects.toMatchObject({
+      code: 'pin_wrong',
+    });
+    expect(await transport.security()).toEqual({ pinEnabled: true, hasPin: true });
+    expect(await transport.setSecurity({ pinEnabled: false, pin: '123456' })).toEqual({
+      pinEnabled: false,
+      hasPin: true,
+    });
+    // Menghidupkan tidak butuh PIN (tidak membuka apa-apa).
+    expect(await transport.setSecurity({ pinEnabled: true })).toEqual({ pinEnabled: true, hasPin: true });
+  });
+
+  test('POST /account/pin dengan enable: PIN dan permintaan PIN berubah bersama; gagal berarti tidak ada yang berubah', async () => {
+    const { transport } = setup();
+    expect(await transport.setPin({ pin: '123456', enable: true })).toEqual({ pinEnabled: true, hasPin: true });
+    // Ganti PIN dengan PIN lama yang salah: tidak ada yang berubah.
+    await expect(transport.setPin({ pin: '654321', currentPin: '000000', enable: true })).rejects.toMatchObject({
+      code: 'pin_wrong',
+    });
+    expect(await transport.verifyPin('123456')).toBe(true);
+    const other = setup();
+    await expect(other.transport.setPin({ pin: '12', enable: true } as never)).rejects.toMatchObject({
+      error: 'tidak_valid',
+    });
+    expect(await other.transport.security()).toEqual({ pinEnabled: false, hasPin: false });
+  });
+
   test('keamanan awal dari opsi', async () => {
     const { transport } = setup({ security: { pinEnabled: true, pin: '111222' } });
     expect(await transport.security()).toEqual({ pinEnabled: true, hasPin: true });

@@ -9,6 +9,8 @@ import {
   type StreamEvent,
 } from '@/api/contract';
 import { FakeTransport } from '@/api/fake/FakeTransport';
+import { ERROR_TEXT, friendlyError } from '@/api/errors';
+import { parseAgendaItemLenient, parseAgendaItemResLenient, parseAgendaLenient } from '@/api/lenient';
 import { createMemorySession } from '@/api/session';
 
 function setup() {
@@ -70,7 +72,19 @@ describe('agenda di server tiruan', () => {
     const res = await transport.agenda();
     expect(agendaResSchema.safeParse(res).success).toBe(true);
     expect(res).toMatchObject({ from: '2025-10-20', to: '2025-11-02', today: '2025-10-20', now: '09.41' });
-    expect(res.items.map((i) => i.id)).toEqual(['a1', 'a2', 'a3', 'a4', 'a5', 'a10', 'a6', 'a7', 'a8', 'a9', 'a11']);
+    expect(res.items.map((i) => i.id)).toEqual([
+      'a1',
+      'a2',
+      'a3',
+      'jemput:2025-10-20',
+      'rapat-manajer:2025-10-20',
+      'a10',
+      'a6',
+      'a7',
+      'a8',
+      'a9',
+      'jemput:2025-10-26',
+    ]);
     expect(res.leftover).toMatchObject({ id: 'l1', kind: 'task', date: '2025-10-19' });
     expect(Date.parse(res.items[0]!.at)).toBe(Date.parse('2025-10-20T02:00:00.000Z'));
   });
@@ -114,6 +128,40 @@ describe('agenda di server tiruan', () => {
     });
     expect(res.preview.item.at).toBe('2025-10-25T02:00:00.000Z');
     await expect(transport.agendaParse('   ')).rejects.toMatchObject({ error: 'tidak_valid' });
+  });
+
+  test('parse: kalimat yang tidak bisa dibaca dibalas 422 tidak_paham dengan teks ramah (bukan teks kendala umum)', async () => {
+    const { transport } = setup();
+    const e = await transport.agendaParse('???').catch((x: unknown) => x);
+    expect(e).toMatchObject({ code: 'not_understood', status: 422, error: 'tidak_paham' });
+    expect(friendlyError(e)).toBe('Saya belum paham waktunya. Coba tulis misalnya: besok jam 9 rapat.');
+    expect(friendlyError(e)).not.toBe(ERROR_TEXT);
+  });
+
+  test('kejadian berulang punya id sendiri (<seri>:<tanggal>) dan seriesId yang sama; ubah dan tanda terima per kejadian', async () => {
+    const { transport } = setup();
+    const res = await transport.agenda();
+    const jemput = res.items.filter((i) => i.seriesId === 'jemput');
+    expect(jemput.map((i) => i.id)).toEqual(['jemput:2025-10-20', 'jemput:2025-10-26']);
+    expect(jemput.every((i) => i.id.endsWith(`:${i.date}`))).toBe(true);
+    // Menyelesaikan satu kejadian tidak menyentuh kejadian lain dari deret yang sama.
+    await transport.agendaPatch('jemput:2025-10-20', { done: true });
+    const after = await transport.agenda();
+    expect(after.items.find((i) => i.id === 'jemput:2025-10-20')?.done).toBe(true);
+    expect(after.items.find((i) => i.id === 'jemput:2025-10-26')?.done).toBeUndefined();
+    await transport.agendaAlarmAck('jemput:2025-10-26', '2025-10-26T09:00:00.000Z');
+    expect(transport.alarmAcks).toEqual([{ id: 'jemput:2025-10-26', scheduledFor: '2025-10-26T09:00:00.000Z' }]);
+  });
+
+  test('jawaban membawa zona waktu pengguna (WIB 420) dan tundaan disimpan lengkap sebagai waktu ISO', async () => {
+    const { transport } = setup();
+    expect((await transport.agenda()).tzOffsetMinutes).toBe(420);
+    const snoozed = await transport.agendaPatch('a10', { snoozeUntil: '2025-10-21T00:10:00.000Z' });
+    expect(snoozed.snoozedUntil).toBe('2025-10-21T00:10:00.000Z');
+    // Lewat tengah malam tetap benar (bukan hanya jam "HH.MM").
+    const late = await transport.agendaPatch('a10', { snoozeUntil: '2025-10-22T17:05:00.000Z' });
+    expect(late.snoozedUntil).toBe('2025-10-22T17:05:00.000Z');
+    expect(agendaItemSchema.safeParse(late).success).toBe(true);
   });
 
   test('tambah menyimpan di data bersama dan menyiarkan satu event dengan rev naik', async () => {
@@ -177,5 +225,54 @@ describe('agenda di server tiruan', () => {
     transport.sample.dispatch({ type: 'setAc', on: false });
     await settle();
     expect(events).toHaveLength(0);
+  });
+});
+
+describe('pembacaan longgar item agenda', () => {
+  const good = {
+    id: 'a1',
+    date: '2026-10-21',
+    time: '07.00',
+    at: '2026-10-21T00:00:00.000Z',
+    title: 'Berangkat',
+    kind: 'reminder',
+    way: 'alarm',
+  };
+
+  test('bidang tambahan yang rusak atau baru dibuang, itemnya tetap dipakai; bidang inti rusak membuang item', () => {
+    expect(parseAgendaItemLenient({ ...good, way: 'telepati', repeat: 5, snoozedUntil: 'besok', seriesId: 3 })).toEqual(
+      {
+        id: 'a1',
+        date: '2026-10-21',
+        time: '07.00',
+        at: '2026-10-21T00:00:00.000Z',
+        title: 'Berangkat',
+        kind: 'reminder',
+      },
+    );
+    expect(parseAgendaItemLenient({ ...good, future: 1 })).toEqual(good);
+    expect(parseAgendaItemLenient({ ...good, kind: 'jenis-baru' })).toBeNull();
+    expect(parseAgendaItemLenient({ ...good, at: 'kemarin' })).toBeNull();
+    expect(parseAgendaItemLenient('x')).toBeNull();
+  });
+
+  test('jawaban tunggal ({ item }) dibaca longgar; tanpa item itu null', () => {
+    expect(parseAgendaItemResLenient({ item: { ...good, way: 'baru' } })?.item.way).toBeUndefined();
+    expect(parseAgendaItemResLenient({ item: { ...good, id: '' } })).toBeNull();
+    expect(parseAgendaItemResLenient({})).toBeNull();
+  });
+
+  test('jawaban GET /agenda tanpa zona waktu (server lama) dibaca WIB', () => {
+    const res = parseAgendaLenient({
+      items: [good, { nope: 1 }],
+      leftover: null,
+      from: '2026-10-19',
+      to: '2026-11-01',
+      today: '2026-10-21',
+      now: '06.30',
+      rev: 3,
+    });
+    expect(res?.tzOffsetMinutes).toBe(420);
+    expect(res?.items).toHaveLength(1);
   });
 });

@@ -7,7 +7,8 @@ import { Icon } from '../Icon';
 import type { IconName } from '../icons';
 import { Txt } from '../Txt';
 
-const TILE_ICON: Record<Item['kind'], IconName> = {
+/** Ikon tiap jenis item (juga dipakai pratinjau di lembar Tambah). */
+export const KIND_ICON: Record<Item['kind'], IconName> = {
   reminder: 'bell',
   task: 'task',
   meeting: 'camera',
@@ -22,22 +23,24 @@ export function isPast(item: Item, today: string, now: string): boolean {
 interface Props {
   item: Item;
   past?: boolean;
+  /** Zona waktu pengguna (menit dari UTC, dari server) untuk jam yang berasal dari waktu ISO, seperti "Ditunda sampai". */
+  tzOffsetMinutes?: number | null;
   onToggle?: (id: string) => void;
-  /** Tahan sebuah pengingat untuk mencoba alarm-nya (prototipe). */
+  /** Tahan sebuah pengingat untuk melihat pratinjau layar alarm-nya (alarm aslinya tidak berubah). */
   onLongPress?: (id: string) => void;
 }
 
 /** Satu baris agenda seperti desain 2a: jam, tile ikon 40, judul, keterangan. */
-export function AgendaItem({ item, past = false, onToggle, onLongPress }: Props) {
+export function AgendaItem({ item, past = false, tzOffsetMinutes, onToggle, onLongPress }: Props) {
   const { c } = useTheme();
   const isTask = item.kind === 'task';
   const hasAlarm = item.kind === 'reminder' || item.kind === 'recurring';
-  const icon: IconName = isTask && item.done ? 'taskDone' : TILE_ICON[item.kind];
+  const icon: IconName = isTask && item.done ? 'taskDone' : KIND_ICON[item.kind];
   const dim = past || item.done === true;
   const notulen = item.kind === 'meeting' && item.notesMessageId !== undefined;
   const time = item.allDay ? 'Seharian' : item.time;
 
-  const sub = subtitle(item);
+  const sub = subtitle(item, tzOffsetMinutes);
   const label = [time, item.title, sub.text, item.repeat].filter(Boolean).join('. ');
 
   return (
@@ -127,8 +130,8 @@ export function AgendaItem({ item, past = false, onToggle, onLongPress }: Props)
   );
 }
 
-function subtitle(item: Item): { text: string; icon?: IconName; warn?: boolean } {
-  if (item.snoozedUntil) return { text: `Ditunda sampai ${formatJam(item.snoozedUntil)}`, warn: true };
+function subtitle(item: Item, tz?: number | null): { text: string; icon?: IconName; warn?: boolean } {
+  if (item.snoozedUntil) return { text: `Ditunda sampai ${formatJam(item.snoozedUntil, tz)}`, warn: true };
   switch (item.kind) {
     case 'task':
       return { text: item.done ? 'Selesai' : 'Tugas' };
@@ -136,6 +139,7 @@ function subtitle(item: Item): { text: string; icon?: IconName; warn?: boolean }
       return { text: item.note ?? 'Rapat' };
     default:
       if (item.way === 'call') return { text: 'Telepon saya', icon: 'call' };
-      return item.way === 'notif' ? { text: 'Lewat notifikasi' } : { text: 'Bunyi sebagai alarm' };
+      // Tanpa `way`, pengingat dibaca notifikasi biasa (kontrak): hanya yang `alarm` yang membunyikan alarm di HP.
+      return item.way === 'alarm' ? { text: 'Bunyi sebagai alarm' } : { text: 'Lewat notifikasi' };
   }
 }

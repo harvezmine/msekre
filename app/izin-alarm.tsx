@@ -67,8 +67,16 @@ function Isi() {
       title: 'Alarm percobaan',
       note: 'Kalau Anda melihat ini, alarm di HP ini sudah bekerja.',
     });
-    if (ok) setTested(true);
-    else toast({ type: 'showToast', text: 'Alarm percobaan belum bisa dipasang. Nyalakan izin di atas dulu ya.' });
+    if (ok) return setTested(true);
+    // Notifikasi mati: alarm terpasang tapi tidak akan terdengar, jadi tidak dianggap berhasil (dan tidak dikabarkan ke server).
+    const now = await scheduler.status();
+    toast({
+      type: 'showToast',
+      text:
+        now.notifications === 'denied'
+          ? 'Notifikasi masih mati, jadi alarm tidak akan terdengar. Nyalakan notifikasinya dulu ya.'
+          : 'Alarm percobaan belum bisa dipasang. Nyalakan izin di atas dulu ya.',
+    });
   };
 
   if (!native) {
@@ -168,7 +176,9 @@ function Isi() {
           <PrimaryButton label="Selesai" onPress={() => close()} />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Coba alarm 1 menit lagi"
+            accessibilityLabel={
+              tested ? 'Alarm akan berbunyi 1 menit lagi. Kunci HP untuk mencoba' : 'Coba alarm 1 menit lagi'
+            }
             onPress={() => void test()}
             style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
           >

@@ -795,6 +795,53 @@ describe('dokumen: unduh lalu buka atau bagikan', () => {
     expect(screen.getByRole('button', { name: 'Buka' })).toBeEnabled();
   });
 
+  test('tombol tidak sibuk lagi begitu aplikasi pembuka berjalan, walau pengguna belum kembali', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    const { fake } = await mount({ history: [doc] });
+    jest.spyOn(fake, 'mediaUrl').mockResolvedValue(real);
+    // Aplikasi pembuka belum menjawab (pengguna masih membaca berkasnya).
+    jest.mocked(IntentLauncher.startActivityAsync).mockReturnValue(new Promise(() => {}));
+    await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
+    await settle();
+    expect(IntentLauncher.startActivityAsync).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Buka' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Bagikan' })).toBeEnabled();
+    jest.restoreAllMocks();
+  });
+
+  test('berkas yang sudah diunduh dengan ukuran sama dipakai lagi, tanpa mengunduh ulang; ukuran beda mengunduh lagi', async () => {
+    const { fake } = await mount({ history: [doc] });
+    jest.spyOn(fake, 'mediaUrl').mockResolvedValue(real);
+    const existing = (File as unknown as { existing: Map<string, number> }).existing;
+    existing.set('file:///cache/berkas/contoh-laporan/Laporan.pdf', 1000);
+    try {
+      await fireEvent.press(screen.getByRole('button', { name: 'Bagikan' }));
+      await settle();
+      expect(File.downloadFileAsync).not.toHaveBeenCalled();
+      expect(Sharing.shareAsync).toHaveBeenCalledWith(
+        'file:///cache/berkas/contoh-laporan/Laporan.pdf',
+        expect.anything(),
+      );
+      existing.set('file:///cache/berkas/contoh-laporan/Laporan.pdf', 999);
+      await fireEvent.press(screen.getByRole('button', { name: 'Bagikan' }));
+      await settle();
+      expect(File.downloadFileAsync).toHaveBeenCalledTimes(1);
+    } finally {
+      existing.clear();
+    }
+  });
+
+  test('unduhan gagal: sesi diperiksa satu kali (401 menghapus sesi seperti request lain)', async () => {
+    const { fake } = await mount({ history: [doc] });
+    jest.spyOn(fake, 'mediaUrl').mockResolvedValue(real);
+    const me = jest.spyOn(fake, 'me');
+    jest.mocked(File.downloadFileAsync).mockRejectedValueOnce(new Error('UnableToDownload 401'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
+    await settle();
+    expect(latest.toast?.text).toBe(FILE_DOWNLOAD_TEXT);
+    expect(me).toHaveBeenCalledTimes(1);
+  });
+
   test('server tiruan: berkas teks contoh ditulis ke cache, lalu dibuka', async () => {
     jest.replaceProperty(Platform, 'OS', 'android');
     await mount({ history: [doc] });

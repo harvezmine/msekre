@@ -85,6 +85,8 @@ export interface AgendaItem {
   kind: AgendaKind;
   way?: 'alarm' | 'call';
   repeat?: string;
+  /** Deret item berulang; id kejadiannya `<seriesId>:<tanggal>`. */
+  seriesId?: string;
   note?: string;
   done?: boolean;
   past?: boolean;

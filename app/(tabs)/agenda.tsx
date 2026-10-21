@@ -69,7 +69,9 @@ export default function Agenda() {
   const blocked =
     alarmBlocked(alarm.status) && agenda.items.some((i) => i.way === 'alarm' && !i.done && i.kind !== 'task');
   const onToggle = (id: string) => void agenda.toggle(id).then(say);
-  const onLongPress = (id: string) => router.push({ pathname: '/alarm', params: { id } });
+  // Tahan sebuah pengingat: pratinjau layar alarm. `preview` menjaga alarm yang sebenarnya tidak ikut dimatikan atau ditunda.
+  const onLongPress = (id: string) => router.push({ pathname: '/alarm', params: { id, preview: '1' } });
+  const tz = agenda.tzOffsetMinutes;
 
   const today = itemsOn(TODAY);
   const remaining = today.filter((a) => !isPast(a, TODAY, NOW) && !a.done).length;
@@ -92,6 +94,7 @@ export default function Agenda() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Akun"
+            onPress={() => router.push('/akun')}
             style={{
               width: 48,
               height: 48,
@@ -181,14 +184,29 @@ export default function Agenda() {
               {today.length === 0 ? (
                 <EmptyDay text="Hari ini longgar. Mau saya ingatkan sesuatu?" />
               ) : (
-                <DayList items={today} today={TODAY} now={NOW} showNow onToggle={onToggle} onLongPress={onLongPress} />
+                <DayList
+                  items={today}
+                  today={TODAY}
+                  now={NOW}
+                  tz={tz}
+                  showNow
+                  onToggle={onToggle}
+                  onLongPress={onLongPress}
+                />
               )}
             </View>
           </>
         ) : null}
 
         {segment === 'Minggu ini' ? (
-          <WeekList today={TODAY} now={NOW} itemsOn={itemsOn} onToggle={onToggle} onLongPress={onLongPress} />
+          <WeekList
+            today={TODAY}
+            now={NOW}
+            tzOffsetMinutes={tz}
+            itemsOn={itemsOn}
+            onToggle={onToggle}
+            onLongPress={onLongPress}
+          />
         ) : null}
 
         {segment === 'Kalender' ? (
@@ -213,6 +231,7 @@ export default function Agenda() {
                   items={itemsOn(selected)}
                   today={TODAY}
                   now={NOW}
+                  tz={tz}
                   onToggle={onToggle}
                   onLongPress={onLongPress}
                 />
@@ -294,6 +313,7 @@ function DayList({
   items,
   today,
   now,
+  tz,
   showNow = false,
   onToggle,
   onLongPress,
@@ -301,6 +321,7 @@ function DayList({
   items: Item[];
   today: string;
   now: string;
+  tz?: number | null;
   showNow?: boolean;
   onToggle: (id: string) => void;
   onLongPress: (id: string) => void;
@@ -313,7 +334,7 @@ function DayList({
       {items.map((item, i) => (
         <View key={item.id}>
           {i === firstUpcoming ? <NowLine now={now} /> : null}
-          <AgendaItem item={item} past={pasts[i]} onToggle={onToggle} onLongPress={onLongPress} />
+          <AgendaItem item={item} past={pasts[i]} tzOffsetMinutes={tz} onToggle={onToggle} onLongPress={onLongPress} />
         </View>
       ))}
       {firstUpcoming === -1 ? <NowLine now={now} /> : null}

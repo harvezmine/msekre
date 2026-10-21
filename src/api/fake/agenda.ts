@@ -3,7 +3,7 @@ import { addDays, weekdayIndex } from '@/sample/dates';
 import type { SampleState } from '@/sample/reducer';
 import type { AgendaItem as SampleItem, Leftover } from '@/sample/types';
 import type { AgendaItem, AgendaNew, AgendaParseRes } from '../contract';
-import { hhmmWib, wibIsoOf } from './clock';
+import { wibIsoOf } from './clock';
 import { parseAgenda } from './parseAgenda';
 
 /** Id pesan notulen contoh yang ditautkan rapat bernotulen siap. */
@@ -14,6 +14,7 @@ export function toContractItem(a: SampleItem): AgendaItem {
   const notes = a.note === 'Notulen siap';
   return {
     id: a.id,
+    ...(a.seriesId ? { seriesId: a.seriesId } : {}),
     date: a.date,
     time: a.time,
     at: wibIsoOf(a.date, a.time),
@@ -24,7 +25,10 @@ export function toContractItem(a: SampleItem): AgendaItem {
     ...(a.note && !notes ? { note: a.note } : {}),
     ...(notes ? { notesMessageId: SAMPLE_NOTES_MESSAGE_ID } : {}),
     ...(a.done ? { done: true } : {}),
-    ...(a.snoozedUntil ? { snoozedUntil: wibIsoOf(a.date, a.snoozedUntil) } : {}),
+    // Tundaan disimpan sebagai ISO (lewat tengah malam tetap benar); data contoh lama memakai jam "HH.MM".
+    ...(a.snoozedUntil
+      ? { snoozedUntil: a.snoozedUntil.includes('T') ? a.snoozedUntil : wibIsoOf(a.date, a.snoozedUntil) }
+      : {}),
   };
 }
 
@@ -71,7 +75,5 @@ export function previewOf(text: string): AgendaParseRes | null {
   return { preview: { item, guessedTime: p.timeGuessed } };
 }
 
-/** Jam "HH.MM" WIB dari waktu ISO, untuk menunda di penyimpanan contoh. */
-export function hhmmOfIso(iso: string): string {
-  return hhmmWib(Date.parse(iso));
-}
+/** Zona waktu pengguna di server tiruan: WIB. */
+export const FAKE_TZ_MINUTES = 420;

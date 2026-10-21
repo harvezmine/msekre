@@ -25,6 +25,7 @@ const NONE: AgendaState = {
   leftover: null,
   today: null,
   now: null,
+  tzOffsetMinutes: null,
   ranges: [],
   status: 'loading',
   error: null,

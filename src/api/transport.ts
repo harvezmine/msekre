@@ -47,6 +47,7 @@ import type { DataMode } from './mode';
  *   menyebutnya. Aplikasi adalah add-on, akun hanya dibuat lewat WhatsApp;
  * - `pin_wrong`: PIN (atau PIN lama) tidak cocok (403 `pin_salah`); sesi dan akun tidak terpengaruh;
  * - `pin_required`: aksi perangkat yang dijaga butuh PIN (428 `pin_diperlukan`); aplikasi meminta PIN lalu mengulang;
+ * - `not_understood`: server tidak bisa membaca kalimat agenda (422 `tidak_paham`);
  * - `unavailable`: jalur belum diisi server (501 `belum_tersedia`);
  * - `server`: kendala lain, termasuk jawaban server yang bentuknya tidak sesuai kontrak.
  */
@@ -59,6 +60,7 @@ export type FailureCode =
   | 'not_registered'
   | 'pin_wrong'
   | 'pin_required'
+  | 'not_understood'
   | 'rate_limited'
   | 'upgrade_required'
   | 'unavailable'

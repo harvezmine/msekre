@@ -8,6 +8,21 @@ import { createMemorySession } from '@/api/session';
 import { renderWithProviders } from './helpers';
 
 const BASE = 'https://app.sekertaris.com';
+
+// Jam HP tetap pagi (tanpa jawaban agenda, sapaan memakai jam HP): tes tidak bergantung pada kapan dijalankan.
+beforeEach(() => jest.setSystemTime(new Date(2025, 9, 20, 8, 0)));
+
+/** Jawaban agenda dengan jam server `now`, untuk sapaan menurut waktu. */
+const agendaAt = (now: string) => ({
+  items: [],
+  leftover: null,
+  from: '2025-10-20',
+  to: '2025-11-02',
+  today: '2025-10-20',
+  now,
+  tzOffsetMinutes: 420,
+  rev: 1,
+});
 const me = {
   id: 'u1',
   name: 'Budi',
@@ -26,6 +41,7 @@ const draft = {
 };
 const homeBody = {
   place: 'Semua',
+  places: ['Rumah', 'Kedai Dago'],
   greetingName: 'Budi',
   summary: 'Ada 1 hal yang perlu Anda hari ini.',
   approvals: [draft],
@@ -208,4 +224,66 @@ test('mode server: mode gelap', async () => {
   const { api } = serverApi();
   await renderWithProviders(<Beranda />, { api, scheme: 'dark' });
   expect(await screen.findByText('Selamat pagi, Budi')).toBeOnTheScreen();
+});
+
+test('mode server: sapaan mengikuti jam di zona pengguna (dari agenda): pagi, siang, sore, malam', async () => {
+  for (const [now, hello] of [
+    ['06.30', 'Selamat pagi, Budi'],
+    ['12.05', 'Selamat siang, Budi'],
+    ['16.40', 'Selamat sore, Budi'],
+    ['20.10', 'Selamat malam, Budi'],
+    ['02.00', 'Selamat malam, Budi'],
+  ] as const) {
+    const { api } = serverApi((path) => (path.startsWith('/agenda') ? { body: agendaAt(now) } : undefined));
+    const view = await renderWithProviders(<Beranda />, { api });
+    expect(await screen.findByText(hello)).toBeOnTheScreen();
+    await view.unmount();
+  }
+});
+
+test('mode server: kartu Agenda dan Rumah disembunyikan kalau kosong', async () => {
+  const { api } = serverApi((path) =>
+    path === '/home' ? { body: { ...homeBody, agendaToday: [], house: { lines: [] } } } : undefined,
+  );
+  await renderWithProviders(<Beranda />, { api });
+  expect(await screen.findByText('Selamat pagi, Budi')).toBeOnTheScreen();
+  expect(screen.queryByText('Agenda hari ini')).toBeNull();
+  expect(screen.queryByText('Rumah')).toBeNull();
+  // Yang lain tetap ada.
+  expect(screen.getByText('Usaha')).toBeOnTheScreen();
+});
+
+test('mode server: pemilih tempat memakai tempat dari server (Home.places), bukan tempat contoh', async () => {
+  const { api } = serverApi();
+  await renderWithProviders(
+    <>
+      <Beranda />
+      <Tempat />
+    </>,
+    { api },
+  );
+  await screen.findByText('Rp9.900.000');
+  expect(screen.getAllByRole('radio').map((r) => r.props.accessibilityLabel)).toEqual(['Semua', 'Rumah', 'Kedai Dago']);
+  expect(screen.queryByRole('radio', { name: 'Kedai Riau' })).toBeNull();
+});
+
+test('mode server: memilih tempat yang ditolak server memberi tahu dengan ramah dan tempat tidak berubah', async () => {
+  const { api } = serverApi((path) =>
+    path === '/places/current' ? { status: 500, body: { error: 'server' } } : undefined,
+  );
+  await renderWithProviders(
+    <>
+      <Beranda />
+      <Tempat />
+      <ToastHost />
+    </>,
+    { api },
+  );
+  await screen.findByText('Rp9.900.000');
+  await fireEvent.press(screen.getByRole('radio', { name: 'Kedai Dago' }));
+  await act(async () => {
+    jest.advanceTimersByTime(250);
+  });
+  expect(await screen.findByText(ERROR_TEXT)).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Tempat: Semua' })).toBeOnTheScreen();
 });

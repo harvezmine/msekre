@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import Beranda from '../app/(tabs)/index';
 import Terhubung from '../app/terhubung/index';
 import { advance, currentStack, go, mockParams, restoreParams, sampleState, showRoute } from './harness';
-import { renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders } from './helpers';
 
 async function show(start = '/terhubung') {
   await showRoute(start);
@@ -44,6 +44,12 @@ test('Sambungkan layanan lain memunculkan toast Fase 5', async () => {
   await show();
   await fireEvent.press(screen.getByRole('button', { name: 'Sambungkan layanan lain' }));
   expect(sampleState().toast?.text).toBe('Menyambungkan layanan lain dibangun di Fase 5.');
+});
+
+test('Sambungkan layanan lain di mode server: toast netral, tanpa menyebut fase', async () => {
+  await showRoute('/terhubung', { api: createTestApi({ mode: 'server', token: 'tok' }) });
+  await fireEvent.press(screen.getByRole('button', { name: 'Sambungkan layanan lain' }));
+  expect(sampleState().toast?.text).toBe('Menyambungkan layanan lain segera hadir.');
 });
 
 test('alur 4: Sambungkan TikTok, Masuk (contoh), tersambung, Selesai, Beranda punya 8 simpul', async () => {

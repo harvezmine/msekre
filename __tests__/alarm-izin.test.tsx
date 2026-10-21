@@ -1,11 +1,13 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import Agenda from '../app/(tabs)/agenda';
 import Akun from '../app/akun';
 import Alarm from '../app/alarm';
 import IzinAlarm, { brandTips } from '../app/izin-alarm';
 import { createTestApi, renderWithProviders } from './helpers';
+import { useSample, type SampleState } from '@/sample/store';
 import { MemoryAlarmScheduler, setAlarmScheduler } from '@/alarm';
 import { TEST_ALARM_DELAY_MS, TEST_ALARM_ID } from '@/alarm/testAlarm';
 import { AlarmSyncHost } from '@/alarm/useAlarmSync';
@@ -17,6 +19,15 @@ jest.mock('expo-device', () => ({
     return mockManufacturer;
   },
 }));
+
+let latest: SampleState;
+function Probe() {
+  const { state } = useSample();
+  useEffect(() => {
+    latest = state;
+  });
+  return null;
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -138,6 +149,29 @@ describe('panduan izin alarm', () => {
     expect(test!.at - before).toBeGreaterThanOrEqual(TEST_ALARM_DELAY_MS - 50);
     expect(test!.at - before).toBeLessThanOrEqual(TEST_ALARM_DELAY_MS + 50);
     expect(screen.getByText(/Alarm akan berbunyi 1 menit lagi/)).toBeOnTheScreen();
+    // Nama tombol untuk pembaca layar ikut berubah, sama dengan tulisannya.
+    expect(
+      screen.getByRole('button', { name: 'Alarm akan berbunyi 1 menit lagi. Kunci HP untuk mencoba' }),
+    ).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Coba alarm 1 menit lagi' })).toBeNull();
+  });
+
+  test('alarm percobaan dengan notifikasi mati: tidak dianggap berhasil, dan pesannya menyebut notifikasi', async () => {
+    install({ notifications: 'denied' });
+    const view = await renderWithProviders(
+      <>
+        <IzinAlarm />
+        <Probe />
+      </>,
+    );
+    await advance(0);
+    await fireEvent.press(screen.getByRole('button', { name: 'Coba alarm 1 menit lagi' }));
+    await advance(0);
+    expect(screen.queryByText(/Alarm akan berbunyi/)).toBeNull();
+    expect(latest.toast?.text).toBe(
+      'Notifikasi masih mati, jadi alarm tidak akan terdengar. Nyalakan notifikasinya dulu ya.',
+    );
+    await view.unmount();
   });
 
   test('alarm percobaan ditolak izin: tidak terjadwal', async () => {
@@ -264,10 +298,10 @@ describe('sinkron alarm dengan agenda (pasang di akar)', () => {
     await renderWithProviders(<AlarmSyncHost />, { api });
     await advance(0);
     await advance(0);
-    // a4 (hari ini 16.00), a10 (besok 07.00), a9 (24 Okt), a11 (berulang, 26 Okt); a2 (telepon) tidak.
-    expect(await idsOf(scheduler)).toEqual(['a4', 'a10', 'a9', 'a11']);
-    expect(api.transport.alarmAcks.map((a) => a.id)).toEqual(['a4', 'a10', 'a9', 'a11']);
-    expect(api.transport.alarmAcks[0]).toEqual({ id: 'a4', scheduledFor: '2025-10-20T09:00:00.000Z' });
+    // Jemput hari ini 16.00, a10 (besok 07.00), a9 (24 Okt), Jemput berulang 26 Okt (id kejadiannya sendiri); a2 (telepon) tidak.
+    expect(await idsOf(scheduler)).toEqual(['jemput:2025-10-20', 'a10', 'a9', 'jemput:2025-10-26']);
+    expect(api.transport.alarmAcks.map((a) => a.id)).toEqual(['jemput:2025-10-20', 'a10', 'a9', 'jemput:2025-10-26']);
+    expect(api.transport.alarmAcks[0]).toEqual({ id: 'jemput:2025-10-20', scheduledFor: '2025-10-20T09:00:00.000Z' });
   });
 
   test('agenda berubah: tunda menjadwalkan ulang, selesai membatalkan, item baru ditambahkan', async () => {
@@ -278,21 +312,21 @@ describe('sinkron alarm dengan agenda (pasang di akar)', () => {
     await advance(0);
     await act(async () => {
       await api.transport.agendaPatch('a10', { snoozeUntil: '2025-10-21T00:30:00.000Z' });
-      await api.transport.agendaPatch('a4', { done: true });
+      await api.transport.agendaPatch('jemput:2025-10-20', { done: true });
       const { preview } = await api.transport.agendaParse('Ingatkan saya minum obat besok jam 9 malam');
       await api.transport.agendaAdd(preview.item);
     });
     await advance(0);
     await advance(0);
     const list = await scheduler.list();
-    expect(list.map((a) => a.id)).toEqual(['a10', 'a-1', 'a9', 'a11']);
+    expect(list.map((a) => a.id)).toEqual(['a10', 'a-1', 'a9', 'jemput:2025-10-26']);
     expect(list.find((a) => a.id === 'a10')?.at).toBe(Date.parse('2025-10-21T00:30:00.000Z'));
     expect(list.find((a) => a.id === 'a-1')).toMatchObject({ title: 'Minum obat' });
     expect(api.transport.alarmAcks.filter((a) => a.id === 'a10').map((a) => a.scheduledFor)).toEqual([
       '2025-10-21T00:00:00.000Z',
       '2025-10-21T00:30:00.000Z',
     ]);
-    expect(api.transport.alarmAcks.filter((a) => a.id === 'a4')).toHaveLength(1);
+    expect(api.transport.alarmAcks.filter((a) => a.id === 'jemput:2025-10-20')).toHaveLength(1);
   });
 
   test('aplikasi kembali ke depan: jadwal yang hilang dipasang lagi', async () => {
@@ -305,7 +339,22 @@ describe('sinkron alarm dengan agenda (pasang di akar)', () => {
     await app.fire('active');
     await advance(0);
     await advance(0);
-    expect(await idsOf(scheduler)).toEqual(['a4', 'a10', 'a9', 'a11']);
+    expect(await idsOf(scheduler)).toEqual(['jemput:2025-10-20', 'a10', 'a9', 'jemput:2025-10-26']);
+  });
+
+  test('7 hari ke depan dipastikan sudah dimuat sebelum disamakan: pergantian pekan memuat rentang baru', async () => {
+    const scheduler = install();
+    const api = createTestApi();
+    const real = api.transport.agenda.bind(api.transport);
+    // Server menjawab bahwa hari ini sudah 30 Okt, di luar rentang yang dijawab (sampai 2 Nov) untuk 7 hari ke depan.
+    const spy = jest
+      .spyOn(api.transport, 'agenda')
+      .mockImplementation(async (range) => ({ ...(await real(range)), ...(range ? {} : { today: '2025-10-30' }) }));
+    await renderWithProviders(<AlarmSyncHost />, { api });
+    for (let i = 0; i < 4; i++) await advance(0);
+    expect(spy).toHaveBeenCalledWith({ from: '2025-10-30', to: '2025-11-06' });
+    // Penyamaan tetap jalan dengan agenda yang sudah lengkap.
+    expect((await scheduler.list()).length).toBeGreaterThan(0);
   });
 
   test('mode server yang belum masuk (sudah keluar): semua alarm di HP dibatalkan', async () => {

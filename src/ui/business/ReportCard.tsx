@@ -20,7 +20,10 @@ export function ReportCard({
 }) {
   const { c } = useTheme();
   const mime = mimeOfName(report.name);
-  const { busy, open, share } = useDocumentActions({ mediaId: report.mediaId, name: report.name, mime }, mediaUrl);
+  const { busy, open, share } = useDocumentActions(
+    { mediaId: report.mediaId, name: report.name, mime, size: report.size },
+    mediaUrl,
+  );
   return (
     <Card style={{ gap: 12 }}>
       <Txt v="subtitle">Laporan</Txt>

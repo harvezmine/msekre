@@ -236,6 +236,21 @@ test('Tambah perangkat: kartu Kotak dan sembilan merek dengan toast', async () =
   await act(async () => {});
 });
 
+test('Tambah perangkat di mode server: toast netral, tanpa menyebut fase', async () => {
+  await renderWithProviders(
+    <>
+      <Tambah />
+      <Probe />
+    </>,
+    { api: createTestApi({ mode: 'server', token: 'tok' }) },
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Philips Hue' }));
+  expect(latest.toast?.text).toBe('Masuk ke akun Philips Hue segera hadir.');
+  await fireEvent.press(screen.getByRole('button', { name: 'Pasang Kotak' }));
+  expect(latest.toast?.text).toBe('Pemasangan lewat Bluetooth segera hadir.');
+  await act(async () => {});
+});
+
 test('kendali gagal: sakelar dikembalikan dan toast ramah muncul', async () => {
   const api = createTestApi({ sample: stateAfter(rumah) });
   await show({ actions: rumah, api });
