@@ -51,6 +51,38 @@ Bagian native (alarm lokal, rekaman suara) ditulis sekarang, tapi baru bisa dipa
 - Tidak ada build Android, export, atau prebuild di Mac ini; build lewat EAS.
 - Teks di layar mode server tidak memakai istilah teknis atau kata "Fase N".
 
+## Status (21 Okt 2026): Tugas 0–8 selesai
+
+Semua tugas sudah dikerjakan di branch `dev` repo ini. Kode native (alarm Kotlin, rekaman suara) belum pernah dikompilasi
+atau dijalankan di Mac ini; itu menunggu build EAS dan uji di HP (`docs/ROADMAP.md`, daftar uji HP).
+
+| Tugas | Isi | Commit |
+|---|---|---|
+| 0 | Aplikasi add-on tanpa daftar, dokumen diunduh lalu dibuka, PIN opsional bawaan mati | `0a1f53d` |
+| 1 | Server tiruan memegang data contoh, Beranda lewat kontrak | `10fc6f0` |
+| 2A | Agenda lewat kontrak, server membaca kalimat, Tambah dengan pratinjau | `1c4b8ed` |
+| 2B | Alarm lokal di HP (modul Expo Kotlin), sinkron dengan agenda, panduan izin alarm | `c0a564c` |
+| 3 | Perangkat: kontrak dan server tiruan, lalu layar (Perangkat, detail AC, PIN, Beranda, kartu chat) | `9edb7c2`, `86c898c` |
+| 4 | Usaha lewat kontrak, "Pesan lagi" | `ea7c1d2` |
+| 5 | Terhubung lewat kontrak, sambung lewat halaman masuk resmi | `86c0b72` |
+| 6 | Riwayat dan Akun: kontrak lalu layar | `142f14f`, `05b962d` |
+| 7 | Mode Suara: `expo-audio` dan keep-awake, lalu soket `/voice`, rekam PCM, kartu konfirmasi | `892a8a5`, `caa53d6` |
+| 8 | Bersih-bersih, tes ujung ke ujung, matriks layar, ROADMAP | `3395283`, `4dbd32b`, `0ca88cb` |
+
+Perbaikan tinjauan di antaranya: F1 `6cb9ce9`, `d16bf8c`, `caf5789`; F2 `c93d86d`, `598c24d`, `d242076`, `c168362`.
+Di luar tugas: layar pembuka beranimasi `d73e0bb`, `deploy-apk.sh` `4c8d74d`, `bd93927`, konfigurasi EAS `3511973`,
+`63e34d5`. (Daftar lengkap: `git log --oneline 842c1b6..HEAD`.)
+
+**Tugas 8, yang dikerjakan:**
+- Tidak ada layar atau komponen di `app/` dan `src/ui/` yang membaca atau menulis penyimpanan contoh. Data contoh hanya
+  dipakai `src/api/fake/*`. `SampleProvider`, `ApiSampleProvider`, dan hook `useSample*` dihapus; `SampleStore` tinggal
+  data pribadi `FakeTransport`.
+- Toast berdiri sendiri: `ToastProvider`, `useToast`, dan `ToastHost` di `src/ui/toastStore.tsx` dan `src/ui/Toast.tsx`.
+- Tanggal (`src/api/dates.ts`), konstanta perangkat (`src/api/constants.ts`), salinan layanan (`src/api/serviceCopy.ts`), dan
+  pengguna/alarm contoh (`src/api/demo.ts`) pindah keluar dari `src/sample`.
+- Teks: tidak ada "Fase N" atau "dibangun" di layar (contoh maupun server); "Nadia" hanya lewat `DEFAULT_ASSISTANT`.
+- Tes: `e2e-contoh` (10), `e2e-server` (11, `HttpTransport` ke server palsu `fakeHttp.ts`), `layar-matriks` (73), `toast-store`.
+
 ---
 
 ## Tugas 0: Terapkan tiga keputusan founder

@@ -272,6 +272,74 @@ mikrofon, latensi, headset Bluetooth, jalur speaker, dan keep-awake bersama laya
 - Pelaporan crash (Sentry).
 - EAS Build dan Submit: uji internal → uji tertutup → produksi.
 
+## Status Fase 2a–6a (21 Okt 2026): frontend selesai, mode contoh dan siap server
+
+Rincian: `docs/plans/2026-10-21-fase-2-6a-frontend-semua.md`. Semua layar aplikasi sudah membaca dan menulis lewat
+kontrak API v1 (`Transport`); tidak ada layar yang menyentuh data contoh langsung.
+
+| Bidang | Aplikasi | Server |
+|---|---|---|
+| Masuk, Chat, notifikasi (1a) | selesai | Fase 1b |
+| Beranda, tempat, cincin | selesai | Fase 1b / 2 |
+| Agenda, Tambah dengan bahasa biasa, alarm lokal | selesai (alarm native belum diuji di HP) | Fase 2 |
+| Perangkat, detail AC, PIN, rutinitas | selesai | Fase 3 |
+| Usaha, Pesan lagi | selesai | Fase 4 |
+| Terhubung, Riwayat, Akun | selesai | Fase 5 |
+| Mode Suara | selesai (mikrofon dan pemutar belum diuji di HP) | Fase 6 |
+
+**Bagaimana susunannya sekarang:**
+- Layar memakai hook (`useHome`, `useAgenda`, `useDevices`, `useBusiness`, `useConnections`, `useHistory`, `useAccount`,
+  `useChat`, `useVoice`), hook memakai controller, controller memakai `Transport`.
+- `HttpTransport` bicara ke server asli; `FakeTransport` (mode `contoh`) adalah server tiruan di memori. Data contoh
+  (`src/sample/*`) hanya milik server tiruan; `SampleProvider` dan `ApiSampleProvider` sudah dihapus.
+- Toast berdiri sendiri (`ToastProvider` di `src/ui/toastStore.tsx`), tidak terkait data apa pun.
+- Tes ujung ke ujung: `__tests__/e2e-contoh.test.tsx` (perjalanan pengguna di mode contoh),
+  `__tests__/e2e-server.test.tsx` (`HttpTransport` asli ke server palsu lewat `fetch` dan soket tiruan,
+  `__tests__/fakeHttp.ts`), `__tests__/layar-matriks.test.tsx` (semua rute, terang dan gelap, 360 dp, tanpa teks rusak),
+  dan empat alur prototipe di `__tests__/alur.test.tsx`.
+
+**Yang masih butuh server (Fase 1b dan seterusnya), semuanya sudah tertulis di `docs/api-v1.md` dan
+`docs/catatan-server-fase-1b.md`:**
+1. Masuk dan sesi: `/auth/start`, `/auth/verify`, `/auth/logout`, `GET /me`, `belum_terdaftar` dengan `waNumber` (2.1–2.4, 4).
+2. Chat: `/messages` (`seq`/`rev`, `changedAfter`), `/drafts/:id` dengan masa tahan 5 menit, `/push-tokens`, `/media/:id`,
+   WebSocket `/stream` dan upsert (2.5–2.10, 5, 6).
+3. PIN: `/account/security`, `/account/pin`, `/account/pin/verify`, lupa PIN lewat kode WhatsApp (2.11).
+4. Beranda dan tempat: `GET /home`, `PUT /places/current`, event `home` (2.12).
+5. Agenda dan alarm: `/agenda` (+`parse`, `leftover`, `alarm-ack`), aturan "alarm sudah terpasang di HP, jangan kirim lewat
+   WhatsApp" (2.13).
+6. Perangkat: `GET /devices`, `POST /home/devices/:id` (PIN 428), `/routines/:id/run`, `PUT /box`, event `device` (2.9, 2.14).
+7. Usaha: `GET /business`, `POST /business/reorder`, event `business` (2.15).
+8. Terhubung: `/connections` (daftar, detail, izin, lupakan, putuskan, mulai), halaman masuk resmi dan pengalihan
+   `sekretarisai://terhubung/tersambung`, event `connection` (2.16).
+9. Riwayat dan Akun: `GET /history`, `GET /account`, nama dan gaya asisten, sapaan, notifikasi, keluarkan HP, event
+   `history` dan `account` (2.17, 2.18).
+10. Mode Suara: WebSocket `/voice` (potongan PCM, `transcript`, `reply`, `audio`, `confirm`, `end`) dengan STT, agen, dan
+    TTS (5a).
+11. Sisi milo-ai: modul `src/appapi/`, `AppChannel`, tabel sesi/token push/pesan, daftar tes server (bagian 9 dan 11).
+
+**Belum bisa dinilai dari tes Jest (perlu HP dan build EAS):** semua kode native (alarm Kotlin), mikrofon dan pemutar,
+push sungguhan, gestur, papan ketik, TalkBack. Daftar ujinya ada di bawah.
+
+## Bahan dari founder
+
+Yang dibutuhkan dari founder sebelum bagian ini bisa selesai (urutan menurut kapan dibutuhkan):
+
+1. **`google-services.json` dari Firebase** (proyek Firebase untuk FCM): untuk push sungguhan. Simpan sebagai file secret
+   EAS `GOOGLE_SERVICES_JSON` (lihat "Build di cloud").
+2. **Pilihan penyedia suara ke teks (STT) dan teks ke suara (TTS)** untuk Mode Suara. Rencana awal: Groq whisper dan
+   ElevenLabs; perlu keputusan akhir, kunci API di server, dan batas biaya per pengguna.
+3. **Template autentikasi WhatsApp (WABA)** untuk kode masuk di nomor resmi. Dengan Fonnte gratis kode masuk jalan; di
+   nomor resmi kode masuk butuh template autentikasi berbayar yang disetujui Meta.
+4. **Akun Play Console organisasi** (PT Mitra Visi Digital, D-U-N-S) dan verifikasi developer Android, ditambah
+   **deklarasi izin** untuk alarm tepat waktu (`USE_EXACT_ALARM`) dan layar penuh (`USE_FULL_SCREEN_INTENT`), formulir
+   keamanan data, dan jawaban "fungsi utama aplikasi" untuk izin tersebut.
+5. **Nama aplikasi final, logo vektor (SVG/AI) dan ikon**: gambar di desain hanya 282×310 piksel, terlalu kecil untuk
+   ikon dan Inti. ID paket Android final diputuskan bersamaan dengan nama (tidak bisa diganti setelah terbit).
+6. **Tautan kebijakan privasi**: aplikasi memakai `https://secretary.my.id/privasi.html`. Pastikan halaman itu terbuka,
+   menyebut data yang dipakai aplikasi (suara, perangkat rumah, kalender), dan cocok dengan formulir keamanan data.
+7. **Nomor WhatsApp Sekretaris AI** untuk tombol "Mulai lewat WhatsApp" dan "Bantuan" (`EXPO_PUBLIC_WA_NUMBER`), serta
+   alamat server aplikasi (`EXPO_PUBLIC_API_URL`) kalau mode server sudah boleh dipilih.
+
 ## Urutan dan jalur paralel
 
 ```
@@ -391,6 +459,49 @@ Tambahan dari tinjauan F2 (Terhubung, perangkat dijaga, alarm di layar kunci):
 23. **Kartu perangkat di chat.** Kunci/kamera/alarm hanya menampilkan keadaan dengan "Buka di Perangkat"; AC tetap punya
     sakelar dan suhu; jenis baru tanpa salju.
 24. **Mode gelap, lebar 360 dp, dan TalkBack** pada lembar baru (Buka kunci, Lupa PIN, banner perhatian) dan kartu baru.
+
+## Daftar uji di HP: Mode Suara, layar pembuka, dokumen, dan PIN (Fase 2a–6a)
+
+Dijalankan di build EAS `preview` di Android sungguhan, mode contoh dulu, lalu mode server setelah Fase 6 server ada.
+
+### Mode Suara
+1. **Izin mikrofon.** Pertama kali: jendela izin sistem muncul; Tolak lalu coba lagi memberi kalimat ramah; tolak
+   permanen menawarkan "Buka pengaturan"; kembali dari pengaturan, layar langsung bisa dipakai.
+2. **Tahan untuk bicara.** Tahan Inti: getar ringan, Inti berubah "Mendengar", teks langsung muncul; lepas: "berpikir",
+   balasan tampil dan terdengar. Lepas sangat cepat (di bawah setengah detik): tidak ada giliran kosong.
+3. **Menyela.** Tahan Inti saat balasan masih diputar: suara berhenti seketika dan giliran baru mulai.
+4. **Bluetooth.** Headset Bluetooth terpasang: suara masuk dari mik headset dan balasan keluar di headset; cabut
+   headset di tengah giliran: tidak macet, balasan pindah ke speaker HP.
+5. **Jalur speaker.** Tanpa headset, balasan keluar di speaker bawah (bukan earpiece), volume media dipakai; mode
+   senyap HP tidak mematikan balasan yang diminta pengguna.
+6. **Keep-awake dan alarm.** Layar tidak mati selama Mode Suara terbuka; alarm berbunyi dan dimatikan lalu kembali ke
+   Mode Suara: layar tetap menyala; ke latar lalu depan tidak mematikan penanda keep-awake. Keluar dari Mode Suara:
+   layar boleh mati lagi.
+7. **Latensi.** Dari selesai bicara sampai mulai dijawab: 20 percobaan di 4G, median di bawah 2 detik (kriteria Fase 6).
+8. **Kartu konfirmasi.** Pembayaran, pesan ke orang lain, dan aksi keamanan lewat suara hanya memunculkan kartu; tidak ada
+   yang jalan sebelum disetujui di layar. Bisukan dan Ketik berfungsi.
+9. **Telepon masuk atau aplikasi lain memakai mikrofon.** Giliran berhenti dengan kalimat ramah, bukan macet.
+
+### Layar pembuka (splash)
+1. **Android 12+.** Layar pembuka sistem (ikon di latar kertas) bergeser mulus ke animasi aplikasi tanpa kedipan putih;
+   mode gelap memakai latar gelap sejak bingkai pertama.
+2. **Android di bawah 12.** Layar pembuka biasa lalu animasi, tanpa bingkai kosong di antaranya.
+3. **Dilewati.** Dibuka dari alarm yang berbunyi atau dari ketukan notifikasi: langsung ke layar tujuan tanpa animasi
+   menutupi tombol Matikan atau Tunda.
+4. **Sinyal buruk.** Pemeriksaan sesi macet: layar pembuka tidak menahan aplikasi lebih dari enam detik.
+
+### Dokumen
+1. Buka berkas Excel dan PDF dari chat: terbuka di aplikasi pembuka bawaan HP (Drive, WPS); tanpa aplikasi pembuka,
+   lembar bagikan muncul dan tombol tidak tertahan.
+2. Bagikan membuka lembar bagikan sistem; unduhan gagal memberi kalimat ramah dan bisa dicoba lagi.
+3. Keluar dari akun membuang berkas yang sudah diunduh.
+
+### PIN dan lupa PIN
+1. Saklar PIN di Akun > PIN: bawaan mati; buat PIN (masukkan, ulangi), ganti PIN, matikan permintaan PIN.
+2. PIN hidup: mematikan kamera dan alarm rumah meminta PIN; membuka kunci pintu meminta konfirmasi dan PIN.
+3. PIN salah berkali-kali: pesan ramah, titik dikosongkan, tidak macet.
+4. Lupa PIN: kode enam angka dikirim ke WhatsApp, lalu PIN baru dibuat dua kali; PIN lama tidak berlaku lagi.
+5. Pembayaran tidak pernah meminta PIN.
 
 ### Build di cloud (EAS)
 
