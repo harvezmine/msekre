@@ -13,7 +13,14 @@ class RescheduleReceiver : BroadcastReceiver() {
       Intent.ACTION_MY_PACKAGE_REPLACED,
       Intent.ACTION_TIME_CHANGED,
       Intent.ACTION_TIMEZONE_CHANGED,
-      AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED -> AlarmEngine.restore(context)
+      AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED,
+      ACTION_QUICKBOOT,
+      ACTION_QUICKBOOT_HTC -> AlarmEngine.restore(context)
     }
+  }
+
+  private companion object {
+    const val ACTION_QUICKBOOT = "android.intent.action.QUICKBOOT_POWERON"
+    const val ACTION_QUICKBOOT_HTC = "com.htc.intent.action.QUICKBOOT_POWERON"
   }
 }

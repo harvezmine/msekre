@@ -54,6 +54,15 @@ export class NativeAlarmScheduler implements AlarmScheduler {
     }
   }
 
+  async getRinging(id: string): Promise<ScheduledAlarm | null> {
+    try {
+      const e = await this.module.getRinging(id);
+      return e ? { id: e.id, at: e.at, title: e.title, ...(e.note ? { note: e.note } : {}) } : null;
+    } catch {
+      return null;
+    }
+  }
+
   async status(): Promise<AlarmStatus> {
     try {
       return toStatus(this.module.status());
@@ -75,6 +84,15 @@ export class NativeAlarmScheduler implements AlarmScheduler {
       await this.module.releaseLockScreen();
     } catch {
       // Lihat cancel.
+    }
+  }
+
+  async dismissKeyguard(): Promise<boolean> {
+    try {
+      return (await this.module.dismissKeyguard()) === true;
+    } catch {
+      // Dibatalkan atau gagal: HP tetap terkunci, jadi layar tidak pindah.
+      return false;
     }
   }
 }

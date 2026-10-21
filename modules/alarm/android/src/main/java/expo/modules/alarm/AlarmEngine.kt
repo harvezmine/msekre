@@ -31,17 +31,23 @@ object AlarmEngine {
     return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
   }
 
-  /** `true` kalau terjadwal. `false` kalau izin alarm tepat waktu belum diberikan. */
+  /**
+   * `true` kalau alarm terjadwal DAN akan terdengar. `false` kalau izin alarm tepat waktu belum diberikan, atau
+   * notifikasi (atau saluran `alarm`) dimatikan: alarm yang tidak bisa berbunyi tidak boleh dikabarkan ke server, supaya
+   * pengingat WhatsApp tetap jalan. Kalau hanya notifikasi yang mati, jadwalnya tetap dipasang (dan dipasang lagi tiap
+   * sinkron), sehingga bunyi begitu notifikasi dinyalakan.
+   */
   fun schedule(context: Context, alarm: StoredAlarm): Boolean {
     if (!canScheduleExact(context)) return false
-    return try {
-      val info = AlarmManager.AlarmClockInfo(alarm.at, AlarmNotifier.openAppPendingIntent(context, alarm.id))
+    try {
+      val info = AlarmManager.AlarmClockInfo(alarm.at, AlarmNotifier.agendaPendingIntent(context))
       manager(context).setAlarmClock(info, firePendingIntent(context, alarm.id))
       AlarmStore.put(context, alarm)
-      true
     } catch (e: SecurityException) {
-      false
+      return false
     }
+    AlarmNotifier.ensureChannel(context)
+    return AlarmStatus.notificationsUsable(context)
   }
 
   fun cancel(context: Context, id: String) {
@@ -49,18 +55,22 @@ object AlarmEngine {
     manager(context).cancel(pending)
     pending.cancel()
     AlarmStore.remove(context, id)
+    RingingStore.remove(context, id)
     AlarmNotifier.dismiss(context, id)
   }
 
   fun cancelAll(context: Context) {
     for (alarm in AlarmStore.all(context)) cancel(context, alarm.id)
     AlarmStore.clear(context)
+    RingingStore.clear(context)
     AlarmNotifier.dismissAll(context)
   }
 
   /**
-   * Pasang ulang jadwal dari penyimpanan (HP baru menyala, aplikasi diperbarui, jam diubah, izin alarm diberikan).
-   * Yang sudah lewat baru-baru ini dibunyikan sekarang; yang sudah lama dibuang.
+   * Pasang ulang jadwal dari penyimpanan (HP baru menyala, aplikasi diperbarui, jam diubah, izin alarm diberikan, modul
+   * dimuat setelah aplikasi dihentikan paksa atau dimatikan penghemat baterai). Aman dipanggil berulang: jadwal berid
+   * sama menggantikan yang lama (FLAG_UPDATE_CURRENT). Yang terlewat kurang dari 15 menit dibunyikan sekarang; yang
+   * lebih lama tidak dibuang diam-diam, melainkan jadi notifikasi biasa "Pengingat terlewat".
    */
   fun restore(context: Context) {
     val now = System.currentTimeMillis()
@@ -71,7 +81,10 @@ object AlarmEngine {
           AlarmStore.remove(context, alarm.id)
           AlarmNotifier.show(context, alarm)
         }
-        else -> AlarmStore.remove(context, alarm.id)
+        else -> {
+          AlarmStore.remove(context, alarm.id)
+          AlarmNotifier.showMissed(context, alarm)
+        }
       }
     }
   }

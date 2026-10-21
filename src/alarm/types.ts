@@ -32,14 +32,28 @@ export interface ScheduledAlarm extends AlarmRequest {
 export interface AlarmScheduler {
   /** Alarm native tersedia (`true`) atau hanya tiruan di memori (`false`, tidak ada yang berbunyi). */
   readonly native: boolean;
-  /** Jadwalkan (menggantikan yang berid sama). `true` kalau terjadwal; `false` kalau izin belum ada. */
+  /**
+   * Jadwalkan (menggantikan yang berid sama). `true` hanya kalau alarm terjadwal DAN akan terdengar; `false` kalau izin
+   * alarm tepat waktu belum ada atau notifikasi (juga saluran alarm) dimatikan. Hanya `true` yang boleh dikabarkan ke
+   * server.
+   */
   schedule(alarm: AlarmRequest): Promise<boolean>;
   /** Batalkan jadwal dan buang notifikasi yang sedang berbunyi. */
   cancel(id: string): Promise<void>;
   cancelAll(): Promise<void>;
   list(): Promise<ScheduledAlarm[]>;
+  /**
+   * Catatan alarm yang sedang berbunyi (atau terjadwal) di HP untuk `id`, atau `null`. Layar alarm memakainya kalau item
+   * agendanya tidak bisa dimuat.
+   */
+  getRinging(id: string): Promise<ScheduledAlarm | null>;
   status(): Promise<AlarmStatus>;
   openSettings(kind: SettingsKind): Promise<void>;
-  /** Alarm dimatikan: layar tidak lagi tampil di atas layar kunci. */
+  /** Alarm dimatikan, ditunda, atau layar alarm ditutup: layar tidak lagi tampil di atas layar kunci. */
   releaseLockScreen(): Promise<void>;
+  /**
+   * Minta pengguna membuka kunci HP. `true` kalau sudah terbuka (atau HP memang tidak terkunci, atau perangkat tanpa
+   * alarm native); `false` kalau dibatalkan atau gagal.
+   */
+  dismissKeyguard(): Promise<boolean>;
 }

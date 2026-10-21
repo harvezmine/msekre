@@ -14,20 +14,28 @@ import androidx.core.app.NotificationManagerCompat
 object AlarmStatus {
   private fun grant(ok: Boolean) = if (ok) "granted" else "denied"
 
+  /**
+   * Notifikasi bisa tampil dan berbunyi: tidak dimatikan di pengaturan HP dan saluran `alarm` tidak dimatikan sendiri
+   * oleh pengguna. Tanpa ini, alarm terjadwal pun tidak terdengar, jadi tidak boleh dikabarkan "sudah terjadwal".
+   */
+  fun notificationsUsable(context: Context): Boolean {
+    if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      val manager = context.getSystemService(NotificationManager::class.java)
+      val channel = manager?.getNotificationChannel(AlarmNotifier.CHANNEL_ID)
+      if (channel != null && channel.importance == NotificationManager.IMPORTANCE_NONE) return false
+    }
+    return true
+  }
+
   fun read(context: Context): Map<String, Any> {
     val manager = context.getSystemService(NotificationManager::class.java)
     val fullScreen = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || manager?.canUseFullScreenIntent() != false
-    var notifications = NotificationManagerCompat.from(context).areNotificationsEnabled()
-    if (notifications && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      // Saluran alarm dimatikan sendiri oleh pengguna di pengaturan: tidak ada suara dan tampilan.
-      val channel = manager?.getNotificationChannel(AlarmNotifier.CHANNEL_ID)
-      if (channel != null && channel.importance == NotificationManager.IMPORTANCE_NONE) notifications = false
-    }
     val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     return mapOf(
       "exact" to grant(AlarmEngine.canScheduleExact(context)),
       "fullScreen" to grant(fullScreen),
-      "notifications" to grant(notifications),
+      "notifications" to grant(notificationsUsable(context)),
       "batteryOptimized" to !power.isIgnoringBatteryOptimizations(context.packageName),
     )
   }

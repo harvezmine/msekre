@@ -14,6 +14,7 @@ function fakeModule(overrides: Partial<AlarmNativeModule> = {}): jest.Mocked<Ala
     cancel: jest.fn(async () => {}),
     cancelAll: jest.fn(async () => {}),
     list: jest.fn(async () => []),
+    getRinging: jest.fn(async () => null),
     status: jest.fn(() => ({
       exact: 'granted',
       fullScreen: 'granted',
@@ -22,6 +23,7 @@ function fakeModule(overrides: Partial<AlarmNativeModule> = {}): jest.Mocked<Ala
     })),
     openSettings: jest.fn(async () => true),
     releaseLockScreen: jest.fn(async () => {}),
+    dismissKeyguard: jest.fn(async () => true),
     ...overrides,
   } as jest.Mocked<AlarmNativeModule>;
 }
@@ -65,6 +67,27 @@ describe('MemoryAlarmScheduler', () => {
     expect(await s.list()).toEqual([]);
   });
 
+  test('notifikasi mati: terpasang tapi bukan "terjadwal" (tidak akan terdengar), jadi tidak dikabarkan', async () => {
+    const s = new MemoryAlarmScheduler({ native: true, status: { notifications: 'denied' } });
+    expect(await s.schedule({ id: 'a', at: 1, title: 'A' })).toBe(false);
+    expect((await s.list()).map((a) => a.id)).toEqual(['a']);
+  });
+
+  test('getRinging membaca alarm yang berbunyi atau terjadwal; dismissKeyguard mencatat dan menjawab sesuai isian', async () => {
+    const s = new MemoryAlarmScheduler({ native: true });
+    s.ringing.set('r', { id: 'r', at: 1, title: 'R' });
+    await s.schedule({ id: 'j', at: 2, title: 'J' });
+    expect(await s.getRinging('r')).toEqual({ id: 'r', at: 1, title: 'R' });
+    expect(await s.getRinging('j')).toMatchObject({ id: 'j' });
+    expect(await s.getRinging('x')).toBeNull();
+    await s.cancel('r');
+    expect(await s.getRinging('r')).toBeNull();
+    expect(await s.dismissKeyguard()).toBe(true);
+    s.unlockResult = false;
+    expect(await s.dismissKeyguard()).toBe(false);
+    expect(s.unlockAsked).toBe(2);
+  });
+
   test('izin alarm tepat waktu ditolak: tidak terjadwal; pengaturan dan layar kunci tercatat', async () => {
     const s = new MemoryAlarmScheduler({ native: true, status: { exact: 'denied' } });
     expect(await s.schedule({ id: 'a', at: 1, title: 'A' })).toBe(false);
@@ -93,6 +116,25 @@ describe('NativeAlarmScheduler', () => {
     expect(m.cancelAll).toHaveBeenCalled();
     expect(m.releaseLockScreen).toHaveBeenCalled();
     expect(m.openSettings).toHaveBeenCalledWith('battery');
+  });
+
+  test('schedule menjawab false bila native menolak (izin atau notifikasi mati): bukan alasan untuk mengabarkan server', async () => {
+    const s = new NativeAlarmScheduler(fakeModule({ schedule: jest.fn(async () => false) }));
+    expect(await s.schedule({ id: 'a', at: 1, title: 'A' })).toBe(false);
+  });
+
+  test('getRinging memetakan catatan alarm yang berbunyi; dismissKeyguard meneruskan hasilnya', async () => {
+    const m = fakeModule({
+      getRinging: jest.fn(async (id: string) =>
+        id === 'a' ? { id: 'a', at: 5, title: 'Obat', note: 'Setelah makan' } : null,
+      ),
+      dismissKeyguard: jest.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false),
+    });
+    const s = new NativeAlarmScheduler(m);
+    expect(await s.getRinging('a')).toEqual({ id: 'a', at: 5, title: 'Obat', note: 'Setelah makan' });
+    expect(await s.getRinging('b')).toBeNull();
+    expect(await s.dismissKeyguard()).toBe(true);
+    expect(await s.dismissKeyguard()).toBe(false);
   });
 
   test('list memetakan catatan; status memetakan izin dan baterai', async () => {
@@ -130,8 +172,10 @@ describe('NativeAlarmScheduler', () => {
       cancel: boom,
       cancelAll: boom,
       list: boom,
+      getRinging: boom,
       openSettings: boom,
       releaseLockScreen: boom,
+      dismissKeyguard: boom,
       status: jest.fn(() => {
         throw new Error('native');
       }),
@@ -139,6 +183,9 @@ describe('NativeAlarmScheduler', () => {
     const s = new NativeAlarmScheduler(m);
     expect(await s.schedule({ id: 'a', at: 1, title: 'A' })).toBe(false);
     expect(await s.list()).toEqual([]);
+    expect(await s.getRinging('a')).toBeNull();
+    // Tidak jadi membuka kunci: layar tidak boleh pindah.
+    expect(await s.dismissKeyguard()).toBe(false);
     expect(await s.status()).toEqual({ exact: 'unknown', fullScreen: 'unknown', notifications: 'unknown' });
     await expect(s.cancel('a')).resolves.toBeUndefined();
     await expect(s.cancelAll()).resolves.toBeUndefined();
