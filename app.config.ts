@@ -20,7 +20,9 @@ const googleServicesFile =
 
 const config: ExpoConfig = {
   name: 'Sekretaris AI',
-  slug: 'sekretaris-ai',
+  // Sama dengan slug proyek EAS founder (extra.eas.projectId); tidak tampil di HP.
+  slug: 'harvez',
+  owner: 'harvezzs-team',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/brand/icon.png',
