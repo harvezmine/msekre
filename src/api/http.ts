@@ -15,6 +15,7 @@ import {
   okResSchema,
   securityResSchema,
   waNumberSchema,
+  WS_CLOSE_IDLE,
   WS_CLOSE_UNAUTHORIZED,
   type AgendaItem,
   type AgendaNew,
@@ -81,10 +82,19 @@ import {
   parseHomeLenient,
   parseMessageLenient,
   parsePageLenient,
+  parseVoiceEventLenient,
 } from './lenient';
+import { VoiceChannel } from './voiceSession';
 import { StreamHub } from './hub';
 import type { Session } from './session';
-import { ApiFailure, type ConnectionStatus, type MediaSource, type Transport, type Unsubscribe } from './transport';
+import {
+  ApiFailure,
+  type ConnectionStatus,
+  type MediaSource,
+  type Transport,
+  type Unsubscribe,
+  type VoiceSession,
+} from './transport';
 import { appVersion } from './version';
 
 /** Batas waktu satu request HTTP, termasuk membaca isinya. */
@@ -104,6 +114,7 @@ export interface SocketLike {
   onerror: ((ev: unknown) => void) | null;
   onclose: ((ev: { code?: number }) => void) | null;
   close(code?: number, reason?: string): void;
+  send?(data: string): void;
 }
 
 export interface HttpOptions {
@@ -404,6 +415,62 @@ export class HttpTransport implements Transport {
       uri: `${this.base}/media/${encodeURIComponent(mediaId)}`,
       headers: { Authorization: `Bearer ${token}` },
     };
+  }
+
+  openVoice(): VoiceSession {
+    const channel = new VoiceChannel();
+    let ws: SocketLike | null = null;
+    let token: string | null = null;
+    channel.onLocalClose = () => {
+      if (!ws) return;
+      detach(ws);
+      ws.close(1000);
+      ws = null;
+    };
+    void (async () => {
+      token = await this.session.get();
+      if (channel.closed) return;
+      if (!token) return channel.finish('unauthorized');
+      let socket: SocketLike;
+      try {
+        socket = this.socketFn(`${this.base.replace(/^http/, 'ws')}/voice`, {
+          ...this.baseHeaders(),
+          Authorization: `Bearer ${token}`,
+        });
+      } catch {
+        return channel.finish('network');
+      }
+      ws = socket;
+      channel.transmit = (message) => socket.send?.(JSON.stringify(message));
+      socket.onopen = () => channel.opened();
+      socket.onmessage = (ev) => {
+        const data = typeof ev.data === 'string' ? parseJson(ev.data) : undefined;
+        const event = parseVoiceEventLenient(data);
+        if (!event || event.type === 'ping') return;
+        channel.receive(event);
+        if (event.type === 'end') {
+          detach(socket);
+          socket.close(1000);
+          ws = null;
+          channel.finish('ended');
+        }
+      };
+      socket.onerror = () => {
+        // `onclose` selalu menyusul.
+      };
+      socket.onclose = (ev) => {
+        if (ws !== socket) return;
+        detach(socket);
+        ws = null;
+        if (ev?.code === WS_CLOSE_UNAUTHORIZED) {
+          // Sesi hanya dihapus kalau token itu masih yang sekarang (lihat `unauthorized`).
+          void this.unauthorized(token).then(() => channel.finish('unauthorized'));
+          return;
+        }
+        channel.finish(ev?.code === WS_CLOSE_IDLE ? 'idle' : ev?.code === 1000 ? 'ended' : 'network');
+      };
+    })();
+    return channel;
   }
 
   dispose() {

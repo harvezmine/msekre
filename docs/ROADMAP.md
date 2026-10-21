@@ -254,6 +254,11 @@ ke orang lain bisa dibatalkan dalam 5 menit.
 - Tahan Inti untuk bicara. Layar suara dengan 5 keadaan Inti dan teks langsung.
 - Pemilihan pustaka rekam-streaming dilakukan di awal fase.
 
+**Status aplikasi (21 Okt):** selesai di server tiruan. Pustaka: `expo-audio` 58 (`useAudioStream`, PCM 16-bit 16 kHz
+mono per potongan), `expo-keep-awake` selama layar suara terbuka. Tahan Inti untuk bicara, teks langsung, menyela,
+Bisukan, Ketik, kartu konfirmasi, izin mikrofon. Kontrak: `docs/api-v1.md` bagian 5a. Belum diuji di HP: mutu
+mikrofon, latensi, headset Bluetooth, jalur speaker, dan keep-awake bersama layar alarm.
+
 **Selesai bila:** dari selesai bicara sampai mulai dijawab di bawah 2 detik (median 20 percobaan) di jaringan 4G.
 
 **Risiko:** latensi. Jalur server ini nanti dipakai juga oleh kotak IoT.

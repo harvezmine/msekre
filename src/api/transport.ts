@@ -42,6 +42,8 @@ import type {
   SecurityUpdateReq,
   SendMessageReq,
   StreamEvent,
+  VoiceClientMessage,
+  VoiceEvent,
 } from './contract';
 import type { DataMode } from './mode';
 
@@ -132,6 +134,27 @@ export type MediaSource =
   { kind: 'uri'; uri: string; headers: Record<string, string> } | { kind: 'sampleQr' } | { kind: 'sampleFile' };
 
 export type Unsubscribe = () => void;
+
+/**
+ * Kenapa soket suara tertutup:
+ * - `ended`: selesai dengan baik (server mengirim `end`, atau aplikasi yang menutup);
+ * - `unauthorized`: server menolak token (4401); sesi sudah dihapus;
+ * - `idle`: server menutup karena diam terlalu lama (4408);
+ * - `network`: tidak tersambung atau putus.
+ */
+export type VoiceCloseReason = 'ended' | 'unauthorized' | 'idle' | 'network';
+
+/**
+ * Satu sesi Mode Suara (`GET /voice`). Pesan yang dikirim sebelum soket terbuka diantre. Setelah tertutup, `send` tidak
+ * berbuat apa-apa dan `onClose` dipanggil tepat sekali.
+ */
+export interface VoiceSession {
+  send(message: VoiceClientMessage): void;
+  /** Tutup dari sisi aplikasi. Tidak memanggil `onClose`. */
+  close(): void;
+  onEvent(listener: (event: VoiceEvent) => void): Unsubscribe;
+  onClose(listener: (reason: VoiceCloseReason) => void): Unsubscribe;
+}
 
 /**
  * Satu antarmuka ke server, dengan dua isi: `HttpTransport` (server asli) dan `FakeTransport` (server tiruan di
@@ -272,6 +295,8 @@ export interface Transport {
    * tidak mengirim pengingat yang sama lewat WhatsApp. Idempoten.
    */
   agendaAlarmAck(id: string, scheduledFor: string): Promise<void>;
+  /** Buka sesi Mode Suara (soket `/voice`, terpisah dari `subscribe`). */
+  openVoice(): VoiceSession;
   /** Cara menampilkan media `mediaId`, dengan header token untuk server asli. */
   mediaUrl(mediaId: string): Promise<MediaSource>;
   /**

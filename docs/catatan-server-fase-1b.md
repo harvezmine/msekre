@@ -319,3 +319,29 @@ Peta ke milo-ai:
   `GET` lagi.
 - Nama saluran notifikasi Android ("Pesan dari {nama}") mengikuti `me.assistantName`; aplikasi memperbaruinya sendiri begitu
   nama diubah.
+
+## Mode Suara (Fase 6, Tugas 7)
+
+Kontrak lengkap: `docs/api-v1.md` bagian 5a. Ringkasnya, soket `GET /voice` (header sama dengan `/stream`): aplikasi
+mengirim `start`, potongan PCM 16-bit 16 kHz mono (base64), `stop` / `cancel` / `text`; server membalas `transcript`,
+`thinking`, `reply` (juga disimpan di utas dengan `voice: true`), suara balasan (`audio` potongan atau `speech` lewat
+`/media/:id`), `confirm` (kartu yang sama dengan chat), `end`, `error`. Tutup 4401 / 4408.
+
+Aturan yang wajib dipegang server:
+- Pembayaran, pesan ke orang lain, dan aksi keamanan tidak dijalankan lewat suara saja: kirim `confirm` dengan kartunya
+  dan tunggu ketukan lewat `POST /drafts/:id` atau pilihan di chat. Perangkat yang dijaga PIN tetap lewat PIN.
+- Ucapan paling lama 30 detik; teks ucapan (`transcript`) dan teks balasan (`reply`) selalu dikirim, juga bila suara
+  dibisukan di aplikasi.
+- Balasan memakai nama dan gaya asisten pengguna, dalam gaya lisan.
+
+**Keputusan untuk founder (belum dipilih, jangan dikunci di kode):**
+1. Suara jadi teks (STT) berbahasa Indonesia, yang menerima aliran PCM 16 kHz: Google Speech-to-Text (streaming),
+   Deepgram (streaming), Groq/OpenAI Whisper (per ucapan, lebih lambat tapi murah; ROADMAP Fase 6 menyebut Groq
+   whisper). Pengaruh: ada tidaknya teks sementara selagi bicara, dan latensi.
+2. Teks jadi suara (TTS) berbahasa Indonesia: Google Cloud TTS, ElevenLabs (streaming, suara paling alami),
+   Azure Neural (id-ID). Pengaruh: pakai `audio` (potongan) atau `speech` (berkas streaming), harga per karakter, dan
+   apakah nama asisten pilihan pengguna boleh punya suara berbeda (pria/wanita).
+3. Deteksi selesai bicara di server (VAD) untuk percakapan bebas tangan: aplikasi sekarang hanya tahan-untuk-bicara.
+4. Kalimat pengisi untuk tool yang lama ("Sebentar, saya cek dulu") dikirim sebagai `reply` sementara atau `audio`
+   terpisah?
+5. Batas pemakaian suara per paket (biaya STT/TTS) dan apakah Mode Suara termasuk paket dasar.

@@ -161,6 +161,8 @@ export const HELD_MINUTES = 5;
 export const STREAM_PING_SEC = 25;
 /** Kode tutup WebSocket untuk token yang tidak sah: aplikasi menghapus sesi dan tidak menyambung ulang. */
 export const WS_CLOSE_UNAUTHORIZED = 4401;
+/** Kode tutup soket suara yang diam terlalu lama. */
+export const WS_CLOSE_IDLE = 4408;
 /** Panjang maksimum teks pesan atau draf. */
 export const TEXT_MAX = 4096;
 
@@ -380,6 +382,8 @@ export const messageSchema = z.object({
   from: z.enum(['user', 'assistant']),
   /** Kanal tempat pesan ditulis atau dikirim. Satu utas: pesan WhatsApp ikut tampil dengan tanda "lewat WhatsApp". */
   via: z.enum(['app', 'whatsapp']),
+  /** Pesan ini lahir dari Mode Suara (ucapan pengguna atau balasan lisan asisten). Teksnya tetap ada di utas. */
+  voice: z.boolean().optional(),
   parts: z.array(partSchema).min(1),
 });
 
@@ -1241,3 +1245,56 @@ export type NotificationsUpdateReq = z.infer<typeof notificationsUpdateReqSchema
 export type StreamEvent = z.infer<typeof streamEventSchema>;
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
+
+// ---- Mode Suara (`GET /voice`, soket terpisah dari `/stream`) ----
+
+/** Ucapan terpanjang (detik). Aplikasi berhenti merekam di sini dan mengirim `stop`. */
+export const VOICE_MAX_UTTERANCE_SEC = 30;
+
+/** Format audio yang dikirim aplikasi: PCM 16-bit little-endian, 16 kHz, mono. */
+export const voiceFormatSchema = z.object({
+  codec: z.literal('pcm16'),
+  sampleRate: z.literal(16000),
+  channels: z.literal(1),
+});
+
+export const voiceClientMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('start'), lang: z.literal('id'), clientId: clientIdSchema, format: voiceFormatSchema }),
+  /** Potongan audio mikrofon (`data` base64), `seq` naik dari 0 dalam satu ucapan. */
+  z.object({ type: z.literal('audio'), seq: z.number().int().nonnegative(), data: z.string().min(1) }),
+  /** Pengguna selesai bicara: server mengubah ucapan jadi teks lalu menjawab. */
+  z.object({ type: z.literal('stop') }),
+  /** Buang ucapan ini tanpa menjawab (atau hentikan balasan yang sedang diucapkan). */
+  z.object({ type: z.literal('cancel') }),
+  /** Pindah ke ketik di dalam Mode Suara: kalimat ini diperlakukan seperti hasil ucapan yang final. */
+  z.object({ type: z.literal('text'), text: textSchema }),
+]);
+
+export const voiceEventSchema = z.discriminatedUnion('type', [
+  /** Teks ucapan; `final: false` sementara (bisa berubah), `final: true` dipakai untuk menjawab. */
+  z.object({ type: z.literal('transcript'), text: z.string(), final: z.boolean() }),
+  z.object({ type: z.literal('thinking'), on: z.boolean() }),
+  /** Teks balasan. `messageId` = pesan asisten yang sama di utas chat (bertanda `voice`). */
+  z.object({ type: z.literal('reply'), text: z.string().min(1), messageId: idSchema }),
+  /** Potongan audio balasan (`data` base64); `final: true` di potongan terakhir. */
+  z.object({
+    type: z.literal('audio'),
+    seq: z.number().int().nonnegative(),
+    data: z.string(),
+    mime: z.string().regex(/^audio\//),
+    final: z.boolean().optional(),
+  }),
+  /** Balasan lisan sebagai satu berkas: `mediaId` lewat `GET /media/:id`. */
+  z.object({ type: z.literal('speech'), mediaId: idSchema, mime: z.string().regex(/^audio\//) }),
+  /**
+   * Pembayaran, pesan ke orang lain, dan aksi keamanan tidak pernah dijalankan lewat suara saja: server mengirim kartunya
+   * (sama dengan kartu di chat) dan menunggu ketukan. `messageId` = pesan di utas yang memuat kartu (dan pilihannya).
+   */
+  z.object({ type: z.literal('confirm'), card: cardSchema, messageId: idSchema.optional() }),
+  z.object({ type: z.literal('end'), reason: z.string().optional() }),
+  z.object({ type: z.literal('error'), code: z.string() }),
+  z.object({ type: z.literal('ping') }),
+]);
+
+export type VoiceClientMessage = z.infer<typeof voiceClientMessageSchema>;
+export type VoiceEvent = z.infer<typeof voiceEventSchema>;

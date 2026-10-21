@@ -4,6 +4,7 @@ import { MAIN_AC_ID } from '@/sample/devices';
 import { STOCK } from '@/sample/business';
 import { initialOutgoing, stockOrderDrafts } from '@/sample/outgoing';
 import { user } from '@/sample/profile';
+import { VOICE_UTTERANCES } from '@/sample/voice';
 import type { SampleState } from '@/sample/reducer';
 import { createSampleStore, type SampleStore } from '@/sample/sampleStore';
 import { deviceById, draftFor } from '@/sample/selectors';
@@ -100,6 +101,7 @@ import {
   type MediaSource,
   type Transport,
   type Unsubscribe,
+  type VoiceSession,
 } from '../transport';
 import {
   agendaIn,
@@ -121,6 +123,9 @@ import { boxFrom, devicesFrom, toDevice, withoutGuardedActions } from './devices
 import { homeFrom } from './home';
 import { draftFromOutgoing, SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
 import { FakeScenario, sampleMe } from './scenario';
+import { formatRupiah } from '../format';
+import { VoiceChannel } from '../voiceSession';
+import { attachFakeVoice, type FakeVoiceTurn } from './voice';
 
 /** Jeda minta kode lagi di server tiruan. */
 export const FAKE_RESEND_SEC = 60;
@@ -306,6 +311,8 @@ export class FakeTransport implements Transport {
   private msgSeq = 0;
   /** `rev` terakhir: naik untuk setiap pesan yang disimpan atau diperbarui. */
   private msgRev = 0;
+  /** Ucapan contoh berikutnya untuk Mode Suara. */
+  private voiceCursor = 0;
 
   constructor(
     private readonly session: Session,
@@ -958,6 +965,71 @@ export class FakeTransport implements Transport {
     });
   }
 
+  openVoice(): VoiceSession {
+    const channel = new VoiceChannel();
+    attachFakeVoice(channel, {
+      later: (ms, run) => this.later(ms, run),
+      cancel: (timer) => this.cancelTimer(timer),
+      thinkMs: this.thinkMs,
+      nextSentence: () => VOICE_UTTERANCES[this.voiceCursor++ % VOICE_UTTERANCES.length]!,
+      availability: async () => {
+        if (this.offline) return 'network';
+        if (this.revoked || (this.requireSession && !(await this.session.get()))) {
+          await this.unauthorized();
+          return 'unauthorized';
+        }
+        return 'ok';
+      },
+      turn: (spoken) => this.voiceTurn(spoken),
+    });
+    return channel;
+  }
+
+  /** Satu giliran Mode Suara: ucapan dan balasannya masuk utas chat (bertanda suara), perintahnya dijalankan skenario. */
+  private voiceTurn(spoken: string): FakeVoiceTurn {
+    const said = this.store({
+      id: this.nextId(),
+      seq: ++this.msgSeq,
+      rev: ++this.msgRev,
+      at: this.clock.iso(),
+      from: 'user',
+      via: 'app',
+      voice: true,
+      parts: [{ type: 'text', text: spoken }],
+    });
+    this.emit({ type: 'message', message: this.present(said) });
+    // "kirim ke Pak Budi, ..." dibaca seperti "balas Pak Budi, ..."; "bayar ..." seperti pembelian token.
+    const text = /\bkirim\s+ke\b/i.test(spoken)
+      ? spoken.replace(/^.*?\bkirim\s+ke\b/i, 'balas')
+      : /\bbayar\b/i.test(spoken) && !/\btoken\b/i.test(spoken)
+        ? `token ${spoken}`
+        : spoken;
+    const reply = this.scenario.reply({ text });
+    for (const draft of reply.drafts) this.drafts.set(draft.id, draft);
+    const stored = reply.messages.map((parts) => this.receive({ from: 'assistant', via: 'app', voice: true, parts }));
+    if (reply.acChange) {
+      const { on, temp } = reply.acChange;
+      this.sample.dispatch({ type: 'setAc', deviceId: MAIN_AC_ID, on, temp, source: 'suara' });
+    }
+    const replyText = stored.flatMap((m) => m.parts.flatMap((p) => (p.type === 'text' ? [p.text] : []))).join(' ');
+    let confirm: FakeVoiceTurn['confirm'];
+    for (const m of stored) {
+      for (const p of m.parts) {
+        if (!confirm && p.type === 'card' && (p.card.kind === 'payment' || p.card.kind === 'draft')) {
+          confirm = { card: p.card, messageId: m.id };
+        }
+      }
+    }
+    const first = stored[0]!;
+    // Kartu pembayaran tidak membawa kalimat; yang diucapkan menyebut nominalnya dan meminta ketukan.
+    const spokenReply =
+      replyText ||
+      (confirm?.card.kind === 'payment'
+        ? `${confirm.card.title} ${formatRupiah(confirm.card.amountRp)}. Sudah benar? Ketuk Ya, benar kalau sudah.`
+        : 'Baik.');
+    return { replyText: spokenReply, messageId: first.id, ...(confirm ? { confirm } : {}) };
+  }
+
   async mediaUrl(mediaId: string): Promise<MediaSource> {
     await this.checkSession();
     if (mediaId === SAMPLE_QR_MEDIA_ID) return { kind: 'sampleQr' };
@@ -1022,7 +1094,7 @@ export class FakeTransport implements Transport {
   }
 
   /** Pesan baru dari luar aplikasi (asisten, atau pengguna lewat WhatsApp): disimpan di utas lalu dikirim lewat stream. */
-  receive(input: Pick<Message, 'from' | 'via' | 'parts'>): Message {
+  receive(input: Pick<Message, 'from' | 'via' | 'parts'> & { voice?: boolean }): Message {
     const message = this.store({
       id: this.nextId(),
       seq: ++this.msgSeq,

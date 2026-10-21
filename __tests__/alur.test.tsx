@@ -1,8 +1,10 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { wibIso } from '@/api/fake/clock';
 import { formatJam } from '@/api/format';
+import { THINK_MS } from '@/sample/chat';
 import { deviceById, MAIN_AC_ID } from '@/sample/store';
+import { audio } from './audioMock';
 import { advance, currentRoute, go, currentStack, mockParams, restoreParams, sampleState, showRoute } from './harness';
 
 // Alur prototipe dari rencana Fase 0b, masing-masing dalam satu penyimpanan contoh dan satu tumpukan navigasi.
@@ -15,6 +17,7 @@ async function settle() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  audio.reset();
   mockParams();
 });
 afterAll(restoreParams);
@@ -28,7 +31,15 @@ test('alur 1: tahan Inti, Mode Suara mematikan AC, Beranda dan Riwayat mencatatn
   expect(currentRoute()).toBe('/suara');
   expect(deviceById(sampleState(), MAIN_AC_ID)!.on).toBe(true);
 
-  await advance(3400); // masuk keadaan berbicara
+  // Tahan Inti, bicara setengah detik, lepas: server tiruan mendengar "Matikan AC kamar" lalu menjawab.
+  const inti = screen.getByRole('button', { name: 'Tahan untuk bicara' });
+  await fireEvent(inti, 'pressIn');
+  await advance(1);
+  for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
+  await fireEvent(inti, 'pressOut');
+  await advance(1);
+  expect(deviceById(sampleState(), MAIN_AC_ID)!.on).toBe(true);
+  await advance(THINK_MS); // masuk keadaan berbicara
   expect(deviceById(sampleState(), MAIN_AC_ID)!.on).toBe(false);
   await advance(4500);
   await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));

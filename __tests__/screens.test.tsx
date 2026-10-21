@@ -21,10 +21,11 @@ test('chat kosong menawarkan empat saran dan bisa pindah ke Mode Suara', async (
   expect(router.replace).toHaveBeenCalledWith('/suara');
 });
 
-test('Mode Suara: Selesai menutup, Pindah ke ketik membuka chat', async () => {
+test('Mode Suara: Selesai menutup, Ketik membuka kolom ketik di tempat', async () => {
   await renderWithProviders(<Suara />);
   await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
   expect(router.back).toHaveBeenCalled();
-  await fireEvent.press(screen.getByRole('button', { name: 'Pindah ke ketik' }));
-  expect(router.replace).toHaveBeenCalledWith('/chat');
+  await fireEvent.press(screen.getByRole('button', { name: 'Ketik' }));
+  expect(screen.getByLabelText('Ketik pesan')).toBeTruthy();
+  expect(router.replace).not.toHaveBeenCalledWith('/chat');
 });

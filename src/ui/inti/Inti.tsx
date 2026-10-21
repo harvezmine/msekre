@@ -10,6 +10,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { DOT_X, DOT_Y, intiSize } from './size';
 
@@ -28,11 +29,13 @@ interface Props {
   onDark?: boolean;
   /** Layar tak terlihat atau aplikasi di latar: semua gerak berhenti, tampilan diam tetap normal. */
   paused?: boolean;
+  /** Keras-pelannya suara dari mikrofon (0..1): cincin mendengar membesar mengikutinya. */
+  level?: SharedValue<number>;
 }
 
 type Frame = { position: 'absolute'; left: number; top: number; width: number; height: number; borderRadius: number };
 
-export function Inti({ size, state = 'idle', onDark = false, paused = false }: Props) {
+export function Inti({ size, state = 'idle', onDark = false, paused = false, level }: Props) {
   const reduce = useReducedMotion() || paused;
   const { w, h, dot } = intiSize(size);
   const circle = (D: number): Frame => ({
@@ -47,8 +50,26 @@ export function Inti({ size, state = 'idle', onDark = false, paused = false }: P
     <View testID="inti" style={{ width: w, height: h }}>
       {state === 'listen' && (
         <>
-          <Ring id={0} frame={circle(size * 1.22)} border={2} opacity={0.85} delay={0} reduce={reduce} />
-          <Ring id={1} frame={circle(size * 1.48)} border={1.5} opacity={0.35} delay={250} reduce={reduce} />
+          <Ring
+            id={0}
+            frame={circle(size * 1.22)}
+            border={2}
+            opacity={0.85}
+            delay={0}
+            reduce={reduce}
+            level={level}
+            gain={0.16}
+          />
+          <Ring
+            id={1}
+            frame={circle(size * 1.48)}
+            border={1.5}
+            opacity={0.35}
+            delay={250}
+            reduce={reduce}
+            level={level}
+            gain={0.26}
+          />
         </>
       )}
       {state === 'speak' &&
@@ -152,6 +173,8 @@ function Ring({
   opacity,
   delay,
   reduce,
+  level,
+  gain,
 }: {
   id: number;
   frame: Frame;
@@ -159,6 +182,8 @@ function Ring({
   opacity: number;
   delay: number;
   reduce: boolean;
+  level?: SharedValue<number>;
+  gain: number;
 }) {
   const s = useSharedValue(1);
   useEffect(() => {
@@ -174,7 +199,7 @@ function Ring({
       ),
     );
   }, [reduce, delay, s]);
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: s.get() }] }));
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: s.get() * (1 + (level?.get() ?? 0) * gain) }] }));
   return (
     <Animated.View
       testID={`inti-cincin-${id}`}

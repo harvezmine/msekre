@@ -28,6 +28,8 @@ import {
   HOME_AGENDA_MAX,
   isoDateTimeSchema,
   messageSchema,
+  voiceEventSchema,
+  type VoiceEvent,
   messagesPageSchema,
   messagesChangedPageSchema,
   draftActionResSchema,
@@ -111,6 +113,7 @@ export function parseMessageLenient(raw: unknown): Message | null {
     at: at.success ? at.data : new Date(0).toISOString(),
     from: from ?? 'assistant',
     via: via ?? 'app',
+    ...(r.voice === true ? { voice: true } : {}),
     parts,
   });
   return coerced.success ? coerced.data : null;
@@ -588,4 +591,21 @@ export function parseAccountLenient(raw: unknown): Account | null {
     },
   });
   return coerced.success ? coerced.data : null;
+}
+
+/**
+ * Satu event soket suara. Jenis yang tidak dikenal (kontrak yang lebih baru) dan bentuk yang rusak menjadi `null`
+ * (dilewati). Kartu `confirm` yang tidak terbaca menjadi `error` `kartu_tidak_dikenal`, supaya layar mengarahkan
+ * pengguna ke chat, bukan diam-diam menelan permintaan konfirmasi.
+ */
+export function parseVoiceEventLenient(raw: unknown): VoiceEvent | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const r = raw as Record<string, unknown>;
+  if (r.type === 'transcript' && typeof r.text === 'string' && r.final === undefined) {
+    return { type: 'transcript', text: r.text, final: false };
+  }
+  const parsed = voiceEventSchema.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  if (r.type === 'confirm') return { type: 'error', code: 'kartu_tidak_dikenal' };
+  return null;
 }

@@ -1002,6 +1002,8 @@ Pesan:
 - `from`: `user` atau `assistant`. `via`: `app` atau `whatsapp` (kanal tempat pesan ditulis atau dikirim). Satu utas:
   pesan WhatsApp pengguna tampil di aplikasi dengan tanda "lewat WhatsApp".
 - `clientId` hanya ada pada pesan pengguna yang dikirim dari aplikasi.
+- `voice: true` (opsional): pesan lahir dari Mode Suara (ucapan pengguna atau balasan lisan, bagian 5a). Isinya tetap
+  teks biasa di utas.
 - `parts`: minimal satu bagian. Jenisnya:
 
 | `type` | Isi |
@@ -1148,6 +1150,80 @@ Penyambungan ulang dan resync:
   soket setengah mati tidak menumpuk.
 - Nginx Proxy Manager: nyalakan "Websockets Support" pada proxy host, dan pasang `proxy_read_timeout` /
   `proxy_send_timeout` jauh di atas 25 detik (usul 3600 detik). Jangan menyaring header `Authorization`.
+
+## 5a. Mode Suara: WebSocket `GET /voice`
+
+Alamat: `wss://<host>/app/v1/voice`, terpisah dari `/stream`. Jabat tangan, header, 4401, 403/426 sama seperti
+bagian 5. Satu JSON per pesan teks; skemanya `voiceClientMessageSchema` dan `voiceEventSchema` di `contract.ts`.
+
+**Pilihan pustaka rekam (diputuskan Fase 6):** `expo-audio` 58 punya `useAudioStream`, yang mengalirkan PCM dari
+mikrofon per potongan (bukan hanya merekam ke berkas). Maka aplikasi mengirim potongan PCM langsung, sehingga server
+bisa memulai pengenalan ucapan sebelum pengguna selesai bicara. Format dikunci: **PCM 16-bit little-endian, 16 kHz,
+mono**; aplikasi mencuplik ulang sendiri bila HP memberi laju lain.
+
+Aplikasi ke server:
+
+```json
+{ "type": "start", "lang": "id", "clientId": "suara-lq3x-1", "format": { "codec": "pcm16", "sampleRate": 16000, "channels": 1 } }
+{ "type": "audio", "seq": 0, "data": "<base64 PCM, sekitar 50-200 ms>" }
+{ "type": "stop" }
+{ "type": "cancel" }
+{ "type": "text", "text": "Nyalakan AC kamar" }
+```
+
+- `start` membuka satu ucapan. `audio` berurutan (`seq` mulai 0). `stop` = pengguna melepas Inti (push-to-talk);
+  server mengubah ucapan menjadi teks lalu menjawab. Server boleh juga menentukan sendiri ucapan selesai (deteksi
+  hening) dan langsung mengirim `thinking`; aplikasi lalu mematikan mikrofonnya.
+- `cancel` = buang ucapan ini, atau hentikan jawaban yang sedang berjalan (pengguna menyela / aplikasi ke latar).
+  Server berhenti mengirim suara dan tidak menyimpan balasan yang belum selesai.
+- `text` = pindah ke ketik di dalam Mode Suara; diperlakukan seperti ucapan yang sudah final (tanpa `start`).
+- Ucapan paling lama 30 detik (`VOICE_MAX_UTTERANCE_SEC`); aplikasi berhenti sendiri dan mengirim `stop`. Server
+  boleh menolak yang lebih lama dengan `error`.
+- Satu soket boleh melayani banyak ucapan berturut-turut; server menutupnya dengan 4408 bila diam terlalu lama.
+
+Server ke aplikasi:
+
+```json
+{ "type": "transcript", "text": "Matikan AC kamar", "final": false }
+{ "type": "thinking", "on": true }
+{ "type": "reply", "text": "Sudah. AC kamar saya matikan.", "messageId": "831" }
+{ "type": "audio", "seq": 0, "data": "<base64>", "mime": "audio/mpeg", "final": true }
+{ "type": "speech", "mediaId": "ucapan-77", "mime": "audio/mpeg" }
+{ "type": "confirm", "card": { "kind": "payment", "...": "..." }, "messageId": "832" }
+{ "type": "end", "reason": "selesai" }
+{ "type": "error", "code": "stt_gagal" }
+{ "type": "ping" }
+```
+
+- `transcript`: teks ucapan; `final: false` sementara dan boleh berubah, `final: true` yang dipakai untuk menjawab.
+  Teks selalu tampil di layar (aksesibilitas), jadi `transcript` wajib dikirim.
+- `thinking`: server sedang memproses (agen berjalan). Urutan lazim: `transcript(final)` → `thinking on` →
+  `thinking off` → `reply` → suara → (`confirm`).
+- `reply`: teks balasan. **Pesan asisten yang sama juga disimpan di utas chat** (`via: "app"`, `voice: true`) dan
+  dikirim lewat `/stream` seperti pesan lain; `messageId` = id pesan itu. Ucapan pengguna juga masuk utas sebagai
+  pesan pengguna dengan `voice: true`. Balasan memakai nama dan gaya asisten pilihan pengguna, dalam gaya lisan
+  (pendek, tanpa tabel atau tautan).
+- Suara balasan, dua cara (pilih salah satu per balasan):
+  - `audio`: potongan base64 dengan `mime` (`audio/mpeg`, `audio/wav`, `audio/ogg`, `audio/aac`, `audio/mp4`),
+    `final: true` di potongan terakhir. Aplikasi menggabungkan potongan lalu memutarnya setelah yang terakhir (atau
+    1,2 detik tanpa potongan baru bila `final` tidak pernah dikirim). Sederhana, tapi mulai bunyi setelah seluruh
+    suara jadi.
+  - `speech`: satu berkas di `GET /media/:id` (bagian 2.10). Aplikasi memutarnya dengan header token sehingga
+    pemutar bisa mulai bunyi sambil mengunduh. **Untuk latensi rendah, pakai ini** dengan TTS streaming.
+- `confirm`: pembayaran, pesan ke orang lain, dan aksi keamanan **tidak pernah dijalankan lewat suara saja**. Server
+  mengirim kartunya (kontrak `Card` yang sama dengan chat: `payment`, `draft`, ...), pesan pembawa kartu sudah ada di
+  utas (`messageId`, untuk pembayaran juga membawa bagian `choices`), lalu menunggu ketukan pengguna yang masuk lewat
+  jalur HTTP biasa (`POST /drafts/:id`, `POST /messages` dengan pilihan). Sebelum ketukan itu tidak ada yang
+  dijalankan. Aplikasi menampilkan kartu apa adanya dengan tombolnya; kartu yang tidak dikenal diarahkan ke chat.
+- `end`: server mengakhiri sesi (aplikasi menutup soket). `error.code` tidak pernah ditampilkan; aplikasi memakai
+  kalimat ramah. Jenis di luar daftar ini dilewati.
+
+Penutupan: 4401 tidak sah (sesi dihapus, pengguna diminta masuk lagi), 4408 diam terlalu lama (aplikasi membuka sesi
+baru saat Inti ditahan lagi), kode lain atau 1006 dianggap tidak tersambung ("Belum tersambung. Coba lagi sebentar
+ya.") dan Inti mati sampai Inti ditahan lagi.
+
+Perilaku acuan: `src/api/fake/voice.ts` (skrip server tiruan: teks ucapan muncul bertahap, berpikir, balasan, suara
+hening, dan kartu konfirmasi untuk kalimat berisi "bayar", "token", atau "kirim ke").
 
 ## 6. Aturan upsert
 

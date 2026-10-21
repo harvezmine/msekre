@@ -1,33 +1,13 @@
-import type { IntiState } from '@/ui/inti/Inti';
-
-export interface VoiceStep {
-  /** Milidetik sejak mulai. */
-  at: number;
-  state: IntiState;
-  label: string;
-  you: string;
-  /** Bagian ucapan yang belum selesai, tampil abu-abu. */
-  youRest: string;
-  reply: string;
-}
-
-export const VOICE_SAMPLE: VoiceStep[] = [
-  { at: 0, state: 'listen', label: 'Mendengar', you: 'Matikan AC kamar ', youRest: 'dan…', reply: '' },
-  { at: 2200, state: 'think', label: 'Nadia', you: 'Matikan AC kamar.', youRest: '', reply: '' },
-  {
-    at: 3400,
-    state: 'speak',
-    label: 'Nadia',
-    you: 'Matikan AC kamar.',
-    youRest: '',
-    reply: 'Sudah. AC kamar saya matikan.',
-  },
-  {
-    at: 7400,
-    state: 'idle',
-    label: 'Nadia',
-    you: 'Matikan AC kamar.',
-    youRest: '',
-    reply: 'Sudah. AC kamar saya matikan.',
-  },
+/**
+ * Kalimat contoh untuk Mode Suara di server tiruan. Server tiruan tidak mengerti suara: tiap kali pengguna menahan Inti
+ * dan melepas, ia "mendengar" kalimat berikutnya dari daftar ini (berputar). Kalimat yang diketik dipakai apa adanya.
+ * Kalimat dengan "bayar", "token", atau "kirim ke" memunculkan kartu konfirmasi, tidak dijalankan lewat suara saja.
+ */
+export const VOICE_UTTERANCES: readonly string[] = [
+  'Matikan AC kamar.',
+  'Bayar token listrik seratus ribu.',
+  'Kirim ke Pak Budi, saya terlambat lima belas menit.',
 ];
+
+/** Lama hening balasan suara contoh (ms). */
+export const VOICE_SAMPLE_REPLY_MS = 700;
