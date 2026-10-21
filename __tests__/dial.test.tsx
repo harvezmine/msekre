@@ -3,6 +3,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import DetailAc, { TEMP_DEBOUNCE_MS } from '../app/perangkat/[id]';
 import { createTestApi, renderWithProviders } from './helpers';
+import { ERROR_TEXT } from '@/api/errors';
+import type { FakeTransport } from '@/api/fake/FakeTransport';
+import { ToastHost } from '@/ui/Toast';
 import { deviceById, initialSampleState, MAIN_AC_ID, useSample, type SampleState } from '@/sample/store';
 import {
   angleOf,
@@ -259,4 +262,26 @@ test('AC mati: kartu inframerah menyebut perintah terakhir', async () => {
   await fireEvent.press(screen.getByRole('button', { name: 'Matikan AC' }));
   expect(screen.getByText(/^AC mati · perintah terakhir: 24° Dingin/)).toBeOnTheScreen();
   expect(screen.getByText(/lewat inframerah/)).toBeOnTheScreen();
+});
+
+test('suhu terkirim lalu gagal: angka kembali ke suhu AC yang sebenarnya, dengan toast', async () => {
+  const api = createTestApi({ sample: initialSampleState });
+  await renderWithProviders(
+    <>
+      <DetailAc />
+      <Probe />
+      <ToastHost />
+    </>,
+    { api },
+  );
+  expect(dial().props.accessibilityValue).toEqual({ text: '24 derajat' });
+  await fireEvent(dial(), 'accessibilityAction', action('increment'));
+  await fireEvent(dial(), 'accessibilityAction', action('increment'));
+  expect(dial().props.accessibilityValue).toEqual({ text: '26 derajat' });
+  (api.transport as FakeTransport).failNext('network');
+  await settle();
+  await act(async () => {});
+  expect(ac().ac!.temp).toBe(24);
+  expect(dial().props.accessibilityValue).toEqual({ text: '24 derajat' });
+  expect(await screen.findByText(ERROR_TEXT)).toBeOnTheScreen();
 });

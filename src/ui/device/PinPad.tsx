@@ -28,6 +28,8 @@ interface Props {
   onCancel: () => void;
   /** "Lupa PIN?" disembunyikan bila kosong. */
   onForgot?: () => void;
+  /** Kata untuk pembaca layar pada titik, "PIN" bawaan ("Kode" untuk kode dari WhatsApp). */
+  noun?: string;
 }
 
 const WRONG_PIN = 'PIN belum cocok, coba lagi.';
@@ -39,7 +41,7 @@ const ROWS = [
 ] as const;
 
 /** Isi lembar PIN (desain 2e): kunci, enam titik, tombol angka, Batal dan Hapus. */
-export function PinPad({ subtitle, title = 'Masukkan PIN', onSubmit, onCancel, onForgot }: Props) {
+export function PinPad({ subtitle, title = 'Masukkan PIN', onSubmit, onCancel, onForgot, noun = 'PIN' }: Props) {
   const { c } = useTheme();
   const reduce = useReducedMotion();
   const [pin, setPin] = useState('');
@@ -127,7 +129,7 @@ export function PinPad({ subtitle, title = 'Masukkan PIN', onSubmit, onCancel, o
       <Animated.View
         testID="pin-titik"
         accessible
-        accessibilityLabel={`PIN terisi ${pin.length} dari ${PIN_LENGTH}`}
+        accessibilityLabel={`${noun} terisi ${pin.length} dari ${PIN_LENGTH}`}
         style={[{ flexDirection: 'row', gap: 16, paddingVertical: 4 }, dotsStyle]}
       >
         {Array.from({ length: PIN_LENGTH }, (_, i) => (

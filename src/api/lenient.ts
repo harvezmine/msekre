@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { cardFromDevice } from './devices';
 import {
   agendaItemSchema,
   agendaResSchema,
@@ -30,6 +31,7 @@ import {
   messagesPageSchema,
   messagesChangedPageSchema,
   draftActionResSchema,
+  deviceCardSchema,
   deviceSchema,
   devicesResSchema,
   draftSchema,
@@ -48,8 +50,11 @@ import {
   type HistoryEntry,
   type HistoryPage,
   type Service,
+  type BoxRes,
   type Device,
+  type DeviceControlRes,
   type DevicesRes,
+  type RoutineRunRes,
   type DraftActionRes,
   type Home,
   type Message,
@@ -252,6 +257,7 @@ export function parseHomeLenient(raw: unknown): Home | null {
             ...(nonEmpty(r.label) ? { label: r.label } : {}),
             ...(typeof r.on === 'boolean' ? { on: r.on } : {}),
             switchable: r.switchable === true,
+            ...(r.sensitive === true ? { sensitive: true } : {}),
           },
         ]
       : [];
@@ -342,6 +348,40 @@ function parseDevices(raw: unknown[]): Device[] {
     const device = deviceSchema.safeParse(r);
     return device.success ? [device.data] : [];
   });
+}
+
+const revOrZero = (v: unknown): number => {
+  const r = z.number().int().nonnegative().safeParse(v);
+  return r.success ? r.data : 0;
+};
+
+/**
+ * Jawaban `POST /home/devices/:id`: perangkat wajib terbaca; kartu yang rusak disusun dari perangkatnya; `rev` yang
+ * hilang atau rusak dibaca 0 (tidak diketahui). `null` kalau perangkatnya tidak terbaca.
+ */
+export function parseDeviceControlResLenient(raw: unknown): DeviceControlRes | null {
+  if (!isRecord(raw)) return null;
+  const device = deviceSchema.safeParse(raw.device);
+  if (!device.success) return null;
+  const card = deviceCardSchema.safeParse(raw.card);
+  return { device: device.data, card: card.success ? card.data : cardFromDevice(device.data), rev: revOrZero(raw.rev) };
+}
+
+/** Jawaban `POST /routines/:id/run`: perangkat yang rusak dibuang, kalimat hasil bawaan bila hilang, `rev` hilang = 0. */
+export function parseRoutineRunResLenient(raw: unknown): RoutineRunRes | null {
+  if (!isRecord(raw)) return null;
+  return {
+    devices: parseDevices(Array.isArray(raw.devices) ? raw.devices : []),
+    summary: nonEmpty(raw.summary) ? raw.summary : 'Rutinitas dijalankan.',
+    rev: revOrZero(raw.rev),
+  };
+}
+
+/** Jawaban `PUT /box`: `null` kalau kotaknya tidak terbaca; `rev` hilang = 0. */
+export function parseBoxResLenient(raw: unknown): BoxRes | null {
+  if (!isRecord(raw)) return null;
+  const box = boxSchema.safeParse(raw.box);
+  return box.success ? { box: box.data, rev: revOrZero(raw.rev) } : null;
 }
 
 /**

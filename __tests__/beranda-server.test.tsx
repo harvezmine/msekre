@@ -1,4 +1,5 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import Beranda from '../app/(tabs)/index';
 import Tempat from '../app/tempat';
 import { ERROR_TEXT, UNAVAILABLE_TEXT } from '@/api/errors';
@@ -286,4 +287,44 @@ test('mode server: memilih tempat yang ditolak server memberi tahu dengan ramah 
   });
   expect(await screen.findByText(ERROR_TEXT)).toBeOnTheScreen();
   expect(screen.getByRole('button', { name: 'Tempat: Semua' })).toBeOnTheScreen();
+});
+
+test('mode server: baris rumah yang dijaga tidak punya sakelar walau switchable; AC biasa tetap punya', async () => {
+  const { api } = serverApi((path) =>
+    path === '/home'
+      ? {
+          body: {
+            ...homeBody,
+            house: {
+              lines: [
+                ...homeBody.house.lines.slice(0, 1),
+                {
+                  deviceId: 'ac/2',
+                  icon: 'snow',
+                  text: 'AC kantor nyala',
+                  label: 'AC kantor',
+                  on: true,
+                  switchable: true,
+                  sensitive: true,
+                },
+              ],
+            },
+          },
+        }
+      : undefined,
+  );
+  await renderWithProviders(<Beranda />, { api });
+  expect(await screen.findByRole('switch', { name: 'AC ruang kerja' })).toBeOnTheScreen();
+  expect(screen.getByText('AC kantor nyala')).toBeOnTheScreen();
+  expect(screen.queryByRole('switch', { name: 'AC kantor' })).toBeNull();
+});
+
+test('mode server: 428 pin_diperlukan dari sakelar Beranda membuka lembar PIN', async () => {
+  const { api } = serverApi((path) =>
+    path === '/home/devices/ac%2F1' ? { status: 428, body: { error: 'pin_diperlukan' } } : undefined,
+  );
+  await renderWithProviders(<Beranda />, { api });
+  await fireEvent.press(await screen.findByRole('switch', { name: 'AC ruang kerja' }));
+  await act(async () => {});
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'ac/1' } });
 });

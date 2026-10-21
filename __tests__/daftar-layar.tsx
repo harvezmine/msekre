@@ -24,6 +24,7 @@ export const LAYAR: LayarKasus[] = [
   { nama: 'Detail perangkat (AC kamar)', Layar: ROUTES['/perangkat/[id]']!, params: { id: 'ac-kamar' } },
   { nama: 'Tambah perangkat', Layar: ROUTES['/perangkat/tambah']! },
   { nama: 'PIN', Layar: ROUTES['/pin']!, params: { id: 'kamera-tamu' } },
+  { nama: 'Buka kunci', Layar: ROUTES['/buka-kunci']!, params: { id: 'pintu-depan' } },
   { nama: 'Tempat', Layar: ROUTES['/tempat']! },
   { nama: 'Tambah agenda', Layar: ROUTES['/agenda/tambah']! },
   { nama: 'Terhubung (daftar)', Layar: ROUTES['/terhubung']! },

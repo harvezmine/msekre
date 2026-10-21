@@ -7,6 +7,7 @@ import { useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { PinPad, type PinVerdict } from '@/ui/device/PinPad';
+import { PinReset } from '@/ui/device/PinReset';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Toggle } from '@/ui/Toggle';
 import { Txt } from '@/ui/Txt';
@@ -17,7 +18,7 @@ const MISMATCH = 'PIN belum sama, ulangi ya.';
 type Step = 'current' | 'new' | 'repeat';
 interface Flow {
   /** `create`: PIN pertama (lalu permintaan PIN dihidupkan); `change`: ganti PIN; `disable`: matikan permintaan PIN. */
-  kind: 'create' | 'change' | 'disable';
+  kind: 'create' | 'change' | 'disable' | 'reset';
   step: Step;
   /** PIN lama yang sudah dibuktikan (ganti PIN) dan PIN baru yang menunggu diulang. */
   current?: string;
@@ -100,6 +101,19 @@ export default function Keamanan() {
     }
   };
 
+  if (flow?.kind === 'reset') {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.paper }}>
+        <BackHeader title="Keamanan" />
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: insets.bottom + 32 }}
+        >
+          <PinReset onCancel={() => setFlow(null)} onDone={() => finish('PIN baru tersimpan.')} />
+        </ScrollView>
+      </View>
+    );
+  }
   if (flow) {
     const { title, subtitle } = COPY[flow.step];
     return (
@@ -116,6 +130,7 @@ export default function Keamanan() {
             subtitle={flow.kind === 'disable' ? 'Masukkan PIN untuk mematikan permintaan PIN.' : subtitle}
             onSubmit={(pin) => submit(flow, pin)}
             onCancel={() => setFlow(null)}
+            onForgot={flow.step === 'current' ? () => setFlow({ kind: 'reset', step: 'current' }) : undefined}
           />
         </ScrollView>
       </View>

@@ -34,6 +34,7 @@ import {
   HELD_MINUTES,
   MESSAGES_LIMIT,
   MESSAGES_LIMIT_MAX,
+  pinResetVerifyReqSchema,
   pinSetReqSchema,
   placeReqSchema,
   pinVerifyReqSchema,
@@ -79,6 +80,7 @@ import {
   type MessagesPage,
   type MessagesChangedPage,
   type NotificationsUpdateReq,
+  type PinResetVerifyReq,
   type PinSetReq,
   type PushTokenDeleteReq,
   type PushTokenReq,
@@ -115,7 +117,7 @@ import { accountFrom, initialAccountState, type FakeAccountState } from './accou
 import { historyFrom, pageOf } from './activity';
 import { businessFrom } from './business';
 import { connectionsFrom, detailFrom, serviceFrom, startUrlOf, type FakeConnectionsContext } from './connections';
-import { boxFrom, devicesFrom, toDevice } from './devices';
+import { boxFrom, devicesFrom, toDevice, withoutGuardedActions } from './devices';
 import { homeFrom } from './home';
 import { draftFromOutgoing, SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
 import { FakeScenario, sampleMe } from './scenario';
@@ -124,6 +126,8 @@ import { FakeScenario, sampleMe } from './scenario';
 export const FAKE_RESEND_SEC = 60;
 /** Kode yang selalu dibalas `kode_salah`, untuk mencoba layar "kodenya belum cocok". Kode 6 angka lain diterima. */
 export const FAKE_WRONG_CODE = '000000';
+/** Kode lupa PIN yang cocok di server tiruan (setelah `pinResetStart`); kode lain: `kode_salah`. */
+export const FAKE_PIN_RESET_CODE = '123456';
 
 /** Nomor WhatsApp Sekretaris AI di server tiruan, untuk jawaban `belum_terdaftar`. */
 export const FAKE_WA_NUMBER = '6281100002222';
@@ -226,6 +230,8 @@ export class FakeTransport implements Transport {
   private readonly meValue: Me;
   private readonly waNumber: string | null;
   private pinEnabled: boolean;
+  /** Kapan kode lupa PIN terakhir diminta (ms); 0 = belum ada yang menunggu. */
+  private pinResetAsked = 0;
   private pinValue: string | null;
 
   /** Utas, dari yang terlama (juga urutan `seq`). Kartu draf di sini bisa usang; keadaan terbaru ada di `drafts`. */
@@ -656,6 +662,31 @@ export class FakeTransport implements Transport {
     });
   }
 
+  pinResetStart(): Promise<AuthStartRes> {
+    return this.call(true, () => {
+      const left = Math.ceil((this.pinResetAsked + FAKE_RESEND_SEC * 1000 - this.clock.now()) / 1000);
+      if (this.pinResetAsked > 0 && left > 0) {
+        throw new ApiFailure('rate_limited', { status: 429, error: 'terlalu_sering', retryInSec: left });
+      }
+      this.pinResetAsked = this.clock.now();
+      return { resendInSec: FAKE_RESEND_SEC };
+    });
+  }
+
+  pinResetVerify(req: PinResetVerifyReq): Promise<SecurityRes> {
+    return this.call(true, () => {
+      const { code, pin } = parse(pinResetVerifyReqSchema, req);
+      // Kode harus diminta lebih dulu; di server tiruan hanya FAKE_PIN_RESET_CODE yang cocok.
+      if (this.pinResetAsked === 0 || code !== FAKE_PIN_RESET_CODE) {
+        throw new ApiFailure('kode_salah', { status: 400, error: 'kode_salah' });
+      }
+      this.pinResetAsked = 0;
+      this.pinValue = pin;
+      this.scheduleAccount();
+      return this.securityState();
+    });
+  }
+
   verifyPin(pin: string): Promise<boolean> {
     return this.call(true, () => {
       const { pin: given } = parse(pinVerifyReqSchema, { pin });
@@ -713,7 +744,8 @@ export class FakeTransport implements Transport {
         if (r.level !== undefined) this.sample.dispatch({ type: 'setLevel', id: deviceId, level: r.level });
       }
       const device = toDevice(deviceById(this.sample.getState(), deviceId)!);
-      return copy({ device, card: cardFromDevice(device) });
+      this.flushDevices();
+      return copy({ device, card: cardFromDevice(device), rev: this.devicesRev });
     });
   }
 
@@ -725,12 +757,19 @@ export class FakeTransport implements Transport {
       const target = req.place ?? this.sample.getState().place;
       if (!(PLACES as readonly string[]).includes(target)) throw invalid();
       const before = new Map(this.sample.getState().devices.map((d) => [d.id, JSON.stringify(toDevice(d))]));
-      for (const action of routineActions(routine, this.sample.getState(), target)) this.sample.dispatch(action);
+      // Rutinitas tidak menyentuh perangkat yang dijaga (buka kunci, kamera mati, alarm mati): dilewati dan disebut.
+      const { allowed, skipped } = withoutGuardedActions(
+        routineActions(routine, this.sample.getState(), target),
+        this.sample.getState(),
+      );
+      for (const action of allowed) this.sample.dispatch(action);
       const devices = this.sample
         .getState()
         .devices.map(toDevice)
         .filter((d) => before.get(d.id) !== JSON.stringify(d));
-      return copy({ devices, summary: routineDone(routine, target) });
+      this.flushDevices();
+      const note = skipped.length ? ` ${[...new Set(skipped)].join(', ')} tidak disentuh karena dijaga PIN.` : '';
+      return copy({ devices, summary: routineDone(routine, target) + note, rev: this.devicesRev });
     });
   }
 
@@ -738,7 +777,8 @@ export class FakeTransport implements Transport {
     return this.call(true, (): BoxRes => {
       const req = parse(boxReqSchema, { micOn });
       this.sample.dispatch({ type: 'setBoxMic', on: req.micOn });
-      return copy({ box: boxFrom(this.sample.getState()) });
+      this.flushDevices();
+      return copy({ box: boxFrom(this.sample.getState()), rev: this.devicesRev });
     });
   }
 

@@ -13,8 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Draft } from '@/api/contract';
 import { greetingFor } from '@/api/format';
 import { useAgenda } from '@/api/useAgenda';
+import { useDeviceControl } from '@/api/useDeviceControl';
 import { useHome } from '@/api/useHome';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '@/ui/Card';
 import { Icon } from '@/ui/Icon';
@@ -47,8 +47,7 @@ export default function Beranda() {
   const { c } = useTheme();
   const live = useLive();
   const insets = useSafeAreaInsets();
-  const dispatch = useSampleDispatch();
-  const { home, ring, status, error, retry, controlDevice } = useHome();
+  const { home, ring, status, error, retry } = useHome();
   // Sapaan menurut jam di zona pengguna (dari agenda, yang jamnya dimajukan sendiri); belum ada: jam HP.
   const { now } = useAgenda();
   const hello = greetingFor(now ? Number(now.slice(0, 2)) : new Date().getHours());
@@ -56,9 +55,11 @@ export default function Beranda() {
   const alert = home?.business?.alert ?? null;
 
   // Sakelar AC: lewat kendali perangkat di server (asli atau tiruan); Beranda ikut event `home`.
+  // Perintah yang butuh PIN membuka lembar PIN, gagal menjadi toast ramah (lewat `useDeviceControl`).
+  const { control } = useDeviceControl(home?.place);
   const switchAc = async (deviceId: string, on: boolean) => {
-    const failed = await controlDevice(deviceId, on);
-    if (failed) dispatch({ type: 'showToast', text: failed });
+    const result = await control(deviceId, { on });
+    if (result.ok) void retry();
   };
 
   return (
@@ -232,7 +233,7 @@ export default function Beranda() {
                         <Txt weight={ac ? 500 : undefined} style={{ flex: 1 }}>
                           {line.text}
                         </Txt>
-                        {ac && line.switchable ? (
+                        {ac && line.switchable && !line.sensitive ? (
                           <Toggle
                             value={line.on === true}
                             onChange={(on) => void switchAc(line.deviceId, on)}

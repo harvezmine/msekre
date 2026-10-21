@@ -1,5 +1,5 @@
 import { BOX, deviceStatus } from '@/sample/devices';
-import type { SampleState } from '@/sample/reducer';
+import type { SampleAction, SampleState } from '@/sample/reducer';
 import { ROUTINES } from '@/sample/routines';
 import { PLACES, type Device as SampleDevice, type DeviceKind as SampleKind } from '@/sample/types';
 import type { Box, Device, DevicesRes, Routine } from '../contract';
@@ -41,6 +41,21 @@ export function toDevice(d: SampleDevice): Device {
   };
 }
 
+/** Kotak sebagai perangkat di Ruang tamu, supaya aplikasi menaruh kartunya di ruangan yang benar. */
+export function boxDevice(): Device {
+  return {
+    id: BOX_ID,
+    place: 'Rumah',
+    room: 'Ruang tamu',
+    name: 'Kotak Sekretaris AI',
+    icon: 'box',
+    kind: 'box',
+    on: true,
+    reachable: true,
+    status: 'Aktif',
+  };
+}
+
 export function boxFrom(state: SampleState): Box {
   return {
     deviceId: BOX_ID,
@@ -52,6 +67,31 @@ export function boxFrom(state: SampleState): Box {
   };
 }
 
+/**
+ * Aturan rutinitas: tidak pernah berisi membuka kunci, mematikan kamera, atau mematikan alarm (aksi yang dijaga). Server
+ * memeriksanya saat rutinitas dibuat; di server tiruan, aksi seperti itu dibuang saat dijalankan dan disebut di
+ * `summary`. Mengunci dan menghidupkan kamera tidak dijaga. Mengembalikan aksi yang boleh dan nama perangkat yang dilewati.
+ */
+export function withoutGuardedActions(
+  actions: SampleAction[],
+  state: SampleState,
+): { allowed: SampleAction[]; skipped: string[] } {
+  const allowed: SampleAction[] = [];
+  const skipped: string[] = [];
+  for (const action of actions) {
+    const device =
+      action.type === 'toggleDevice' || action.type === 'setLevel'
+        ? state.devices.find((d) => d.id === action.id)
+        : action.type === 'setAc'
+          ? state.devices.find((d) => d.id === action.deviceId)
+          : undefined;
+    const turnsOff = (action.type === 'toggleDevice' && !action.on) || (action.type === 'setAc' && action.on === false);
+    if (device?.needsPin && turnsOff) skipped.push(device.name);
+    else allowed.push(action);
+  }
+  return { allowed, skipped };
+}
+
 export const routinesFrom = (): Routine[] =>
   ROUTINES.map((r) => ({ id: r.id, name: r.name, icon: r.icon, summary: r.sub, places: [...r.places] }));
 
@@ -60,6 +100,8 @@ export function devicesFrom(state: SampleState, place: string): Omit<DevicesRes,
   const real = PLACES.filter((p) => p !== 'Semua');
   const all = place === 'Semua';
   const devices = state.devices.filter((d) => all || d.place === place).map(toDevice);
+  // Kotak ikut sebagai perangkat berjenis `box` di ruangannya (kartunya digambar dari `box`, bukan ubin).
+  if (all || place === 'Rumah') devices.push(boxDevice());
   const rooms = (all ? real : real.filter((p) => p === place)).flatMap((p) => {
     const names = p === 'Rumah' ? HOME_ROOMS : [...new Set(devices.filter((d) => d.place === p).map((d) => d.room))];
     return names.map((name) => ({ place: p as string, name }));

@@ -25,6 +25,7 @@ import MulaiMasuk from '../app/mulai/masuk';
 import MulaiPilih from '../app/mulai/pilih';
 import DetailPerangkat from '../app/perangkat/[id]';
 import TambahPerangkat from '../app/perangkat/tambah';
+import BukaKunci from '../app/buka-kunci';
 import Pin from '../app/pin';
 import Riwayat from '../app/riwayat';
 import Suara from '../app/suara';
@@ -70,6 +71,7 @@ export const ROUTES: Record<string, ComponentType> = {
   '/perangkat/[id]': DetailPerangkat,
   '/perangkat/tambah': TambahPerangkat,
   '/pin': Pin,
+  '/buka-kunci': BukaKunci,
   '/riwayat': Riwayat,
   '/suara': Suara,
   '/tempat': Tempat,

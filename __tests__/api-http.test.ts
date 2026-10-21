@@ -209,7 +209,11 @@ describe('HTTP', () => {
     expect(await transport.messagesChanged(7)).toEqual({ items: [message], more: false });
     expect(call(fetch, 7).url).toBe(`${BASE}/app/v1/messages?limit=100&changedAfter=7`);
 
-    expect(await transport.controlDevice('ac/1', { on: true, temp: 22 })).toEqual({ device: acDevice, card: acCard });
+    expect(await transport.controlDevice('ac/1', { on: true, temp: 22 })).toEqual({
+      device: acDevice,
+      card: acCard,
+      rev: 0,
+    });
     expect(call(fetch, 8)).toMatchObject({
       url: `${BASE}/app/v1/home/devices/ac%2F1`,
       method: 'POST',

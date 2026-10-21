@@ -355,8 +355,14 @@ Request (objek ketat, minimal satu dari `on`, `temp`, `mode`, `fan`, `level`; `p
 { "on": true, "level": 40 }
 ```
 
-Response 200: `{ "device": Device, "card": { "kind": "device", "deviceId": "ac-1", "name": "AC kamar", "on": true, "temp": 24 } }`.
-`device` adalah keadaan sesudah perintah (layar Perangkat memakainya), `card` untuk kartu di chat. Perangkat tidak
+Response 200: `{ "device": Device, "card": DeviceCard, "rev": 12 }`, contoh `card`:
+`{ "kind": "device", "deviceId": "ac-1", "name": "AC kamar", "on": true, "deviceKind": "ac", "switchable": true, "temp": 24 }`.
+`device` adalah keadaan sesudah perintah (layar Perangkat memakainya), `card` untuk kartu di chat, `rev` = nomor
+perubahan perangkat sesudah perintah ini (sama dengan `rev` event `device` yang menyusul; hilang atau rusak dibaca 0).
+Aplikasi membuang event `device` yang `rev`-nya lebih lama dari `rev` jawaban untuk perangkat yang sama, dan hanya
+jawaban perintah terakhir per perangkat yang menimpa layar. Jawaban perintah (`POST /home/devices/:id`,
+`POST /routines/:id/run`, `PUT /box`) dibaca longgar: kartu atau kalimat yang rusak diganti bawaan, bukan menggagalkan
+perintah yang sudah berhasil. Perangkat tidak
 terjangkau tidak berubah; jawabannya keadaan sebenarnya. `temp`/`mode`/`fan` hanya untuk AC dan `level` hanya untuk
 lampu; selain itu 400 `tidak_valid`.
 
@@ -369,6 +375,22 @@ atau **membuka** (kunci pintu), yaitu `on: false`, butuh `pin`:
 
 Pembayaran tidak pernah memakai PIN. Server tidak pernah membuka kunci lewat chat; kendali langsung dari aplikasi
 boleh.
+
+**Alur mematikan kamera / membuka kunci (PIN diperiksa server, tanpa `verify` dari aplikasi).** Aplikasi bertanya
+`GET /account/security` (gagal bertanya dianggap PIN hidup). PIN hidup: lembar PIN meminta 6 angka, lalu perintahnya
+dikirim **bersama `pin`** dan **server** yang memeriksa (salah: 403 `pin_salah`, titik dikosongkan; benar: jalan).
+Aplikasi tidak memanggil `POST /account/pin/verify` untuk ini. Kalau server membalas 428 `pin_diperlukan` untuk
+perintah dari jalur mana pun (layar Perangkat, Beranda, kartu di chat), aplikasi membuka lembar PIN (`/pin?id=`),
+bukan toast. PIN mati: mematikan kamera langsung jalan; **membuka kunci** lebih dulu bertanya "Buka kunci {nama}?" di
+aplikasi (Buka / Batal, bukan PIN), lalu mengirim `{ "on": false }` tanpa `pin`.
+
+**Kartu perangkat di chat.** Kartu membawa `deviceKind` (jenis perangkat; `kind` sudah dipakai pembeda kartu),
+`sensitive`, dan `switchable` (semuanya opsional). Aturan: **server tidak pernah mengirim kartu yang bisa
+dikendalikan untuk perangkat `sensitive`** (kunci, kamera, alarm). Kalau terkirim, aplikasi hanya menampilkan keadaannya
+dengan "Buka di Perangkat" (membuka layar Perangkat), tanpa sakelar atau pengatur suhu. Jenis yang belum dikenal
+dibaca `other`: tanpa ikon salju dan pengatur suhu, dan sakelar nyala-mati hanya bila `switchable: true` (bila
+`switchable` tidak ada: boleh untuk `lamp`, `ac`, `plug`, `tv`). Pengatur suhu hanya untuk `deviceKind: "ac"` yang
+tidak `sensitive`. Server lama tanpa `deviceKind`: kartu dengan `temp` dibaca AC.
 
 ### 2.14 Perangkat: `GET /devices`, `POST /routines/:id/run`, `PUT /box`, dan event `device`
 
@@ -383,18 +405,28 @@ boleh.
 - `kind`: `lamp`, `ac`, `camera`, `lock`, `plug`, `tv`, `sensor`, `box`, `other` (yang belum dikenal dibaca `other`).
 - `on`: lampu/AC/colokan nyala, kunci terkunci, kamera merekam. `level` (lampu, persen), `ac` (AC), `roomTemp`, `brand`.
 - `via`: `ir` (lewat inframerah dari Kotak, hanya perintah terakhir yang diketahui) atau `cloud`.
-- `sensitive`: butuh PIN saat dimatikan/dibuka kalau PIN dihidupkan.
+- `sensitive`: butuh PIN saat dimatikan/dibuka kalau PIN dihidupkan. Beranda tidak menampilkan sakelar untuk baris
+  rumah yang `sensitive`, walau `switchable` (lihat `house.lines[].sensitive`).
 - `reachable: false` + `unreachableSince` ("10.12"). `status` dibuat server, ditampilkan apa adanya.
 
 `GET /devices?place=` → `{ place, places, rooms, devices, box, routines, rev }`. `place` kosong = tempat terpilih;
 `Semua` atau satu tempat; tempat tak dikenal 400. `rooms`: `{ place, name }` (Rumah punya ruangan tetap walau
 kosong). `box`: `{ deviceId, online, micOn, speaker, roomTemp, humidity }` atau `null` (hanya Rumah/Semua).
+**`box.deviceId` = `id` sebuah perangkat berjenis `box` di `devices`**; kartu Kotak digambar di ruangan (dan tempat)
+perangkat itu, dan perangkat `box` tidak digambar sebagai ubin. Tanpa perangkat itu di daftar, kartu ditaruh di
+ruangan pertama. Di "Semua", kartu ada di bagian tempat perangkatnya.
 `routines`: `{ id, name, icon, summary, places }`. `rev` naik setiap perangkat/kotak pengguna berubah.
 
-`POST /routines/:id/run` dengan `{ "place"?: string }` → `{ devices, summary }` (perangkat yang berubah dan kalimat
-hasil). "Tutup kedai": kedai terpilih saja; di Semua atau Rumah, semua kedai. Rutinitas tak ada: 404.
+`POST /routines/:id/run` dengan `{ "place"?: string }` → `{ devices, summary, rev }` (perangkat yang berubah, kalimat
+hasil, dan `rev` seperti di 2.9). "Tutup kedai": kedai terpilih saja; di Semua atau Rumah, semua kedai. Rutinitas tak ada: 404.
 
-`PUT /box` dengan `{ "micOn": boolean }` → `{ "box": Box }`.
+**Aturan rutinitas:** rutinitas tidak pernah berisi membuka kunci, mematikan kamera, atau mematikan alarm (aksi yang
+dijaga). Server memeriksanya saat rutinitas dibuat atau diubah dan menolaknya; menjalankan rutinitas dari WhatsApp
+atau chat juga tidak pernah mengubah perangkat yang dijaga. Mengunci dan menghidupkan kamera tidak dijaga dan boleh.
+Bila rutinitas tersimpan ternyata memuat aksi yang dijaga, aksi itu dilewati saat dijalankan dan `summary` menyebut
+perangkat yang tidak disentuh ("Pintu depan tidak disentuh karena dijaga PIN."). Server tiruan berlaku sama.
+
+`PUT /box` dengan `{ "micOn": boolean }` → `{ "box": Box, "rev": number }`.
 
 Stream: `{ "type": "device", "devices": [Device], "box": Box, "rev": 12 }` (`devices`, `box` opsional). Upsert menurut
 `id`; event dengan `rev` lebih kecil dari data di layar dibuang. Setelah koneksi terbuka, aplikasi memuat ulang
@@ -712,7 +744,7 @@ Karena itu server TIDAK perlu `POST /media/:id/link` atau `?sig=`; yang dibutuhk
 Dokumen dibuang dari cache oleh sistem Android saat ruang HP sempit. Aplikasi mode contoh membuat berkas teks kecil
 sebagai contoh.
 
-### 2.11 `GET/PUT /account/security`, `POST /account/pin`, `POST /account/pin/verify`
+### 2.11 `GET/PUT /account/security`, `POST /account/pin`, `POST /account/pin/verify`, lupa PIN
 
 PIN opsional (keputusan founder): **bawaan mati**. Kalau pemilik menghidupkannya (Akun > PIN), aksi yang dijaga di
 Perangkat (mematikan kamera, mematikan alarm rumah, membuka kunci pintu) meminta PIN 6 angka; kalau mati, aksi itu
@@ -728,7 +760,8 @@ langsung jalan. Pembayaran tidak pernah memakai PIN. Semua jalur ini memakai tok
   tanpa PIN dibalas 400 `tidak_valid`: PIN dibuat dulu lewat `POST /account/pin` (atau sekaligus, lihat di bawah).
   **Mematikan WAJIB membawa `pin` (PIN yang sekarang)**: `pin` hilang atau salah dibalas 403 `pin_salah`, jadi permintaan
   PIN tidak bisa dimatikan hanya dengan token yang sah (sesi yang dicuri). Mematikan tidak menghapus PIN-nya (`hasPin`
-  tetap `true`). Aplikasi tetap memeriksa lewat `verify` lebih dulu supaya salah PIN langsung terlihat di layar PIN.
+  tetap `true`). Layar Keamanan memeriksa PIN yang sekarang lewat `verify` lebih dulu supaya salah PIN langsung
+  terlihat di layar PIN.
 - `POST /account/pin` membuat atau mengganti PIN, membalas keadaan yang sama:
   `{ "pin": "123456" }` (belum ada PIN) atau `{ "pin": "654321", "currentPin": "123456" }` (ganti). PIN harus 6 angka
   (`^\d{6}$`, kalau tidak 400 `tidak_valid`). Sudah ada PIN tapi `currentPin` hilang: 400 `tidak_valid`; `currentPin`
@@ -737,10 +770,19 @@ langsung jalan. Pembayaran tidak pernah memakai PIN. Semua jalur ini memakai tok
   gagal menghidupkan (sinyal putus di tengah) tidak meninggalkan PIN yang sudah dibuat tapi belum dihidupkan. Tanpa
   `enable`, membuat PIN tidak menghidupkan permintaan PIN.
 - `POST /account/pin/verify` dengan `{ "pin": "123456" }` membalas `{ "ok": true }`, atau 403 `pin_salah`. Aplikasi
-  memanggilnya sebelum mematikan kamera dan sejenisnya, dan sebelum mengganti PIN. Beri batas percobaan salah dengan
-  429 `terlalu_sering` (`retryInSec`).
+  memanggilnya hanya di layar Keamanan (mengganti atau mematikan PIN). **Perangkat tidak memakainya**: PIN untuk
+  mematikan kamera atau membuka kunci dikirim bersama perintahnya dan diperiksa server (lihat 2.9). Beri batas
+  percobaan salah (juga untuk perintah perangkat) dengan 429 `terlalu_sering` (`retryInSec`).
 - Disimpan sebagai hash (memakai `home_pins` yang sudah ada); PIN tidak masuk log.
-- "Lupa PIN" (mengatur ulang tanpa PIN lama) belum ada di kontrak; aplikasi memberi tahu bahwa fiturnya segera hadir.
+- **Lupa PIN** (mengatur ulang tanpa PIN lama) lewat kode WhatsApp, seperti masuk:
+  - `POST /account/pin/reset/start` (tanpa isi) → `{ "resendInSec": 60 }`. Server mengirim kode 6 angka ke WhatsApp
+    pemilik (sekali pakai, kedaluwarsa pendek). Terlalu sering: 429 `terlalu_sering` (`retryInSec`).
+  - `POST /account/pin/reset/verify` dengan `{ "code": "123456", "pin": "654321" }` (objek ketat) → `SecurityRes`.
+    Kode cocok menyimpan `pin` sebagai PIN baru (`hasPin: true`); `pinEnabled` tidak berubah. Kode salah atau
+    kedaluwarsa: 400 `kode_salah`. Beri batas percobaan salah.
+  - Aplikasi: "Lupa PIN?" di lembar PIN dan di Keamanan membuka alur "Kode dikirim ke WhatsApp Anda" (kirim kode,
+    masukkan kode, buat PIN baru, ulangi). Kode dan PIN baru dikirim bersama di langkah terakhir; kode salah
+    mengembalikan ke langkah kode. Server tiruan: kode `123456` cocok, kode lain `kode_salah` (`000000` contohnya).
 
 ### 2.12 Beranda: `GET /home`, `PUT /places/current`, dan event `home`
 
@@ -791,7 +833,8 @@ Aturan:
   berformat `HH.MM`; `kind` adalah `reminder`, `meeting`, atau `recurring` (jenis yang belum dikenal tetap tampil).
 - `house.lines`: baris kartu Rumah, berurutan. `icon` adalah nama ikon aplikasi; nama yang tidak dikenal diganti ikon
   bawaan (jangan ditolak). `on` ada hanya pada baris yang punya sakelar (AC); `switchable` = sakelar boleh diketuk
-  (perangkat terjangkau). Sakelar memanggil `POST /home/devices/:id` (bagian 2.9) dengan `{ "on": true|false }`.
+  (perangkat terjangkau). `sensitive` (opsional) = perangkat dijaga (kunci, kamera, alarm): sakelar **tidak** tampil di
+  Beranda walau `switchable`, jadi sakelar tampil hanya bila `switchable && !sensitive`. Sakelar memanggil `POST /home/devices/:id` (bagian 2.9) dengan `{ "on": true|false }`.
   `label` (opsional) adalah nama perangkat untuk pembaca layar.
 - `business`: ringkasan usaha untuk tempat terpilih, atau `null` kalau pengguna tidak punya usaha (kartu Usaha tidak
   tampil). `down: true` mewarnai `change` sebagai peringatan. `alert`: satu kalimat peringatan atau `null`. Tempat
@@ -800,7 +843,7 @@ Aturan:
   `reachable: false` = layanan/perangkat sumbernya tidak terjangkau (simpul abu-abu, "CCTV tidak terjangkau").
 - `rev`: naik setiap isi Beranda berubah, per pengguna. Event `home` yang `rev`-nya lebih kecil dari yang dipegang
   aplikasi dibuang. Beranda dimuat ulang dengan `GET /home` setiap koneksi stream terbuka (juga yang pertama), dan
-  jawaban `GET`/`PUT` selalu dipakai apa adanya.
+  jawaban `GET`/`PUT` yang `rev`-nya sama atau lebih baru dipakai apa adanya (tidak diubah di sisi aplikasi).
 - Server menyiarkan `{ "type": "home", "home": Home }` setiap kali isinya berubah (draf, agenda, perangkat, layanan,
   tempat, usaha); beberapa perubahan dalam satu giliran boleh digabung. Jangan siarkan kalau tidak ada yang berubah.
 - Pembacaan longgar (aplikasi): ikon yang tidak dikenal, bidang tambahan, dan baris yang rusak tidak menggagalkan
@@ -967,7 +1010,7 @@ Kartu (`card.kind`):
 | `kind` | Isi |
 |---|---|
 | `draft` | `draft` (bagian 2.7) |
-| `device` | `deviceId`, `name`, `on`, `temp?`, `mode?`, `note?` (Fase 3) |
+| `device` | `deviceId`, `name`, `on`, `deviceKind?`, `sensitive?`, `switchable?`, `temp?`, `mode?`, `note?` (aturan di 2.9) |
 | `notes` | `title`, `when` (teks siap tampil), `decisions: string[]`, `meetingId` |
 | `payment` | `title`, `amountRp` (bilangan bulat Rupiah), `lines: [{ label, value }]`, `ask` ("Sudah benar?") |
 | `qris` | `amountRp` (>0), `until` (ISO), `status`, `mediaId` |

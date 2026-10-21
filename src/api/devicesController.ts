@@ -24,12 +24,15 @@ const INITIAL: DevicesState = { entries: {} };
  * Hasil perintah ke perangkat.
  * - `ok`: berhasil; `device` keadaan dari server.
  * - `pin`: aksi ini butuh PIN dan belum ada (atau server memintanya). Tidak ada yang berubah; layar membuka lembar PIN.
+ * - `confirm`: membuka kunci saat PIN mati. Tidak ada yang berubah; layar bertanya "Buka kunci {nama}?" lebih dulu dan
+ *   mengulang perintahnya dengan `{ confirmed: true }`.
  * - `pin_wrong`: PIN yang dikirim salah. Perangkat dikembalikan.
  * - `error`: gagal; perangkat dikembalikan, `message` teks ramah untuk toast.
  */
 export type ControlResult =
   | { ok: true; device: Device }
   | { ok: false; reason: 'pin' }
+  | { ok: false; reason: 'confirm' }
   | { ok: false; reason: 'pin_wrong'; message: string }
   | { ok: false; reason: 'error'; message: string };
 
@@ -68,6 +71,8 @@ export class DevicesController {
   private readonly loading = new Map<string, Promise<void>>();
   /** Perintah terakhir per perangkat: hanya yang terakhir yang boleh menimpa layar saat menjawab atau gagal. */
   private readonly latest = new Map<string, number>();
+  /** `rev` jawaban perintah terakhir per perangkat: event `device` yang lebih lama darinya dibuang untuk perangkat itu. */
+  private readonly repliedRev = new Map<string, number>();
   private counter = 0;
   private alive = true;
 
@@ -138,18 +143,28 @@ export class DevicesController {
    * Atur satu perangkat. Aksi yang dijaga (mematikan kamera, membuka kunci) tanpa `pin` lebih dulu bertanya apakah PIN
    * dihidupkan (gagal bertanya dianggap ya) dan hasilnya `pin`, tanpa mengubah apa pun.
    */
-  controlDevice = async (id: string, req: DeviceControlReq): Promise<ControlResult> => {
+  controlDevice = async (
+    id: string,
+    req: DeviceControlReq,
+    options: { confirmed?: boolean } = {},
+  ): Promise<ControlResult> => {
     const before = this.find(id);
-    if (before?.sensitive && req.on === false && req.pin === undefined && (await this.pinRequired())) {
-      return { ok: false, reason: 'pin' };
+    const guarded = !!before && (before.sensitive || before.kind === 'lock' || before.kind === 'camera');
+    if (guarded && req.on === false && req.pin === undefined) {
+      if (await this.pinRequired()) return { ok: false, reason: 'pin' };
+      // PIN mati: membuka kunci tetap bertanya dulu (bukan PIN), supaya ketukan tidak sengaja tidak membuka pintu.
+      if (before?.kind === 'lock' && !options.confirmed) return { ok: false, reason: 'confirm' };
     }
     const mine = ++this.counter;
     this.latest.set(id, mine);
     const current = this.find(id);
     if (current) this.replace(optimistic(current, req));
     try {
-      const { device } = await this.transport.controlDevice(id, req);
-      if (this.latest.get(id) === mine) this.replace(device);
+      const { device, rev } = await this.transport.controlDevice(id, req);
+      if (this.latest.get(id) === mine) {
+        this.replace(device);
+        this.repliedRev.set(id, Math.max(rev, this.repliedRev.get(id) ?? 0));
+      }
       return { ok: true, device };
     } catch (e) {
       if (this.latest.get(id) === mine && current) this.replace(current);
@@ -162,7 +177,10 @@ export class DevicesController {
   runRoutine = async (routineId: string, place: string): Promise<RoutineResult> => {
     try {
       const res = await this.transport.runRoutine(routineId, place);
-      for (const device of res.devices) this.replace(device);
+      for (const device of res.devices) {
+        this.replace(device);
+        this.repliedRev.set(device.id, Math.max(res.rev, this.repliedRev.get(device.id) ?? 0));
+      }
       return { ok: true, summary: res.summary };
     } catch (e) {
       return { ok: false, message: friendlyError(e) };
@@ -203,7 +221,11 @@ export class DevicesController {
     for (const [place, entry] of Object.entries(entries)) {
       if (!entry.data || event.rev < entry.data.rev) continue;
       let data: DevicesRes = { ...entry.data, rev: event.rev };
-      for (const device of event.devices ?? []) data = upsert(data, device);
+      for (const device of event.devices ?? []) {
+        // Keadaan yang lebih lama dari jawaban perintah untuk perangkat ini tidak boleh menimpanya.
+        if (event.rev < (this.repliedRev.get(device.id) ?? 0)) continue;
+        data = upsert(data, device);
+      }
       if (event.box && data.box) data = { ...data, box: event.box };
       entries[place] = { ...entry, data };
     }

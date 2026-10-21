@@ -99,9 +99,12 @@ test('PIN mati (bawaan): kamera, alarm, dan pintu langsung dijalankan tanpa lemb
   await fireEvent.press(screen.getByRole('switch', { name: /^Kamera ruang tamu, / }));
   expect(router.push).not.toHaveBeenCalled();
   expect(status('kamera-tamu')).toBe('Mati');
+  // Membuka kunci tetap bertanya dulu (bukan PIN): lembar "Buka kunci Pintu depan?" dan kuncinya belum berubah.
   await fireEvent.press(screen.getByRole('switch', { name: /^Pintu depan, / }));
-  expect(router.push).not.toHaveBeenCalled();
-  expect(deviceById(latest, 'pintu-depan')!.on).toBe(false);
+  await act(async () => {});
+  expect(router.push).toHaveBeenCalledTimes(1);
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/buka-kunci', params: { id: 'pintu-depan' } });
+  expect(deviceById(latest, 'pintu-depan')!.on).toBe(true);
 });
 
 test('PIN dihidupkan: mematikan kamera membuka lembar PIN, bukan langsung mati', async () => {

@@ -88,10 +88,50 @@ test('Hapus menghapus satu angka dan Batal menutup tanpa mengubah apa pun', asyn
   expect(deviceById(latest, 'kamera-tamu')!.on).toBe(true);
 });
 
-test('Lupa PIN memunculkan toast', async () => {
-  await show();
+test('Lupa PIN: kode dikirim ke WhatsApp, lalu PIN baru dibuat dan dipakai', async () => {
+  const api = createTestApi({ security: { pinEnabled: true, pin: '123456' } });
+  await renderWithProviders(
+    <>
+      <Pin />
+      <Probe />
+    </>,
+    { api },
+  );
   await fireEvent.press(screen.getByRole('button', { name: 'Lupa PIN?' }));
-  expect(latest.toast?.text).toBe('Atur ulang PIN segera hadir.');
+  expect(screen.getByText(/kode 6 angka ke WhatsApp Anda/)).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode ke WhatsApp' }));
+  for (let i = 0; i < 4; i++) await advance(0);
+  expect(screen.getByText('Masukkan kode')).toBeOnTheScreen();
+  expect(screen.getByText('Kode dikirim ke WhatsApp Anda.')).toBeOnTheScreen();
+  await type('123456');
+  expect(screen.getByText('Buat PIN baru')).toBeOnTheScreen();
+  await type('654321');
+  expect(screen.getByText('Ulangi PIN')).toBeOnTheScreen();
+  await type('654321');
+  expect(latest.toast?.text).toBe('PIN baru tersimpan.');
+  // Kembali ke lembar PIN: PIN lama tidak berlaku lagi, PIN baru mematikan kamera.
+  expect(screen.getByText('Masukkan PIN')).toBeOnTheScreen();
+  await type('123456');
+  expect(deviceById(latest, 'kamera-tamu')!.on).toBe(true);
+  await type('654321');
+  expect(deviceById(latest, 'kamera-tamu')!.on).toBe(false);
+});
+
+test('Lupa PIN: kode salah kembali ke langkah kode dengan pesan; PIN baru yang tidak sama diulang', async () => {
+  const api = createTestApi({ security: { pinEnabled: true, pin: '123456' } });
+  await renderWithProviders(<Pin />, { api });
+  await fireEvent.press(screen.getByRole('button', { name: 'Lupa PIN?' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode ke WhatsApp' }));
+  for (let i = 0; i < 4; i++) await advance(0);
+  await type('000000');
+  await type('111111');
+  await type('222222');
+  expect(screen.getByText('PIN belum sama, ulangi ya.')).toBeOnTheScreen();
+  await type('111111');
+  expect(screen.getByText('Kodenya belum cocok. Coba lagi ya.')).toBeOnTheScreen();
+  expect(screen.getByText('Masukkan kode')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Batal' }));
+  expect(screen.getByText('Masukkan PIN')).toBeOnTheScreen();
 });
 
 test('pintu depan: keterangannya "membuka"', async () => {

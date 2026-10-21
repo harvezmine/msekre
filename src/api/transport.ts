@@ -33,6 +33,7 @@ import type {
   MessagesPage,
   MessagesChangedPage,
   NotificationsUpdateReq,
+  PinResetVerifyReq,
   PinSetReq,
   RoutineRunRes,
   PushTokenDeleteReq,
@@ -182,6 +183,13 @@ export interface Transport {
   setPin(req: PinSetReq): Promise<SecurityRes>;
   /** Periksa PIN (`POST /account/pin/verify`): `true` kalau cocok, `false` kalau salah (403 `pin_salah`). */
   verifyPin(pin: string): Promise<boolean>;
+  /** Lupa PIN, langkah 1 (`POST /account/pin/reset/start`): kode 6 angka dikirim ke WhatsApp pemilik. */
+  pinResetStart(): Promise<AuthStartRes>;
+  /**
+   * Lupa PIN, langkah 2 (`POST /account/pin/reset/verify`): kode cocok menyimpan `pin` sebagai PIN baru. Kode salah
+   * atau kedaluwarsa: `kode_salah`.
+   */
+  pinResetVerify(req: PinResetVerifyReq): Promise<SecurityRes>;
   /** Beranda (`GET /home`): ringkasan untuk tempat terpilih. Perubahan berikutnya datang lewat event stream `home`. */
   home(): Promise<Home>;
   /** Pilih tempat (`PUT /places/current`); jawabannya Beranda untuk tempat itu. Tempat yang tidak dikenal: `tidak_valid`. */

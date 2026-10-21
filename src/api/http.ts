@@ -9,9 +9,6 @@ import {
   authVerifyResSchema,
   CONTRACT_VERSION,
   CONTRACT_VERSION_HEADER,
-  boxResSchema,
-  deviceControlResSchema,
-  routineRunResSchema,
   meSchema,
   MESSAGES_LIMIT,
   MESSAGES_LIMIT_MAX,
@@ -56,6 +53,7 @@ import {
   type MessagesPage,
   type NotificationsUpdateReq,
   type MessagesChangedPage,
+  type PinResetVerifyReq,
   type PinSetReq,
   type PushTokenDeleteReq,
   type PushTokenReq,
@@ -76,7 +74,10 @@ import {
   parseConnectionDetailLenient,
   parseConnectionsLenient,
   parseHistoryLenient,
+  parseBoxResLenient,
+  parseDeviceControlResLenient,
   parseDevicesLenient,
+  parseRoutineRunResLenient,
   parseHomeLenient,
   parseMessageLenient,
   parsePageLenient,
@@ -249,6 +250,14 @@ export class HttpTransport implements Transport {
     }
   }
 
+  pinResetStart(): Promise<AuthStartRes> {
+    return this.request('POST', '/account/pin/reset/start', authStartResSchema, { body: {} });
+  }
+
+  pinResetVerify(req: PinResetVerifyReq): Promise<SecurityRes> {
+    return this.request('POST', '/account/pin/reset/verify', securityResSchema, { body: req });
+  }
+
   home(): Promise<Home> {
     return this.request('GET', '/home', reader(parseHomeLenient));
   }
@@ -298,19 +307,19 @@ export class HttpTransport implements Transport {
   }
 
   controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceControlRes> {
-    return this.request('POST', `/home/devices/${encodeURIComponent(deviceId)}`, deviceControlResSchema, {
+    return this.request('POST', `/home/devices/${encodeURIComponent(deviceId)}`, reader(parseDeviceControlResLenient), {
       body: req,
     });
   }
 
   runRoutine(routineId: string, place?: string): Promise<RoutineRunRes> {
-    return this.request('POST', `/routines/${encodeURIComponent(routineId)}/run`, routineRunResSchema, {
+    return this.request('POST', `/routines/${encodeURIComponent(routineId)}/run`, reader(parseRoutineRunResLenient), {
       body: place === undefined ? {} : { place },
     });
   }
 
   setBoxMic(micOn: boolean): Promise<BoxRes> {
-    return this.request('PUT', '/box', boxResSchema, { body: { micOn } });
+    return this.request('PUT', '/box', reader(parseBoxResLenient), { body: { micOn } });
   }
 
   business(place?: string, period?: BusinessPeriod): Promise<Business> {

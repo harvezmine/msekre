@@ -96,6 +96,14 @@ function Navigator() {
               contentStyle: { backgroundColor: 'transparent' },
             }}
           />
+          <Stack.Screen
+            name="buka-kunci"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
           <Stack.Screen name="akun" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="akun/keamanan" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="akun/asisten" options={{ animation: 'slide_from_right' }} />

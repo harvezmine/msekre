@@ -1,4 +1,7 @@
-import type { Device, DeviceCard } from './contract';
+import type { Device, DeviceCard, DeviceKind } from './contract';
+
+/** Jenis perangkat yang sakelar nyala-matinya boleh tampil di kartu bila tidak dijaga. */
+export const SWITCHABLE_KINDS: readonly DeviceKind[] = ['lamp', 'ac', 'plug', 'tv'];
 
 /**
  * Kartu perangkat untuk chat dari perangkat yang sama dengan yang dilihat Perangkat dan Beranda. Server asli dan server
@@ -10,6 +13,10 @@ export function cardFromDevice(d: Device): DeviceCard {
     deviceId: d.id,
     name: d.name,
     on: d.on,
+    deviceKind: d.kind,
+    // Server tidak pernah menjadikan perangkat yang dijaga bisa dikendalikan dari kartu (lihat `deviceCardSchema`).
+    ...(d.sensitive ? { sensitive: true } : {}),
+    switchable: !d.sensitive && d.reachable && SWITCHABLE_KINDS.includes(d.kind),
     ...(d.ac ? { temp: d.ac.temp, mode: d.ac.mode } : {}),
     ...(d.roomTemp !== undefined ? { note: `suhu ruangan sekarang ${d.roomTemp}°` } : {}),
   };
@@ -33,4 +40,30 @@ export function guessStatus(d: Device): string {
     default:
       return d.on ? 'Nyala' : 'Mati';
   }
+}
+
+/** Cara kartu perangkat di chat ditampilkan, dari isinya (lihat `deviceCardSchema`). */
+export interface CardPresentation {
+  kind: DeviceKind;
+  /** Dijaga (kunci, kamera, alarm): hanya keadaan dan "Buka di Perangkat"; tanpa sakelar atau pengatur suhu. */
+  sensitive: boolean;
+  /** Pengatur suhu dan ikon salju: hanya AC yang tidak dijaga. */
+  isAc: boolean;
+  /** Sakelar nyala-mati: tidak dijaga, dan `switchable` (bila tidak ada: lampu, AC, colokan, TV). */
+  switchable: boolean;
+  status: string;
+}
+
+export function presentCard(card: DeviceCard): CardPresentation {
+  // Server lama tanpa `deviceKind`: kartu dengan suhu dibaca AC, selain itu perangkat biasa.
+  const kind: DeviceKind = card.deviceKind ?? (card.temp !== undefined ? 'ac' : 'other');
+  const sensitive = card.sensitive === true || kind === 'lock' || kind === 'camera';
+  const isAc = kind === 'ac' && !sensitive;
+  const switchable = !sensitive && (card.switchable ?? SWITCHABLE_KINDS.includes(kind));
+  let status: string;
+  if (kind === 'lock') status = card.on ? 'Terkunci' : 'Terbuka';
+  else if (kind === 'camera') status = card.on ? 'Merekam' : 'Mati';
+  else if (!card.on) status = 'Mati';
+  else status = `Nyala${isAc && card.mode ? ` · ${card.mode}` : ''}`;
+  return { kind, sensitive, isAc, switchable, status };
 }

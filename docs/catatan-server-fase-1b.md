@@ -143,8 +143,15 @@ Kontrak: `docs/api-v1.md` bagian 2.9 dan 2.14. Aplikasi sudah memakainya penuh l
   429 `terlalu_sering`). Chat/WhatsApp tidak pernah membuka kunci; hanya kendali langsung dari aplikasi.
 - Naikkan `rev` perangkat setiap perangkat atau Kotak berubah (juga karena chat atau WhatsApp) dan siarkan event
   `device` berisi perangkat yang berubah. Gabungkan perubahan yang berdekatan.
-- Layar suhu AC mengirim satu perintah per derajat saat memutar; server boleh menggabungkan atau membatasi laju
+- Layar suhu AC menampilkan angka baru saat memutar, tetapi hanya mengirim nilai akhir, sekitar 500 ms setelah
+  perubahan terakhir (debounce), jadi satu putaran panjang menjadi satu perintah. Server tetap boleh membatasi laju
   perintah IR.
+- Jawaban perintah (`POST /home/devices/:id`, `POST /routines/:id/run`, `PUT /box`) membawa `rev` perangkat sesudah
+  perintah; event `device` untuk perubahan itu memakai `rev` yang sama. Kartu perangkat tidak pernah dapat
+  dikendalikan untuk perangkat `sensitive` (`deviceKind`, `sensitive`, `switchable` di kartu).
+- Rutinitas tidak boleh memuat buka kunci, kamera mati, atau alarm mati: validasi saat dibuat; menjalankan dari
+  WhatsApp/chat tidak pernah mengubah perangkat dijaga.
+- `box.deviceId` harus `id` sebuah perangkat berjenis `box` di `devices` (dengan `room` dan `place`).
 - `POST /routines/:id/run` mengembalikan hanya perangkat yang berubah; `PUT /box` mengatur mikrofon Kotak.
 
 
@@ -200,6 +207,9 @@ Semua aditif atau memperketat aturan yang belum pernah dipakai server asli; `CON
   tetap 400.
 - **PIN.** `PUT /account/security { pinEnabled: false }` WAJIB membawa `pin` yang benar (403 `pin_salah` bila hilang atau
   salah). `POST /account/pin` menerima `enable: true` (PIN tersimpan dan permintaan PIN hidup dalam satu transaksi).
+- **Lupa PIN**: `POST /account/pin/reset/start` mengirim kode 6 angka lewat WhatsApp (pakai jalur kode masuk yang ada, batas
+  laju sama) dan `POST /account/pin/reset/verify { code, pin }` menyimpan PIN baru; kode salah/kedaluwarsa 400 `kode_salah`,
+  kode sekali pakai. `pinEnabled` tidak berubah.
 - **`rev` tidak pernah turun di aplikasi.** Server tidak boleh menurunkan `rev` per pengguna (termasuk setelah restart).
   Aplikasi membuang jawaban muat yang `rev`-nya lebih kecil dari yang dipegang.
 

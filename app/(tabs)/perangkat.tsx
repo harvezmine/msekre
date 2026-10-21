@@ -42,6 +42,10 @@ export default function Perangkat() {
   const [picked, setPicked] = useState<string | null>(null);
 
   const all = place === 'Semua';
+  // Kartu Kotak ada di ruangan perangkat ber-`id` sama dengan `box.deviceId` (jenis `box`, tidak digambar sebagai ubin);
+  // tanpa perangkat itu, di ruangan pertama.
+  const boxDevice = box ? devices.find((d) => d.id === box.deviceId) : undefined;
+  const tiles = devices.filter((d) => d.kind !== 'box');
   const rooms = roomList.map((r) => r.name);
   const room = picked && rooms.includes(picked) ? picked : rooms[0];
   const tileWidth = (width - 32 - GAP) / 2;
@@ -144,27 +148,39 @@ export default function Perangkat() {
                 </Txt>
               </Pressable>
             </View>
-          ) : null
+          ) : (
+            <Txt color={c.muted} style={{ paddingHorizontal: 20, paddingTop: 32 }}>
+              Sebentar ya, saya ambil dulu.
+            </Txt>
+          )
         ) : (
           <View style={{ paddingTop: 16, paddingHorizontal: 16, gap: 12 }}>
+            {tiles.length === 0 && !box ? (
+              <Txt color={c.muted} style={{ paddingHorizontal: 4, paddingTop: 16 }}>
+                Belum ada perangkat. Tambahkan dari tombol + atau sambungkan layanan rumah di Terhubung.
+              </Txt>
+            ) : null}
             {all ? (
               data.places.map((p) => (
                 <View key={p} style={{ gap: 12 }}>
                   <Txt v="subtitle" accessibilityRole="header" style={{ paddingHorizontal: 4, paddingTop: 4 }}>
                     {p}
                   </Txt>
+                  {box && (boxDevice ? boxDevice.place === p : p === data.places[0]) ? (
+                    <BoxCard box={box} onMic={(on) => void toggleMic(on)} />
+                  ) : null}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP }}>
-                    {devices.filter((d) => d.place === p).map(tile)}
+                    {tiles.filter((d) => d.place === p).map(tile)}
                   </View>
                 </View>
               ))
             ) : (
               <>
-                {box && place === 'Rumah' && room === 'Ruang tamu' ? (
+                {box && (boxDevice ? boxDevice.place === place && boxDevice.room === room : room === rooms[0]) ? (
                   <BoxCard box={box} onMic={(on) => void toggleMic(on)} />
                 ) : null}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP }}>
-                  {devices.filter((d) => d.room === room).map(tile)}
+                  {tiles.filter((d) => d.room === room).map(tile)}
                 </View>
               </>
             )}

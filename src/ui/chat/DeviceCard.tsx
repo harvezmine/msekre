@@ -1,11 +1,13 @@
 import * as Haptics from 'expo-haptics';
 import { Pressable, View } from 'react-native';
+import type { DeviceKind } from '@/api/contract';
 import { AC_MAX, AC_MIN } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
+import type { IconName } from '../icons';
 import { Toggle } from '../Toggle';
 import { Txt } from '../Txt';
-import { ChatCard } from './ChatCard';
+import { CardButton, ChatCard } from './ChatCard';
 
 interface DeviceCardViewProps {
   name: string;
@@ -15,12 +17,40 @@ interface DeviceCardViewProps {
   /** Baris keterangan di bawah nama, contoh "Nyala · Dingin". */
   status: string;
   footer?: string;
+  /** Jenis perangkat, untuk ikon. */
+  kind?: DeviceKind;
+  /** Sakelar nyala-mati tampil. */
+  switchable?: boolean;
+  /** Dijaga: hanya keadaan dan "Buka di Perangkat" (`onOpen`). */
+  guarded?: boolean;
   onToggle: (on: boolean) => void;
   onTemp: (temp: number) => void;
+  onOpen?: () => void;
 }
 
+const KIND_ICON: Partial<Record<DeviceKind, IconName>> = {
+  ac: 'snow',
+  lamp: 'bulb',
+  lock: 'lock',
+  camera: 'camera',
+  plug: 'bolt',
+  tv: 'box',
+};
+
 /** Tampilan kartu perangkat dari data kontrak; aksinya dikerjakan pemanggil (`POST /home/devices/:id`). */
-export function DeviceCardView({ name, on, temp, status, footer, onToggle, onTemp }: DeviceCardViewProps) {
+export function DeviceCardView({
+  name,
+  on,
+  temp,
+  status,
+  footer,
+  kind = 'ac',
+  switchable = true,
+  guarded = false,
+  onToggle,
+  onTemp,
+  onOpen,
+}: DeviceCardViewProps) {
   const { c } = useTheme();
   const step = (d: number) => {
     if (temp === undefined || temp + d < AC_MIN || temp + d > AC_MAX) return;
@@ -40,7 +70,11 @@ export function DeviceCardView({ name, on, temp, status, footer, onToggle, onTem
             justifyContent: 'center',
           }}
         >
-          <Icon name="snow" size={22} color={c.green} />
+          <Icon
+            name={guarded && kind !== 'lock' && kind !== 'camera' ? 'shield' : (KIND_ICON[kind] ?? 'home')}
+            size={22}
+            color={c.green}
+          />
         </View>
         <View style={{ flex: 1 }}>
           <Txt weight={600}>{name}</Txt>
@@ -48,9 +82,9 @@ export function DeviceCardView({ name, on, temp, status, footer, onToggle, onTem
             {status}
           </Txt>
         </View>
-        <Toggle label={name} value={on} onChange={onToggle} />
+        {switchable && !guarded ? <Toggle label={name} value={on} onChange={onToggle} /> : null}
       </View>
-      {temp !== undefined && (
+      {temp !== undefined && !guarded && (
         <View
           accessible
           accessibilityRole="adjustable"
@@ -82,6 +116,7 @@ export function DeviceCardView({ name, on, temp, status, footer, onToggle, onTem
           {footer}
         </Txt>
       ) : null}
+      {guarded && onOpen ? <CardButton label="Buka di Perangkat" onPress={onOpen} /> : null}
     </ChatCard>
   );
 }

@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
-import { useIsFocused, useLocalSearchParams } from 'expo-router';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Platform } from 'react-native';
 import { File } from 'expo-file-system';
@@ -599,6 +599,109 @@ describe('bagian dan kartu', () => {
     expect(latest.toast?.text).toBe(ERROR_TEXT);
     expect(screen.getByText('Nyala · Dingin')).toBeOnTheScreen();
     expect(deviceById(fake.sample.getState(), 'ac-kamar')!.on).toBe(true);
+  });
+
+  test('kartu perangkat yang dijaga (kunci): hanya keadaan dan "Buka di Perangkat", tanpa sakelar', async () => {
+    const { fake } = await mount({
+      history: [
+        message(1, [
+          {
+            type: 'card',
+            card: {
+              kind: 'device',
+              deviceId: 'pintu-depan',
+              name: 'Pintu depan',
+              on: true,
+              deviceKind: 'lock',
+              sensitive: true,
+              switchable: true,
+            },
+          },
+        ]),
+      ],
+    });
+    const spy = jest.spyOn(fake, 'controlDevice');
+    expect(screen.getByText('Pintu depan')).toBeOnTheScreen();
+    expect(screen.getByText('Terkunci')).toBeOnTheScreen();
+    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Naikkan suhu' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Buka di Perangkat' }));
+    expect(router.navigate).toHaveBeenCalledWith('/perangkat');
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  test('kartu perangkat tanpa deviceKind tapi dijaga lewat sensitive, dan jenis asing: tanpa salju dan suhu', async () => {
+    await mount({
+      history: [
+        message(1, [
+          {
+            type: 'card',
+            card: { kind: 'device', deviceId: 'a', name: 'Alarm rumah', on: true, sensitive: true, temp: 24 },
+          },
+        ]),
+        message(2, [
+          {
+            type: 'card',
+            card: {
+              kind: 'device',
+              deviceId: 'b',
+              name: 'Alat baru',
+              on: true,
+              deviceKind: 'robot-masa-depan' as 'other',
+              temp: 20,
+            },
+          },
+        ]),
+      ],
+    });
+    expect(screen.queryByTestId('ikon-snow')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Naikkan suhu' })).toBeNull();
+    // Jenis asing dibaca `other`: sakelar hanya bila switchable.
+    expect(screen.queryByRole('switch', { name: 'Alat baru' })).toBeNull();
+    expect(screen.getAllByText('Nyala')).toHaveLength(2);
+  });
+
+  test('kartu perangkat jenis lain yang switchable: sakelar saja, tanpa pengatur suhu', async () => {
+    await mount({
+      history: [
+        message(1, [
+          {
+            type: 'card',
+            card: {
+              kind: 'device',
+              deviceId: 'colokan',
+              name: 'Colokan meja',
+              on: false,
+              deviceKind: 'plug',
+              switchable: true,
+            },
+          },
+        ]),
+      ],
+    });
+    expect(screen.getByRole('switch', { name: 'Colokan meja' })).toBeOnTheScreen();
+    expect(screen.queryByTestId('ikon-snow')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Turunkan suhu' })).toBeNull();
+  });
+
+  test('kartu perangkat: 428 pin_diperlukan membuka lembar PIN, bukan toast buntu', async () => {
+    const { fake } = await mount({
+      history: [
+        message(1, [
+          {
+            type: 'card',
+            card: { kind: 'device', deviceId: 'ac-kamar', name: 'AC kamar', on: true, temp: 24, mode: 'Dingin' },
+          },
+        ]),
+      ],
+    });
+    jest
+      .spyOn(fake, 'controlDevice')
+      .mockRejectedValue(new ApiFailure('pin_required', { status: 428, error: 'pin_diperlukan' }));
+    await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
+    await advance(0);
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'ac-kamar' } });
+    expect(latest.toast).toBeNull();
   });
 
   test('kartu perangkat di chat mengikuti perangkat yang diubah dari layar lain (event device)', async () => {

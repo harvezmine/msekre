@@ -26,6 +26,10 @@ export interface Security {
    * (`pin_wrong` bila PIN lama salah).
    */
   setPin(pin: string, currentPin?: string, enable?: boolean): Promise<SecurityRes>;
+  /** Lupa PIN: kirim kode ke WhatsApp pemilik. Melempar `ApiFailure` (`rate_limited`, jaringan). */
+  resetStart(): Promise<{ resendInSec: number }>;
+  /** Lupa PIN: kode cocok menyimpan `pin` sebagai PIN baru. Melempar `ApiFailure` (`kode_salah` bila kode salah). */
+  resetVerify(code: string, pin: string): Promise<SecurityRes>;
   /** `true` bila PIN cocok. Melempar `ApiFailure` untuk kendala selain salah PIN. */
   verify(pin: string): Promise<boolean>;
 }
@@ -100,5 +104,7 @@ export function useSecurity({ load = true }: { load?: boolean } = {}): Security 
         }),
       ),
     verify: (pin) => transport.verifyPin(pin),
+    resetStart: () => transport.pinResetStart(),
+    resetVerify: async (code, pin) => keep(await transport.pinResetVerify({ code, pin })),
   };
 }

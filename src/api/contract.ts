@@ -23,6 +23,8 @@
  * | PUT  /account/security         | SecurityUpdateReq    | SecurityRes                       |
  * | POST /account/pin              | PinSetReq            | SecurityRes                       |
  * | POST /account/pin/verify       | PinVerifyReq         | OkRes (salah: 403 `pin_salah`)    |
+ * | POST /account/pin/reset/start  | -                    | AuthStartRes (kode ke WhatsApp)   |
+ * | POST /account/pin/reset/verify | PinResetVerifyReq    | SecurityRes (PIN baru tersimpan)  |
  * | GET  /home                     | -                    | Home (Beranda)                    |
  * | PUT  /places/current           | PlaceReq             | Home                              |
  * | GET  /agenda?from=&to=         | -                    | AgendaRes                         |
@@ -223,6 +225,13 @@ export const pinSetReqSchema = z.strictObject({
   enable: z.boolean().optional(),
 });
 export const pinVerifyReqSchema = z.strictObject({ pin: pinSchema });
+/**
+ * Lupa PIN: `POST /account/pin/reset/start` mengirim kode 6 angka ke WhatsApp pemilik (jawabannya sama dengan
+ * `auth/start`: `{ resendInSec }`; terlalu sering: 429 `terlalu_sering`). `POST /account/pin/reset/verify` dengan
+ * `{ code, pin }`: kode cocok (dan belum kedaluwarsa, sekali pakai) menyimpan `pin` sebagai PIN baru dan membalas
+ * `SecurityRes`; kode salah atau kedaluwarsa: 400 `kode_salah`. Permintaan PIN tidak berubah (hidup tetap hidup).
+ */
+export const pinResetVerifyReqSchema = z.strictObject({ code: z.string().regex(/^\d{6}$/), pin: pinSchema });
 
 // ---- Draf (kiriman ke orang lain) ----
 
@@ -250,11 +259,26 @@ export const draftSchema = z
 // ---- Kartu ----
 
 export const draftCardSchema = z.object({ kind: z.literal('draft'), draft: draftSchema });
+/** Jenis perangkat; yang belum dikenal aplikasi dibaca `other`. */
+export const deviceKindSchema = z.enum(['lamp', 'ac', 'camera', 'lock', 'plug', 'tv', 'sensor', 'box', 'other']);
 export const deviceCardSchema = z.object({
   kind: z.literal('device'),
   deviceId: idSchema,
   name: z.string().min(1),
   on: z.boolean(),
+  /**
+   * Jenis perangkat (`kind` sudah dipakai pembeda kartu). Tidak ada (server lama): kartu dengan `temp` dibaca AC,
+   * selain itu perangkat biasa. Jenis yang belum dikenal dibaca `other`: tanpa ikon dan pengatur suhu.
+   */
+  deviceKind: deviceKindSchema.catch('other').optional(),
+  /**
+   * Perangkat yang dijaga (kunci, kamera, alarm). **Server tidak pernah mengirim kartu yang bisa dikendalikan untuk
+   * perangkat `sensitive`**; kalau terkirim, aplikasi hanya menampilkan keadaannya dengan "Buka di Perangkat", tanpa
+   * sakelar atau pengatur suhu.
+   */
+  sensitive: z.boolean().optional(),
+  /** Sakelar nyala-mati boleh tampil. Tidak ada: boleh untuk lampu, AC, colokan, dan TV. Jenis lain butuh `true`. */
+  switchable: z.boolean().optional(),
   /** Suhu yang diatur (AC), dalam derajat Celsius. */
   temp: z.number().optional(),
   mode: z.string().optional(),
@@ -426,7 +450,6 @@ export const pushTokenDeleteReqSchema = z.object({ pushToken: z.string().min(1) 
 
 // ---- Perangkat ----
 
-export const deviceKindSchema = z.enum(['lamp', 'ac', 'camera', 'lock', 'plug', 'tv', 'sensor', 'box', 'other']);
 export const acSettingsSchema = z.object({ temp: z.number(), mode: z.string().min(1), fan: z.string().min(1) });
 
 /**
@@ -523,15 +546,27 @@ export const deviceControlReqSchema = z
       r.level !== undefined,
     { message: 'minimal satu pengaturan' },
   );
-export const deviceControlResSchema = z.object({ device: deviceSchema, card: deviceCardSchema });
+/**
+ * `rev`: nomor perubahan perangkat setelah perintah ini (sama dengan `rev` event `device` yang menyusul). Aplikasi
+ * membuang event `device` yang lebih lama dari `rev` ini untuk perangkat yang sama. Hilang atau rusak dibaca 0.
+ */
+export const deviceControlResSchema = z.object({
+  device: deviceSchema,
+  card: deviceCardSchema,
+  rev: z.number().int().nonnegative(),
+});
 
 /** `place` kosong = tempat terpilih pengguna. Tutup kedai menyentuh kedai itu; di Semua atau Rumah, semua kedai. */
 export const routineRunReqSchema = z.strictObject({ place: z.string().min(1).optional() });
 /** `devices`: perangkat yang berubah; `summary`: kalimat hasil siap tampil. */
-export const routineRunResSchema = z.object({ devices: z.array(deviceSchema), summary: z.string().min(1) });
+export const routineRunResSchema = z.object({
+  devices: z.array(deviceSchema),
+  summary: z.string().min(1),
+  rev: z.number().int().nonnegative(),
+});
 
 export const boxReqSchema = z.strictObject({ micOn: z.boolean() });
-export const boxResSchema = z.object({ box: boxSchema });
+export const boxResSchema = z.object({ box: boxSchema, rev: z.number().int().nonnegative() });
 
 // ---- Beranda ----
 
@@ -556,6 +591,8 @@ export const houseLineSchema = z.object({
   label: z.string().min(1).optional(),
   on: z.boolean().optional(),
   switchable: z.boolean(),
+  /** Perangkat yang dijaga (kunci, kamera, alarm): sakelar tidak tampil di Beranda walau `switchable`. */
+  sensitive: z.boolean().optional(),
 });
 
 /** Ringkasan usaha untuk tempat terpilih. Teks sudah jadi (mata uang dan keterangan perubahan). */
@@ -1100,6 +1137,7 @@ export type SecurityRes = z.infer<typeof securityResSchema>;
 export type SecurityUpdateReq = z.infer<typeof securityUpdateReqSchema>;
 export type PinSetReq = z.infer<typeof pinSetReqSchema>;
 export type PinVerifyReq = z.infer<typeof pinVerifyReqSchema>;
+export type PinResetVerifyReq = z.infer<typeof pinResetVerifyReqSchema>;
 export type OkRes = z.infer<typeof okResSchema>;
 export type Me = z.infer<typeof meSchema>;
 export type DraftStatus = z.infer<typeof draftStatusSchema>;

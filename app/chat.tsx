@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '@/api/ApiProvider';
+import { presentCard } from '@/api/devices';
 import { formatFileMeta } from '@/api/format';
 import { setChatFocused } from '@/api/pushPresence';
 import { useAssistantName } from '@/api/useProfile';
@@ -63,7 +64,10 @@ export default function Chat() {
   const { mode } = useApi();
   const dispatch = useSampleDispatch();
   const toast = (text: string) => dispatch({ type: 'showToast', text });
-  const chat = useChat({ onError: toast });
+  const chat = useChat({
+    onError: toast,
+    onPinRequired: (id) => router.push({ pathname: '/pin', params: { id } }),
+  });
   // Selagi chat terbuka, notifikasi diredam (api/usePush.ts).
   const focused = useIsFocused();
   useEffect(() => {
@@ -450,23 +454,32 @@ function PartView({
             />
           );
         }
-        case 'device':
+        case 'device': {
+          const view = presentCard(card);
           return (
             <DeviceCardView
               name={card.name}
               on={card.on}
-              temp={card.temp}
-              status={card.on ? `Nyala${card.mode ? ` · ${card.mode}` : ''}` : 'Mati'}
+              kind={view.kind}
+              temp={view.isAc ? card.temp : undefined}
+              status={view.status}
+              switchable={view.switchable}
+              guarded={view.sensitive}
               footer={[
-                card.temp !== undefined ? `Perintah terakhir: ${card.temp}°${card.mode ? ` ${card.mode}` : ''}` : null,
+                view.isAc && card.temp !== undefined
+                  ? `Perintah terakhir: ${card.temp}°${card.mode ? ` ${card.mode}` : ''}`
+                  : null,
                 card.note ?? null,
               ]
                 .filter(Boolean)
                 .join(' · ')}
               onToggle={(next) => void actions.controlDevice(card.deviceId, { on: next })}
               onTemp={(temp) => void actions.controlDevice(card.deviceId, { temp })}
+              // Perangkat yang dijaga dikendalikan dari Perangkat (PIN atau tanya dulu di sana), bukan dari chat.
+              onOpen={() => router.navigate('/perangkat')}
             />
           );
+        }
         case 'notes':
           return <NotesCard notes={card} onOpen={contoh ? undefined : () => toast(SOON.notes)} />;
         case 'payment':

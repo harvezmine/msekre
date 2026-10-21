@@ -271,7 +271,9 @@ test('kendali perangkat rumah', () => {
     ac: { temp: 24, mode: 'Dingin', fan: 'Otomatis' },
     status: 'Nyala · 24°',
   };
-  ok(deviceControlResSchema, { device, card: cards[2] });
+  ok(deviceControlResSchema, { device, card: cards[2], rev: 5 });
+  // rev wajib di kontrak (pembacaan longgar aplikasi membacanya 0)
+  bad(deviceControlResSchema, { device, card: cards[2] });
   bad(deviceControlResSchema, { card: cards[2] });
   bad(deviceControlResSchema, { device, card: cards[0] });
 });

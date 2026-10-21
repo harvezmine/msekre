@@ -40,7 +40,8 @@ export function homeFrom(state: SampleState, greetingName: string | null): Omit<
         text,
         label: d.name,
         ...(d.kind === 'ac' ? { on: d.on } : {}),
-        switchable: d.kind === 'ac' && d.reachable,
+        switchable: d.kind === 'ac' && d.reachable && !d.needsPin,
+        ...(d.needsPin ? { sensitive: true } : {}),
       })),
     },
     business: {

@@ -8,12 +8,20 @@ import {
   type Device,
   type StreamEvent,
 } from '@/api/contract';
+import { DevicesController } from '@/api/devicesController';
+import { withoutGuardedActions } from '@/api/fake/devices';
 import { FakeTransport } from '@/api/fake/FakeTransport';
 import { HttpTransport, type SocketLike } from '@/api/http';
-import { parseDevicesLenient, parseEventLenient } from '@/api/lenient';
+import {
+  parseBoxResLenient,
+  parseDeviceControlResLenient,
+  parseDevicesLenient,
+  parseEventLenient,
+  parseRoutineRunResLenient,
+} from '@/api/lenient';
 import { createMemorySession } from '@/api/session';
 import { friendlyError, PIN_NEEDED_TEXT, WRONG_PIN_TEXT } from '@/api/errors';
-import { initialSampleState } from '@/sample/store';
+import { initialSampleState, type SampleAction } from '@/sample/store';
 
 function setup(options: ConstructorParameters<typeof FakeTransport>[1] = {}) {
   const transport = new FakeTransport(createMemorySession(null), options);
@@ -102,7 +110,9 @@ describe('perangkat di server tiruan', () => {
     const semua = await transport.devices();
     expect(devicesResSchema.safeParse(semua).success).toBe(true);
     expect(semua).toMatchObject({ place: 'Semua', places: ['Rumah', 'Kedai Dago', 'Kedai Riau'] });
-    expect(semua.devices).toHaveLength(initialSampleState.devices.length);
+    // Kotak ikut sebagai perangkat berjenis `box` (id sama dengan `box.deviceId`).
+    expect(semua.devices).toHaveLength(initialSampleState.devices.length + 1);
+    expect(semua.devices.find((d) => d.id === semua.box!.deviceId)).toMatchObject({ kind: 'box', room: 'Ruang tamu' });
     expect(semua.routines.map((r) => r.id)).toEqual(['pulang', 'tutup-kedai', 'tidur']);
     expect(semua.routines[1]!.places).toEqual(['Kedai Dago', 'Kedai Riau']);
 
@@ -158,6 +168,8 @@ describe('perangkat di server tiruan', () => {
       deviceId: 'ac-kamar',
       name: 'AC kamar',
       on: true,
+      deviceKind: 'ac',
+      switchable: true,
       temp: 22,
       mode: 'Kipas',
       note: 'suhu ruangan sekarang 27°',
@@ -340,5 +352,148 @@ describe('perangkat lewat HTTP', () => {
   test('jawaban rusak: perangkat yang rusak dibuang, bukan menggagalkan daftar', async () => {
     const { transport } = http(() => ({ body: { ...res, devices: [lamp, { id: 'rusak' }] } }));
     expect((await transport.devices('Kedai Dago')).devices).toEqual([lamp]);
+  });
+});
+
+describe('jawaban perintah dibaca longgar dan membawa rev', () => {
+  test('rev, kartu, dan kalimat yang hilang atau rusak tidak menggagalkan jawaban', () => {
+    expect(
+      parseDeviceControlResLenient({
+        device: lamp,
+        card: { kind: 'device', deviceId: 'l1', name: 'Lampu', on: true },
+        rev: 7,
+      }),
+    ).toMatchObject({ rev: 7, card: { deviceId: 'l1' } });
+    // Kartu rusak disusun dari perangkatnya; rev hilang dibaca 0.
+    const res = parseDeviceControlResLenient({ device: lamp, card: { kind: 'aneh' } });
+    expect(res).toMatchObject({ rev: 0, card: { kind: 'device', deviceId: 'l1', deviceKind: 'lamp', name: 'Lampu' } });
+    expect(parseDeviceControlResLenient({ device: { id: 'x' } })).toBeNull();
+    expect(parseDeviceControlResLenient({ device: lamp, card: {}, rev: -3 })!.rev).toBe(0);
+
+    expect(parseRoutineRunResLenient({ devices: [lamp, { id: 'rusak' }], summary: '', rev: 'x' })).toEqual({
+      devices: [lamp],
+      summary: 'Rutinitas dijalankan.',
+      rev: 0,
+    });
+    const box = { deviceId: 'b', online: true, micOn: true, speaker: 'JBL', roomTemp: 27, humidity: 60 };
+    expect(parseBoxResLenient({ box, rev: 5 })).toEqual({ box, rev: 5 });
+    expect(parseBoxResLenient({ box })).toEqual({ box, rev: 0 });
+    expect(parseBoxResLenient({ box: { deviceId: 'b' } })).toBeNull();
+  });
+
+  test('server tiruan menjawab dengan rev yang sama dengan event device dan GET /devices', async () => {
+    const { transport, events } = setup();
+    const res = await transport.controlDevice('lampu-utama', { on: false });
+    await settle();
+    expect(res.rev).toBe((events.at(-1) as Extract<StreamEvent, { type: 'device' }>).rev);
+    expect((await transport.devices('Rumah')).rev).toBe(res.rev);
+    const routine = await transport.runRoutine('pulang');
+    expect(routine.rev).toBeGreaterThan(res.rev);
+    const mic = await transport.setBoxMic(false);
+    expect(mic.rev).toBeGreaterThan(routine.rev);
+  });
+});
+
+describe('rutinitas tidak menyentuh perangkat yang dijaga', () => {
+  test('membuka kunci, mematikan kamera atau alarm dilewati; mengunci dan menghidupkan kamera tidak', () => {
+    const state = initialSampleState;
+    const actions: SampleAction[] = [
+      { type: 'toggleDevice', id: 'pintu-depan', on: false },
+      { type: 'toggleDevice', id: 'kamera-tamu', on: false },
+      { type: 'toggleDevice', id: 'kamera-tamu', on: true },
+      { type: 'toggleDevice', id: 'pintu-depan', on: true },
+      { type: 'toggleDevice', id: 'lampu-utama', on: false },
+    ];
+    const { allowed, skipped } = withoutGuardedActions(actions, state);
+    expect(allowed).toEqual([actions[2], actions[3], actions[4]]);
+    expect(skipped).toEqual(['Pintu depan', 'Kamera ruang tamu']);
+  });
+
+  test('contoh rutinitas yang ada tidak berisi aksi dijaga, jadi ringkasannya tanpa catatan', async () => {
+    const { transport } = setup();
+    for (const id of ['pulang', 'tutup-kedai', 'tidur']) {
+      const res = await transport.runRoutine(id, id === 'tutup-kedai' ? 'Kedai Dago' : 'Rumah');
+      expect(res.summary).not.toContain('dijaga PIN');
+    }
+    expect((await transport.devices('Rumah')).devices.find((d) => d.id === 'pintu-depan')!.on).toBe(true);
+  });
+});
+
+describe('DevicesController', () => {
+  async function ready() {
+    const transport = new FakeTransport(createMemorySession(null), {});
+    const controller = new DevicesController(transport);
+    controller.start();
+    await controller.load('Rumah');
+    return { transport, controller };
+  }
+  const deviceOf = (c: DevicesController, id: string) => c.find(id)!;
+
+  test('hanya perintah terakhir per perangkat yang menimpa layar, juga bila jawaban lama datang belakangan', async () => {
+    const { transport, controller } = await ready();
+    const real = transport.controlDevice.bind(transport);
+    let releaseFirst!: () => void;
+    const gate = new Promise<void>((r) => (releaseFirst = r));
+    const spy = jest.spyOn(transport, 'controlDevice');
+    // Server memproses berurutan; hanya jawaban pertama yang sampai terlambat.
+    spy.mockImplementationOnce(async (id, req) => {
+      const res = await real(id, req);
+      await gate;
+      return res;
+    });
+    const first = controller.controlDevice('lampu-utama', { level: 30 });
+    const second = controller.controlDevice('lampu-utama', { level: 60 });
+    await second;
+    expect(deviceOf(controller, 'lampu-utama').level).toBe(60);
+    releaseFirst();
+    await first;
+    // Jawaban pertama (30) datang paling akhir tetapi tidak menimpa 60.
+    expect(deviceOf(controller, 'lampu-utama').level).toBe(60);
+    controller.stop();
+    transport.dispose();
+  });
+
+  test('event device yang lebih lama dari jawaban perintah tidak menimpa perangkat itu', async () => {
+    const { transport, controller } = await ready();
+    const base = controller.getState().entries.Rumah!.data!;
+    const lampOff = { ...deviceOf(controller, 'lampu-utama'), on: false, level: undefined, status: 'Mati' };
+    jest.spyOn(transport, 'controlDevice').mockResolvedValue({
+      device: lampOff,
+      card: { kind: 'device', deviceId: 'lampu-utama', name: 'Lampu utama', on: false },
+      rev: base.rev + 5,
+    });
+    await controller.controlDevice('lampu-utama', { on: false });
+    expect(deviceOf(controller, 'lampu-utama').on).toBe(false);
+    const emit = (transport as unknown as { emit(e: StreamEvent): void }).emit.bind(transport);
+    const stale = { ...lampOff, on: true, status: 'Nyala' };
+    emit({ type: 'device', devices: [stale], rev: base.rev + 4 });
+    expect(deviceOf(controller, 'lampu-utama').on).toBe(false);
+    // Perangkat lain di event yang sama tetap diterapkan, dan event yang lebih baru menang.
+    emit({ type: 'device', devices: [{ ...stale, on: true }], rev: base.rev + 6 });
+    expect(deviceOf(controller, 'lampu-utama').on).toBe(true);
+    controller.stop();
+    transport.dispose();
+  });
+
+  test('membuka kunci: PIN mati bertanya dulu (confirm), setelah dikonfirmasi jalan; PIN hidup meminta PIN', async () => {
+    const { transport, controller } = await ready();
+    expect(await controller.controlDevice('pintu-depan', { on: false })).toEqual({ ok: false, reason: 'confirm' });
+    expect(deviceOf(controller, 'pintu-depan').on).toBe(true);
+    const done = await controller.controlDevice('pintu-depan', { on: false }, { confirmed: true });
+    expect(done).toMatchObject({ ok: true });
+    expect(deviceOf(controller, 'pintu-depan').status).toBe('Terbuka');
+    // Mengunci tidak bertanya; mematikan kamera tidak bertanya.
+    expect(await controller.controlDevice('pintu-depan', { on: true })).toMatchObject({ ok: true });
+    expect(await controller.controlDevice('kamera-tamu', { on: false })).toMatchObject({ ok: true });
+    controller.stop();
+    transport.dispose();
+
+    const pinned = new FakeTransport(createMemorySession(null), PIN);
+    const guarded = new DevicesController(pinned);
+    guarded.start();
+    await guarded.load('Rumah');
+    expect(await guarded.controlDevice('pintu-depan', { on: false })).toEqual({ ok: false, reason: 'pin' });
+    guarded.stop();
+    pinned.dispose();
   });
 });

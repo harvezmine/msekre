@@ -17,6 +17,7 @@ export const THINKING_MAX_MS = 3 * 60_000;
  */
 export class ChatController {
   private onError: ((text: string) => void) | undefined;
+  private onPinRequired: ((deviceId: string) => void) | undefined;
 
   private state: ChatState = initialChatState;
   private readonly listeners = new Set<() => void>();
@@ -34,6 +35,11 @@ export class ChatController {
   /** Penerima teks ramah (tanpa kode error) saat aksi kartu gagal, misalnya untuk toast. */
   setErrorHandler(handler: ((text: string) => void) | undefined) {
     this.onError = handler;
+  }
+
+  /** Penerima "perangkat ini butuh PIN" (428 `pin_diperlukan`), misalnya untuk membuka lembar PIN. */
+  setPinHandler(handler: ((deviceId: string) => void) | undefined) {
+    this.onPinRequired = handler;
   }
 
   // ---- Untuk useSyncExternalStore ----
@@ -316,7 +322,9 @@ export class ChatController {
       this.dispatch({ type: 'device', card });
       return card;
     } catch (e) {
-      this.onError?.(friendlyError(e));
+      // Butuh PIN: lembar PIN yang bicara, bukan toast buntu.
+      if (isApiFailure(e) && e.code === 'pin_required' && this.onPinRequired) this.onPinRequired(deviceId);
+      else this.onError?.(friendlyError(e));
       return null;
     }
   };
