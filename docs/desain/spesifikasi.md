@@ -1,284 +1,267 @@
-# Sekretaris AI, Fase R: visual direction spec
+# Sekretaris AI, Fase R: visual direction spec (v2)
 
-Companion to `index.html` (open it in a browser: animations run live; `?solo=<frame-id>` shows one frame at device size) and the PNGs in `shots/`. Everything here maps to React Native (Expo SDK 58, RN 0.88, New Architecture). Values are dp unless noted.
+Companion to `index.html` (animations run live; `?solo=<frame-id>` shows one frame at device size) and `shots/`. v1 is kept in `shots-v1/`, `board-v1.png`, `index-v1.html`, `spec-v1.md`. Everything here maps to React Native (Expo SDK 58, RN 0.88, New Architecture). Values are dp.
 
-Direction in one line: **warm neutral paper, one accent per domain, green only for the primary action and the Inti, big numbers and flowing content instead of bordered boxes, every primary action in the bottom 40%.**
+## 0. What changed in v2 (founder review)
 
----
-
-## 1. Palette
-
-### 1.1 Neutrals
-
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `bg` | `#F7F6F2` | `#0E1012` | Screen background |
-| `surface` | `#FFFFFF` | `#171A1E` | Touchable cards, tiles, keys |
-| `raised` | `#FFFFFF` | `#1F2328` | Keys, D-pad, rockers in dark (one step above surface) |
-| `sunken` | `#F0EEE8` | `#202328` | Segmented track, message bubble, composer field, secondary button |
-| `sunken2` | `#E6E3DB` | `#2A2E34` | Unfilled slider/dial track, dark segmented thumb |
-| `text` | `#15181B` | `#F2F3F5` | Primary text, icons |
-| `muted` | `#64686F` | `#9CA1A8` | Secondary text, inactive tabs |
-| `faint` | `#A4A7AC` | `#5E636A` | Decorative only (empty timeline dots, chevrons). Never for text that must be read |
-| `line` | `#E9E7E1` | `#262A30` | Hairlines, rails, dividers |
-| `tabbar` | `#FFFFFF` | `#131619` | Bottom navigation surface |
-| `voiceCanvas` | `#07090B` | `#07090B` | Mode Suara in both themes |
-
-Deviation from the plan: light `muted` is `#64686F` instead of `#6B6F76`. The plan value is 4.35:1 on `sunken` and 4.43:1 on `orangeSoft`, which fails AA for the inactive segmented labels and tile captions. `#64686F` passes everywhere (4.82 to 5.18).
-
-### 1.2 Brand and domain accents
-
-Each accent has three roles. **base**: fills, glows, chart strokes, selected dots. **ink**: text and icons on `bg`, `surface` or its own `soft` (AA 4.5+). **soft**: tinted background for an "on" tile, AccentIcon circle, or highlighted row.
-
-| Domain | Light base | Light ink | Light soft | Dark base | Dark ink | Dark soft |
-|---|---|---|---|---|---|---|
-| Brand (Inti, primary action, success, "aktif") | `#1D7550` | `#1D7550` | `#E3F1E8` | `#5BBF86` | `#5BBF86` | `#15291F` |
-| Agenda (blue) | `#3B6FE0` | `#2F5BC4` | `#E8EEFC` | `#6E96F5` | `#8DADF7` | `#18223A` |
-| Rumah / devices (orange) | `#F08A24` | `#A64F08` | `#FDEEDD` | `#F5A04F` | `#F5A04F` | `#2C2015` |
-| Usaha (violet) | `#7C5CE6` | `#6343D1` | `#EFEAFD` | `#A58BFF` | `#B6A0FF` | `#231D38` |
-| Terhubung (sky) + "cold air" state on AC | `#1AA3C9` | `#0D6F8B` | `#E2F4FA` | `#4CC3E3` | `#4CC3E3` | `#10272E` |
-| Warning / delete (coral) | `#E5484D` | `#C8313A` | `#FDE8E8` | `#F2777B` | `#F2777B` | `#311A1C` |
-
-`onAccent` (text/icon placed on a filled accent): light `#15181B`, dark `#0E1012`. Orange and sky are too light for white text (white on `#F08A24` is 2.5:1), so filled orange keys use dark icons. Exceptions with white text: brand button (`#FFFFFF` on `#1D7550`, 5.66) and the selected day in Agenda (`#FFFFFF` on `#3B6FE0`, 4.63).
-
-**Usage rules**
-- Green appears only on: the Inti, the primary button on a screen (Kirim, Simpan), success ticks, and "aktif/terkunci" status text. Never on backgrounds, cards, tabs or toggles. Active tab = `text` colour on a `sunken` indicator.
-- Device "on" is **orange** (tile fill `orangeSoft`, icon circle filled `orange`). The power key on every remote is a filled orange circle. This is a deliberate refinement of the plan, which said green for "menyala": a screen full of green toggles was exactly the founder's complaint.
-- The AC remote uses **sky** for the climate state while cooling (dial arc, mode selection, swing). Orange stays on the power key. Sky never shares a screen with the Terhubung domain, so there is no ambiguity.
-- One domain accent per screen, plus brand for the primary action, plus coral for warnings. Beranda is the exception: it is the overview, so each section wears its own accent (blue rail, orange tiles, violet chart).
-
-### 1.3 Gradients
-
-| Name | Stops | Use |
-|---|---|---|
-| `intiGradient` | `#1D7550` → `#19B3A6` → `#3B6FE0`, highlight `#B7E07A` | Inti core, Akun avatar ring, brand moments |
-| `glowOnDark` (voice waves) | green `#2FBF7F`, teal `#19D3C0`, blue `#4F86FF`, lime `#C6F08A`, periwinkle `#7C9CFF`, mint `#5FE3B5` | Brand gradient lifted in lightness so additive blending glows on `#07090B`. Same hues as `intiGradient` |
-| `GradientField` (Beranda, light) | radial teal `#19B3A6` 30% at (6%, 2%) r 260×240; radial lime `#B7E07A` 42% at (52%, -6%) r 240×200; radial blue `#3B6FE0` 20% at (104%, 8%) r 280×260; all fade to 0 at 72% | Top 420 dp of Beranda |
-| `GradientField` (Beranda, dark) | same positions, opacities teal 22%, lime 10%, blue 30% | |
-| `GradientField.cool` (AC) | sky 20% at (50%, 8%) r 320×300 + lime 14% at (0, 0) | AC remote while cooling |
-| `GradientField.violet` (Usaha) | violet 16% at (90%, 0) + lime 18% at (0, 0) | |
-| Lamp glow | radial `rgba(255,196,96, 0.55·b)` → `rgba(255,170,70, 0.22·b)` at 45% → 0, where b = brightness 0..1 | Lampu remote |
-
-No gradient text anywhere (thinking state uses an opacity pulse instead of a shimmer on text).
-
-### 1.4 Contrast (WCAG 2.x, computed)
-
-Light: text/bg 16.5, muted/bg 5.18, muted/sunken 4.82, blueInk/blueSoft 5.29, orangeInk/orangeSoft 4.93, violetInk/violetSoft 5.49, skyInk/skySoft 5.06, coralInk/coralSoft 4.52, brandInk/brandSoft 4.85, onAccent/orange 7.10, white/brand 5.66.
-Dark: text/bg 17.2, muted/surface 6.71, muted/sunken 6.06, blueInk/blueSoft 7.11, orange/orangeSoft 7.57, violetInk/violetSoft 7.25, sky/skySoft 7.56, coral/coralSoft 5.95, onBrand/brand 8.39.
-Voice canvas: text 17.96, muted 7.67, "Selesai" button 17.2. Interim transcript is intentionally 42% white (decorative, the final words are full white).
+1. **Green is the brand again.** Target mix: about 60% warm neutrals, 30% brand green, 10% small category markers. Green carries the hero field, the Inti, the active tab, primary buttons, and **every "on" state** (device tiles, power keys, switches, selected options). Off is neutral.
+2. **Category colours are markers only.** Blue / orange / violet / sky appear only as an icon tint inside a neutral circle, a small dot, or a chart line. Never as a large fill, a section title, or a tinted surface. The AC dial keeps a cool-blue arc as a detail.
+3. **Comfort first.** One purpose per screen, at most three blocks on Beranda, 56 dp main controls, no explanatory sublines, nothing that has to be read to be understood. Test: would a busy 45-year-old shop owner feel calm and know what to tap in 2 seconds?
+4. **Progressive disclosure over time.** A new user sees an almost empty Beranda with one suggestion and two tabs. Blocks, tabs and tips appear only when they have content (§6).
+5. **Remotes show 3 to 5 big controls.** Everything else is behind one **Lainnya** button that opens a sheet.
 
 ---
 
-## 2. Typography
+## 1. Palette and roles
 
-Plus Jakarta Sans (Indonesian typeface, already in the app). **Add the 300 Light weight** (`PlusJakartaSans_300Light` from `@expo-google-fonts/plus-jakarta-sans`) for readouts. Tabular figures for all times, money and temperatures (`fontVariant: ['tabular-nums']`).
-
-| Style | Size / line | Weight | Tracking (px) | Use |
-|---|---|---|---|---|
-| `readout` | 96 / 100 | 300 | -4.8 | AC temperature. 84 for lamp %, 52 in the AC tile |
-| `figure` | 44 / 50 | 600 | -1.76 | Usaha hero money. 36/42 on Beranda |
-| `display` | 30 / 36 | 600 | -0.75 | Greeting |
-| `title` | 28 / 34 | 600 | -0.7 | Tab screen titles (Perangkat, Agenda, Usaha) |
-| `transcript` | 32 / 42 | 500 | -0.64 | Mode Suara live transcript (28/37 once final) |
-| `headline` | 24 / 30 | 600 | -0.48 | Song title |
-| `section` | 18 / 24 | 600 | -0.18 | Section headers ("Hari ini", "Rumah"), header titles |
-| `subtitle` | 16 / 22 | 600 | 0 | Row titles, card titles |
-| `body` | 16 / 24 | 400 | 0 | Body |
-| `bubble` | 15 / 22 | 400 | 0 | Message preview |
-| `label` | 14 / 20 | 500-600 | 0 | Links, segmented, buttons (15.5/600 for 48-dp buttons) |
-| `caption` | 13 / 18 | 500 | 0 | Secondary lines |
-| `micro` | 12 / 14-16 | 500-700 | 0 (VOL/CH: +0.7) | Tab labels, chart axis, key labels |
-
-Font scale up to 1.3: all text uses `allowFontScaling`. Cap `readout` and `figure` with `maxFontSizeMultiplier={1.1}` (they are already huge); cap tab labels and key labels at 1.2. Rows grow vertically; nothing is fixed-height except remote keys.
-
----
-
-## 3. Shape, elevation, spacing
-
-**Radii**: card 28 (approval, profile), tile 24-26 (device tiles, routines 22), key = full circle, rocker 38, segmented track 16 / thumb 12, bubble 6-20-20-20 (tail top-left), button 24 (48-dp pill), composer 26, cover art 32, vertical slider 40, bottom chrome top corners 28.
-
-**Elevation** (RN 0.88 `boxShadow` style prop, New Architecture):
+### 1.1 Neutrals (60%)
 
 | Token | Light | Dark |
 |---|---|---|
-| `e0` | none (flat on bg) | none |
-| `e1` tiles | `0 1px 2px rgba(21,24,27,.04), 0 4px 14px -2px rgba(21,24,27,.06)` | `inset 0 1px 0 rgba(255,255,255,.035)` |
-| `e2` approval/profile card | `0 1px 2px rgba(21,24,27,.04), 0 14px 34px -8px rgba(21,24,27,.13)` | `inset 0 1px 0 rgba(255,255,255,.05), 0 18px 40px -14px rgba(0,0,0,.7)` |
-| `key` remote keys | `inset 0 1px 0 rgba(255,255,255,.9), 0 1px 2px rgba(21,24,27,.07), 0 6px 16px -4px rgba(21,24,27,.13)` | `inset 0 1px 0 rgba(255,255,255,.07), 0 2px 4px rgba(0,0,0,.35), 0 10px 22px -8px rgba(0,0,0,.6)` |
-| `power` | `inset 0 1px 0 rgba(255,255,255,.35), 0 14px 30px -8px rgba(240,138,36,.65)` | same |
+| `bg` | `#F7F6F2` | `#0E1012` |
+| `surface` | `#FFFFFF` | `#171A1E` |
+| `raised` | `#FFFFFF` | `#1F2328` |
+| `sunken` | `#F0EEE8` | `#202328` |
+| `sunken2` | `#E6E3DB` | `#2A2E34` |
+| `text` | `#15181B` | `#F2F3F5` |
+| `muted` | `#64686F` | `#9CA1A8` |
+| `faint` (decorative only) | `#A4A7AC` | `#5E636A` |
+| `line` | `#E9E7E1` | `#262A30` |
+| `tabbar` | `#FFFFFF` | `#131619` |
+| `voiceCanvas` | `#07090B` | `#07090B` |
 
-No borders on surfaces. "On" tiles drop their shadow and use the soft fill instead. Unreachable devices: transparent fill with a 1.5 inset `line` ring and muted text.
+Dark mode stays neutral charcoal. Green appears there as accents and light (icon fills, glows, the power key), never as a green surface.
 
-**Spacing**: 4-pt grid. Page gutter 20 (cards 16 so their content aligns with the 20 gutter). Section gap 26-28; header to content 10-12; inside cards 14-18; horizontal scroller gap 10; list row min height 68. Content bleeds off the right edge in every horizontal scroller (no right padding on the last visible item) so scrolling is obvious.
+### 1.2 Brand green (30%)
 
----
-
-## 4. Motion
-
-| Interaction | Spec |
-|---|---|
-| Press (`PressableScale`) | scale 0.97, `withSpring({ damping: 18, stiffness: 320, mass: 0.6 })`, release same spring. Remote keys 0.94 |
-| Haptics | Toggle tap: `selectionAsync`. Remote key: `impactAsync(Light)`. Power: `impactAsync(Medium)`. Dial step (each 1°): `selectionAsync`. Inti long-press start: `impactAsync(Medium)`. Kirim: `notificationAsync(Success)` |
-| Screen enter | Children fade + rise 8 dp, 220 ms, `Easing.out(Easing.cubic)`, stagger 40 ms, max 6 staggered items |
-| Number change | Old value slides up 6 dp and fades, new value comes in from below, 160 ms. Temperature also cross-fades the dial arc with `withTiming(…, 180)` |
-| Inti idle (breathing) | Glow scale 0.90 ↔ 1.06 and opacity 0.62 ↔ 1, 4.2 s loop, `Easing.inOut(Easing.sin)`. Core swirl rotates 360° per 16 s, linear |
-| Inti thinking | Thin sweep ring (teal → blue → lime) rotates once per 3.2 s, fades in over 200 ms |
-| Inti hold → Mode Suara | On long-press (300 ms) the orb stays under the finger, canvas cross-fades to `#07090B` (250 ms), waves rise from the orb (amplitude 0 → live over 300 ms). Release = send |
-| Voice state change | Parameter sets interpolate over 300 ms (`withTiming`); never cut |
-| Equalizer bars (playing) | 4 bars 4 dp wide, height 6 ↔ 22, 1 s ease-in-out, phase offsets 0 / -0.3 / -0.6 / -0.15 s |
-| Reduce motion (`useReducedMotion`) | No enter stagger, no swirl, no breathing scale (glow holds at 0.85 opacity), waves frozen at t = 1.2 s with level 0.35 and a 2.4 s opacity pulse 0.7 ↔ 1 only, no equalizer motion. Haptics stay |
-| Off-screen | Pause all loops when the screen is not focused (`useIsFocused`) or the app is in background (`AppState`) |
-
-### 4.1 Voice waves algorithm (Mode Suara)
-
-Canvas: full width, bottom 540 dp of the screen (independent of screen height, so on taller phones the waves stay at the bottom). Draw back to front, 4 layers, additive blend (`plus` in Skia, `lighter` on web).
-
-| Layer | base (fraction of canvas height, from top) | amp | freq f (cycles across width) | speed sp | phase φ | colours left → mid → right | alpha | blur σ (dp) | band |
-|---|---|---|---|---|---|---|---|---|---|
-| 0 (back) | 0.34 | 0.20 | 0.85 | +0.55 | 0.0 | `#2FBF7F` `#19D3C0` `#4F86FF` | 0.85 | 34 | 0.55 |
-| 1 | 0.40 | 0.17 | 1.30 | -0.70 | 1.7 | `#4F86FF` `#19D3C0` `#2FBF7F` | 0.75 | 24 | 0.45 |
-| 2 | 0.46 | 0.14 | 1.75 | +0.95 | 3.1 | `#2FBF7F` `#4F86FF` `#7C9CFF` | 0.62 | 14 | 0.35 |
-| 3 (front) | 0.52 | 0.10 | 2.30 | -1.25 | 4.4 | `#C6F08A` `#5FE3B5` `#4F86FF` | 0.55 | 8 | 0.28 |
-
-For each layer, sample N = 56 points, u = i / N, x = u · W:
-
-```
-env(u)  = 0.38 + 0.62 · sin(π·u)^1.3                    // taller in the middle
-wave(u) = 0.62 · sin(2π·f·u + 1.6·sp·t + φ)
-        + 0.38 · sin(2π·1.9·f·u − 2.1·sp·t + 2φ)          // two sines, opposite drift
-y(u)    = H·base − H·amp·L·env(u)·wave(u) − 0.10·H·L·env(u) // L lifts the whole band
-```
-
-Fill the path from the crest down to the canvas bottom with a horizontal 3-stop gradient (colours above), multiplied (dst-in) by a vertical alpha ramp that starts at the crest top `H·(base − amp·L − 0.06)`: 1.0 at 0, 0.55 at 25%, 0 at `band·H` below. So each layer is a glowing ribbon, not a filled hill. Blur the layer by σ, draw at its alpha with additive blend. Front layer only: stroke its crest 3 dp wide, blur 3, alpha 0.32, horizontal gradient transparent lime → `#D6F5BE` → `#AADCFF` → transparent. Under everything, a vertical wash `rgba(20,70,80,0)` at 55% height → `rgba(20,70,80,.30)` at the bottom.
-
-**Level L (0..1) from the microphone**: from each PCM chunk (already computed in `src/voice/pcm.ts`), use a perceptual curve instead of `rms·6`:
-
-```
-db     = 20·log10(max(rms, 1e-5))          // rms of the chunk, 0..1
-target = clamp((db + 50) / 40, 0, 1)        // −50 dB → 0, −10 dB → 1
-target = max(target, 0.12)                  // never flat while listening
-L     += (target − L) · (target > L ? 0.35 : 0.10)   // per frame at 60 fps:
-                                            // attack τ ≈ 40 ms, release τ ≈ 160 ms
-```
-
-Push `target` into a Reanimated shared value from JS; do the smoothing in the frame callback on the UI thread. The Inti glow under the finger scales `1 + 0.45·L`.
-
-**States** (interpolate between parameter sets over 300 ms):
-
-| State | Level source | Speed multiplier | Alpha multiplier | Extra |
-|---|---|---|---|---|
-| Mendengar | mic, as above | 1.0 | 1.0 | |
-| Berpikir | `0.14 + 0.04·sin(1.3·t)` | 0.45 | 0.70 | Shimmer: radial `rgba(220,245,210,.45)` r 150, centre y = 0.58·H, x sweeps −0.2W → 1.2W every 6.4 s, blur 10. Inti thinking ring on |
-| Menjawab | RMS of the TTS audio being played (same curve), or a syllable envelope if no PCM is available | 0.8 | 0.9 | |
-| Diam / bisu | 0.08 | 0.3 | 0.5 | |
-
----
-
-## 5. Components
-
-| Component | Purpose and key props | Implementation |
-|---|---|---|
-| `Surface` | `variant: 'plain' | 'raised' | 'accent'`, `accent?: Domain`, `on?: boolean`. Radius from size, no border, `e1`/`e2` shadow; `accent+on` = soft fill, no shadow | View + `boxShadow` |
-| `SectionHeader` | Title (18/600) left, optional link right in the section's accent ink with chevron. Height 28, 48-dp hit area on the link | View |
-| `AccentIcon` | Circle 36-52 with icon 20-24. `tone: soft | filled | quiet` × domain. Filled uses `onAccent` icon | View + existing `Icon` (stroke 1.75) |
-| `GradientField` | Absolutely positioned behind the top of a screen; recipe name (`home`, `cool`, `violet`, `warm`) per theme. Static | `react-native-svg` `RadialGradient` ellipses (no blur needed: the gradient falloff is the softness) |
-| `PressableScale` | Wraps Pressable; spring scale; haptic kind; `onLongPress` with 300 ms delay; respects reduce motion | gesture-handler or Pressable + Reanimated |
-| `BigNumber` | `value`, `unit`, `style: readout | figure`; animated digit change; tabular; `maxFontSizeMultiplier 1.1` | Text + Reanimated |
-| `HScroller` | Horizontal ScrollView, `contentContainerStyle` paddingLeft 20, gap 10, `decelerationRate="fast"`, `snapToInterval` = item + gap | ScrollView |
-| `TimeRail` | Two forms. **Strip** (Beranda): horizontal rail 2 dp at y 31, past part tinted blue 35%, items 108-122 wide with time / dot / title (2 lines) / meta, "now" = 3×22 blue tick with time label; next item has a blue dot with 5-dp halo. **Rail** (Agenda): vertical, 52-dp time column, dots 14, now line full width in blue, next item on `blueSoft` 20-radius surface, past items 50% opacity | Views |
-| `ApprovalCard` | Avatar initial (contact tone from name hash among soft accents), brand badge dot, title, one-line sub, time, 2-line bubble (`numberOfLines={2}`), Ubah (sunken) + Kirim (brand, 1.35× width) | Surface `e2` |
-| `DeviceTile` | Mini control for Beranda (122×132) and grid tiles (1 or 2 columns, heights 100 / 112 / 176) by content: AC shows readout, lamp shows % + level bar + warm glow, camera shows last snapshot full-bleed with gradient scrim, speaker shows equalizer. Tap toggles, long-press opens the remote | Surface + `PressableScale` |
-| `RemoteButton` | Circle 52-88. Variants: `key` (surface + `key` shadow), `power` (orange), `selected` (accent soft + 1.5 inset ring), `ink` (text colour fill, e.g. play/pause), `glass` (Mode Suara: `rgba(242,243,245,.10)`). Optional label below (12.5/500, selected 600) | View + `boxShadow` |
-| `Dial` | 270° arc from 135° to 405°, r 128, stroke 16 round caps; track `sunken2`; active arc gradient pale `#A7E1F4` → `sky` (cooling) or pale `#FFD5A8` → `orange` (heating/fan); ticks every 1° at r+17..r+22 (current r+28, accent); 16°/30° labels; knob r 15 white with shadow and 5-dp accent dot. Pan to change, 1° steps with haptic; −/+ keys do the same. Readout + mode label + room temperature centred | `react-native-svg` Path + Circle; gesture-handler Pan; angle math already in `src/ui/device/dialMath.ts` |
-| `DPad` | 256 circle `raised`, four 64-dp hit zones with chevrons, diagonal dividers (`line`, from r 66 to r 118), OK = 104 sunken ring with 88 raised button. Pressed direction: orange radial glow 80 dp behind the chevron for 180 ms + haptic | Views + SVG lines |
-| `Rocker` | 76×212 capsule, two 52-dp keys and a centre label (VOL / CH) | View |
-| `Slider` | Horizontal 44 high (volume): sunken track, accent-soft fill, 4-dp accent grip. Vertical 104×432 (lamp): sunken track, warm gradient fill `#F5A04F → #FFC979 → #FFE0A6` bottom-up, white grip line, sun icons at both ends | View + Reanimated + Pan |
-| `Segmented` | Track `sunken` r16 p4; thumb `surface` r12 with tiny shadow (dark: `sunken2`, no shadow). Animated thumb slide 200 ms. Scrollable variant for rooms | View + Reanimated |
-| `Sparkline` / `AreaChart` | Catmull-Rom smoothing (tension 0.18) → cubic Béziers; stroke 2.5-3 accent; area gradient accent 26-28% → 0; end point 4.5-5.5 dot with 2.5 bg ring and 11 halo at 16%; dashed hairline grid (2/5) in `line`; axis labels 12/500, today 700 in ink | `react-native-svg`; math in `src/ui/business/sparkMath.ts` |
-| `Inti` | Sizes: 88 (Beranda tall), 72 (compact), 84 (Mode Suara hold), 46 (inline in tab bar). Layers: glow (3 radial gradients teal/blue/lime at 55% of d beyond the edge, breathing), core (sweep gradient green → teal → blue → green rotating 16 s, plus top-left white highlight 38%, lime highlight 55% top-right, dark shade bottom 42%), white S mark (`s-mono-light.png` with `tintColor="#FFFFFF"`), optional thinking ring | See §7 |
-| `TabBar` | 4 tabs + centre slot (92 wide). Beranda: big Inti rises from the centre slot over the bar (centre on the bar's top edge), hint above it. Other tabs: Inti 46 inline. Active tab = `text` colour + 56×30 `sunken` indicator. Surface `tabbar`, top hairline | Existing `src/ui/TabBar.tsx` |
-| `BottomChrome` | Agenda: one surface with top radius 28 containing the composer (52 high, sunken, "+" in blue ink, placeholder "Tambah, misalnya "rapat Kamis jam 2"", round blue mic button) and the tab bar. Attached to the edge, not floating | View |
-| `ListRow` (Akun) | AccentIcon 42 + title 16/600 + one line 13 muted (`numberOfLines={1}`) + chevron; optional inline control under the text (Tampilan segmented). Rows sit on the background, no group boxes | View |
-
----
-
-## 6. Thumb zone and responsive rules
-
-`useLayoutClass()` from `useWindowDimensions()`:
-
-| Class | Rule | Examples |
-|---|---|---|
-| `compact` | height < 700 | 360×640 |
-| `regular` | height ≥ 700 and height/width < 2.0 | 412×780, small foldables |
-| `tall` | height/width ≥ 2.0 | 360×800, 393×873 (reference), 412×915 |
-
-Rules:
-1. Every screen is `flex: 1` with a top part (header and reading content) and a bottom part (primary actions) separated by a flexible spacer. No fixed `marginTop` that pushes actions down from the top.
-2. The primary action of each screen lives in the bottom 40%: Inti (Beranda), Kirim (approval card when visible), −/power/+ (AC), rockers + Bisukan (TV), play/volume (Speaker), Redup/power/Terang + colours (Lampu), Tambah composer (Agenda), Pesan lagi (Usaha), Selesai/hold (Mode Suara).
-3. Bottom anchors are measured from the bottom inset (gesture bar), never from the top. On `tall`, extra height goes to the spacer between content and actions (see frame 17).
-4. Touch targets ≥ 48 dp (keys 52-88, links have 48-dp hit slop).
-
-Per class:
-
-| | compact | regular | tall |
+| Token | Light | Dark | Role |
 |---|---|---|---|
-| Beranda Inti | 72, hint hidden | 84 | 88 |
-| Beranda greeting | date line hidden, display 26/32 | 30/36 | 30/36 + date/weather line |
-| Hari ini strip | no meta line (84 high) | 108 | 108 |
-| Approval card padding | 14 | 16 | 16 |
-| AC dial radius | 104, readout 80 | 118 | 128, readout 96 |
-| TV D-pad | 224 | 248 | 256 |
-| Lamp vertical slider | 104×340 | 104×400 | 104×432 |
-| Mode Suara transcript | 28/37 | 32/42 | 32/42 |
-| Voice waves canvas | bottom 420 | bottom 500 | bottom 540 |
+| `brand` | `#1D7550` | `#5BBF86` | Primary button, on-state fill (tile icon circle, power key, switch track, selected day), Inti, now-line |
+| `onBrand` | `#FFFFFF` (5.66:1) | `#0E1012` (8.39:1) | Text/icon on `brand` |
+| `brandInk` | `#1D7550` | `#5BBF86` | Green text: active tab label, "Nyala" / "24°" state, Perpanjang |
+| `brandSoft` | `#E3F1E8` | `rgba(91,191,134,.14)` (≈ `#21312D` on surface) | **On tile background (light)**, active tab indicator, selected mode key, soft buttons (Pesan, Perpanjang) |
+| `brandGlow` | `rgba(77,163,110,.34)` | `rgba(91,191,134,.22)` | Dark on-tiles: radial glow top-right on a neutral `surface`. Not used in light (the soft fill is enough) |
+| `brand2` (leaf) | `#4DA36E` | n/a | Gradient mid stop |
 
-At font scale 1.3: section headers and list rows wrap to 2 lines (allowed), tiles grow taller (min heights, not fixed), the Beranda strip switches its item width from 122 to 150, tab labels cap at 1.2.
+**On-state, exactly:**
+- Device tile on: light = `brandSoft` fill, no shadow, icon circle `brand` with `onBrand` glyph, state text `brandInk`. Dark = `surface` fill + `brandGlow` radial (160 dp, top-right), same icon circle and state text.
+- Device tile off: `surface` + `e1` shadow, icon circle `sunken` with `muted` glyph, state text `muted`.
+- Power key on: filled `brand`, `onBrand` icon, shadow `0 16 32 -10 rgba(29,117,80,.65)` (dark: `rgba(91,191,134,.55)`). Off: neutral key (`surface` / `raised`, `key` shadow, `muted` icon).
+- Selected option (AC mode, segmented emphasis): `brandSoft` fill + 2 dp inset ring `brand` + `brandInk` glyph and label.
+- Switch on: track `brand`, white thumb. Off: `sunken2`.
+
+### 1.3 Category markers (10%)
+
+| Category | Light marker / ink | Dark marker / ink | Allowed uses |
+|---|---|---|---|
+| Agenda | `#3B6FE0` / `#2F5BC4` | `#6E96F5` / `#8DADF7` | Calendar glyph tint, the dot of the next agenda item |
+| Rumah | `#F08A24` / `#A64F08` | `#F5A04F` / `#F5A04F` | Glyph tint only (on-state is green) |
+| Usaha | `#7C5CE6` / `#6343D1` | `#A58BFF` / `#B6A0FF` | Chart line, chart area at 14%, branch dots, theme glyph |
+| Terhubung | `#1AA3C9` / `#0D6F8B` | `#4CC3E3` | Glyph tint, contact initial tint; AC cool arc and cool glyph |
+| Warning | `#E5484D` / `#C8313A` | `#F2777B` | Low-stock glyph, Keluar, camera recording dot |
+
+`AccentIcon` = neutral `sunken` circle + glyph in the category ink. Only the `brand` variant uses a tinted circle (`brandSoft`).
+
+### 1.4 Gradients
+
+| Name | Recipe | Use |
+|---|---|---|
+| `heroField` light | radial mint `rgba(190,232,205,.95)` 360×320 at (0,0) + radial green `rgba(77,163,110,.30)` 300×260 at (62%, -8%) + radial teal `rgba(25,179,166,.20)` 260×240 at (108%, 16%), each to 0 at 72%. Height 460 | Beranda top |
+| `heroField` dark | radial `rgba(91,191,134,.20)` 340×300 at (0,0) + radial teal `rgba(25,179,166,.12)` 280×240 at (104%, 10%) | Beranda dark |
+| `coolField` | radial `rgba(26,163,201,.16)` 340×300 at (50%, 10%) + mint `rgba(190,232,205,.6)` at (0,0) (light); dark sky `.13` only | AC remote |
+| `intiGradient` | sweep `#1D7550` → `#159A84` → `#19B3A6` → `#3B6FE0` → `#2A8C6A` → `#1D7550`, highlights white 42% (top-left), lime `#B7E07A` 55% (top), shade navy 42% (bottom) | Inti |
+| `glowOnDark` | `#2FBF7F`, `#19D3C0`, `#4F86FF`, `#C6F08A`, `#7C9CFF`, `#5FE3B5` | Voice waves |
+| Lamp | radial `rgba(255,196,96,.55·b)` → `rgba(255,170,70,.22·b)` → 0, b = brightness | Lampu (the light's own colour, content not accent) |
+
+The lamp's vertical slider is filled with the light's own colour (warm white `#F5A04F → #FFC979 → #FFE0A6` at 3000 K, cooler stops for cooler presets). That is a representation of the light, like album art, not an accent; its power key is green.
+
+### 1.5 Contrast
+
+All text pairs pass WCAG AA: light text/bg 16.5, muted/bg 5.18, muted/sunken 4.82, muted/brandSoft 4.9+, brandInk/brandSoft 4.85, onBrand/brand 5.66, category inks on bg ≥ 4.9; dark text 17.2, muted/surface 6.71, brand/bg 9.0, onBrand/brand 8.39. Voice: text 17.96.
 
 ---
 
-## 7. React Native implementation notes
+## 2. Comfort rules (apply to every screen)
 
-**Libraries** (all except Skia already in `package.json`):
-- `react-native-svg` 15: GradientField, Dial, Sparkline/AreaChart, D-pad dividers, cover art, bulb, lamp glow (radial gradient), status illustrations.
-- `react-native-reanimated` 4 (React Compiler: use `sv.get()/sv.set()`): press springs, enter stagger, number transitions, Inti breathing/rotation, segmented thumb, sliders, wave frame clock (`useFrameCallback`).
-- `react-native-gesture-handler` 3: Inti tap vs long-press (300 ms) with the press continuing into Mode Suara, dial and slider pans.
-- `expo-haptics`: see §4.
-- `@shopify/react-native-skia` (to add with `npx expo install`): **needed only for the voice waves** (path + blur + additive blend + per-layer alpha ramp at 60 fps). Everything else can ship without it. Skia adds several MB per ABI to the APK; measure on an EAS build. If the size cost is rejected, the fallback is: pre-render 4 blurred ribbon PNGs (one per layer, wide, horizontal gradient baked in), and animate their `translateX` (opposite directions) and `scaleY` (from L) with Reanimated, `mixBlendMode` not required because the PNGs carry their own alpha. It looks about 80% as good and costs < 200 KB.
+1. **One purpose per screen.** Beranda = what needs me now. Agenda = today. Perangkat = control devices. Usaha = how is business today. Akun = a few settings.
+2. **Show less.** Secondary things go one tap away (Lainnya sheet, a detail screen), never on the main view.
+3. **No explanatory sublines.** Rows and cards carry a title (1 to 3 words) and, where useful, a value on the right or one state word ("Nyala", "Mati", "24°", "Terkunci"). A one-line message preview is the only exception (approval card).
+4. **Words budget.** A screen should read in 2 seconds: Beranda ≤ 15 words, remotes ≤ 6 words, lists ≤ 2 words per row.
+5. **Targets.** Main controls ≥ 56 dp (buttons 56, remote keys 60 to 100, tiles ≥ 104). Secondary ≥ 48.
+6. **Labels only where a glyph is ambiguous** (AC modes keep one word; VOL/CH stay; back, home, mute, keyboard, mic-off do not get labels; Mode Suara has none).
+7. **Whitespace is a feature.** Empty space under the blocks on Beranda is intentional; do not fill it.
 
-**Waves in Skia (recommended)**:
-```tsx
-<Canvas style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 540 }}>
-  <Rect …>{/* bottom wash: vertical LinearGradient */}</Rect>
-  {LAYERS.map((l, i) => (
-    <Group key={i} blendMode="plus" opacity={l.alpha * alphaMul}>
-      <Path path={paths[i]}>  {/* derived value from t and L, 57 points */}
-        <Blend mode="dstIn">
-          <LinearGradient start={vec(0, 0)} end={vec(W, 0)} colors={l.colors} />
-          <LinearGradient start={vec(0, top[i])} end={vec(0, top[i] + l.band * H)} colors={['#000', '#0008', '#0000']} positions={[0, .25, 1]} />
-        </Blend>
-        <BlurMask blur={l.blur} style="normal" />
-      </Path>
-    </Group>
-  ))}
-</Canvas>
-```
-Build each `SkPath` in a `useDerivedValue` worklet from the frame-clock shared value; no React re-renders per frame. This is a sketch: check the child order of `<Blend>` in the installed Skia version (the colour gradient must be the destination and the alpha ramp the source for `dstIn`).
+---
 
-**Inti without Skia**: glow = 3 SVG radial gradients in one `Svg` (scaled by Reanimated); core = a pre-rendered sweep-gradient PNG (green → teal → blue, 2× and 3×) rotated with Reanimated plus an SVG overlay for the highlights (react-native-svg has no sweep gradient); S = `Image` of `assets/brand/s-mono-light.png` with `tintColor="#FFFFFF"`. If Skia is added, use `SweepGradient` and draw the core in the same Canvas as the glow.
+## 3. Typography
 
-**Shadows and blur**: use the RN `boxShadow` prop (New Architecture, RN ≥ 0.76; inset shadows used for the key highlight; verify on a low-end Android, fallback is a 1-dp top highlight View). Do not use backdrop blur anywhere; Mode Suara controls are plain translucent fills (`rgba(242,243,245,.10)`).
+Plus Jakarta Sans. Add the 300 weight (`PlusJakartaSans_300Light`). `fontVariant: ['tabular-nums']` for times, money, temperatures.
 
-**Web-only things in the board and their RN equivalents**:
-| Board (HTML) | React Native |
+| Style | Size / line | Weight | Tracking | Use |
+|---|---|---|---|---|
+| `readout` | 100 / 104 | 300 | -5 | AC temperature (88 lamp %, 56 AC tile) |
+| `figure` | 46 / 52 | 600 | -1.8 | Usaha money |
+| `display` | 32 / 38 | 600 | -1 | Greeting (28/34 compact) |
+| `transcript` | 32 / 42 | 500 | -0.64 | Mode Suara |
+| `title` | 28 / 34 | 600 | -0.7 | Tab screen titles |
+| `headline` | 24 / 30 | 600 | -0.5 | Song title |
+| `header` | 20 / 26 | 600 | -0.3 | Remote / Akun header |
+| `quote` | 19 / 26 | 600 | -0.2 | Suggestion card |
+| `row` | 17-18 / 22 | 500-600 | 0 | Rows, agenda items, approval name |
+| `body` | 15-16 / 21-22 | 400-600 | 0 | Preview, tile names, buttons |
+| `caption` | 13-14 / 18 | 500-600 | 0 | State words, small labels |
+| `micro` | 12-12.5 / 15 | 500-700 | 0 | Tab labels, day names, VOL/CH |
+
+Font scale up to 1.3 with `maxFontSizeMultiplier` 1.1 on `readout`/`figure`, 1.2 on tab labels and key labels. Rows and tiles have min heights, not fixed heights.
+
+---
+
+## 4. Shape, elevation, spacing
+
+Radii: cards 28, tiles 26, keys full circle, rocker 40, segmented 18/14, buttons 28 (56 high), composer 28, cover 34, vertical slider 44, sheet top 30.
+
+Elevation (RN `boxShadow`):
+- `e1` tiles: light `0 1 2 rgba(21,24,27,.04), 0 6 18 -4 rgba(21,24,27,.08)`; dark `inset 0 1 0 rgba(255,255,255,.035)`.
+- `e2` cards: light `0 1 2 rgba(21,24,27,.04), 0 16 36 -10 rgba(21,24,27,.14)`; dark `inset 0 1 0 rgba(255,255,255,.05), 0 18 40 -14 rgba(0,0,0,.7)`.
+- `key`: light `inset 0 1 0 rgba(255,255,255,.9), 0 1 2 rgba(21,24,27,.07), 0 6 16 -4 rgba(21,24,27,.13)`; dark `inset 0 1 0 rgba(255,255,255,.07), 0 2 4 rgba(0,0,0,.35), 0 10 22 -8 rgba(0,0,0,.6)`.
+- `power`: see §1.2. On tiles have no shadow.
+
+Spacing: 4-pt grid; gutter 20-24; cards inset 16; block gap 20-28; row min height 64-72; tile gap 10-12.
+
+---
+
+## 5. Motion (slow and smooth)
+
+| What | Spec |
 |---|---|
-| CSS radial-gradient backgrounds | `react-native-svg` RadialGradient |
-| `conic-gradient` (Inti core, thinking ring, avatar ring) | Skia `SweepGradient`, or a pre-rendered PNG rotated |
-| `mask-image` S mark | `Image` + `tintColor` |
-| `-webkit-line-clamp` | `numberOfLines` |
-| canvas `filter: blur` + `lighter` | Skia `BlurMask` + `blendMode="plus"` |
-| `box-shadow` | `boxShadow` prop |
-| CSS keyframes | Reanimated `withRepeat(withTiming(…))` |
+| Press | scale 0.97 (keys 0.94), spring `{ damping: 20, stiffness: 260, mass: 0.7 }` |
+| Block appears (new approval, first device…) | opacity 0 → 1 and translateY 12 → 0, 320 ms, `Easing.out(Easing.cubic)`; blocks below shift with a 320 ms layout transition (`LinearTransition.duration(320)`); stagger 80 ms if several |
+| Block leaves (approval sent) | fade + collapse 260 ms, then a quiet success haptic |
+| Screen enter | content fade 240 ms, no stagger beyond 3 items |
+| Tab appears in the bar | the bar re-distributes over 360 ms (layout transition); the new tab fades in 240 ms after, with a single soft dot on it until first visit |
+| Coach mark | fade + 6 dp rise 280 ms; Inti halo ring expands 0.92 → 1.25 and fades, 2.4 s loop, while the tip is visible |
+| Inti idle | glow breathing 4.2 s (scale 0.90 ↔ 1.06, opacity 0.62 ↔ 1), sweep rotation 16 s |
+| Sheet (Lainnya) | slide up with spring `{ damping: 26, stiffness: 220 }`, scrim to 38% over 220 ms |
+| Number change | 160 ms slide + fade |
+| Haptics | toggles `selectionAsync`, keys `impactAsync(Light)`, power `impactAsync(Medium)`, Kirim `notificationAsync(Success)` |
+| Reduce motion | no breathing, no stagger, no halo, waves frozen with a 2.4 s opacity pulse; layout changes instant |
+| Off-screen | pause loops when unfocused or in background |
 
-**Copy rules kept from the founder**: plain everyday Indonesian, no emoji, no technical words, no pill tags or floating cards; the composer and approval card are attached to structure, not floating.
+### 5.1 Voice waves (unchanged from v1)
 
-**Tokens**: replace `src/theme/tokens.ts` palette with the tables in §1 (suggested names: `bg, surface, raised, sunken, sunken2, text, muted, faint, line, tabbar, brand, onBrand, brandSoft, onAccent`, and per domain `{ base, ink, soft }` under `accent.agenda | rumah | usaha | terhubung | warn`). Add `typeScale.readout/figure/transcript` and `FONT[300]`.
+Bottom 540 dp canvas, 4 layers, additive blend:
+
+| Layer | base | amp | freq | speed | phase | colours | alpha | blur | band |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | .34 | .20 | .85 | +.55 | 0 | `#2FBF7F` `#19D3C0` `#4F86FF` | .85 | 34 | .55 |
+| 1 | .40 | .17 | 1.30 | -.70 | 1.7 | `#4F86FF` `#19D3C0` `#2FBF7F` | .75 | 24 | .45 |
+| 2 | .46 | .14 | 1.75 | +.95 | 3.1 | `#2FBF7F` `#4F86FF` `#7C9CFF` | .62 | 14 | .35 |
+| 3 | .52 | .10 | 2.30 | -1.25 | 4.4 | `#C6F08A` `#5FE3B5` `#4F86FF` | .55 | 8 | .28 |
+
+```
+env(u)  = 0.38 + 0.62·sin(πu)^1.3
+wave(u) = 0.62·sin(2π·f·u + 1.6·sp·t + φ) + 0.38·sin(2π·1.9f·u − 2.1·sp·t + 2φ)
+y(u)    = H·base − H·amp·L·env(u)·wave(u) − 0.10·H·L·env(u)
+```
+Each layer: horizontal 3-stop gradient, multiplied by a vertical alpha ramp from the crest (1 → .55 at 25% → 0 at `band·H`), blurred by σ, drawn at its alpha with `plus` blend. Front layer gets a 3 dp crest highlight (blur 3, alpha .32). Bottom wash `rgba(20,70,80,.30)`.
+
+Level: `db = 20·log10(rms)`, `target = clamp((db+50)/40, 0, 1)`, floor 0.12 while listening; smoothing per frame `L += (target − L)·(target > L ? .35 : .10)` (attack ≈ 40 ms, release ≈ 160 ms). Inti glow scales `1 + .45·L`. States: listening (mic, speed 1), thinking (`.14 + .04·sin 1.3t`, speed .45, alpha ×.7, sweeping shimmer), speaking (TTS RMS, speed .8), muted (.08, speed .3, alpha ×.5); interpolate over 300 ms.
+
+Mode Suara v2 layout: a single green live dot (no status text, no language label), transcript, waves, three controls (mute 60, Inti 88 under the finger, keyboard 60, no labels), "Selesai" (52 high).
+
+---
+
+## 6. Progressive disclosure (when things appear)
+
+### 6.1 Beranda blocks
+
+Order is fixed; each block shows only when its condition is true. At most 3 blocks, so the Inti always has air above it.
+
+| Block | Shows when | Content | Leaves when |
+|---|---|---|---|
+| Suggestion card | No other block has content, and the user has sent fewer than 5 requests | "Coba bilang" + one example sentence (rotates daily: reminder, message, AC, bill). Tap = send it in chat | Any other block appears, or 5 requests done |
+| Approval | ≥ 1 draft waits for approval | The oldest one only: contact initial, name, one-line preview, Ubah / Kirim (56) | Sent, edited, or cancelled; the next draft slides in |
+| Next agenda | An item starts within the next 12 hours | Calendar glyph (blue), time, 2-3 word title, chevron to Agenda | Item starts (+15 min) or nothing in 12 h |
+| Favourite devices | ≥ 1 device connected | 2 or 3 big toggles: icon, short name, state word. Tap toggles, long-press opens the remote. Favourites = user-pinned, else the 3 most used in 7 days | All devices removed |
+
+Usaha, Terhubung, history and summaries are **never** on Beranda (Usaha has its own tab). Greeting: "Pagi / Siang / Sore / Malam, {nama}" by local time; "Halo, {nama}" for the first 3 days.
+
+### 6.2 Tab bar
+
+| Stage | Tabs (left | Inti | right) | Trigger |
+|---|---|---|
+| New | Beranda | Inti | Agenda | default |
+| Has devices | Beranda, Agenda | Inti | Perangkat | first device connected (Kotak, HA, SmartThings…) |
+| Has business | Beranda, Agenda | Inti | Perangkat, Usaha | first business source (kasir, rekening, marketplace) or user tells the assistant they run a business. If business but no devices: Beranda, Agenda | Inti | Usaha |
+
+The bar is built as two halves around a fixed 96 dp centre slot, so the Inti stays centred whatever the count. Akun is always the avatar at the top right of Beranda (one place). On Beranda the Inti is 92 (76 compact) and rises over the bar; on other tabs it is 48 inline.
+
+### 6.3 Tips (coach marks)
+
+One tip at a time, at most one per day, each shown once, dismissed by any tap, never stacked with the suggestion card.
+| Tip | Trigger | Points at |
+|---|---|---|
+| "Ketuk untuk chat · Tahan untuk bicara" | First app open (before the suggestion card) | Inti (halo ring while shown) |
+| "Tahan untuk membuka remote" | First time a favourite device appears | First device tile |
+| "Kirim baru keluar setelah Anda setuju" | First approval block | Kirim button |
+
+---
+
+## 7. Screens: main view vs Lainnya
+
+| Screen | Main view (big, obvious) | Behind Lainnya / one tap away |
+|---|---|---|
+| AC | Dial + 24° readout (cool arc), room temp, 4 modes (Dingin, Kering, Kipas, Otomatis), − / power / + (76 / 100 / 76) | Kipas speed (auto + 3 bar glyphs), Ayun switch, Timer |
+| TV | Power, D-pad + OK (264), back, home, VOL rocker, mute, CH rocker | Input source, number pad, menu, info |
+| Speaker | Cover, title, artist, progress, prev / play-pause (92) / next, volume (56 high) | Source (Spotify, Bluetooth), power, speaker group |
+| Lampu | Bulb glow, % readout, vertical slider (112×440), power (100) | Colour temperature and colour presets, scenes |
+| Perangkat | Rooms segmented, big tiles: name + state (AC wide with readout, camera with last picture) | Routines (shown as a row only after the user creates one), unreachable devices list, add device (+) |
+| Agenda | Week strip (today green), today's items: time + 2-3 words + glyph, green now-line, next item on a white card with a blue dot, "Tambah…" composer with green mic | Week view, history, leftover tasks (asked once in chat) |
+| Usaha | Period segmented, money figure + %, violet area chart, 2 branches, 1 low-stock row with Pesan | Money in, orders, reports |
+| Akun | Profile (avatar, name, trial + Perpanjang + day bar), 5 rows: Asisten (Nadia), Pemberitahuan (Nyala), Tampilan (inline segmented), Keamanan (PIN), Bantuan; Keluar as a coral text button | Each row's detail page (max depth 2) |
+
+---
+
+## 8. Components
+
+| Component | Notes |
+|---|---|
+| `Surface` | plain / raised; on-state handled by the component using it |
+| `AccentIcon` | Neutral `sunken` circle (40-48) + glyph in category ink; `brand` variant `brandSoft` + `brandInk`; `on` variant `brand` + `onBrand` |
+| `GradientField` | `react-native-svg` RadialGradient ellipses per recipe (§1.4) |
+| `PressableScale` | spring + haptic + long-press (300 ms) |
+| `FavToggle` | 104-132 high, flex 1 in a row of 3; icon circle 46, name 15.5/600, state 13.5/600 |
+| `ApprovalCard` | avatar 48 (sunken + sky initial), name 17/600, preview 15 one line, Ubah (sunken) + Kirim (brand, 1.4×), 56 high |
+| `NextItemRow` | AccentIcon (blue calendar) + time 18/600 + title 18/400 + chevron; no surface |
+| `SuggestionCard` | `e2` card, brand mic AccentIcon, "Coba bilang" caption + quote 19/600 |
+| `CoachMark` | `tip-bg` ink bubble (light `#15181B`, dark `#F2F3F5`), 15/600, radius 18, arrow 16; target gets a halo ring |
+| `TabBar` | two halves + 96 centre slot; active = `brandInk` icon/label on `brandSoft` 60×32 indicator |
+| `RemoteKey` | 60-100 circle, `key` shadow; `power` / `selected` / `ink` / `glass` variants |
+| `MoreButton` + `MoreSheet` | "⋯ Lainnya" 44 high sunken capsule in the header; sheet rows 72 high: AccentIcon + one word + control (segmented / switch / value chip) |
+| `Dial` | 270° arc r 134, stroke 18; track `sunken2`; active arc cool gradient; knob r 17; no tick labels (just 24° in the centre) |
+| `DPad`, `Rocker`, `Slider` (56 horizontal, 112×440 vertical), `Segmented` (44 items) | as drawn |
+| `TimeRail` | vertical rail, 56 time column, green now-line, next item card |
+| `AreaChart` | violet line 3, area 14% → 0, end dot 6 with bg ring |
+| `Inti` | 92 / 88 / 76 / 48 sizes; glow, sweep core, white S (`s-mono-light.png` + `tintColor`), thinking ring, halo |
+
+---
+
+## 9. Thumb zone and responsive
+
+`useLayoutClass()`: `compact` = height < 700; `tall` = height / width ≥ 2.0 (includes 393×873); `regular` otherwise.
+- Every screen: top content, flexible spacer, bottom actions anchored to the bottom inset.
+- Primary actions in the bottom 40%: Inti, Kirim (falls into it on most phones), − / power / +, rockers, play, Tambah.
+- compact: greeting 28, Inti 76, tiles 104, approval padding 14, dock fade 120 (frame 20 shows all three Beranda blocks fit at 360×640). tall: extra height goes to the spacer (frame 21).
+
+---
+
+## 10. React Native implementation notes
+
+- **Tokens**: replace `src/theme/tokens.ts` with §1. Suggested shape: neutrals flat; `brand: { base, on, ink, soft, glow }`; `marker: { agenda, rumah, usaha, terhubung, warn }` each `{ base, ink }` (no `soft` for markers on purpose, so nobody builds a large tinted surface from them).
+- **Disclosure state**: one selector `useHomeBlocks()` returning the ordered list of visible blocks from server state (`approvals`, `nextAgenda`, `devices`, request count) and one `useTabSet()` returning `minimal | devices | business | full`. Animate list changes with Reanimated `entering={FadeInDown.duration(320)}` and `layout={LinearTransition.duration(320)}`.
+- **Tips**: persist "seen" flags locally (`expo-secure-store` or AsyncStorage) per tip id; a tiny scheduler allows one per day.
+- **Skia only for the voice waves** (`@shopify/react-native-skia`): Path + `BlurMask` + `plus` blend + a `dstIn` alpha ramp per layer, path built in a `useDerivedValue` worklet from a `useFrameCallback` clock. Check the `<Blend>` child order in the installed version. Adds several MB per ABI; measure on EAS. Fallback without Skia: 4 pre-blurred ribbon PNGs moved with Reanimated.
+- **Everything else** uses what the app already has: `react-native-svg` (fields, dial, chart, D-pad dividers, bulb), Reanimated 4 (`sv.get()/sv.set()`), Gesture Handler (Inti tap vs hold into Mode Suara, dial and slider pans), `expo-haptics`, RN `boxShadow`.
+- **Inti core**: react-native-svg has no sweep gradient; use a pre-rendered sweep PNG rotated with Reanimated plus SVG highlights, or Skia `SweepGradient` if Skia is in.
+- **No** backdrop blur, gradient text, or tinted category surfaces.
+- **Copy**: plain Indonesian, no emoji, no technical words; one-word labels where needed.
