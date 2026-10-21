@@ -138,6 +138,7 @@ export function Sheet({ onClose, children, testID }: Props) {
       />
       <GestureDetector gesture={pan}>
         <Animated.View
+          testID="lembar-panel"
           accessibilityViewIsModal
           onAccessibilityEscape={closePlain}
           onLayout={(e) => {

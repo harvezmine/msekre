@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, View } from 'react-native';
 import { useAccount } from '@/api/useAccount';
-import { useTheme } from '@/theme/ThemeProvider';
+import { ConfirmBody } from '@/ui/kit';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
@@ -17,7 +16,6 @@ export default function Konfirmasi() {
 }
 
 function Isi({ id }: { id: string }) {
-  const { c, marker } = useTheme();
   const toast = useToast();
   const { account, removePhone, busy } = useAccount();
   const { close } = useSheet();
@@ -34,43 +32,14 @@ function Isi({ id }: { id: string }) {
   };
   const working = busy.phone(id);
   return (
-    <View style={{ gap: 8 }}>
-      <Txt v="title">{`Keluarkan ${phone.name}?`}</Txt>
-      <Txt color={c.muted}>
-        HP itu langsung keluar dari akun ini dan tidak lagi menerima notifikasi. Anda bisa masuk lagi dari HP itu kapan
-        saja.
-      </Txt>
-      <View style={{ gap: 8, paddingTop: 16 }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ya, keluarkan"
-          accessibilityState={{ disabled: working }}
-          disabled={working}
-          onPress={() => void run()}
-          style={{
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: marker.warn.ink,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: working ? 0.6 : 1,
-          }}
-        >
-          <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
-            Ya, keluarkan
-          </Txt>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Batal"
-          onPress={() => close()}
-          style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Txt weight={600} color={c.brandInk}>
-            Batal
-          </Txt>
-        </Pressable>
-      </View>
-    </View>
+    <ConfirmBody
+      icon="phone"
+      title={`Keluarkan ${phone.name}?`}
+      message="HP itu langsung keluar dari akun ini dan tidak lagi menerima notifikasi. Anda bisa masuk lagi dari HP itu kapan saja."
+      confirm="Ya, keluarkan"
+      busy={working}
+      onConfirm={() => void run()}
+      onCancel={() => close()}
+    />
   );
 }

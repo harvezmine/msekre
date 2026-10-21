@@ -11,6 +11,9 @@ import Animated, {
 import { PIN_LENGTH } from '@/api/constants';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
+import { AccentIcon } from '../kit/AccentIcon';
+import { useLayoutClass } from '../kit/layout';
+import { PressableScale } from '../kit/PressableScale';
 import { Txt } from '../Txt';
 
 /** Hasil memeriksa PIN: `true` diterima; `false` salah; teks = salah dengan pesan ini (menggantikan pesan bawaan). */
@@ -106,20 +109,9 @@ export function PinPad({ subtitle, title = 'Masukkan PIN', onSubmit, onCancel, o
 
   return (
     <View style={{ alignItems: 'center', gap: 20 }}>
-      <View
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: c.sunken,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon name="lock" size={26} color={c.text} />
-      </View>
+      <AccentIcon icon="lock" tone="brand" size={52} />
       <View style={{ alignItems: 'center', gap: 4 }}>
-        <Txt v="title" accessibilityRole="header">
+        <Txt v="header" accessibilityRole="header">
           {title}
         </Txt>
         <Txt color={c.muted} style={{ textAlign: 'center' }}>
@@ -196,16 +188,17 @@ function Key({
   icon?: boolean;
 }) {
   const { c } = useTheme();
+  const compact = useLayoutClass() === 'compact';
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      android_ripple={{ color: c.ripple }}
+      scaleTo={0.94}
       style={{
         flex: 1,
-        height: 64,
-        borderRadius: 20,
+        height: compact ? 56 : 64,
+        borderRadius: 32,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: plain ? 'transparent' : c.sunken,
@@ -218,6 +211,6 @@ function Key({
           {label}
         </Txt>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }

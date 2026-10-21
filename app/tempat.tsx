@@ -33,11 +33,11 @@ function Pilihan() {
     });
   return (
     <>
-      <Txt v="title" style={{ marginBottom: 8 }}>
+      <Txt v="section" accessibilityRole="header" style={{ marginBottom: 8 }}>
         Pilih tempat
       </Txt>
       <View accessibilityRole="radiogroup">
-        {places.map((p, i) => {
+        {places.map((p) => {
           const selected = p === current;
           return (
             <Pressable
@@ -48,15 +48,15 @@ function Pilihan() {
               onPress={() => pick(p)}
               android_ripple={{ color: c.ripple }}
               style={{
-                minHeight: 56,
+                minHeight: 64,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                borderBottomWidth: i < places.length - 1 ? 1 : 0,
-                borderBottomColor: c.line,
               }}
             >
-              <Txt weight={selected ? 600 : 500}>{p}</Txt>
+              <Txt v="row" weight={selected ? 600 : 500} color={selected ? c.brandInk : c.text}>
+                {p}
+              </Txt>
               {selected ? <Icon name="check" size={24} color={c.brandInk} /> : null}
             </Pressable>
           );

@@ -9,7 +9,8 @@ import { StepDots } from '@/ui/StepDots';
 import { Txt } from '@/ui/Txt';
 import { Wordmark } from '@/ui/Wordmark';
 
-// Layar pertama kali 1 (desain 2n): Inti menyapa.
+// Niat layar: berkenalan dengan asisten dalam satu kalimat. Tindakan tersering: Mulai, tombol besar paling bawah (zona
+// jempol). Layar pertama kali 1 (desain 2n): Inti menyapa.
 export default function Mulai() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -33,11 +34,11 @@ export default function Mulai() {
             Halo, saya {assistant}, sekretaris AI Anda.
           </Txt>
           <Txt weight={400} color={c.muted} style={{ fontSize: 17, lineHeight: 26, textAlign: 'center' }}>
-            Saya bantu urus jadwal, pesan, rumah, dan usaha Anda. Dari sini atau dari WhatsApp.
+            Jadwal, pesan, rumah, dan usaha. Dari sini atau WhatsApp.
           </Txt>
         </View>
       </View>
-      <View style={{ alignSelf: 'stretch', gap: 20 }}>
+      <View testID="zona-jempol" style={{ alignSelf: 'stretch', gap: 20 }}>
         <StepDots step={1} />
         <PrimaryButton label="Mulai" onPress={() => router.push('/mulai/masuk')} />
       </View>

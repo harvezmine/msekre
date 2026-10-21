@@ -1,9 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
 import { useDevices } from '@/api/useDevices';
 import { useHome } from '@/api/useHome';
-import { useTheme } from '@/theme/ThemeProvider';
+import { ConfirmBody } from '@/ui/kit';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
@@ -20,7 +19,6 @@ export default function BukaKunci() {
 }
 
 function Isi({ id }: { id: string }) {
-  const { c } = useTheme();
   const toast = useToast();
   const { close } = useSheet();
   const { home } = useHome();
@@ -41,40 +39,15 @@ function Isi({ id }: { id: string }) {
     close(() => toast(result.message));
   };
   return (
-    <View style={{ gap: 8 }}>
-      <Txt v="title">{`Buka kunci ${device.name}?`}</Txt>
-      <Txt color={c.muted}>Kuncinya langsung terbuka. Anda bisa menguncinya lagi kapan saja dari Perangkat.</Txt>
-      <View style={{ gap: 8, paddingTop: 16 }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Buka"
-          accessibilityState={{ disabled: working }}
-          disabled={working}
-          onPress={() => void open()}
-          style={{
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: c.brand,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: working ? 0.6 : 1,
-          }}
-        >
-          <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
-            Buka
-          </Txt>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Batal"
-          onPress={() => close()}
-          style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Txt weight={600} color={c.brandInk}>
-            Batal
-          </Txt>
-        </Pressable>
-      </View>
-    </View>
+    <ConfirmBody
+      tone="brand"
+      icon="unlock"
+      title={`Buka kunci ${device.name}?`}
+      message="Kuncinya langsung terbuka. Anda bisa menguncinya lagi kapan saja dari Perangkat."
+      confirm="Buka"
+      busy={working}
+      onConfirm={() => void open()}
+      onCancel={() => close()}
+    />
   );
 }

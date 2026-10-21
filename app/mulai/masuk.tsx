@@ -36,6 +36,8 @@ const clock = (s: number) => `${pad(Math.floor(s / 60))}.${pad(s % 60)}`;
 
 // Layar pertama kali 2 (desain 2o): nomor WhatsApp dan kode. "Kirim kode" meminta kode ke server (auth/start); "Masuk"
 // mencocokkannya (auth/verify). Nomor contoh terisi hanya di mode contoh; di mode server mulai dari kosong.
+// Niat layar: masuk dengan nomor WhatsApp dan kode enam angka, tanpa kata sandi. Tindakan tersering: Masuk, tombol besar
+// paling bawah (zona jempol); Kirim kode tepat di bawah kolom nomor.
 export default function MulaiMasuk() {
   const { c, marker } = useTheme();
   const insets = useSafeAreaInsets();
@@ -155,11 +157,9 @@ export default function MulaiMasuk() {
             </Txt>
             <View
               style={{
-                height: 60,
-                borderWidth: 1,
-                borderColor: c.line,
-                backgroundColor: c.surface,
-                borderRadius: 20,
+                minHeight: 64,
+                backgroundColor: c.sunken,
+                borderRadius: 24,
                 flexDirection: 'row',
                 alignItems: 'center',
                 paddingLeft: 18,
@@ -170,7 +170,7 @@ export default function MulaiMasuk() {
               <Txt weight={600} color={c.muted} style={{ fontSize: 17 }}>
                 +62
               </Txt>
-              <View style={{ width: 1, height: 28, backgroundColor: c.line }} />
+              <View style={{ width: 1.5, height: 28, backgroundColor: c.sunken2 }} />
               <TextInput
                 ref={phoneRef}
                 accessibilityLabel="Nomor WhatsApp"
@@ -186,7 +186,7 @@ export default function MulaiMasuk() {
                 autoComplete="tel"
                 placeholder="812-0000-0000"
                 placeholderTextColor={c.muted}
-                style={{ flex: 1, fontSize: 17, fontFamily: 'PlusJakartaSans_500Medium', color: c.text, padding: 0 }}
+                style={{ flex: 1, fontSize: 19, fontFamily: 'PlusJakartaSans_500Medium', color: c.text, padding: 0 }}
               />
               <Pressable
                 accessibilityRole="button"
@@ -223,16 +223,16 @@ export default function MulaiMasuk() {
                       onPress={() => codeRef.current?.focus()}
                       style={{
                         flex: 1,
-                        height: 60,
-                        borderRadius: 16,
-                        borderWidth: active ? 1.5 : 1,
-                        borderColor: active ? c.brand : c.line,
-                        backgroundColor: c.surface,
+                        height: 64,
+                        borderRadius: 18,
+                        borderWidth: 2,
+                        borderColor: active ? c.brand : 'transparent',
+                        backgroundColor: c.sunken,
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}
                     >
-                      <Txt weight={600} tabular style={{ fontSize: 24, lineHeight: 30 }}>
+                      <Txt weight={600} tabular maxFontSizeMultiplier={1.2} style={{ fontSize: 26, lineHeight: 32 }}>
                         {code[i] ?? ''}
                       </Txt>
                     </Pressable>
@@ -328,12 +328,14 @@ export default function MulaiMasuk() {
               </Txt>
             </Pressable>
           ) : null}
-          <StepDots step={2} />
-          <PrimaryButton
-            label={busy === 'verify' ? 'Memeriksa…' : 'Masuk'}
-            disabled={!ready || busy !== null}
-            onPress={submit}
-          />
+          <View testID="zona-jempol" style={{ gap: 20 }}>
+            <StepDots step={2} />
+            <PrimaryButton
+              label={busy === 'verify' ? 'Memeriksa…' : 'Masuk'}
+              disabled={!ready || busy !== null}
+              onPress={submit}
+            />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

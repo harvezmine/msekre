@@ -36,7 +36,8 @@ const NEXT: Record<Minat, { button: string; helper: string; toast: string }> = {
   },
 };
 
-// Layar pertama kali 3 (desain 2p): pilih satu atau lebih. Tombol utama mengikuti pilihan yang paling dulu.
+// Niat layar: memilih layanan pertama yang disambungkan (boleh lebih dari satu). Tindakan tersering: tombol utama paling
+// bawah. Layar pertama kali 3 (desain 2p): pilih satu atau lebih. Tombol utama mengikuti pilihan yang paling dulu.
 export default function MulaiPilih() {
   const { c, shadow } = useTheme();
   const insets = useSafeAreaInsets();
@@ -144,7 +145,10 @@ export default function MulaiPilih() {
           );
         })}
       </ScrollView>
-      <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: insets.bottom + 32, gap: 12 }}>
+      <View
+        testID="zona-jempol"
+        style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: insets.bottom + 32, gap: 12 }}
+      >
         {next ? (
           <Txt color={c.muted} style={{ textAlign: 'center' }}>
             {next.helper}

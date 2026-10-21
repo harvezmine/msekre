@@ -21,7 +21,10 @@ export const TOAST_MS = 2600;
  */
 const TAB_BAR = TAB_BAR_HEIGHT + INTI_SIZE.beranda / 2;
 
-/** Bilah gelap di bawah, muncul memudar sambil naik 8 dp (sk-toast). Dibaca pembaca layar lewat pengumuman di ToastHost (satu kali). */
+/**
+ * Kabar singkat di bawah: gelembung tinta yang sama dengan petunjuk sekali-lihat (`tip`/`onTip`, radius 20), muncul
+ * memudar sambil naik 8 dp. Dibaca pembaca layar lewat pengumuman di ToastHost (satu kali).
+ */
 export function Toast({ text }: { text: string }) {
   const { c } = useTheme();
   const reduce = useReducedMotion();
@@ -38,16 +41,18 @@ export function Toast({ text }: { text: string }) {
         {
           alignSelf: 'center',
           maxWidth: 420,
+          minHeight: 52,
+          justifyContent: 'center',
           marginHorizontal: 16,
           paddingVertical: 14,
           paddingHorizontal: 20,
-          borderRadius: 16,
-          backgroundColor: c.text,
+          borderRadius: 20,
+          backgroundColor: c.tip,
         },
         style,
       ]}
     >
-      <Txt weight={500} color={c.bg} style={{ fontSize: 15, lineHeight: 22, textAlign: 'center' }}>
+      <Txt weight={600} color={c.onTip} style={{ fontSize: 15, lineHeight: 22, textAlign: 'center' }}>
         {text}
       </Txt>
     </Animated.View>
