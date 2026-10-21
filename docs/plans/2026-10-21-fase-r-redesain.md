@@ -25,6 +25,39 @@ misalnya untuk remote perangkat.
 5. **Warna terlalu hijau semua.**
 6. **Belum responsif.** Di HP panjang, Inti di Mode Suara terlalu tinggi dan sulit dijangkau jempol.
 
+## Prinsip utama: kenyamanan pengguna (masukan founder atas papan desain v1)
+
+> "Kamu terlalu fokus dengan compacting feature sampai lupa kalau yang terpenting adalah kenyamanan user dalam
+> menggunakan aplikasi tersebut."
+
+Aturan ini mengalahkan aturan lain di dokumen ini:
+
+- **Satu layar, satu tujuan utama. Tampilkan lebih sedikit.** Hal sekunder disimpan di balik "Lainnya", satu ketukan
+  lagi.
+- **Beranda paling banyak 3 blok di atas Inti:**
+  - satu hal yang perlu persetujuan, kalau ada;
+  - agenda berikutnya, bukan seluruh hari;
+  - 2–3 perangkat favorit sebagai sakelar besar.
+  
+  Usaha punya tabnya sendiri.
+- **Sedikit tulisan:**
+  - tanpa kalimat penjelasan di bawah baris;
+  - ikon, angka, dan label 1–2 kata;
+  - petunjuk hanya sekali di awal.
+- **Lega dan besar:**
+  - kontrol utama minimal 56 dp, tombol remote utama minimal 64 dp;
+  - jarak antarelemen longgar;
+  - teks isi minimal 16;
+  - gerak tenang.
+- **Remote:** 3–5 kontrol yang sering dipakai ditampilkan besar. Timer, ayun, angka, dan pilihan warna masuk ke
+  "Lainnya".
+- **Akun:** paling banyak 5–6 baris.
+- **Hijau sebagai warna brand yang jelas:**
+  - perbandingan kira-kira 60% netral, 30% hijau, 10% aksen lain;
+  - perangkat menyala ditandai hijau;
+  - biru, oranye, ungu, dan biru langit hanya penanda kecil kategori.
+- **Ujiannya:** pemilik warung berusia 45 tahun yang sibuk harus langsung tenang dan tahu apa yang perlu diketuk.
+
 ## Arah desain: "hangat dan hidup"
 
 ### Warna (`src/theme/tokens.ts`, ganti palet; nama token boleh diubah asal konsisten)
