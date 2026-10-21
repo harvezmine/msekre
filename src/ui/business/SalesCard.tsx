@@ -21,7 +21,7 @@ const CHART: Record<BusinessPeriod, string> = {
 };
 
 export function SalesCard({ data }: { data: Business }) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const { sales, series, branches } = data;
   const values = series.map((p) => p.value);
   const { min, span } = sparkRange(values);
@@ -40,7 +40,7 @@ export function SalesCard({ data }: { data: Business }) {
         <Txt weight={600} tabular style={{ fontSize: 32, lineHeight: 40, letterSpacing: -0.32 }}>
           {formatRupiah(sales.total)}
         </Txt>
-        <Txt weight={500} color={sales.down ? c.clay : c.leafText}>
+        <Txt weight={500} color={sales.down ? marker.warn.ink : c.brandInk}>
           {changeText(sales)}
         </Txt>
       </View>
@@ -55,7 +55,7 @@ export function SalesCard({ data }: { data: Business }) {
                   key={`${p.label}-${i}`}
                   v="caption"
                   weight={now ? 600 : 500}
-                  color={now ? c.leafText : c.muted}
+                  color={now ? c.text : c.muted}
                   style={{ flex: 1, textAlign: 'center' }}
                 >
                   {p.label}

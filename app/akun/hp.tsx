@@ -9,10 +9,10 @@ import { Txt } from '@/ui/Txt';
 
 // HP yang terhubung (di bawah Akun): semua HP yang memakai akun ini. HP lain bisa dikeluarkan; HP ini keluar lewat Keluar.
 export default function Hp() {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const { account, status, error, retry, busy } = useAccount();
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="HP yang terhubung" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32, gap: 12 }}>
         {account ? (
@@ -33,11 +33,11 @@ export default function Hp() {
                           paddingHorizontal: 12,
                           height: 32,
                           borderRadius: 16,
-                          backgroundColor: c.mint,
+                          backgroundColor: c.sunken,
                           justifyContent: 'center',
                         }}
                       >
-                        <Txt v="caption" weight={600} color={c.green}>
+                        <Txt v="caption" weight={600} color={c.brandInk}>
                           HP ini
                         </Txt>
                       </View>
@@ -56,7 +56,7 @@ export default function Hp() {
                           opacity: busy.phone(p.id) ? 0.5 : 1,
                         }}
                       >
-                        <Txt weight={600} color={c.clay} style={{ fontSize: 15 }}>
+                        <Txt weight={600} color={marker.warn.ink} style={{ fontSize: 15 }}>
                           Keluarkan
                         </Txt>
                       </Pressable>
@@ -71,7 +71,7 @@ export default function Hp() {
             <Txt color={c.muted}>{status === 'error' ? error : 'Sebentar ya, saya ambil dulu.'}</Txt>
             {status === 'error' ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Coba lagi" onPress={() => void retry()}>
-                <Txt weight={600} color={c.green}>
+                <Txt weight={600} color={c.brandInk}>
                   Coba lagi
                 </Txt>
               </Pressable>

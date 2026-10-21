@@ -6,6 +6,7 @@ import type { Draft } from '@/api/contract';
 import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
 import { Icon } from '../Icon';
+import { toneForName } from '../kit/toneForName';
 import { Txt } from '../Txt';
 import { CardButton, ChatCard } from './ChatCard';
 
@@ -30,7 +31,7 @@ export function ConfirmSendCard({
   onDiscard,
   busy = false,
 }: { draft: Draft } & DraftActions) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const [editRequested, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const { to, text, status } = source;
@@ -60,12 +61,12 @@ export function ConfirmSendCard({
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: c.mint,
+            backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Txt weight={700} color={c.green} style={{ fontSize: 14, lineHeight: 20 }}>
+          <Txt weight={700} color={marker[toneForName(to)].ink} style={{ fontSize: 14, lineHeight: 20 }}>
             {initials}
           </Txt>
         </View>
@@ -83,25 +84,33 @@ export function ConfirmSendCard({
           onChangeText={setDraft}
           multiline
           autoFocus
-          cursorColor={c.green}
-          selectionColor={c.green}
+          cursorColor={c.text}
+          selectionColor={marker.agenda.base}
           style={{
-            backgroundColor: c.paper,
+            backgroundColor: c.sunken,
             borderRadius: 16,
-            borderWidth: 1,
-            borderColor: c.green,
             paddingVertical: 12,
             paddingHorizontal: 16,
             fontFamily: FONT[400],
             fontSize: 16,
             lineHeight: 24,
-            color: c.ink,
+            color: c.text,
             textAlignVertical: 'top',
           }}
         />
       ) : (
-        <View style={{ backgroundColor: c.paper, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 16 }}>
-          <Txt color={status === 'cancelled' ? c.muted : c.ink}>{text}</Txt>
+        <View
+          style={{
+            backgroundColor: c.sunken,
+            borderTopLeftRadius: 6,
+            borderTopRightRadius: 20,
+            borderBottomLeftRadius: 20,
+            borderBottomRightRadius: 20,
+            paddingVertical: 11,
+            paddingHorizontal: 14,
+          }}
+        >
+          <Txt color={status === 'cancelled' ? c.muted : c.text}>{text}</Txt>
         </View>
       )}
       {status === 'draft' && editing && (
@@ -154,8 +163,8 @@ export function ConfirmSendCard({
       )}
       {status === 'held' && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 }}>
-          <Icon name="check" size={22} color={c.leafText} />
-          <Txt weight={600} color={c.leafText} style={{ flex: 1 }}>
+          <Icon name="check" size={22} color={c.brandInk} />
+          <Txt weight={600} color={c.brandInk} style={{ flex: 1 }}>
             Dikirim {time}
           </Txt>
           <Pressable
@@ -167,7 +176,7 @@ export function ConfirmSendCard({
             android_ripple={{ color: c.ripple }}
             style={{ minHeight: 48, paddingHorizontal: 12, justifyContent: 'center' }}
           >
-            <Txt weight={600} color={c.green}>
+            <Txt weight={600} color={c.brandInk}>
               · Batalkan
             </Txt>
           </Pressable>
@@ -175,16 +184,16 @@ export function ConfirmSendCard({
       )}
       {status === 'sent' && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 }}>
-          <Icon name="check" size={22} color={c.leafText} />
-          <Txt weight={600} color={c.leafText}>
+          <Icon name="check" size={22} color={c.brandInk} />
+          <Txt weight={600} color={c.brandInk}>
             {time ? `Terkirim ${time}` : 'Terkirim'}
           </Txt>
         </View>
       )}
       {status === 'failed' && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 }}>
-          <Icon name="x" size={22} color={c.clay} />
-          <Txt weight={600} color={c.clay} style={{ flex: 1 }}>
+          <Icon name="x" size={22} color={marker.warn.ink} />
+          <Txt weight={600} color={marker.warn.ink} style={{ flex: 1 }}>
             Gagal terkirim
           </Txt>
           <Pressable
@@ -196,7 +205,7 @@ export function ConfirmSendCard({
             android_ripple={{ color: c.ripple }}
             style={{ minHeight: 48, paddingHorizontal: 12, justifyContent: 'center' }}
           >
-            <Txt weight={600} color={c.green}>
+            <Txt weight={600} color={c.brandInk}>
               · Coba lagi
             </Txt>
           </Pressable>

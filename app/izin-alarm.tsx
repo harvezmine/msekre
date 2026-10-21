@@ -131,7 +131,7 @@ function Isi() {
                   warn={state === 'denied'}
                   last={battery === undefined && i === rows.length - 1}
                   onPress={ok ? undefined : () => void openSettings(r.key)}
-                  trailing={ok ? <Icon name="check" size={22} color={c.green} /> : <OpenLabel />}
+                  trailing={ok ? <Icon name="check" size={22} color={c.brandInk} /> : <OpenLabel />}
                 />
               );
             })}
@@ -147,20 +147,20 @@ function Isi() {
                 warn={battery}
                 last
                 onPress={battery ? () => void openSettings('battery') : undefined}
-                trailing={battery ? <OpenLabel /> : <Icon name="check" size={22} color={c.green} />}
+                trailing={battery ? <OpenLabel /> : <Icon name="check" size={22} color={c.brandInk} />}
               />
             ) : null}
           </ListGroup>
         </View>
 
         {tips ? (
-          <View style={{ backgroundColor: c.mint, borderRadius: 20, padding: 16, gap: 8, marginTop: 8 }}>
-            <Txt weight={600} color={c.green}>
+          <View style={{ backgroundColor: c.sunken, borderRadius: 20, padding: 16, gap: 8, marginTop: 8 }}>
+            <Txt weight={600} color={c.text}>
               Khusus HP {tips.brand}
             </Txt>
             {tips.tips.map((t) => (
               <View key={t} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-                <Icon name="check" size={18} color={c.green} />
+                <Icon name="check" size={18} color={c.brandInk} />
                 <Txt style={{ flex: 1 }}>{t}</Txt>
               </View>
             ))}
@@ -180,7 +180,7 @@ function Isi() {
             onPress={() => void test()}
             style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
           >
-            <Txt weight={600} color={c.green}>
+            <Txt weight={600} color={c.text}>
               {tested ? 'Alarm akan berbunyi 1 menit lagi. Kunci HP untuk mencoba' : 'Coba alarm 1 menit lagi'}
             </Txt>
           </Pressable>
@@ -193,7 +193,7 @@ function Isi() {
 function OpenLabel() {
   const { c } = useTheme();
   return (
-    <Txt v="caption" weight={600} color={c.green} style={{ maxWidth: 88, textAlign: 'right' }}>
+    <Txt v="caption" weight={600} color={c.brandInk} style={{ maxWidth: 88, textAlign: 'right' }}>
       Buka pengaturan
     </Txt>
   );

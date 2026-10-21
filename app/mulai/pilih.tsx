@@ -38,7 +38,7 @@ const NEXT: Record<Minat, { button: string; helper: string; toast: string }> = {
 
 // Layar pertama kali 3 (desain 2p): pilih satu atau lebih. Tombol utama mengikuti pilihan yang paling dulu.
 export default function MulaiPilih() {
-  const { c } = useTheme();
+  const { c, shadow } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { offerAfterOnboarding } = usePush();
@@ -57,7 +57,7 @@ export default function MulaiPilih() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <View
         style={{
           paddingTop: insets.top,
@@ -99,9 +99,10 @@ export default function MulaiPilih() {
               onPress={() => toggle(o.id)}
               android_ripple={{ color: c.ripple }}
               style={{
-                borderWidth: on ? 1.5 : 1,
-                borderColor: on ? c.green : c.line,
-                backgroundColor: on ? c.mint : c.card,
+                borderWidth: 2,
+                borderColor: on ? c.brand : 'transparent',
+                backgroundColor: on ? c.brandSoft : c.surface,
+                boxShadow: on ? undefined : shadow.e1,
                 borderRadius: 24,
                 padding: 18,
                 flexDirection: 'row',
@@ -114,12 +115,12 @@ export default function MulaiPilih() {
                   width: 44,
                   height: 44,
                   borderRadius: 14,
-                  backgroundColor: on ? c.card : c.paper,
+                  backgroundColor: on ? c.surface : c.bg,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Icon name={o.icon} size={22} color={on ? c.green : c.ink} />
+                <Icon name={o.icon} size={22} color={c.text} />
               </View>
               <View style={{ flex: 1, gap: 2 }}>
                 <Txt v="subtitle">{o.title}</Txt>
@@ -130,14 +131,14 @@ export default function MulaiPilih() {
                   width: 26,
                   height: 26,
                   borderRadius: 13,
-                  backgroundColor: on ? c.green : 'transparent',
+                  backgroundColor: on ? c.brand : 'transparent',
                   borderWidth: on ? 0 : 2,
-                  borderColor: c.track,
+                  borderColor: c.sunken2,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                {on ? <Icon name="check" size={16} color={c.onGreen} /> : null}
+                {on ? <Icon name="check" size={16} color={c.onBrand} /> : null}
               </View>
             </Pressable>
           );

@@ -15,7 +15,7 @@ interface Props {
 }
 
 export function StockCard({ data, isBusy, onOrder, onSeeDraft }: Props) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const items = data.lowStock;
   const caption = sourceCaption(data.sources, 'stock');
   return (
@@ -28,7 +28,7 @@ export function StockCard({ data, isBusy, onOrder, onSeeDraft }: Props) {
           </Txt>
         ) : null}
       </View>
-      <View style={{ backgroundColor: c.clayBg, borderRadius: 16, paddingVertical: 4, paddingHorizontal: 16 }}>
+      <View>
         {items.map((s, i) => (
           <View
             key={s.id}
@@ -36,12 +36,12 @@ export function StockCard({ data, isBusy, onOrder, onSeeDraft }: Props) {
               gap: 8,
               paddingVertical: 10,
               borderBottomWidth: i < items.length - 1 ? 1 : 0,
-              borderBottomColor: c.stockLine,
+              borderBottomColor: c.line,
             }}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Txt>{s.name}</Txt>
-              <Txt weight={600} color={c.clay} tabular>
+              <Txt weight={600} color={marker.warn.ink} tabular>
                 {stockLeft(s)}
               </Txt>
             </View>
@@ -82,14 +82,12 @@ function StockAction({
         opacity: busy ? 0.5 : 1,
         height: 48,
         borderRadius: 24,
-        backgroundColor: open ? c.card : c.green,
-        borderWidth: open ? 1 : 0,
-        borderColor: c.line,
+        backgroundColor: open ? c.sunken : c.brandSoft,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Txt weight={600} color={open ? c.ink : c.onGreen}>
+      <Txt weight={600} color={open ? c.text : c.brandInk}>
         {label}
       </Txt>
     </Pressable>

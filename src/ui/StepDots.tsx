@@ -18,7 +18,7 @@ export function StepDots({ step }: { step: 1 | 2 | 3 }) {
             width: 24,
             height: 4,
             borderRadius: 2,
-            backgroundColor: n <= step ? c.green : c.stepOff,
+            backgroundColor: n <= step ? c.brand : c.sunken2,
           }}
         />
       ))}

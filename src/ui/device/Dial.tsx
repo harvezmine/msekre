@@ -36,7 +36,7 @@ interface Props {
  * Geseran membulat ke derajat bulat. Untuk pembaca layar: satu kontrol `adjustable` (naik/turun satu derajat).
  */
 export function Dial({ name, temp, caption, dimmed = false, onChange }: Props) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   // Semua nilai yang dibaca worklet berupa nilai bersama (worklet tidak boleh menangkap ref atau objek biasa).
   const last = useSharedValue(temp); // suhu terakhir yang dikirim
   const pos = useSharedValue(arcFromTemp(temp)); // posisi busur 0–270 yang sedang dilacak
@@ -103,7 +103,7 @@ export function Dial({ name, temp, caption, dimmed = false, onChange }: Props) {
   const a1 = DIAL.start + DIAL.sweep;
   const av = tempToAngle(temp);
   const knob = pointAt(av);
-  const fill = dimmed ? c.track : c.green;
+  const fill = dimmed ? c.sunken2 : marker.terhubung.base;
 
   return (
     <View
@@ -125,7 +125,7 @@ export function Dial({ name, temp, caption, dimmed = false, onChange }: Props) {
             <Path
               d={arcPath(DIAL.start, a1)}
               fill="none"
-              stroke={c.line}
+              stroke={c.sunken2}
               strokeWidth={DIAL.stroke}
               strokeLinecap="round"
             />
@@ -138,7 +138,7 @@ export function Dial({ name, temp, caption, dimmed = false, onChange }: Props) {
                 strokeLinecap="round"
               />
             ) : null}
-            <Circle cx={knob.x} cy={knob.y} r={DIAL.knob} fill={c.card} stroke={fill} strokeWidth={3} />
+            <Circle cx={knob.x} cy={knob.y} r={DIAL.knob} fill={c.surface} stroke={fill} strokeWidth={3} />
           </Svg>
           <View
             pointerEvents="none"

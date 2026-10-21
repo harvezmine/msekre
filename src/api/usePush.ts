@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { AndroidImportance, AndroidNotificationVisibility } from 'expo-notifications';
+import { useLastNotificationResponse } from './notificationResponse';
 import { router, type Href } from 'expo-router';
 import {
   createContext,
@@ -325,7 +326,7 @@ export function usePush(): Push {
 export function useNotificationTap() {
   const { mode } = useApi();
   const { status } = useAuth();
-  const response = Notifications.useLastNotificationResponse();
+  const response = useLastNotificationResponse();
   useEffect(() => {
     if (!response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
     if (mode === 'server' && status === 'checking') return;

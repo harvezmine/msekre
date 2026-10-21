@@ -37,7 +37,7 @@ const clock = (s: number) => `${pad(Math.floor(s / 60))}.${pad(s % 60)}`;
 // Layar pertama kali 2 (desain 2o): nomor WhatsApp dan kode. "Kirim kode" meminta kode ke server (auth/start); "Masuk"
 // mencocokkannya (auth/verify). Nomor contoh terisi hanya di mode contoh; di mode server mulai dari kosong.
 export default function MulaiMasuk() {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { mode } = useApi();
@@ -124,7 +124,7 @@ export default function MulaiMasuk() {
     });
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <View style={{ paddingTop: insets.top, height: 64 + insets.top, justifyContent: 'center', paddingHorizontal: 8 }}>
         <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
       </View>
@@ -158,7 +158,7 @@ export default function MulaiMasuk() {
                 height: 60,
                 borderWidth: 1,
                 borderColor: c.line,
-                backgroundColor: c.card,
+                backgroundColor: c.surface,
                 borderRadius: 20,
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -186,7 +186,7 @@ export default function MulaiMasuk() {
                 autoComplete="tel"
                 placeholder="812-0000-0000"
                 placeholderTextColor={c.muted}
-                style={{ flex: 1, fontSize: 17, fontFamily: 'PlusJakartaSans_500Medium', color: c.ink, padding: 0 }}
+                style={{ flex: 1, fontSize: 17, fontFamily: 'PlusJakartaSans_500Medium', color: c.text, padding: 0 }}
               />
               <Pressable
                 accessibilityRole="button"
@@ -200,7 +200,7 @@ export default function MulaiMasuk() {
                 android_ripple={{ color: c.ripple }}
                 style={{ height: 48, paddingHorizontal: 12, justifyContent: 'center' }}
               >
-                <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
+                <Txt weight={600} color={c.brandInk} style={{ fontSize: 15 }}>
                   Ubah
                 </Txt>
               </Pressable>
@@ -226,8 +226,8 @@ export default function MulaiMasuk() {
                         height: 60,
                         borderRadius: 16,
                         borderWidth: active ? 1.5 : 1,
-                        borderColor: active ? c.green : c.line,
-                        backgroundColor: c.card,
+                        borderColor: active ? c.brand : c.line,
+                        backgroundColor: c.surface,
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}
@@ -265,7 +265,7 @@ export default function MulaiMasuk() {
               </Txt>
             ) : null}
             {error ? (
-              <Txt v="caption" color={c.clay} accessibilityLiveRegion="polite">
+              <Txt v="caption" color={marker.warn.ink} accessibilityLiveRegion="polite">
                 {error}
               </Txt>
             ) : null}
@@ -280,11 +280,11 @@ export default function MulaiMasuk() {
                   borderRadius: 24,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: c.mint,
+                  backgroundColor: c.sunken,
                   marginTop: 4,
                 }}
               >
-                <Txt weight={600} color={c.green}>
+                <Txt weight={600} color={c.brandInk}>
                   Mulai lewat WhatsApp
                 </Txt>
               </Pressable>
@@ -308,7 +308,7 @@ export default function MulaiMasuk() {
                   opacity: busy !== null || !phoneOk ? 0.4 : 1,
                 }}
               >
-                <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
+                <Txt weight={600} color={c.brandInk} style={{ fontSize: 15 }}>
                   {busy === 'start' ? 'Mengirim…' : requested ? 'Kirim ulang kode' : 'Kirim kode'}
                 </Txt>
               </Pressable>

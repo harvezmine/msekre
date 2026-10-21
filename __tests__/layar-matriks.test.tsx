@@ -20,6 +20,8 @@ const TAMBAHAN = [
   { nama: 'Keluar', Layar: ROUTES['/keluar']! },
   { nama: 'Mode data', Layar: ROUTES['/mode']! },
   { nama: 'Izin notifikasi', Layar: ROUTES['/izin-notifikasi']! },
+  // Katalog komponen (build pengembangan saja); memasang tema sendiri, jadi tidak ikut tes mode gelap.
+  { nama: 'Katalog komponen', Layar: ROUTES['/dev/kit']! },
 ];
 const SEMUA = [...LAYAR, ...TAMBAHAN] as {
   nama: string;

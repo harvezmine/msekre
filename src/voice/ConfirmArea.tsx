@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { useChat } from '@/api/useChat';
 import type { Card } from '@/api/contract';
-import { onForest } from '@/theme/tokens';
+import { onVoice } from '@/theme/tokens';
 import { ChoicesCard } from '@/ui/chat/ChoicesCard';
 import { ConfirmSendCard } from '@/ui/chat/ConfirmSendCard';
 import { PaymentCard } from '@/ui/chat/PaymentCard';
@@ -23,7 +23,7 @@ export function ConfirmArea({ card, messageId }: { card: Card; messageId?: strin
         onPress={() => router.replace('/chat')}
         style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 16 }}
       >
-        <Txt v="caption" weight={600} color={onForest.label}>
+        <Txt v="caption" weight={600} color={onVoice.label}>
           Buka di chat
         </Txt>
       </Pressable>
@@ -67,7 +67,7 @@ function Body({ card, messageId, chat }: { card: Card; messageId?: string; chat:
     );
   }
   return (
-    <Txt color={onForest.text} style={{ textAlign: 'center' }}>
+    <Txt color={onVoice.text} style={{ textAlign: 'center' }}>
       Yang satu ini dilanjutkan di chat ya.
     </Txt>
   );

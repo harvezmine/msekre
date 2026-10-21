@@ -36,12 +36,12 @@ export function QrisCard({ qris, mediaUrl }: { qris: Qris; mediaUrl: (mediaId: s
             gap: 8,
             minHeight: 48,
             borderRadius: 16,
-            backgroundColor: c.mint,
+            backgroundColor: c.brandSoft,
             paddingHorizontal: 16,
           }}
         >
-          <Icon name="check" size={22} color={c.leafText} />
-          <Txt weight={600} color={c.leafText}>
+          <Icon name="check" size={22} color={c.brandInk} />
+          <Txt weight={600} color={c.brandInk}>
             Sudah dibayar
           </Txt>
         </View>
@@ -55,7 +55,7 @@ export function QrisCard({ qris, mediaUrl }: { qris: Qris; mediaUrl: (mediaId: s
             width: 208,
             height: 208,
             borderRadius: 16,
-            backgroundColor: c.paper,
+            backgroundColor: c.bg,
             borderWidth: 1,
             borderColor: c.line,
             alignItems: 'center',
@@ -82,7 +82,7 @@ export function QrisCard({ qris, mediaUrl }: { qris: Qris; mediaUrl: (mediaId: s
             borderRadius: 16,
             backgroundColor: '#FFFFFF',
             borderWidth: 1,
-            borderColor: '#E2E6DE',
+            borderColor: '#E9E7E1',
           }}
         >
           <RemoteImage

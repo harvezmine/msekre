@@ -12,7 +12,7 @@ import { useToast } from '@/ui/toastStore';
 // Privasi (di bawah Akun): apa yang diingat asisten dari tiap layanan, dengan jalan menghapusnya. Hapus akun tetap lewat
 // WhatsApp.
 export default function Privasi() {
-  const { c } = useTheme();
+  const { c, shadow, marker } = useTheme();
   const assistant = useAssistantName();
   const { account, status, error, retry } = useAccount();
   const toast = useToast();
@@ -28,7 +28,7 @@ export default function Privasi() {
   };
   const services = account?.privacy.services ?? [];
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Privasi" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32, gap: 12 }}>
         <Txt weight={600} style={{ fontSize: 15, lineHeight: 20, paddingHorizontal: 4 }}>
@@ -60,7 +60,11 @@ export default function Privasi() {
                         opacity: s.memoryCount === 0 ? 0.4 : 1,
                       }}
                     >
-                      <Txt weight={600} color={c.clay} style={{ fontSize: 14, lineHeight: 18, textAlign: 'right' }}>
+                      <Txt
+                        weight={600}
+                        color={marker.warn.ink}
+                        style={{ fontSize: 14, lineHeight: 18, textAlign: 'right' }}
+                      >
                         {`Hapus yang ${assistant} tahu`}
                       </Txt>
                     </Pressable>
@@ -78,7 +82,7 @@ export default function Privasi() {
             <Txt color={c.muted}>{status === 'error' ? error : 'Sebentar ya, saya ambil dulu.'}</Txt>
             {status === 'error' ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Coba lagi" onPress={() => void retry()}>
-                <Txt weight={600} color={c.green}>
+                <Txt weight={600} color={c.brandInk}>
                   Coba lagi
                 </Txt>
               </Pressable>
@@ -88,9 +92,8 @@ export default function Privasi() {
 
         <View
           style={{
-            backgroundColor: c.card,
-            borderWidth: 1,
-            borderColor: c.line,
+            backgroundColor: c.surface,
+            boxShadow: shadow.e1,
             borderRadius: 24,
             padding: 16,
             gap: 8,
@@ -106,7 +109,7 @@ export default function Privasi() {
             android_ripple={{ color: c.ripple }}
             style={{ height: 48, justifyContent: 'center' }}
           >
-            <Txt weight={600} color={c.green}>
+            <Txt weight={600} color={c.brandInk}>
               Buka WhatsApp
             </Txt>
           </Pressable>
@@ -119,7 +122,7 @@ export default function Privasi() {
           android_ripple={{ color: c.ripple }}
           style={{ height: 48, justifyContent: 'center', paddingHorizontal: 4 }}
         >
-          <Txt weight={600} color={c.green}>
+          <Txt weight={600} color={c.brandInk}>
             Baca kebijakan privasi
           </Txt>
         </Pressable>

@@ -19,14 +19,14 @@ export default function Sapaan() {
 
   if (!account) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper }}>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
         <BackHeader title="Sapaan harian" />
         <Txt color={c.muted} style={{ padding: 24, textAlign: 'center' }}>
           {status === 'error' ? error : 'Sebentar ya, saya ambil dulu.'}
         </Txt>
         {status === 'error' ? (
           <Pressable accessibilityRole="button" accessibilityLabel="Coba lagi" onPress={() => void retry()}>
-            <Txt weight={600} color={c.green} style={{ textAlign: 'center' }}>
+            <Txt weight={600} color={c.brandInk} style={{ textAlign: 'center' }}>
               Coba lagi
             </Txt>
           </Pressable>
@@ -44,7 +44,7 @@ export default function Sapaan() {
   const times: string[] =
     time && !GREETING_TIMES.some((t) => t === time) ? [...GREETING_TIMES, time].sort() : [...GREETING_TIMES];
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Sapaan harian" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32, gap: 16 }}>
         <ListGroup>

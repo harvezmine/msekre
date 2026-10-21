@@ -39,12 +39,10 @@ export function CardButton({
         borderRadius: 24,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: primary ? c.green : c.card,
-        borderWidth: primary ? 0 : 1,
-        borderColor: c.line,
+        backgroundColor: primary ? c.brand : c.sunken,
       }}
     >
-      <Txt weight={600} color={primary ? c.onGreen : c.ink}>
+      <Txt weight={600} color={primary ? c.onBrand : c.text}>
         {label}
       </Txt>
     </Pressable>

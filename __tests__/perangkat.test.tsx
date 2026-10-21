@@ -219,7 +219,7 @@ test('Semua: judul tempat sebagai pemisah dan tanpa tab ruangan', async () => {
 
 test('mode gelap: judul memakai warna teks palet gelap', async () => {
   await show({ actions: rumah }, 'dark');
-  expect(screen.getByText('Perangkat')).toHaveStyle({ color: dark.ink });
+  expect(screen.getByText('Perangkat')).toHaveStyle({ color: dark.text });
 });
 
 test('Tambah perangkat: kartu Kotak dan sembilan merek dengan toast', async () => {

@@ -25,11 +25,7 @@ export function Wordmark({ size = 22 }: { size?: number }) {
       />
       <Txt weight={700} style={{ fontSize: size, lineHeight: size + 2, letterSpacing: -size * 0.02 }}>
         {[FIRST, ...REST].join(' ')}{' '}
-        <Txt
-          weight={700}
-          color={scheme === 'dark' ? c.sage : c.leaf}
-          style={{ fontSize: size, lineHeight: size + 2, letterSpacing: -size * 0.02 }}
-        >
+        <Txt weight={700} color={c.brand} style={{ fontSize: size, lineHeight: size + 2, letterSpacing: -size * 0.02 }}>
           {LAST}
         </Txt>
       </Txt>

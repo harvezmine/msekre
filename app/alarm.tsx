@@ -16,7 +16,7 @@ import { SNOOZE_MINUTES, snoozeAlarm } from '@/alarm/snooze';
 import { localAlarmItem, TEST_ALARM_ID, testAlarmItem } from '@/alarm/testAlarm';
 import { ringWindowEnd } from '@/alarm/ringWindow';
 import type { ScheduledAlarm } from '@/alarm/types';
-import { light, onForest } from '@/theme/tokens';
+import { gradients, light, onVoice } from '@/theme/tokens';
 import { Icon } from '@/ui/Icon';
 import { Inti } from '@/ui/inti/Inti';
 import { SwipeToConfirm } from '@/ui/SwipeToConfirm';
@@ -159,7 +159,7 @@ export default function Alarm() {
       <View
         style={{
           flex: 1,
-          backgroundColor: light.voice,
+          backgroundColor: light.voiceCanvas,
           paddingTop: insets.top + 24,
           paddingBottom: insets.bottom + 36,
           paddingHorizontal: 28,
@@ -170,7 +170,7 @@ export default function Alarm() {
       >
         <StatusBar style="light" />
         <Inti size={96} onDark paused={!live} />
-        <Txt testID="alarm-kosong" v="title" color={onForest.strong} style={{ textAlign: 'center' }}>
+        <Txt testID="alarm-kosong" v="title" color={onVoice.strong} style={{ textAlign: 'center' }}>
           {id ? 'Memuat alarm…' : 'Tidak ada alarm yang sedang berbunyi.'}
         </Txt>
         <Pressable
@@ -181,11 +181,11 @@ export default function Alarm() {
             height: 56,
             paddingHorizontal: 40,
             borderRadius: 28,
-            backgroundColor: onForest.strong,
+            backgroundColor: onVoice.strong,
             justifyContent: 'center',
           }}
         >
-          <Txt v="subtitle" color="#0E3A2C">
+          <Txt v="subtitle" color={onVoice.onStrong}>
             {id ? 'Tutup' : 'Ke Beranda'}
           </Txt>
         </Pressable>
@@ -249,31 +249,31 @@ export default function Alarm() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: light.voice }}>
+    <View style={{ flex: 1, backgroundColor: light.voiceCanvas }}>
       <StatusBar style="light" />
       <View style={{ alignItems: 'center', paddingTop: insets.top + 56, paddingHorizontal: 28, gap: 8 }}>
         <Inti size={96} onDark paused={!live} />
         <View style={{ marginTop: 24, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Icon name="bell" size={16} color={onForest.soft} />
-          <Txt weight={600} color={onForest.soft} style={{ fontSize: 15, lineHeight: 20 }}>
+          <Icon name="bell" size={16} color={onVoice.soft} />
+          <Txt weight={600} color={onVoice.soft} style={{ fontSize: 15, lineHeight: 20 }}>
             Pengingat · {dayLabel(item.date)}
           </Txt>
         </View>
         {preview ? (
-          <Txt v="caption" color={onForest.soft} style={{ textAlign: 'center' }}>
+          <Txt v="caption" color={onVoice.soft} style={{ textAlign: 'center' }}>
             Ini hanya pratinjau. Alarm yang sebenarnya tidak berubah.
           </Txt>
         ) : null}
         <Txt
           weight={600}
           tabular
-          color={onForest.strong}
+          color={onVoice.strong}
           maxFontSizeMultiplier={1.2}
           style={{ fontSize: 96, lineHeight: 104, letterSpacing: -2.9 }}
         >
           {item.time}
         </Txt>
-        <Txt weight={600} color={onForest.strong} style={{ fontSize: 28, lineHeight: 36, textAlign: 'center' }}>
+        <Txt weight={600} color={onVoice.strong} style={{ fontSize: 28, lineHeight: 36, textAlign: 'center' }}>
           {item.title}
         </Txt>
         {item.note ? (
@@ -285,14 +285,14 @@ export default function Alarm() {
               gap: 12,
               borderRadius: 20,
               borderWidth: 1,
-              borderColor: 'rgba(236,242,234,0.12)',
-              backgroundColor: 'rgba(236,242,234,0.07)',
+              borderColor: onVoice.buttonLine,
+              backgroundColor: onVoice.button,
               paddingVertical: 14,
               paddingHorizontal: 18,
             }}
           >
-            <Icon name={isFlight ? 'plane' : 'note'} size={22} color="#81C084" />
-            <Txt color={onForest.text} style={{ flexShrink: 1, fontSize: 17 }}>
+            <Icon name={isFlight ? 'plane' : 'note'} size={22} color={gradients.waves.mint} />
+            <Txt color={onVoice.text} style={{ flexShrink: 1, fontSize: 17 }}>
               {item.note}
             </Txt>
           </View>
@@ -320,14 +320,14 @@ function AlarmButton({ label, onPress, children }: { label: string; onPress: () 
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      android_ripple={{ color: 'rgba(236,242,234,0.16)' }}
+      android_ripple={{ color: onVoice.buttonLine }}
       style={{
         flex: 1,
         height: 56,
         borderRadius: 28,
         borderWidth: 1,
-        borderColor: onForest.buttonLine,
-        backgroundColor: onForest.button,
+        borderColor: onVoice.buttonLine,
+        backgroundColor: onVoice.button,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -335,7 +335,7 @@ function AlarmButton({ label, onPress, children }: { label: string; onPress: () 
       }}
     >
       {children}
-      <Txt weight={600} color={onForest.text}>
+      <Txt weight={600} color={onVoice.text}>
         {label}
       </Txt>
     </Pressable>

@@ -51,7 +51,7 @@ export function DeviceCardView({
   onTemp,
   onOpen,
 }: DeviceCardViewProps) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const step = (d: number) => {
     if (temp === undefined || temp + d < AC_MIN || temp + d > AC_MAX) return;
     void Haptics.selectionAsync();
@@ -64,8 +64,8 @@ export function DeviceCardView({
           style={{
             width: 40,
             height: 40,
-            borderRadius: 14,
-            backgroundColor: c.mint,
+            borderRadius: 20,
+            backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -73,7 +73,7 @@ export function DeviceCardView({
           <Icon
             name={guarded && kind !== 'lock' && kind !== 'camera' ? 'shield' : (KIND_ICON[kind] ?? 'home')}
             size={22}
-            color={c.green}
+            color={marker.rumah.ink}
           />
         </View>
         <View style={{ flex: 1 }}>
@@ -99,7 +99,7 @@ export function DeviceCardView({
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            backgroundColor: c.paper,
+            backgroundColor: c.bg,
             borderRadius: 16,
             padding: 4,
           }}
@@ -142,7 +142,7 @@ function StepButton({
       android_ripple={{ color: c.ripple, borderless: true, radius: 24 }}
       style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
     >
-      <Icon name={icon} size={24} color={disabled ? c.track : c.ink} />
+      <Icon name={icon} size={24} color={disabled ? c.sunken2 : c.text} />
     </Pressable>
   );
 }

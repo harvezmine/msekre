@@ -34,7 +34,7 @@ const COPY: Record<Step, { title: string; subtitle: string }> = {
 // Keamanan (di bawah Akun): PIN opsional, bawaan mati. Kalau dihidupkan, kamera, alarm rumah, dan kunci pintu minta PIN
 // sebelum dimatikan atau dibuka. Pembayaran tidak pernah memakai PIN.
 export default function Keamanan() {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const insets = useSafeAreaInsets();
   const security = useSecurity();
   const [flow, setFlow] = useState<Flow | null>(null);
@@ -102,7 +102,7 @@ export default function Keamanan() {
 
   if (flow?.kind === 'reset') {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper }}>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
         <BackHeader title="Keamanan" />
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -116,7 +116,7 @@ export default function Keamanan() {
   if (flow) {
     const { title, subtitle } = COPY[flow.step];
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper }}>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
         <BackHeader title="Keamanan" />
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -138,7 +138,7 @@ export default function Keamanan() {
 
   const label = 'Minta PIN untuk kamera, alarm rumah, dan kunci pintu';
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Keamanan" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32, gap: 12 }}>
         <ListGroup>
@@ -160,7 +160,7 @@ export default function Keamanan() {
           ) : null}
         </ListGroup>
         {security.failed && !state ? (
-          <Txt v="caption" color={c.clay} accessibilityLiveRegion="polite">
+          <Txt v="caption" color={marker.warn.ink} accessibilityLiveRegion="polite">
             Pengaturan keamanan belum bisa dimuat. Coba lagi sebentar ya.
           </Txt>
         ) : null}

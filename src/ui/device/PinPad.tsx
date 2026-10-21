@@ -42,7 +42,7 @@ const ROWS = [
 
 /** Isi lembar PIN (desain 2e): kunci, enam titik, tombol angka, Batal dan Hapus. */
 export function PinPad({ subtitle, title = 'Masukkan PIN', onSubmit, onCancel, onForgot, noun = 'PIN' }: Props) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const reduce = useReducedMotion();
   const [pin, setPin] = useState('');
   const [wrong, setWrong] = useState<string | null>(null);
@@ -111,12 +111,12 @@ export function PinPad({ subtitle, title = 'Masukkan PIN', onSubmit, onCancel, o
           width: 56,
           height: 56,
           borderRadius: 28,
-          backgroundColor: c.mint,
+          backgroundColor: c.sunken,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Icon name="lock" size={26} color={c.green} />
+        <Icon name="lock" size={26} color={c.text} />
       </View>
       <View style={{ alignItems: 'center', gap: 4 }}>
         <Txt v="title" accessibilityRole="header">
@@ -139,15 +139,15 @@ export function PinPad({ subtitle, title = 'Masukkan PIN', onSubmit, onCancel, o
               width: 14,
               height: 14,
               borderRadius: 7,
-              backgroundColor: i < pin.length ? c.ink : 'transparent',
+              backgroundColor: i < pin.length ? c.text : 'transparent',
               borderWidth: i < pin.length ? 0 : 1.75,
-              borderColor: wrong ? c.clay : c.dotEmpty,
+              borderColor: wrong ? marker.warn.ink : c.faint,
             }}
           />
         ))}
       </Animated.View>
       {wrong ? (
-        <Txt accessibilityRole="alert" accessibilityLiveRegion="polite" color={c.clay} weight={600}>
+        <Txt accessibilityRole="alert" accessibilityLiveRegion="polite" color={marker.warn.ink} weight={600}>
           {wrong}
         </Txt>
       ) : null}
@@ -173,7 +173,7 @@ export function PinPad({ subtitle, title = 'Masukkan PIN', onSubmit, onCancel, o
           android_ripple={{ color: c.ripple }}
           style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 12 }}
         >
-          <Txt weight={600} color={c.green}>
+          <Txt weight={600} color={c.brandInk}>
             Lupa PIN?
           </Txt>
         </Pressable>
@@ -208,11 +208,11 @@ function Key({
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: plain ? 'transparent' : c.quiet,
+        backgroundColor: plain ? 'transparent' : c.sunken,
       }}
     >
       {icon ? (
-        <Icon name="backspace" size={26} color={c.ink} />
+        <Icon name="backspace" size={26} color={c.text} />
       ) : (
         <Txt weight={600} style={small ? undefined : { fontSize: 24, lineHeight: 32 }}>
           {label}

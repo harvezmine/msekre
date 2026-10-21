@@ -111,6 +111,9 @@ jest.mock('expo-sharing', () => ({
 // tes memberi potongan suara mikrofon, menyelesaikan pemutaran, dan mengatur izin.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('expo-audio', () => require('./__tests__/expoAudioMock').createExpoAudioMock());
+// Skia (gelombang Mode Suara, Inti): tiruan ringan tanpa modul native dan tanpa CanvasKit. Lihat __tests__/skiaMock.ts.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('@shopify/react-native-skia', () => require('./__tests__/skiaMock').createSkiaMock());
 jest.mock('expo-keep-awake', () => ({
   activateKeepAwakeAsync: jest.fn(() => Promise.resolve()),
   deactivateKeepAwake: jest.fn(() => Promise.resolve()),

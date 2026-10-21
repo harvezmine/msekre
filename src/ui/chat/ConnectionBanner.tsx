@@ -38,16 +38,16 @@ export function useLateOffline(connection: ConnectionStatus): boolean {
 
 /** Bilah di bawah header dengan teks dari {@link bannerText}; tanpa teks tidak tampil. */
 export function ConnectionBanner({ text }: { text: string | null }) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   if (!text) return null;
   return (
     <View
       testID="banner-koneksi"
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
-      style={{ backgroundColor: c.clayBg, paddingVertical: 10, paddingHorizontal: 16 }}
+      style={{ backgroundColor: c.sunken, paddingVertical: 10, paddingHorizontal: 16 }}
     >
-      <Txt v="caption" color={c.clay} weight={600}>
+      <Txt v="caption" color={marker.warn.ink} weight={600}>
         {text}
       </Txt>
     </View>

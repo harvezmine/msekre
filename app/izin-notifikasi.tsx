@@ -64,7 +64,7 @@ function Isi() {
             onPress={() => close()}
             style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
           >
-            <Txt weight={600} color={c.green}>
+            <Txt weight={600} color={c.brandInk}>
               Nanti saja
             </Txt>
           </Pressable>

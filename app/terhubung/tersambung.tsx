@@ -17,7 +17,7 @@ import { useLive } from '@/ui/useLive';
 export default function Tersambung() {
   const { id, ok, reason } = useLocalSearchParams<{ id?: string; ok?: string; reason?: string }>();
   const serviceId = typeof id === 'string' ? id : '';
-  const { c } = useTheme();
+  const { c, shadow } = useTheme();
   const live = useLive();
   const insets = useSafeAreaInsets();
   const { ring } = useHome();
@@ -40,9 +40,7 @@ export default function Tersambung() {
 
   const done = () => router.dismissTo('/');
   const frame = (children: React.ReactNode) => (
-    <View style={{ flex: 1, backgroundColor: c.paper, justifyContent: 'center', padding: 24, gap: 16 }}>
-      {children}
-    </View>
+    <View style={{ flex: 1, backgroundColor: c.bg, justifyContent: 'center', padding: 24, gap: 16 }}>{children}</View>
   );
   const link = (label: string, onPress: () => void) => (
     <Pressable
@@ -51,7 +49,7 @@ export default function Tersambung() {
       onPress={onPress}
       style={{ minHeight: 48, justifyContent: 'center' }}
     >
-      <Txt weight={600} color={c.green} style={{ textAlign: 'center' }}>
+      <Txt weight={600} color={c.brandInk} style={{ textAlign: 'center' }}>
         {label}
       </Txt>
     </Pressable>
@@ -97,7 +95,7 @@ export default function Tersambung() {
   const joined = serviceJoined(service.id) ?? 'Mulai sekarang saya bisa membantu dari sini.';
   return (
     <ScrollView
-      style={{ backgroundColor: c.paper }}
+      style={{ backgroundColor: c.bg }}
       contentContainerStyle={{
         flexGrow: 1,
         paddingTop: insets.top + 72,
@@ -119,9 +117,8 @@ export default function Tersambung() {
       <View
         style={{
           marginTop: 24,
-          backgroundColor: c.card,
-          borderWidth: 1,
-          borderColor: c.line,
+          backgroundColor: c.surface,
+          boxShadow: shadow.e1,
           borderRadius: 20,
           paddingVertical: 4,
           paddingLeft: 16,
@@ -143,7 +140,7 @@ export default function Tersambung() {
           android_ripple={{ color: c.ripple }}
           style={{ height: 48, paddingHorizontal: 12, justifyContent: 'center' }}
         >
-          <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
+          <Txt weight={600} color={c.brandInk} style={{ fontSize: 15 }}>
             Ubah
           </Txt>
         </Pressable>
@@ -156,12 +153,12 @@ export default function Tersambung() {
         style={{
           height: 56,
           borderRadius: 28,
-          backgroundColor: c.green,
+          backgroundColor: c.brand,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Txt weight={600} color={c.onGreen} style={{ fontSize: 17 }}>
+        <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
           Selesai
         </Txt>
       </Pressable>

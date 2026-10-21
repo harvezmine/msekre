@@ -83,7 +83,7 @@ export function Orbit({
       style={{ width: W, height: H }}
     >
       <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
-        <Circle cx={layout.cx} cy={layout.cy} r={r} fill="none" stroke={c.sage} strokeOpacity={0.55} strokeWidth={1} />
+        <Circle cx={layout.cx} cy={layout.cy} r={r} fill="none" stroke={c.faint} strokeOpacity={0.55} strokeWidth={1} />
         {layout.nodes.map((p, i) => {
           const n = nodes[i]!;
           const line = {
@@ -91,7 +91,7 @@ export function Orbit({
             y1: p.line.y1,
             x2: p.line.x2,
             y2: p.line.y2,
-            stroke: c.sage,
+            stroke: c.faint,
             strokeWidth: 1,
             strokeDasharray: n.offline ? '3 4' : undefined,
           };
@@ -204,22 +204,21 @@ function JoinLine(props: {
 }
 
 function NodeFace({ node, joined = false }: { node: OrbitNode; joined?: boolean }) {
-  const { c } = useTheme();
+  const { c, marker, shadow } = useTheme();
   return (
     <View
       style={{
         width: NODE,
         height: NODE,
         borderRadius: NODE / 2,
-        borderWidth: 1,
-        borderColor: joined ? c.sage : c.line,
-        backgroundColor: node.offline ? c.paper : joined ? c.mint : c.card,
+        backgroundColor: node.offline ? c.bg : joined ? c.brandSoft : c.surface,
+        boxShadow: node.offline ? `inset 0 0 0 1.5px ${c.line}` : joined ? `inset 0 0 0 1.5px ${c.brand}` : shadow.e1,
         opacity: node.offline ? 0.7 : 1,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Icon name={node.icon} size={22} color={node.offline ? c.muted : joined ? c.green : c.ink} />
+      <Icon name={node.icon} size={22} color={node.offline ? c.muted : joined ? c.brandInk : c.text} />
       {node.offline && (
         <View
           style={{
@@ -229,9 +228,9 @@ function NodeFace({ node, joined = false }: { node: OrbitNode; joined?: boolean 
             width: 10,
             height: 10,
             borderRadius: 5,
-            backgroundColor: c.clay,
+            backgroundColor: marker.warn.base,
             borderWidth: 2,
-            borderColor: c.paper,
+            borderColor: c.bg,
           }}
         />
       )}
@@ -268,9 +267,9 @@ function FlowDot({ from, to }: { from: { x: number; y: number }; to: { x: number
           width: 8,
           height: 8,
           borderRadius: 4,
-          backgroundColor: c.leaf,
+          backgroundColor: c.brand,
           borderWidth: 2,
-          borderColor: c.paper,
+          borderColor: c.bg,
         },
         style,
       ]}

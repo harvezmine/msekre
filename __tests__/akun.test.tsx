@@ -140,7 +140,7 @@ test('avatar RW di Usaha membuka Akun', async () => {
 
 test('mode gelap memakai warna gelap', async () => {
   await show('dark');
-  expect(screen.getByText('Rina Wulandari')).toHaveStyle({ color: dark.ink });
+  expect(screen.getByText('Rina Wulandari')).toHaveStyle({ color: dark.text });
 });
 
 test('Keluar membuka lembar konfirmasi', async () => {

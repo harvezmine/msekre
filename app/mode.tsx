@@ -71,7 +71,7 @@ function Pilihan() {
                   {disabled ? 'Alamat server belum diatur' : o.note}
                 </Txt>
               </View>
-              {selected ? <Icon name="check" size={24} color={c.green} /> : null}
+              {selected ? <Icon name="check" size={24} color={c.brandInk} /> : null}
             </Pressable>
           );
         })}

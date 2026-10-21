@@ -15,7 +15,7 @@ import { useToast } from '@/ui/toastStore';
 
 // Daftar Terhubung (desain 2h, 2i): yang sudah tersambung, katalog menurut kelompok, Rumah, dan Lainnya.
 export default function Terhubung() {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const assistant = useAssistantName();
   const insets = useSafeAreaInsets();
   const toast = useToast();
@@ -24,7 +24,7 @@ export default function Terhubung() {
   const loaded = status === 'ready';
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <View style={{ paddingTop: insets.top, height: 64 + insets.top, justifyContent: 'center', paddingHorizontal: 8 }}>
         <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
       </View>
@@ -50,12 +50,12 @@ export default function Terhubung() {
                   height: 48,
                   paddingHorizontal: 24,
                   borderRadius: 24,
-                  backgroundColor: c.green,
+                  backgroundColor: c.brand,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Txt weight={600} color={c.onGreen}>
+                <Txt weight={600} color={c.onBrand}>
                   Coba lagi
                 </Txt>
               </Pressable>
@@ -75,7 +75,7 @@ export default function Terhubung() {
                 onPress={() => router.push(`/terhubung/${encodeURIComponent(s.id)}`)}
                 android_ripple={{ color: c.ripple }}
                 style={{
-                  backgroundColor: c.clayBg,
+                  backgroundColor: c.sunken,
                   borderRadius: 20,
                   paddingVertical: 12,
                   paddingHorizontal: 16,
@@ -84,16 +84,16 @@ export default function Terhubung() {
                   gap: 12,
                 }}
               >
-                <Icon name="info" size={22} color={c.clay} />
+                <Icon name="info" size={22} color={marker.warn.ink} />
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Txt weight={600} color={c.clay}>
+                  <Txt weight={600} color={marker.warn.ink}>
                     {s.name}
                   </Txt>
-                  <Txt v="caption" color={c.clay}>
+                  <Txt v="caption" color={marker.warn.ink}>
                     {s.attention?.text}
                   </Txt>
                 </View>
-                <Icon name="chevR" size={20} color={c.clay} />
+                <Icon name="chevR" size={20} color={marker.warn.ink} />
               </Pressable>
             ))}
 
@@ -143,7 +143,7 @@ export default function Terhubung() {
           onPress={() => toast('Menyambungkan layanan lain segera hadir.')}
           android_ripple={{ color: c.ripple }}
           style={{
-            backgroundColor: c.card,
+            backgroundColor: c.surface,
             borderWidth: 1,
             borderStyle: 'dashed',
             borderColor: c.line,
@@ -155,8 +155,8 @@ export default function Terhubung() {
             gap: 12,
           }}
         >
-          <Icon name="plus" size={22} color={c.green} />
-          <Txt weight={600} color={c.green}>
+          <Icon name="plus" size={22} color={c.brandInk} />
+          <Txt weight={600} color={c.brandInk}>
             Sambungkan layanan lain
           </Txt>
         </Pressable>

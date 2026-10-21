@@ -18,6 +18,7 @@ import { useDeviceControl } from '@/api/useDeviceControl';
 import { useHome } from '@/api/useHome';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '@/ui/Card';
+import { GradientField, Surface } from '@/ui/kit';
 import { Icon } from '@/ui/Icon';
 import { iconOr, type IconName } from '@/ui/icons';
 import { PlaceButton } from '@/ui/PlaceButton';
@@ -46,7 +47,7 @@ function FadeIn({ children }: { children: ReactNode }) {
 }
 
 export default function Beranda() {
-  const { c } = useTheme();
+  const { c, marker, shadow } = useTheme();
   const live = useLive();
   const openSuara = useOpenVoice();
   const insets = useSafeAreaInsets();
@@ -67,7 +68,9 @@ export default function Beranda() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+      {/* Latar gradasi lembut di belakang sapaan (resep `hero`), sampai ke bawah bilah status. */}
+      <GradientField recipe="hero" />
       <ScrollView contentContainerStyle={{ paddingTop: 8, paddingBottom: 24 }}>
         <View
           style={{
@@ -88,7 +91,8 @@ export default function Beranda() {
               width: 48,
               height: 48,
               borderRadius: 24,
-              backgroundColor: c.mint,
+              backgroundColor: c.surface,
+              boxShadow: shadow.e1,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -109,12 +113,12 @@ export default function Beranda() {
                   height: 48,
                   paddingHorizontal: 24,
                   borderRadius: 24,
-                  backgroundColor: c.green,
+                  backgroundColor: c.brand,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Txt weight={600} color={c.onGreen}>
+                <Txt weight={600} color={c.onBrand}>
                   Coba lagi
                 </Txt>
               </Pressable>
@@ -160,10 +164,21 @@ export default function Beranda() {
 
             <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
               {approval ? (
-                <View style={{ backgroundColor: c.mint, borderRadius: 24, padding: 20, gap: 16 }}>
-                  <Txt v="caption" weight={600} color={c.green}>
-                    Butuh persetujuan Anda
-                  </Txt>
+                <Surface variant="raised" padding={16} style={{ gap: 14 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: c.brand,
+                        boxShadow: `0 0 0 4px ${c.brandSoft}`,
+                      }}
+                    />
+                    <Txt v="caption" weight={600} color={c.brandInk}>
+                      Butuh persetujuan Anda
+                    </Txt>
+                  </View>
                   <Txt>{approvalText(approval)}</Txt>
                   <Pressable
                     accessibilityRole="button"
@@ -172,16 +187,16 @@ export default function Beranda() {
                     style={{
                       height: 48,
                       borderRadius: 24,
-                      backgroundColor: c.green,
+                      backgroundColor: c.brand,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    <Txt weight={600} color={c.onGreen}>
+                    <Txt weight={600} color={c.onBrand}>
                       Lihat
                     </Txt>
                   </Pressable>
-                </View>
+                </Surface>
               ) : null}
 
               {home.agendaToday.length > 0 ? (
@@ -200,7 +215,7 @@ export default function Beranda() {
                       onPress={() => router.navigate('/agenda')}
                       style={{ paddingVertical: 12, paddingLeft: 12 }}
                     >
-                      <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
+                      <Txt weight={600} color={c.brandInk} style={{ fontSize: 15 }}>
                         Lihat semua
                       </Txt>
                     </Pressable>
@@ -270,24 +285,22 @@ export default function Beranda() {
                     <Txt weight={600} tabular style={{ fontSize: 28, lineHeight: 36, letterSpacing: -0.28 }}>
                       {home.business.sales}
                     </Txt>
-                    <Txt weight={500} color={home.business.down ? c.clay : c.leafText}>
+                    <Txt weight={500} color={home.business.down ? marker.warn.ink : c.brandInk}>
                       {home.business.change}
                     </Txt>
                   </View>
                   {alert ? (
-                    <View
-                      style={{
-                        backgroundColor: c.clayBg,
-                        borderRadius: 16,
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 10,
-                      }}
-                    >
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.clay }} />
-                      <Txt weight={500} color={c.clay} style={{ flexShrink: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 4,
+                          backgroundColor: marker.warn.base,
+                          boxShadow: `0 0 0 4px ${c.sunken}`,
+                        }}
+                      />
+                      <Txt weight={500} style={{ flexShrink: 1 }}>
                         {alert}
                       </Txt>
                     </View>
@@ -303,19 +316,19 @@ export default function Beranda() {
 }
 
 function IconTile({ icon, tinted = false }: { icon: IconName; tinted?: boolean }) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   return (
     <View
       style={{
         width: 40,
         height: 40,
-        borderRadius: 14,
-        backgroundColor: tinted ? c.mint : c.paper,
+        borderRadius: 20,
+        backgroundColor: c.sunken,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Icon name={icon} size={22} color={tinted ? c.green : c.ink} />
+      <Icon name={icon} size={22} color={tinted ? marker.rumah.ink : c.text} />
     </View>
   );
 }

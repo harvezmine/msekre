@@ -31,7 +31,7 @@ export function SourcesRow({ sources }: { sources: BusinessSource[] }) {
           onPress={() => router.push(s.service ? `/terhubung/masuk?id=${encodeURIComponent(s.service)}` : '/terhubung')}
           style={{ minHeight: 48, justifyContent: 'center' }}
         >
-          <Txt weight={600} color={c.green}>
+          <Txt weight={600} color={c.brandInk}>
             Sambungkan {s.label}
           </Txt>
         </Pressable>

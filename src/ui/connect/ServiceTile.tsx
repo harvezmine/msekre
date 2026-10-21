@@ -17,7 +17,7 @@ export function ServiceTile({ name }: { name: string }) {
         width: 40,
         height: 40,
         borderRadius: 14,
-        backgroundColor: c.paper,
+        backgroundColor: c.bg,
         alignItems: 'center',
         justifyContent: 'center',
       }}

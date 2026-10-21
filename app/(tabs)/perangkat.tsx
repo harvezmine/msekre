@@ -20,7 +20,7 @@ import { useToast } from '@/ui/toastStore';
 const GAP = 12;
 
 export default function Perangkat() {
-  const { c } = useTheme();
+  const { c, shadow } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { home } = useHome();
@@ -71,7 +71,7 @@ export default function Perangkat() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 96 }}>
         <View
           style={{
@@ -94,14 +94,13 @@ export default function Perangkat() {
                 width: 48,
                 height: 48,
                 borderRadius: 24,
-                borderWidth: 1,
-                borderColor: c.line,
-                backgroundColor: c.card,
+                boxShadow: shadow.e1,
+                backgroundColor: c.surface,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Icon name="plus" size={22} color={c.ink} />
+              <Icon name="plus" size={22} color={c.text} />
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -111,7 +110,8 @@ export default function Perangkat() {
                 width: 48,
                 height: 48,
                 borderRadius: 24,
-                backgroundColor: c.mint,
+                backgroundColor: c.surface,
+                boxShadow: shadow.e1,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -137,12 +137,12 @@ export default function Perangkat() {
                   height: 48,
                   paddingHorizontal: 24,
                   borderRadius: 24,
-                  backgroundColor: c.green,
+                  backgroundColor: c.brand,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Txt weight={600} color={c.onGreen}>
+                <Txt weight={600} color={c.onBrand}>
                   Coba lagi
                 </Txt>
               </Pressable>

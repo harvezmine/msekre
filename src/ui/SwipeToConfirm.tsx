@@ -4,7 +4,7 @@ import { View, type LayoutChangeEvent } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { onForest } from '@/theme/tokens';
+import { onVoice } from '@/theme/tokens';
 import { Icon } from './Icon';
 import { Txt } from './Txt';
 
@@ -80,12 +80,12 @@ export function SwipeToConfirm({ label, actionLabel, onConfirm }: Props) {
       style={{
         height: TRACK_H,
         borderRadius: TRACK_H / 2,
-        backgroundColor: 'rgba(236,242,234,0.1)',
+        backgroundColor: onVoice.button,
         justifyContent: 'center',
       }}
     >
       <Animated.View style={[{ alignItems: 'center', paddingLeft: 40 }, labelStyle]}>
-        <Txt weight={600} color={onForest.label} style={{ fontSize: 17 }}>
+        <Txt weight={600} color={onVoice.label} style={{ fontSize: 17 }}>
           {label}
         </Txt>
       </Animated.View>
@@ -99,14 +99,14 @@ export function SwipeToConfirm({ label, actionLabel, onConfirm }: Props) {
               width: THUMB,
               height: THUMB,
               borderRadius: THUMB / 2,
-              backgroundColor: onForest.strong,
+              backgroundColor: onVoice.strong,
               alignItems: 'center',
               justifyContent: 'center',
             },
             thumbStyle,
           ]}
         >
-          <Icon name="chevR" size={26} color="#0E3A2C" />
+          <Icon name="chevR" size={26} color={onVoice.onStrong} />
         </Animated.View>
       </GestureDetector>
     </View>

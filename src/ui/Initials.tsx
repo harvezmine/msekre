@@ -7,9 +7,9 @@ import { Txt } from './Txt';
 export function Initials({ size = 15 }: { size?: number }) {
   const { c } = useTheme();
   const { initials } = useProfile();
-  if (!initials) return <Icon name="user" size={Math.round(size * 1.5)} color={c.green} />;
+  if (!initials) return <Icon name="user" size={Math.round(size * 1.5)} color={c.text} />;
   return (
-    <Txt weight={700} color={c.green} style={{ fontSize: size }}>
+    <Txt weight={700} color={c.text} style={{ fontSize: size }}>
       {initials}
     </Txt>
   );

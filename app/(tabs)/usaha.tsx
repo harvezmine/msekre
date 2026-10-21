@@ -18,7 +18,7 @@ import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 
 export default function Usaha() {
-  const { c } = useTheme();
+  const { c, shadow } = useTheme();
   const insets = useSafeAreaInsets();
   const { home } = useHome();
   const place = home?.place ?? null;
@@ -34,7 +34,7 @@ export default function Usaha() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 96 }}>
         <View
           style={{
@@ -55,7 +55,8 @@ export default function Usaha() {
               width: 48,
               height: 48,
               borderRadius: 24,
-              backgroundColor: c.mint,
+              backgroundColor: c.surface,
+              boxShadow: shadow.e1,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -101,7 +102,7 @@ export default function Usaha() {
                 onPress={() => router.push('/tempat')}
                 style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Txt weight={600} color={c.green}>
+                <Txt weight={600} color={c.brandInk}>
                   Pilih tempat
                 </Txt>
               </Pressable>
@@ -124,12 +125,12 @@ function Action({ label, onPress }: { label: string; onPress: () => void }) {
       style={{
         height: 52,
         borderRadius: 26,
-        backgroundColor: c.green,
+        backgroundColor: c.brand,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Txt weight={600} color={c.onGreen}>
+      <Txt weight={600} color={c.onBrand}>
         {label}
       </Txt>
     </Pressable>

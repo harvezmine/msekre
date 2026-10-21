@@ -30,7 +30,7 @@ export default function Notifikasi() {
     if (!res.ok && res.message) toast(res.message);
   };
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Notifikasi" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32, gap: 12 }}>
         <ListGroup>
@@ -85,7 +85,7 @@ export default function Notifikasi() {
             <Txt color={c.muted}>{status === 'error' ? error : 'Sebentar ya, saya ambil dulu.'}</Txt>
             {status === 'error' ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Coba lagi" onPress={() => void retry()}>
-                <Txt weight={600} color={c.green}>
+                <Txt weight={600} color={c.brandInk}>
                   Coba lagi
                 </Txt>
               </Pressable>

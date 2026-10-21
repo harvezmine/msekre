@@ -46,7 +46,7 @@ export function WeekList({ today, now, tzOffsetMinutes, itemsOn, onToggle, onLon
                 {dayLabel(date)}
               </Txt>
               {date === today ? (
-                <Txt v="caption" color={c.green} weight={600}>
+                <Txt v="caption" color={c.brandInk} weight={600}>
                   Hari ini
                 </Txt>
               ) : null}

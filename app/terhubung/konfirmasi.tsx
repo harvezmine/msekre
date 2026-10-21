@@ -18,7 +18,7 @@ export default function Konfirmasi() {
 }
 
 function Isi({ id, putus }: { id: string; putus: boolean }) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const assistant = useAssistantName();
   const { service, forget, disconnect, busy } = useConnections(id);
   const { close } = useSheet();
@@ -71,13 +71,13 @@ function Isi({ id, putus }: { id: string; putus: boolean }) {
           style={{
             height: 56,
             borderRadius: 28,
-            backgroundColor: c.clay,
+            backgroundColor: marker.warn.ink,
             alignItems: 'center',
             justifyContent: 'center',
             opacity: working ? 0.6 : 1,
           }}
         >
-          <Txt weight={600} color={c.onGreen} style={{ fontSize: 17 }}>
+          <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
             {putus ? 'Ya, putuskan' : 'Ya, hapus'}
           </Txt>
         </Pressable>
@@ -87,7 +87,7 @@ function Isi({ id, putus }: { id: string; putus: boolean }) {
           onPress={() => close()}
           style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Txt weight={600} color={c.green}>
+          <Txt weight={600} color={c.brandInk}>
             Batal
           </Txt>
         </Pressable>

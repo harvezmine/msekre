@@ -16,7 +16,7 @@ import { useToast } from '@/ui/toastStore';
 
 // Nama dan gaya asisten (di bawah Akun): nama 2 sampai 20 huruf dengan contoh sapaan langsung, dan gaya bicara.
 export default function Asisten() {
-  const { c } = useTheme();
+  const { c, marker, shadow } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { account, status, error, retry, setAssistant, busy } = useAccount();
@@ -28,14 +28,14 @@ export default function Asisten() {
 
   if (!account) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper }}>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
         <BackHeader title="Nama dan gaya asisten" />
         <Txt color={c.muted} style={{ padding: 24, textAlign: 'center' }}>
           {status === 'error' ? error : 'Sebentar ya, saya ambil dulu.'}
         </Txt>
         {status === 'error' ? (
           <Pressable accessibilityRole="button" accessibilityLabel="Coba lagi" onPress={() => void retry()}>
-            <Txt weight={600} color={c.green} style={{ textAlign: 'center' }}>
+            <Txt weight={600} color={c.brandInk} style={{ textAlign: 'center' }}>
               Coba lagi
             </Txt>
           </Pressable>
@@ -65,7 +65,7 @@ export default function Asisten() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.paper }} behavior="padding">
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior="padding">
       <BackHeader title="Nama dan gaya asisten" />
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -92,19 +92,19 @@ export default function Asisten() {
             style={{
               height: 56,
               borderRadius: 20,
-              borderWidth: focused ? 2 : 1,
-              borderColor: hint ? c.clay : focused ? c.green : c.line,
-              backgroundColor: c.card,
+              borderWidth: 1.5,
+              borderColor: hint ? marker.warn.base : focused ? c.text : 'transparent',
+              backgroundColor: c.sunken,
               paddingHorizontal: 16,
               fontSize: 17,
-              color: c.ink,
+              color: c.text,
             }}
           />
           <Txt color={c.muted} style={{ paddingHorizontal: 4 }}>
             {greetingPreview(trimmed)}
           </Txt>
           {hint ? (
-            <Txt v="caption" color={c.clay} accessibilityLiveRegion="polite" style={{ paddingHorizontal: 4 }}>
+            <Txt v="caption" color={marker.warn.ink} accessibilityLiveRegion="polite" style={{ paddingHorizontal: 4 }}>
               {hint}
             </Txt>
           ) : null}
@@ -132,9 +132,10 @@ export default function Asisten() {
                   gap: 12,
                   padding: 16,
                   borderRadius: 20,
-                  borderWidth: on ? 1.5 : 1,
-                  borderColor: on ? c.green : c.line,
-                  backgroundColor: on ? c.mint : c.card,
+                  borderWidth: 2,
+                  borderColor: on ? c.brand : 'transparent',
+                  backgroundColor: on ? c.brandSoft : c.surface,
+                  boxShadow: on ? undefined : shadow.e1,
                 }}
               >
                 <View
@@ -143,17 +144,17 @@ export default function Asisten() {
                     height: 22,
                     borderRadius: 11,
                     borderWidth: 2,
-                    borderColor: on ? c.green : c.muted,
+                    borderColor: on ? c.brand : c.muted,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginTop: 1,
                   }}
                 >
-                  {on ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.green }} /> : null}
+                  {on ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.brand }} /> : null}
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Txt weight={600}>{s.title}</Txt>
-                  <Txt color={on ? c.ink : c.muted}>{`“${s.example}”`}</Txt>
+                  <Txt color={on ? c.text : c.muted}>{`“${s.example}”`}</Txt>
                 </View>
               </Pressable>
             );

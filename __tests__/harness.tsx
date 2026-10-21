@@ -37,6 +37,7 @@ import Konfirmasi from '../app/terhubung/konfirmasi';
 import Terhubung from '../app/terhubung/index';
 import Masuk from '../app/terhubung/masuk';
 import Tersambung from '../app/terhubung/tersambung';
+import KitDemo from '../app/dev/kit';
 import { renderWithProviders, useSample } from './helpers';
 import { AfterSignIn } from '@/api/AfterSignIn';
 import { useApi } from '@/api/ApiProvider';
@@ -84,6 +85,7 @@ export const ROUTES: Record<string, ComponentType> = {
   '/terhubung/konfirmasi': Konfirmasi,
   '/terhubung/masuk': Masuk,
   '/terhubung/tersambung': Tersambung,
+  '/dev/kit': KitDemo,
 };
 
 interface Entry {

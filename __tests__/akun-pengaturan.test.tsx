@@ -123,7 +123,7 @@ describe('Nama dan gaya asisten', () => {
   test('mode gelap', async () => {
     await show('/akun/asisten', { scheme: 'dark' });
     expect(screen.getByText('Halo, saya Nadia.')).toBeOnTheScreen();
-    expect(screen.getByText('Gaya bicara')).toHaveStyle({ color: dark.ink });
+    expect(screen.getByText('Gaya bicara')).toHaveStyle({ color: dark.text });
   });
 });
 

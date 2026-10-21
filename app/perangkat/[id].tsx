@@ -27,7 +27,7 @@ export const TEMP_DEBOUNCE_MS = 500;
 // Detail AC (desain 2d): putaran suhu, mode, kipas, jadwal, dan tombol nyala/mati. Semua perintah lewat server
 // (`controlDevice`), jadi keadaan AC-nya sama dengan Beranda dan chat.
 export default function DetailAc() {
-  const { c } = useTheme();
+  const { c, shadow, marker } = useTheme();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const toast = useToast();
@@ -64,13 +64,13 @@ export default function DetailAc() {
     // Belum selesai dimuat: tunggu dulu, jangan langsung bilang tidak ada.
     if (!data) {
       return (
-        <View style={{ flex: 1, backgroundColor: c.paper }}>
+        <View style={{ flex: 1, backgroundColor: c.bg }}>
           <BackHeader title="Perangkat" />
         </View>
       );
     }
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper }}>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
         <BackHeader title="Perangkat" />
         <View style={{ padding: 24, gap: 16, alignItems: 'flex-start' }}>
           <Txt>Perangkat ini tidak ditemukan. Mungkin sudah dihapus dari tempat ini.</Txt>
@@ -80,7 +80,7 @@ export default function DetailAc() {
             onPress={() => router.back()}
             style={{ minHeight: 48, justifyContent: 'center' }}
           >
-            <Txt weight={600} color={c.green}>
+            <Txt weight={600} color={c.brandInk}>
               Kembali ke Perangkat
             </Txt>
           </Pressable>
@@ -97,7 +97,7 @@ export default function DetailAc() {
     via === 'cloud' ? `lewat aplikasi ${brand ?? 'merek'}` : `${brand ? `${brand} · ` : ''}lewat Kotak Sekretaris AI`;
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title={name} sub={sub} />
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: Math.max(24, insets.bottom + 12), gap: 16 }}
@@ -111,9 +111,8 @@ export default function DetailAc() {
         {via === 'ir' ? (
           <View
             style={{
-              backgroundColor: c.card,
-              borderWidth: 1,
-              borderColor: c.line,
+              backgroundColor: c.surface,
+              boxShadow: shadow.e1,
               borderRadius: 20,
               padding: 16,
               flexDirection: 'row',
@@ -121,7 +120,7 @@ export default function DetailAc() {
             }}
           >
             <View style={{ marginTop: 1 }}>
-              <Icon name="info" size={22} color={c.green} />
+              <Icon name="info" size={22} color={marker.rumah.ink} />
             </View>
             <View style={{ flex: 1, gap: 4 }}>
               <Txt weight={500}>
@@ -154,16 +153,17 @@ export default function DetailAc() {
                     flex: 1,
                     height: 72,
                     borderRadius: 20,
-                    borderWidth: selected ? 1.5 : 1,
-                    borderColor: selected ? c.green : c.line,
-                    backgroundColor: selected ? c.mint : c.card,
+                    borderWidth: 2,
+                    borderColor: selected ? c.brand : 'transparent',
+                    backgroundColor: selected ? c.brandSoft : c.surface,
+                    boxShadow: selected ? undefined : shadow.e1,
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 4,
                   }}
                 >
-                  <Icon name={m.icon} size={22} color={selected ? c.green : c.ink} />
-                  <Txt v="caption" weight={selected ? 600 : 500} color={selected ? c.green : c.ink}>
+                  <Icon name={m.icon} size={22} color={selected ? c.brandInk : c.text} />
+                  <Txt v="caption" weight={selected ? 600 : 500} color={selected ? c.brandInk : c.text}>
                     {m.mode}
                   </Txt>
                 </Pressable>
@@ -185,9 +185,8 @@ export default function DetailAc() {
           </Txt>
           <View
             style={{
-              backgroundColor: c.card,
-              borderWidth: 1,
-              borderColor: c.line,
+              backgroundColor: c.surface,
+              boxShadow: shadow.e1,
               borderRadius: 20,
               paddingVertical: 4,
               paddingLeft: 16,
@@ -204,7 +203,7 @@ export default function DetailAc() {
                 borderBottomColor: c.line,
               }}
             >
-              <Icon name="clock" size={22} color={c.green} />
+              <Icon name="clock" size={22} color={marker.rumah.ink} />
               <View style={{ flex: 1 }}>
                 <Txt weight={500}>Mati sendiri jam 05.00</Txt>
                 <Txt v="caption" color={c.muted}>
@@ -220,8 +219,8 @@ export default function DetailAc() {
               android_ripple={{ color: c.ripple }}
               style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12 }}
             >
-              <Icon name="plus" size={22} color={c.green} />
-              <Txt weight={600} color={c.green}>
+              <Icon name="plus" size={22} color={c.brandInk} />
+              <Txt weight={600} color={c.brandInk}>
                 Tambah jadwal
               </Txt>
             </Pressable>
@@ -236,15 +235,17 @@ export default function DetailAc() {
           style={{
             height: 56,
             borderRadius: 28,
-            backgroundColor: c.green,
+            // Daya: hijau saat menyala, netral saat mati.
+            backgroundColor: on ? c.brand : c.surface,
+            boxShadow: on ? shadow.power : shadow.key,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 8,
           }}
         >
-          <Icon name="power" size={22} color={c.onGreen} />
-          <Txt v="subtitle" color={c.onGreen}>
+          <Icon name="power" size={22} color={on ? c.onBrand : c.text} />
+          <Txt v="subtitle" color={on ? c.onBrand : c.text}>
             {on ? 'Matikan AC' : 'Nyalakan AC'}
           </Txt>
         </Pressable>
@@ -264,7 +265,7 @@ function RoundButton({
   disabled: boolean;
   onPress: () => void;
 }) {
-  const { c } = useTheme();
+  const { c, shadow } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -277,14 +278,13 @@ function RoundButton({
         width: 56,
         height: 56,
         borderRadius: 28,
-        borderWidth: 1,
-        borderColor: c.line,
-        backgroundColor: c.card,
+        boxShadow: shadow.e1,
+        backgroundColor: c.surface,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Icon name={icon} size={24} color={disabled ? c.track : c.ink} />
+      <Icon name={icon} size={24} color={disabled ? c.sunken2 : c.text} />
     </Pressable>
   );
 }

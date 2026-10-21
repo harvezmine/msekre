@@ -30,7 +30,7 @@ interface Props {
  * baru dikirim bersama di langkah terakhir; kode yang salah kembali ke langkah kode dengan pesan.
  */
 export function PinReset({ onDone, onCancel }: Props) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const { mode } = useApi();
   const security = useSecurity({ load: false });
   const [step, setStep] = useState<Step>('ask');
@@ -63,7 +63,7 @@ export function PinReset({ onDone, onCancel }: Props) {
           Saya kirim kode 6 angka ke WhatsApp Anda. Dengan kode itu Anda bisa membuat PIN yang baru.
         </Txt>
         {problem ? (
-          <Txt accessibilityRole="alert" accessibilityLiveRegion="polite" color={c.clay} weight={600}>
+          <Txt accessibilityRole="alert" accessibilityLiveRegion="polite" color={marker.warn.ink} weight={600}>
             {problem}
           </Txt>
         ) : null}
@@ -79,7 +79,7 @@ export function PinReset({ onDone, onCancel }: Props) {
             onPress={onCancel}
             style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
           >
-            <Txt weight={600} color={c.green}>
+            <Txt weight={600} color={c.brandInk}>
               Batal
             </Txt>
           </Pressable>
@@ -133,7 +133,7 @@ export function PinReset({ onDone, onCancel }: Props) {
         <Txt
           accessibilityRole="alert"
           accessibilityLiveRegion="polite"
-          color={c.clay}
+          color={marker.warn.ink}
           weight={600}
           style={{ textAlign: 'center' }}
         >

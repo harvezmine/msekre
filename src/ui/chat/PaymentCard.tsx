@@ -23,12 +23,12 @@ export function PaymentCard({ payment }: { payment: Payment }) {
             width: 40,
             height: 40,
             borderRadius: 14,
-            backgroundColor: c.mint,
+            backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name="bolt" size={22} color={c.green} />
+          <Icon name="bolt" size={22} color={c.text} />
         </View>
         <Txt weight={600}>{payment.title}</Txt>
       </View>

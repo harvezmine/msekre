@@ -389,6 +389,6 @@ describe('Akun lewat HttpTransport', () => {
     const { api } = serverApi(() => undefined);
     await showRoute('/akun/hp', { api, scheme: 'dark' });
     await settle();
-    expect(screen.getByText('Galaxy A54')).toHaveStyle({ color: dark.ink });
+    expect(screen.getByText('Galaxy A54')).toHaveStyle({ color: dark.text });
   });
 });

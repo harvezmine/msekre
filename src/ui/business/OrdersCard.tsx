@@ -22,7 +22,8 @@ export const orderStatusLabel = (key: string) => STATUS[key] ?? words(key);
 
 /** Pesanan marketplace, dikelompokkan per saluran: berapa yang perlu dikirim, lalu daftar pesanannya. */
 export function OrdersCard({ orders }: { orders: BusinessOrder[] }) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
+  const a = marker.usaha;
   const channels = [...new Set(orders.map((o) => o.channel))];
   return (
     <>
@@ -38,12 +39,12 @@ export function OrdersCard({ orders }: { orders: BusinessOrder[] }) {
                   width: 40,
                   height: 40,
                   borderRadius: 14,
-                  backgroundColor: c.mint,
+                  backgroundColor: c.sunken,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Icon name="bag" size={22} color={c.green} />
+                <Icon name="bag" size={22} color={a.ink} />
               </View>
               <View style={{ flex: 1 }}>
                 <Txt weight={500}>
@@ -70,7 +71,7 @@ export function OrdersCard({ orders }: { orders: BusinessOrder[] }) {
               >
                 <View style={{ flex: 1 }}>
                   <Txt>{o.summary}</Txt>
-                  <Txt v="caption" color={o.status === TO_SEND ? c.clay : c.muted}>
+                  <Txt v="caption" color={o.status === TO_SEND ? marker.warn.ink : c.muted}>
                     {orderStatusLabel(o.status)}
                   </Txt>
                 </View>

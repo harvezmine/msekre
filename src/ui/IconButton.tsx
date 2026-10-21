@@ -7,7 +7,7 @@ interface Props {
   icon: IconName;
   label: string;
   onPress?: () => void;
-  /** Latar mint dan ikon hijau, seperti tombol Mode Suara di header chat. */
+  /** Latar `sunken` netral, seperti tombol Mode Suara di header chat. */
   tinted?: boolean;
   color?: string;
 }
@@ -26,10 +26,10 @@ export function IconButton({ icon, label, onPress, tinted = false, color }: Prop
         borderRadius: 24,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: tinted ? c.mint : 'transparent',
+        backgroundColor: tinted ? c.sunken : 'transparent',
       }}
     >
-      <Icon name={icon} size={tinted ? 22 : 24} color={color ?? (tinted ? c.green : c.ink)} />
+      <Icon name={icon} size={tinted ? 22 : 24} color={color ?? c.text} />
     </Pressable>
   );
 }

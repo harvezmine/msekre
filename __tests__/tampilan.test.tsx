@@ -43,7 +43,7 @@ afterEach(() => spies.splice(0).forEach((s) => s.mockRestore()));
 
 function Probe() {
   const { scheme, c } = useTheme();
-  return <Text testID="probe">{`${scheme} ${c.paper}`}</Text>;
+  return <Text testID="probe">{`${scheme} ${c.bg}`}</Text>;
 }
 
 const show = async () => {
@@ -68,34 +68,34 @@ const systemChange = async (next: 'light' | 'dark') => {
 test('bawaannya Ikuti HP dan mengikuti mode HP, juga saat HP berganti', async () => {
   await show();
   expect(radio('Ikuti HP').props.accessibilityState.checked).toBe(true);
-  expect(probe()).toBe(`light ${light.paper}`);
+  expect(probe()).toBe(`light ${light.bg}`);
   await systemChange('dark');
-  expect(probe()).toBe(`dark ${dark.paper}`);
+  expect(probe()).toBe(`dark ${dark.bg}`);
   await systemChange('light');
-  expect(probe()).toBe(`light ${light.paper}`);
+  expect(probe()).toBe(`light ${light.bg}`);
 });
 
 test('Gelap berlaku seketika walau HP terang, dan diteruskan ke bagian native', async () => {
   await show();
   await fireEvent.press(radio('Gelap'));
-  expect(probe()).toBe(`dark ${dark.paper}`);
+  expect(probe()).toBe(`dark ${dark.bg}`);
   expect(radio('Gelap').props.accessibilityState.checked).toBe(true);
   expect(setScheme).toHaveBeenLastCalledWith('dark');
   await systemChange('light');
-  expect(probe()).toBe(`dark ${dark.paper}`);
+  expect(probe()).toBe(`dark ${dark.bg}`);
   await fireEvent.press(radio('Terang'));
   expect(setScheme).toHaveBeenLastCalledWith('light');
-  expect(probe()).toBe(`light ${light.paper}`);
+  expect(probe()).toBe(`light ${light.bg}`);
 });
 
 test('Ikuti HP mengembalikan ke sistem dan mengikuti HP lagi', async () => {
   phone = 'dark';
   await show();
   await fireEvent.press(radio('Terang'));
-  expect(probe()).toBe(`light ${light.paper}`);
+  expect(probe()).toBe(`light ${light.bg}`);
   await fireEvent.press(radio('Ikuti HP'));
   expect(setScheme).toHaveBeenLastCalledWith('unspecified');
-  expect(probe()).toBe(`dark ${dark.paper}`);
+  expect(probe()).toBe(`dark ${dark.bg}`);
 });
 
 test('pilihan tersimpan di HP dan dipakai lagi saat aplikasi dibuka ulang, sebelum layar tampil', async () => {
@@ -105,14 +105,14 @@ test('pilihan tersimpan di HP dan dipakai lagi saat aplikasi dibuka ulang, sebel
   await first.unmount();
   setScheme.mockClear();
   await show();
-  expect(probe()).toBe(`dark ${dark.paper}`);
+  expect(probe()).toBe(`dark ${dark.bg}`);
   expect(setScheme).toHaveBeenCalledWith('dark');
 });
 
 test('nilai tersimpan yang tidak dikenal dianggap Ikuti HP', async () => {
   mockStore.set('tampilan', 'ungu');
   await show();
-  expect(probe()).toBe(`light ${light.paper}`);
+  expect(probe()).toBe(`light ${light.bg}`);
   expect(setScheme).not.toHaveBeenCalled();
 });
 
@@ -128,8 +128,8 @@ test('Beranda berlatar gelap di seluruh aplikasi walau HP terang', async () => {
     node.children?.forEach(walk);
   };
   [screen.toJSON()].flat().forEach(walk);
-  expect(backgrounds).toContain(dark.paper.toLowerCase());
-  expect(backgrounds).not.toContain(light.paper.toLowerCase());
+  expect(backgrounds).toContain(dark.bg.toLowerCase());
+  expect(backgrounds).not.toContain(light.bg.toLowerCase());
 });
 
 test('baris Tampilan di Akun menunjukkan pilihan sekarang', async () => {

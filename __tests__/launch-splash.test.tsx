@@ -81,7 +81,7 @@ describe('layar pembuka', () => {
 
   test('bingkai pertama: warna latar dan tanda sama dengan layar pembuka asli', async () => {
     await mount();
-    expect(screen.getByTestId('launch-splash')).toHaveStyle({ backgroundColor: light.paper, opacity: 1 });
+    expect(screen.getByTestId('launch-splash')).toHaveStyle({ backgroundColor: light.bg, opacity: 1 });
     expect(screen.getByTestId('launch-splash-mark', { includeHiddenElements: true })).toHaveStyle({
       width: 120,
       height: 132,
@@ -90,7 +90,7 @@ describe('layar pembuka', () => {
 
   test('mode gelap memakai warna gelap', async () => {
     await mount('dark');
-    expect(screen.getByTestId('launch-splash')).toHaveStyle({ backgroundColor: dark.paper });
+    expect(screen.getByTestId('launch-splash')).toHaveStyle({ backgroundColor: dark.bg });
   });
 
   test('menunggu layar asli hilang sebelum bergerak', async () => {

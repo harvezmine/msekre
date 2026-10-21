@@ -3,27 +3,24 @@ import { StyleSheet } from 'react-native';
 import { LAYAR } from './daftar-layar';
 import { renderWithProviders } from './helpers';
 import { useLocalSearchParams } from 'expo-router';
-import { dark, light } from '@/theme/tokens';
+import { dark, light, onVoice } from '@/theme/tokens';
 
-// Latar yang hanya cocok di mode terang. Di mode gelap tidak boleh muncul di layar mana pun.
+// Latar yang hanya cocok di mode terang. Di mode gelap tidak boleh muncul di layar mana pun. Putih (#FFFFFF) tidak
+// termasuk: dipakai juga untuk jempol sakelar dan kotak QRIS di dua mode.
 const HANYA_TERANG = new Set(
-  [light.paper, light.card, light.mint, light.quiet, light.quietTile].map((h) => h.toLowerCase()),
+  [light.bg, light.sunken, light.sunken2, light.brandSoft, light.line].map((h) => h.toLowerCase()),
 );
-// Ciri palet gelap: salah satunya harus ada di tiap layar berlatar kertas.
-const CIRI_GELAP = [dark.paper, dark.ink, dark.card, dark.mint].map((h) => h.toLowerCase());
+// Ciri palet gelap: salah satunya harus ada di tiap layar berlatar biasa.
+const CIRI_GELAP = [dark.bg, dark.text, dark.surface, dark.sunken].map((h) => h.toLowerCase());
 
 /**
  * Pengecualian yang disengaja (dicari lewat nama layar dan warna):
- * - Mode Suara: tombol "Selesai" memang terang (onForest.strong, #F6F6F0) di atas latar forest, di dua mode.
- * - Alarm: tombol geser "Matikan" juga terang (onForest.strong) di atas forest, di dua mode.
  * - Tampilan: petak pratinjau "Terang" memakai warna terang di dua mode.
- * - QRIS di chat memakai kotak putih (#FFFFFF) supaya bisa dipindai; putih tidak termasuk daftar terang di atas.
+ * Mode Suara dan Alarm memakai kanvas suara (#07090B) dengan tombol terang `onVoice.strong` di dua mode.
  */
 const IZIN: Record<string, string[]> = {
-  Suara: [light.paper.toLowerCase()],
-  Alarm: [light.paper.toLowerCase()],
   // Petak pratinjau pilihan Terang memang berwarna terang.
-  Tampilan: [light.paper.toLowerCase(), light.card.toLowerCase()],
+  Tampilan: [light.bg.toLowerCase(), light.line.toLowerCase()],
 };
 
 interface Node {
@@ -64,8 +61,10 @@ describe.each(LAYAR)('mode gelap: $nama', ({ nama, Layar, params, actions, selal
     const terang = [...bg].filter((h) => HANYA_TERANG.has(h) && !izin.has(h));
     expect(terang).toEqual([]);
     if (selaluForest) {
-      // Latar forest tetap, dengan teks terang di atasnya.
-      expect([...semua].some((h) => h === '#ecf2ea' || h === '#f6f6f0' || h === light.voice.toLowerCase())).toBe(true);
+      // Kanvas suara tetap, dengan teks terang di atasnya.
+      expect([...semua].some((h) => h === onVoice.text.toLowerCase() || h === light.voiceCanvas.toLowerCase())).toBe(
+        true,
+      );
     } else {
       expect([...semua].some((h) => CIRI_GELAP.includes(h))).toBe(true);
     }
@@ -75,5 +74,5 @@ describe.each(LAYAR)('mode gelap: $nama', ({ nama, Layar, params, actions, selal
 test('penelusur warna sungguh menemukan latar terang di mode terang (bukan lolos karena kosong)', async () => {
   const { Layar } = LAYAR[0]!;
   await renderWithProviders(<Layar />, { scheme: 'light' });
-  expect(warna().bg.has(light.paper.toLowerCase())).toBe(true);
+  expect(warna().bg.has(light.bg.toLowerCase())).toBe(true);
 });

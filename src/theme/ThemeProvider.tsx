@@ -1,20 +1,15 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import { useAppearance } from './appearance';
-import { dark, light, type Palette } from './tokens';
+import { darkTheme, lightTheme, type Scheme, type ThemeTokens } from './tokens';
 
-export type Scheme = 'light' | 'dark';
+export type { Scheme } from './tokens';
 
-export interface Theme {
-  scheme: Scheme;
-  c: Palette;
-}
-
-const LIGHT: Theme = { scheme: 'light', c: light };
-const DARK: Theme = { scheme: 'dark', c: dark };
+/** Tema yang berlaku: warna (`c`), aksen per bidang, bayangan, gradasi, huruf, radius, jarak, dan gerak. */
+export type Theme = ThemeTokens;
 
 /** Objek tema tetap, supaya nilai context tidak berganti di tiap render. */
 export function themeFor(scheme: Scheme): Theme {
-  return scheme === 'dark' ? DARK : LIGHT;
+  return scheme === 'dark' ? darkTheme : lightTheme;
 }
 
 const ThemeContext = createContext<Theme>(themeFor('light'));

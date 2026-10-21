@@ -1,3 +1,4 @@
+import { PlusJakartaSans_300Light } from '@expo-google-fonts/plus-jakarta-sans/300Light';
 import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans/400Regular';
 import { PlusJakartaSans_500Medium } from '@expo-google-fonts/plus-jakarta-sans/500Medium';
 import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-sans/600SemiBold';
@@ -47,8 +48,8 @@ function Navigator() {
   // Layar pembuka asli menunggu sampai sesi tersimpan selesai diperiksa; setelah itu tidak ada bingkai kertas kosong.
   const ready = mode === 'contoh' || status !== 'checking';
   useEffect(() => {
-    SystemUI.setBackgroundColorAsync(c.paper);
-  }, [c.paper]);
+    SystemUI.setBackgroundColorAsync(c.bg);
+  }, [c.bg]);
   // Layar pembuka animasi (di atas semuanya) sudah terpasang sebelum yang asli disembunyikan; geraknya mulai sesudahnya.
   const splash = useLaunchSplash();
   const { onNativeHidden } = splash;
@@ -64,9 +65,9 @@ function Navigator() {
     return () => clearTimeout(t);
   }, [hide, onNativeHidden]);
   return (
-    <SplashShell ready={ready} paper={c.paper} splash={splash}>
+    <SplashShell ready={ready} paper={c.bg} splash={splash}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.paper } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
         <Stack.Protected guard={entry} redirectTo="/">
           <Stack.Screen name="mulai/index" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="mulai/masuk" options={{ animation: 'slide_from_right' }} />
@@ -193,7 +194,9 @@ function Navigator() {
 // Layar pembuka asli bertahan sampai huruf, mode data tersimpan (ApiProvider), dan pemeriksaan sesi selesai; Navigator
 // yang menutupnya (di atas), karena hanya ia yang tahu semuanya sudah siap.
 export default function RootLayout() {
+  // 300 untuk angka besar (suhu, persen lampu) di Fase R.
   const [loaded, error] = useFonts({
+    PlusJakartaSans_300Light,
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
     PlusJakartaSans_600SemiBold,

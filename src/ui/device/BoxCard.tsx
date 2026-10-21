@@ -2,14 +2,13 @@ import { Pressable, View } from 'react-native';
 import type { Box } from '@/api/contract';
 import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
-import { onForest } from '@/theme/tokens';
 import { Card } from '../Card';
 import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 
 /** Kartu Kotak Sekretaris AI di Ruang tamu (desain 2c): mic dengan Matikan/Nyalakan, speaker, suhu, kelembapan. */
 export function BoxCard({ box, onMic }: { box: Box; onMic: (on: boolean) => void }) {
-  const { c } = useTheme();
+  const { c, shadow, marker } = useTheme();
   const assistant = useAssistantName();
   const mic = box.micOn;
   return (
@@ -19,22 +18,22 @@ export function BoxCard({ box, onMic }: { box: Box; onMic: (on: boolean) => void
           style={{
             width: 44,
             height: 44,
-            borderRadius: 14,
-            backgroundColor: c.forestTile,
+            borderRadius: 22,
+            backgroundColor: c.text,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name="box" size={22} color={onForest.text} />
+          <Icon name="box" size={22} color={c.bg} />
         </View>
         <View style={{ flex: 1 }}>
           <Txt v="subtitle">Kotak Sekretaris AI</Txt>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View
               testID="titik-online"
-              style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: box.online ? c.green : c.clay }}
+              style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: box.online ? c.brand : marker.warn.base }}
             />
-            <Txt v="caption" color={box.online ? c.green : c.clay}>
+            <Txt v="caption" color={box.online ? c.brandInk : marker.warn.ink}>
               {box.online ? 'Online' : 'Tidak terjangkau'}
             </Txt>
           </View>
@@ -60,7 +59,7 @@ export function BoxCard({ box, onMic }: { box: Box; onMic: (on: boolean) => void
       </View>
       <View
         style={{
-          backgroundColor: c.mint,
+          backgroundColor: c.sunken,
           borderRadius: 16,
           paddingVertical: 12,
           paddingLeft: 16,
@@ -70,10 +69,10 @@ export function BoxCard({ box, onMic }: { box: Box; onMic: (on: boolean) => void
           gap: 12,
         }}
       >
-        <Icon name={mic ? 'mic' : 'micOff'} size={24} color={mic ? c.green : c.muted} />
+        <Icon name={mic ? 'mic' : 'micOff'} size={24} color={mic ? c.brandInk : c.muted} />
         <View style={{ flex: 1 }}>
           <Txt weight={600}>{mic ? 'Mic menyala' : 'Mic mati'}</Txt>
-          <Txt v="caption" color={c.micSub}>
+          <Txt v="caption" color={c.muted}>
             {mic ? `Mendengar saat dipanggil "${assistant}"` : 'Tidak mendengar sampai dinyalakan'}
           </Txt>
         </View>
@@ -86,9 +85,8 @@ export function BoxCard({ box, onMic }: { box: Box; onMic: (on: boolean) => void
             height: 48,
             paddingHorizontal: 16,
             borderRadius: 24,
-            borderWidth: 1,
-            borderColor: c.line,
-            backgroundColor: c.card,
+            boxShadow: shadow.e1,
+            backgroundColor: c.surface,
             justifyContent: 'center',
           }}
         >

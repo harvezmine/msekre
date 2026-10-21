@@ -38,7 +38,7 @@ test('Lihat di kartu persetujuan membuka chat', async () => {
 test('mode gelap tetap menampilkan isi yang sama', async () => {
   await renderWithProviders(<Beranda />, { scheme: 'dark' });
   expect(screen.getByText('Selamat pagi, Rina')).toBeTruthy();
-  expect(StyleSheet.flatten(screen.getByText('Selamat pagi, Rina').props.style).color).toBe('#ECF2EA');
+  expect(StyleSheet.flatten(screen.getByText('Selamat pagi, Rina').props.style).color).toBe('#F2F3F5');
 });
 
 test('ketuk Inti membuka chat, tahan Inti membuka Mode Suara dengan getar', async () => {
@@ -280,7 +280,7 @@ describe('Beranda lewat kontrak (server tiruan memegang data)', () => {
     await act(async () => {
       await api.transport.setPlace('Kedai Dago');
     });
-    expect(StyleSheet.flatten(screen.getByText('Rp2.610.000').props.style).color).toBe('#ECF2EA');
+    expect(StyleSheet.flatten(screen.getByText('Rp2.610.000').props.style).color).toBe('#F2F3F5');
   });
 });
 

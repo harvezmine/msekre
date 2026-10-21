@@ -16,7 +16,7 @@ export default function Mulai() {
   const assistant = useAssistantName();
   return (
     <ScrollView
-      style={{ backgroundColor: c.paper }}
+      style={{ backgroundColor: c.bg }}
       contentContainerStyle={{
         flexGrow: 1,
         alignItems: 'center',

@@ -14,7 +14,7 @@ interface Props {
   onChangeText: (text: string) => void;
   onSend: () => void;
   inputRef?: Ref<TextInputInstance>;
-  /** Layar kosong (desain 1d): mic hijau penuh. Di utas, mic berlatar mint dengan ikon hijau (1b, 1c). */
+  /** Layar kosong: mic berisi warna brand (aksi utama). Di utas, mic berlatar `sunken` dengan ikon teks. */
   strongMic?: boolean;
   /** Kalau diisi, kolom ketik dimatikan dan teks ini menjadi petunjuknya (akun tidak aktif, aplikasi perlu diperbarui). */
   disabledText?: string;
@@ -25,7 +25,7 @@ interface Props {
 /** Bilah ketik di bawah: lampiran, kolom teks, lalu mic (kosong) atau kirim (ada teks). */
 export function Composer({ value, onChangeText, onSend, inputRef, strongMic = false, disabledText, onAttach }: Props) {
   const assistantName = useAssistantName();
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const toast = useToast();
   const openSuara = useOpenVoice();
   const insets = useSafeAreaInsets();
@@ -51,7 +51,7 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        backgroundColor: c.paper,
+        backgroundColor: c.bg,
       }}
     >
       <IconButton
@@ -71,19 +71,17 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
         accessibilityLabel={`Tulis pesan untuk ${assistantName}`}
         placeholder={disabledText ?? `Tulis pesan untuk ${assistantName}`}
         placeholderTextColor={c.muted}
-        cursorColor={c.green}
-        selectionColor={c.green}
+        cursorColor={c.text}
+        selectionColor={marker.agenda.base}
         style={{
           flex: 1,
           height: 52,
           borderRadius: 26,
-          borderWidth: 1,
-          borderColor: c.line,
-          backgroundColor: c.card,
+          backgroundColor: c.sunken,
           paddingHorizontal: 20,
           fontFamily: FONT[400],
           fontSize: 16,
-          color: c.ink,
+          color: c.text,
         }}
       />
       <Pressable
@@ -96,13 +94,13 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
           width: 52,
           height: 52,
           borderRadius: 26,
-          backgroundColor: solid ? c.green : c.mint,
+          backgroundColor: solid ? c.brand : c.sunken,
           opacity: off ? 0.5 : 1,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Icon name={hasText ? 'send' : 'mic'} size={24} color={solid ? c.onGreen : c.green} />
+        <Icon name={hasText ? 'send' : 'mic'} size={24} color={solid ? c.onBrand : c.text} />
       </Pressable>
     </View>
   );

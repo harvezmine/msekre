@@ -714,7 +714,7 @@ describe('bagian dan kartu', () => {
 
   test('mode gelap memakai warna palet gelap', async () => {
     await mount({ scheme: 'dark', history: [say(1, 'Halo gelap', { from: 'user' })] });
-    expect(screen.getByText('Halo gelap').parent).toHaveStyle({ backgroundColor: dark.green });
+    expect(screen.getByText('Halo gelap').parent).toHaveStyle({ backgroundColor: dark.sunken });
     expect(within(screen.getByTestId('utas')).getByText('Halo gelap')).toBeOnTheScreen();
   });
 });

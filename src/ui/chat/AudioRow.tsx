@@ -22,12 +22,12 @@ export function AudioRow({ audio, onPlay }: { audio: AudioPart; onPlay: () => vo
             width: 48,
             height: 48,
             borderRadius: 24,
-            backgroundColor: c.mint,
+            backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name="wave" size={24} color={c.green} />
+          <Icon name="wave" size={24} color={c.text} />
         </Pressable>
         <Txt weight={600} style={{ flex: 1 }}>
           Pesan suara

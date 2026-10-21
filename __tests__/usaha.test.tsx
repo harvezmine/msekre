@@ -180,8 +180,8 @@ test('laporan gagal diunduh: toast ramah', async () => {
 test('mode gelap memakai warna palet gelap', async () => {
   await renderWithProviders(<Usaha />, { scheme: 'dark' });
   const flat = (n: ReturnType<typeof screen.getByText>) => Object.assign({}, ...[n.props.style].flat(5));
-  expect(flat(await screen.findByText('naik 12% dari Senin lalu')).color).toBe(dark.leafText);
-  expect(flat(screen.getByText('Rp4.250.000')).color).toBe(dark.ink);
+  expect(flat(await screen.findByText('naik 12% dari Senin lalu')).color).toBe(dark.brandInk);
+  expect(flat(screen.getByText('Rp4.250.000')).color).toBe(dark.text);
 });
 
 test('tombol tempat menyebut Semua cabang, dan kedai tetap namanya', async () => {

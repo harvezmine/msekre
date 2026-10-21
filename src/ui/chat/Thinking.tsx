@@ -28,9 +28,7 @@ export function Thinking({ paused = false }: { paused?: boolean }) {
         alignItems: 'center',
         paddingVertical: 16,
         paddingHorizontal: 18,
-        backgroundColor: c.card,
-        borderWidth: 1,
-        borderColor: c.line,
+        backgroundColor: c.sunken,
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         borderBottomRightRadius: 20,
@@ -38,7 +36,7 @@ export function Thinking({ paused = false }: { paused?: boolean }) {
       }}
     >
       {[0, 1, 2].map((i) => (
-        <Dot key={i} index={i} pulse={!reduce} color={c.green} />
+        <Dot key={i} index={i} pulse={!reduce} color={c.muted} />
       ))}
     </View>
   );

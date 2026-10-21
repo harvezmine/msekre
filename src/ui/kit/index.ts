@@ -1,0 +1,23 @@
+/** Komponen dasar Fase R. Panduan: docs/desain.md. */
+export { AccentIcon, iconSizeFor, type AccentTone } from './AccentIcon';
+export { BigNumber, type BigNumberProps } from './BigNumber';
+export { AreaChart, Sparkline } from './Chart';
+export { areaPath, scalePoints, smoothPath } from './chartMath';
+export { Dial, type DialProps } from './Dial';
+export { Enter, enterDelay, useEnterAnimation } from './Enter';
+export { GradientField } from './GradientField';
+export { haptic, type HapticKind } from './haptics';
+export { HScroller } from './HScroller';
+export { byLayout, layoutClassFor, useLayoutClass, type LayoutClass } from './layout';
+export { ListRow, type KitListRowProps } from './ListRow';
+export { MoreSheet, type MoreItem } from './MoreSheet';
+export { PressableScale, type PressableScaleProps } from './PressableScale';
+export { RemoteKey, type RemoteKeyProps, type RemoteKeyVariant } from './RemoteKey';
+export { Rocker } from './Rocker';
+export { Segmented } from './Segmented';
+export { SectionHeader, type SectionAction } from './SectionHeader';
+export { Slider, type SliderProps } from './Slider';
+export { toneForName } from './toneForName';
+export { Surface, type SurfaceProps, type SurfaceVariant } from './Surface';
+export { THUMB_ZONE, ThumbZone } from './ThumbZone';
+export { TimeRail, TimeStrip, type NowMark, type TimeItem } from './TimeRail';

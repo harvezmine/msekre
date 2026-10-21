@@ -14,7 +14,8 @@ export function Sparkline({
   span?: number;
   label?: string;
 }) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
+  const a = marker.usaha;
   const pts = sparkPoints(series, min, span);
   const last = pts[pts.length - 1]!;
   return (
@@ -31,7 +32,7 @@ export function Sparkline({
         testID="spark-garis"
         points={pts.map((p) => `${p.x},${p.y}`).join(' ')}
         fill="none"
-        stroke={c.green}
+        stroke={a.base}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -41,8 +42,8 @@ export function Sparkline({
         cx={last.x}
         cy={last.y}
         r={4.5}
-        fill={c.green}
-        stroke={c.card}
+        fill={a.base}
+        stroke={c.surface}
         strokeWidth={2}
       />
     </Svg>

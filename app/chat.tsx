@@ -158,7 +158,7 @@ export default function Chat() {
 
   return (
     // Edge-to-edge (SDK 58): jendela tidak lagi mengecil saat keyboard muncul, jadi 'padding' menaikkan kolom ketik setinggi keyboard di Android dan iOS.
-    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
       <View
         style={{
           height: 64,
@@ -208,14 +208,14 @@ export default function Chat() {
                   borderRadius: 20,
                   borderWidth: 1,
                   borderColor: c.line,
-                  backgroundColor: c.card,
+                  backgroundColor: c.surface,
                   paddingHorizontal: 16,
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 12,
                 }}
               >
-                <Icon name={s.icon} size={22} color={c.green} />
+                <Icon name={s.icon} size={22} color={c.text} />
                 <Txt>{s.text}</Txt>
               </Pressable>
             ))}
@@ -308,7 +308,7 @@ function LoadFailed({ onRetry }: { onRetry: () => void }) {
         onPress={onRetry}
         style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 16 }}
       >
-        <Txt weight={600} color={c.green}>
+        <Txt weight={600} color={c.brandInk}>
           Muat lagi
         </Txt>
       </Pressable>

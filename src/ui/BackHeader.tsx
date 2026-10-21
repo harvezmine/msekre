@@ -15,7 +15,7 @@ export function BackHeader({ title, sub }: { title: string; sub?: string }) {
         <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
       </View>
       <View style={{ flex: 1 }}>
-        <Txt v="subtitle" accessibilityRole="header">
+        <Txt v="section" accessibilityRole="header">
           {title}
         </Txt>
         {sub ? (

@@ -31,12 +31,12 @@ export function FileCard({ file, mediaUrl }: { file: FileInfo; mediaUrl: (mediaI
             width: 40,
             height: 48,
             borderRadius: 12,
-            backgroundColor: c.mint,
+            backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name="file" size={22} color={c.green} />
+          <Icon name="file" size={22} color={c.text} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Txt weight={600}>{file.name}</Txt>

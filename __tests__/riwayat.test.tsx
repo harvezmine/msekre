@@ -201,7 +201,7 @@ test('mengetuk entri membuka layarnya: kiriman ke chat, perangkat ke detailnya',
 
 test('mode gelap memakai warna gelap', async () => {
   await show({ scheme: 'dark' });
-  expect(screen.getByText('Membeli token listrik')).toHaveStyle({ color: dark.ink });
+  expect(screen.getByText('Membeli token listrik')).toHaveStyle({ color: dark.text });
 });
 
 test('detak tiap detik hanya selagi ada kiriman yang masa tahannya belum lewat', async () => {

@@ -2,14 +2,14 @@ import { StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import { Txt } from '@/ui/Txt';
 
-test('varian display memakai 32/40 semibold dan warna ink', async () => {
+test('varian display memakai 32/38 semibold dan warna teks', async () => {
   await render(<Txt v="display">Selamat pagi</Txt>);
   const s = StyleSheet.flatten(screen.getByText('Selamat pagi').props.style);
   expect(s).toMatchObject({
     fontSize: 32,
-    lineHeight: 40,
+    lineHeight: 38,
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: '#0D2B22',
+    color: '#15181B',
   });
 });
 

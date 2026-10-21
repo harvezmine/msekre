@@ -34,12 +34,12 @@ export function QrCode({
         borderRadius: 16,
         backgroundColor: '#FFFFFF',
         borderWidth: 1,
-        borderColor: '#E2E6DE',
+        borderColor: '#E9E7E1',
         opacity: faded ? 0.25 : 1,
       }}
     >
       {showCode && (
-        <Svg width="100%" height="100%" viewBox={`0 0 ${QR_SIZE} ${QR_SIZE}`} fill="#0D2B22">
+        <Svg width="100%" height="100%" viewBox={`0 0 ${QR_SIZE} ${QR_SIZE}`} fill="#15181B">
           <Path d={QR_PATH} />
         </Svg>
       )}

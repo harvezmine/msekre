@@ -12,9 +12,10 @@ interface Props {
   onSelect: (date: string) => void;
 }
 
-/** Kisi bulan ini, mulai Senin. Titik hijau = ada agenda, lingkaran mint = hari ini. */
+/** Kisi bulan ini, mulai Senin. Titik biru = ada agenda, lingkaran hijau = hari ini. */
 export function MonthGrid({ today, selected, marked, onSelect }: Props) {
-  const { c } = useTheme();
+  const { c, marker, shadow } = useTheme();
+  const a = marker.agenda;
   const { y: YEAR, m: MONTH } = parts(today);
   const MONTH_NAME = MONTH_NAMES[MONTH - 1];
   const total = daysInMonth(YEAR, MONTH);
@@ -33,9 +34,8 @@ export function MonthGrid({ today, selected, marked, onSelect }: Props) {
         marginTop: 16,
         padding: 8,
         borderRadius: 24,
-        borderWidth: 1,
-        borderColor: c.line,
-        backgroundColor: c.card,
+        boxShadow: shadow.e1,
+        backgroundColor: c.surface,
       }}
     >
       <Txt v="subtitle" style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 }} accessibilityRole="header">
@@ -75,12 +75,12 @@ export function MonthGrid({ today, selected, marked, onSelect }: Props) {
                     borderRadius: 20,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: isToday ? c.mint : 'transparent',
+                    backgroundColor: isToday ? c.brand : 'transparent',
                     borderWidth: isSel ? 1.5 : 0,
-                    borderColor: c.green,
+                    borderColor: c.brand,
                   }}
                 >
-                  <Txt weight={isToday || isSel ? 600 : 500} tabular color={isToday ? c.green : c.ink}>
+                  <Txt weight={isToday || isSel ? 600 : 500} tabular color={isToday ? c.onBrand : c.text}>
                     {day}
                   </Txt>
                   {has ? (
@@ -92,7 +92,7 @@ export function MonthGrid({ today, selected, marked, onSelect }: Props) {
                         width: 5,
                         height: 5,
                         borderRadius: 3,
-                        backgroundColor: c.green,
+                        backgroundColor: a.base,
                       }}
                     />
                   ) : null}

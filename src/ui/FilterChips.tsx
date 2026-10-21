@@ -31,13 +31,11 @@ export function FilterChips<T extends string>({ options, value, onChange }: Prop
               height: 48,
               paddingHorizontal: 18,
               borderRadius: 24,
-              borderWidth: selected ? 0 : 1,
-              borderColor: c.line,
-              backgroundColor: selected ? c.mint : c.card,
+              backgroundColor: selected ? c.brandSoft : c.sunken,
               justifyContent: 'center',
             }}
           >
-            <Txt weight={selected ? 600 : 500} color={selected ? c.green : c.ink} style={{ fontSize: 15 }}>
+            <Txt weight={selected ? 600 : 500} color={selected ? c.brandInk : c.text} style={{ fontSize: 15 }}>
               {o}
             </Txt>
           </Pressable>

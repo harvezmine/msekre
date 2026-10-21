@@ -32,7 +32,8 @@ interface Props {
 
 /** Satu baris agenda seperti desain 2a: jam, tile ikon 40, judul, keterangan. */
 export function AgendaItem({ item, past = false, tzOffsetMinutes, onToggle, onLongPress }: Props) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
+  const a = marker.agenda;
   const isTask = item.kind === 'task';
   const hasAlarm = item.kind === 'reminder' || item.kind === 'recurring';
   const icon: IconName = isTask && item.done ? 'taskDone' : KIND_ICON[item.kind];
@@ -64,7 +65,7 @@ export function AgendaItem({ item, past = false, tzOffsetMinutes, onToggle, onLo
       <Txt
         weight={600}
         tabular
-        color={past ? c.muted : c.ink}
+        color={past ? c.muted : c.text}
         style={item.allDay ? { width: 48, lineHeight: 40, fontSize: 12 } : { width: 48, lineHeight: 40 }}
       >
         {time}
@@ -73,18 +74,18 @@ export function AgendaItem({ item, past = false, tzOffsetMinutes, onToggle, onLo
         style={{
           width: 40,
           height: 40,
-          borderRadius: 14,
-          backgroundColor: past ? c.line : c.mint,
+          borderRadius: 20,
+          backgroundColor: c.sunken,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Icon name={icon} size={22} color={past ? c.muted : c.green} />
+        <Icon name={icon} size={22} color={past ? c.muted : a.ink} />
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: 2, paddingTop: 8 }}>
         <Txt
           weight={500}
-          color={dim && !past ? c.muted : c.ink}
+          color={dim && !past ? c.muted : c.text}
           style={item.done ? { textDecorationLine: 'line-through' } : undefined}
         >
           {item.title}
@@ -97,7 +98,7 @@ export function AgendaItem({ item, past = false, tzOffsetMinutes, onToggle, onLo
               onPress={() => router.navigate('/chat')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 16 }}
             >
-              <Txt v="caption" weight={600} color={c.green}>
+              <Txt v="caption" weight={600} color={c.brandInk}>
                 Notulen siap
               </Txt>
             </Pressable>
@@ -105,7 +106,7 @@ export function AgendaItem({ item, past = false, tzOffsetMinutes, onToggle, onLo
             <>
               {sub.icon ? <Icon name={sub.icon} size={14} color={c.muted} /> : null}
               {sub.text ? (
-                <Txt v="caption" color={sub.warn ? c.green : c.muted}>
+                <Txt v="caption" color={sub.warn ? c.brandInk : c.muted}>
                   {sub.text}
                 </Txt>
               ) : null}

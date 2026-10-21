@@ -18,7 +18,8 @@ export function ReportCard({
   report: BusinessReport;
   mediaUrl: (mediaId: string) => Promise<MediaSource>;
 }) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
+  const a = marker.usaha;
   const mime = mimeOfName(report.name);
   const { busy, open, share } = useDocumentActions(
     { mediaId: report.mediaId, name: report.name, mime, size: report.size },
@@ -32,7 +33,7 @@ export function ReportCard({
           flexDirection: 'row',
           alignItems: 'center',
           gap: 12,
-          backgroundColor: c.paper,
+          backgroundColor: c.bg,
           borderRadius: 16,
           padding: 12,
         }}
@@ -42,12 +43,12 @@ export function ReportCard({
             width: 40,
             height: 48,
             borderRadius: 12,
-            backgroundColor: c.mint,
+            backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name="file" size={22} color={c.green} />
+          <Icon name="file" size={22} color={a.ink} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Txt weight={600} style={{ lineHeight: 22 }}>

@@ -8,7 +8,7 @@ import { Txt } from './Txt';
 
 /** Tombol tempat di kiri atas (Beranda, Perangkat, Usaha): menampilkan tempat terpilih, membuka pemilih tempat. */
 export function PlaceButton({ labelFor }: { labelFor?: (place: Place) => string }) {
-  const { c } = useTheme();
+  const { c, shadow } = useTheme();
   // Tempat dari Beranda (`GET /home`); sebelum terisi, `Semua`.
   const { home } = useHome();
   const place = home?.place ?? 'Semua';
@@ -24,16 +24,15 @@ export function PlaceButton({ labelFor }: { labelFor?: (place: Place) => string 
         paddingLeft: 16,
         paddingRight: 12,
         borderRadius: 24,
-        borderWidth: 1,
-        borderColor: c.line,
-        backgroundColor: c.card,
+        boxShadow: shadow.e1,
+        backgroundColor: c.surface,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
       }}
     >
       <Txt weight={600}>{label}</Txt>
-      <Icon name="chevD" size={20} color={c.ink} />
+      <Icon name="chevD" size={20} color={c.text} />
     </Pressable>
   );
 }

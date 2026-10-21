@@ -16,7 +16,7 @@ export default function Keluar() {
 }
 
 function Isi() {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const { logout } = useAuth();
   const { close } = useSheet();
   const leaving = useRef(false);
@@ -45,12 +45,12 @@ function Isi() {
           style={{
             height: 56,
             borderRadius: 28,
-            backgroundColor: c.clay,
+            backgroundColor: marker.warn.ink,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Txt weight={600} color={c.onGreen} style={{ fontSize: 17 }}>
+          <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
             Keluar
           </Txt>
         </Pressable>
@@ -60,7 +60,7 @@ function Isi() {
           onPress={() => close()}
           style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Txt weight={600} color={c.green}>
+          <Txt weight={600} color={c.brandInk}>
             Batal
           </Txt>
         </Pressable>

@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, View } from 'react-native';
 import { BRANDS } from '@/api/constants';
 import { useTheme } from '@/theme/ThemeProvider';
-import { onForest } from '@/theme/tokens';
+import { onVoice } from '@/theme/tokens';
 import { BackHeader } from '@/ui/BackHeader';
 import { Icon } from '@/ui/Icon';
 import { ListGroup } from '@/ui/ListRow';
@@ -10,25 +10,25 @@ import { Txt } from '@/ui/Txt';
 
 // Tambah perangkat (desain 2f): pasang Kotak, atau masuk dengan akun merek.
 export default function TambahPerangkat() {
-  const { c } = useTheme();
+  const { c, shadow } = useTheme();
   const toast = useToast();
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Tambah perangkat" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24, gap: 16 }}>
-        <View style={{ backgroundColor: c.mint, borderRadius: 24, padding: 20, gap: 16 }}>
+        <View style={{ backgroundColor: c.surface, boxShadow: shadow.e2, borderRadius: 28, padding: 20, gap: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <View
               style={{
                 width: 48,
                 height: 48,
                 borderRadius: 16,
-                backgroundColor: c.forestTile,
+                backgroundColor: c.text,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Icon name="box" size={24} color={onForest.text} />
+              <Icon name="box" size={24} color={onVoice.text} />
             </View>
             <Txt v="subtitle">Kotak Sekretaris AI</Txt>
           </View>
@@ -41,15 +41,15 @@ export default function TambahPerangkat() {
             style={{
               height: 52,
               borderRadius: 26,
-              backgroundColor: c.green,
+              backgroundColor: c.brand,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
             }}
           >
-            <Icon name="bt" size={22} color={c.onGreen} />
-            <Txt weight={600} color={c.onGreen}>
+            <Icon name="bt" size={22} color={c.onBrand} />
+            <Txt weight={600} color={c.onBrand}>
               Pasang Kotak
             </Txt>
           </Pressable>
@@ -82,7 +82,7 @@ export default function TambahPerangkat() {
                   width: 40,
                   height: 40,
                   borderRadius: 12,
-                  backgroundColor: c.quiet,
+                  backgroundColor: c.sunken,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}

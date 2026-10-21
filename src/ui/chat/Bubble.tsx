@@ -11,16 +11,16 @@ interface UserBubbleProps {
   onRetry?: () => void;
 }
 
-/** Gelembung pengguna: hijau, rata kanan, sudut kanan bawah lancip. */
+/** Gelembung pengguna: netral (`sunken`), rata kanan, sudut kanan bawah lancip. Hijau hanya untuk aksi utama. */
 export function UserBubble({ text, startsExchange = false, status, onRetry }: UserBubbleProps) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const bubble = (
     <View
       style={{
         alignSelf: 'flex-end',
         maxWidth: '78%',
         marginTop: startsExchange ? 8 : 0,
-        backgroundColor: c.green,
+        backgroundColor: c.sunken,
         opacity: status === 'sending' ? 0.7 : 1,
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
@@ -30,7 +30,7 @@ export function UserBubble({ text, startsExchange = false, status, onRetry }: Us
         paddingHorizontal: 16,
       }}
     >
-      <Txt color={c.onGreen}>{text}</Txt>
+      <Txt color={c.text}>{text}</Txt>
     </View>
   );
   if (!status) return bubble;
@@ -49,7 +49,7 @@ export function UserBubble({ text, startsExchange = false, status, onRetry }: Us
           hitSlop={{ top: 8, bottom: 8, left: 8 }}
           style={{ minHeight: 32, justifyContent: 'center', paddingHorizontal: 4 }}
         >
-          <Txt v="caption" weight={600} color={c.clay}>
+          <Txt v="caption" weight={600} color={marker.warn.ink}>
             Belum terkirim · Coba lagi
           </Txt>
         </Pressable>

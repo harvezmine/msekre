@@ -1,9 +1,13 @@
+import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import { Pressable } from 'react-native';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useTheme } from '@/theme/ThemeProvider';
 
-/** Sakelar 52×32 seperti di desain. hitSlop membuat area sentuhnya 48dp. Geser dan warna berpindah 200 ms. */
+/**
+ * Sakelar 52×32. hitSlop membuat area sentuhnya 56 dp. Geser dan warna berpindah 200 ms, getar `selection` saat diketuk.
+ * Nyala = hijau (`active`), mati = `sunken2`; sama untuk perangkat dan pengaturan.
+ */
 export function Toggle({
   value,
   onChange,
@@ -13,9 +17,9 @@ export function Toggle({
   onChange: (next: boolean) => void;
   label: string;
 }) {
-  const { c } = useTheme();
-  const off = c.track;
-  const on = c.green;
+  const { c, shadow } = useTheme();
+  const off = c.sunken2;
+  const on = c.brand;
   const p = useSharedValue(value ? 1 : 0);
   useEffect(() => {
     p.set(withTiming(value ? 1 : 0, { duration: 200 }));
@@ -27,14 +31,20 @@ export function Toggle({
       accessibilityRole="switch"
       accessibilityLabel={label}
       accessibilityState={{ checked: value }}
-      onPress={() => onChange(!value)}
-      hitSlop={8}
+      onPress={() => {
+        void Haptics.selectionAsync();
+        onChange(!value);
+      }}
+      hitSlop={12}
       style={{ alignSelf: 'flex-start' }}
     >
       <Animated.View style={[{ width: 52, height: 32, borderRadius: 16, padding: 4 }, trackStyle]}>
         <Animated.View
           testID="sakelar-jempol"
-          style={[{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF' }, thumbStyle]}
+          style={[
+            { width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF', boxShadow: shadow.knob },
+            thumbStyle,
+          ]}
         />
       </Animated.View>
     </Pressable>

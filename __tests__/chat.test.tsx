@@ -320,20 +320,20 @@ test('tidak ada tombol mati: Baca notulen dan Lampiran memunculkan toast; Buka d
   expect(toastNow()?.text).toBe('Lampiran segera hadir.');
 });
 
-test('mic: mint dengan ikon hijau di utas, hijau penuh dengan ikon putih di keadaan kosong', async () => {
+test('mic di utas: tombol kedua netral (sunken) dengan ikon teks', async () => {
   const { light } = jest.requireActual('@/theme/tokens');
   await renderChat();
-  expect(screen.getByRole('button', { name: 'Bicara' })).toHaveStyle({ backgroundColor: light.mint });
-  expect(within(screen.getByRole('button', { name: 'Bicara' })).getByTestId('ikon-mic').props.stroke).toBe(light.green);
+  expect(screen.getByRole('button', { name: 'Bicara' })).toHaveStyle({ backgroundColor: light.sunken });
+  expect(within(screen.getByRole('button', { name: 'Bicara' })).getByTestId('ikon-mic').props.stroke).toBe(light.text);
 });
 
-test('mic di keadaan kosong: latar hijau, ikon putih', async () => {
+test('mic di keadaan kosong: aksi utama, hijau brand dengan ikon putih', async () => {
   const { light } = jest.requireActual('@/theme/tokens');
   jest.mocked(useLocalSearchParams).mockReturnValue({ kosong: '1' });
   await renderChat();
-  expect(screen.getByRole('button', { name: 'Bicara' })).toHaveStyle({ backgroundColor: light.green });
+  expect(screen.getByRole('button', { name: 'Bicara' })).toHaveStyle({ backgroundColor: light.brand });
   expect(within(screen.getByRole('button', { name: 'Bicara' })).getByTestId('ikon-mic').props.stroke).toBe(
-    light.onGreen,
+    light.onBrand,
   );
 });
 

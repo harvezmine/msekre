@@ -1,9 +1,19 @@
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '@/theme/ThemeProvider';
-import { ICON_PATHS, type IconName } from './icons';
+import { DOT_ICONS, ICON_PATHS, type IconName } from './icons';
 
-/** Ikon garis seperti di desain: ketebalan 1,75, ujung membulat. */
-export function Icon({ name, size = 24, color }: { name: IconName; size?: number; color?: string }) {
+/** Ikon garis seperti di desain: ketebalan 1,75 (ikon titik 3), ujung membulat. */
+export function Icon({
+  name,
+  size = 24,
+  color,
+  strokeWidth,
+}: {
+  name: IconName;
+  size?: number;
+  color?: string;
+  strokeWidth?: number;
+}) {
   const { c } = useTheme();
   return (
     <Svg
@@ -12,8 +22,8 @@ export function Icon({ name, size = 24, color }: { name: IconName; size?: number
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      stroke={color ?? c.ink}
-      strokeWidth={1.75}
+      stroke={color ?? c.text}
+      strokeWidth={strokeWidth ?? (DOT_ICONS.has(name) ? 3 : 1.75)}
       strokeLinecap="round"
       strokeLinejoin="round"
     >

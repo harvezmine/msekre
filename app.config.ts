@@ -44,7 +44,8 @@ const config: ExpoConfig = {
   icon: './assets/brand/icon.png',
   scheme: 'sekretarisai',
   userInterfaceStyle: 'automatic',
-  backgroundColor: '#F6F6F0',
+  // Sama dengan token `bg` (src/theme/tokens.ts), supaya layar pembuka asli menyambung ke layar pertama.
+  backgroundColor: '#F7F6F2',
   android: {
     package: 'id.my.secretary.dev',
     adaptiveIcon: {
@@ -67,10 +68,10 @@ const config: ExpoConfig = {
       {
         image: './assets/brand/s-mark.png',
         imageWidth: 120,
-        backgroundColor: '#F6F6F0',
+        backgroundColor: '#F7F6F2',
         dark: {
           image: './assets/brand/s-mark-light.png',
-          backgroundColor: '#0A1F18',
+          backgroundColor: '#0E1012',
         },
       },
     ],

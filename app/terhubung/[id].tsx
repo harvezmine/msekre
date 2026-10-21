@@ -22,7 +22,7 @@ const permissionText = (assistant: string): Record<ConnectionPermission, string>
 export default function DetailLayanan() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const serviceId = typeof id === 'string' ? id : '';
-  const { c } = useTheme();
+  const { c, shadow, marker } = useTheme();
   const assistant = useAssistantName();
   const PERMISSION_TEXT = permissionText(assistant);
   const insets = useSafeAreaInsets();
@@ -37,14 +37,14 @@ export default function DetailLayanan() {
   if (!data) {
     const failed = detail?.status === 'error';
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper }}>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
         {back}
         <Txt style={{ padding: 24, textAlign: 'center' }}>
           {failed ? (detail?.error ?? '') : 'Sebentar ya, saya ambil dulu.'}
         </Txt>
         {failed ? (
           <Pressable accessibilityRole="button" accessibilityLabel="Coba lagi" onPress={() => void reloadDetail()}>
-            <Txt weight={600} color={c.green} style={{ textAlign: 'center' }}>
+            <Txt weight={600} color={c.brandInk} style={{ textAlign: 'center' }}>
               Coba lagi
             </Txt>
           </Pressable>
@@ -55,7 +55,7 @@ export default function DetailLayanan() {
   const service = listed ?? data.service;
   if (service.status !== 'connected') {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper }}>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
         {back}
         <View style={{ padding: 24, gap: 16 }}>
           <Txt style={{ textAlign: 'center' }}>{service.name} belum tersambung.</Txt>
@@ -65,7 +65,7 @@ export default function DetailLayanan() {
               accessibilityLabel={`Sambungkan ${service.name}`}
               onPress={() => router.replace(`/terhubung/masuk?id=${encodeURIComponent(service.id)}`)}
             >
-              <Txt weight={600} color={c.green} style={{ textAlign: 'center' }}>
+              <Txt weight={600} color={c.brandInk} style={{ textAlign: 'center' }}>
                 Sambungkan
               </Txt>
             </Pressable>
@@ -89,7 +89,7 @@ export default function DetailLayanan() {
         : `${memory} hal diingat ${assistant}.`;
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       {back}
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, gap: 20 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 4 }}>
@@ -98,20 +98,22 @@ export default function DetailLayanan() {
               width: 64,
               height: 64,
               borderRadius: 20,
-              backgroundColor: warn ? c.clayBg : c.mint,
+              backgroundColor: c.sunken,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Icon name={iconOr(service.icon, 'link')} size={30} color={warn ? c.clay : c.green} />
+            <Icon name={iconOr(service.icon, 'link')} size={30} color={warn ? marker.warn.ink : marker.terhubung.ink} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Txt v="title" accessibilityRole="header">
               {service.name}
             </Txt>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: warn ? c.clay : c.leaf }} />
-              <Txt v="caption" color={warn ? c.clay : c.leafText} style={{ flexShrink: 1 }}>
+              <View
+                style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: warn ? marker.warn.ink : c.brand }}
+              />
+              <Txt v="caption" color={warn ? marker.warn.ink : c.brandInk} style={{ flexShrink: 1 }}>
                 {serviceLine(service)}
               </Txt>
             </View>
@@ -124,7 +126,7 @@ export default function DetailLayanan() {
             accessibilityLabel={`Sambungkan ulang ${service.name}`}
             onPress={() => router.push(`/terhubung/masuk?id=${encodeURIComponent(service.id)}`)}
             style={{
-              backgroundColor: c.clayBg,
+              backgroundColor: c.sunken,
               borderRadius: 20,
               padding: 16,
               flexDirection: 'row',
@@ -132,8 +134,8 @@ export default function DetailLayanan() {
               gap: 12,
             }}
           >
-            <Icon name="info" size={22} color={c.clay} />
-            <Txt style={{ flex: 1 }} color={c.clay}>
+            <Icon name="info" size={22} color={marker.warn.ink} />
+            <Txt style={{ flex: 1 }} color={marker.warn.ink}>
               {service.attention?.text}. Ketuk untuk menyambungkan ulang.
             </Txt>
           </Pressable>
@@ -142,7 +144,7 @@ export default function DetailLayanan() {
             accessible
             accessibilityRole="text"
             style={{
-              backgroundColor: c.clayBg,
+              backgroundColor: c.sunken,
               borderRadius: 20,
               padding: 16,
               flexDirection: 'row',
@@ -150,8 +152,8 @@ export default function DetailLayanan() {
               gap: 12,
             }}
           >
-            <Icon name="info" size={22} color={c.clay} />
-            <Txt style={{ flex: 1 }} color={c.clay}>
+            <Icon name="info" size={22} color={marker.warn.ink} />
+            <Txt style={{ flex: 1 }} color={marker.warn.ink}>
               {service.attention?.text}
             </Txt>
           </View>
@@ -162,7 +164,7 @@ export default function DetailLayanan() {
           {data.what.map((line) => (
             <View key={line} style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ marginTop: 2 }}>
-                <Icon name="check" size={20} color={c.green} />
+                <Icon name="check" size={20} color={c.brandInk} />
               </View>
               <Txt style={{ flex: 1 }}>{line}</Txt>
             </View>
@@ -188,9 +190,10 @@ export default function DetailLayanan() {
                   gap: 12,
                   padding: 16,
                   borderRadius: 20,
-                  borderWidth: on ? 1.5 : 1,
-                  borderColor: on ? c.green : c.line,
-                  backgroundColor: on ? c.mint : c.card,
+                  borderWidth: 2,
+                  borderColor: on ? c.brand : 'transparent',
+                  backgroundColor: on ? c.brandSoft : c.surface,
+                  boxShadow: on ? undefined : shadow.e1,
                 }}
               >
                 <View
@@ -199,17 +202,17 @@ export default function DetailLayanan() {
                     height: 22,
                     borderRadius: 11,
                     borderWidth: 2,
-                    borderColor: on ? c.green : c.muted,
+                    borderColor: on ? c.brand : c.muted,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginTop: 1,
                   }}
                 >
-                  {on ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.green }} /> : null}
+                  {on ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.brand }} /> : null}
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Txt weight={600}>{o.title}</Txt>
-                  <Txt color={on ? c.ink : c.muted}>{PERMISSION_TEXT[o.value]}</Txt>
+                  <Txt color={on ? c.text : c.muted}>{PERMISSION_TEXT[o.value]}</Txt>
                 </View>
               </Pressable>
             );
@@ -218,9 +221,8 @@ export default function DetailLayanan() {
 
         <View
           style={{
-            backgroundColor: c.card,
-            borderWidth: 1,
-            borderColor: c.line,
+            backgroundColor: c.surface,
+            boxShadow: shadow.e1,
             borderRadius: 24,
             paddingVertical: 4,
             paddingHorizontal: 16,
@@ -229,7 +231,7 @@ export default function DetailLayanan() {
           <Action
             icon="trash"
             label={`Hapus yang ${assistant} tahu dari layanan ini`}
-            color={c.clay}
+            color={marker.warn.ink}
             border
             onPress={() => router.push(`/terhubung/konfirmasi?id=${encodeURIComponent(service.id)}&aksi=lupa`)}
             note={memoryNote}
@@ -237,7 +239,7 @@ export default function DetailLayanan() {
           <Action
             icon="x"
             label="Putuskan"
-            color={c.ink}
+            color={c.text}
             onPress={() => router.push(`/terhubung/konfirmasi?id=${encodeURIComponent(service.id)}&aksi=putus`)}
           />
         </View>

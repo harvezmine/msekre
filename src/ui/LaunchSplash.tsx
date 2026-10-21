@@ -1,4 +1,4 @@
-import * as Notifications from 'expo-notifications';
+import { useLastNotificationResponse } from '@/api/notificationResponse';
 import { usePathname } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Image, Linking, Pressable, StyleSheet } from 'react-native';
@@ -46,7 +46,7 @@ export interface SplashHost {
  */
 export function useLaunchSplash(): SplashHost {
   const pathname = usePathname();
-  const response = Notifications.useLastNotificationResponse();
+  const response = useLastNotificationResponse();
   const [wanted, setWanted] = useState(true);
   const [run, setRun] = useState(0);
   const [cold, setCold] = useState(true);
@@ -183,7 +183,7 @@ function Overlay({ started, onDone }: { started: boolean; onDone(): void }) {
   });
 
   return (
-    <Animated.View testID="launch-splash" style={[StyleSheet.absoluteFill, { backgroundColor: c.paper }, root]}>
+    <Animated.View testID="launch-splash" style={[StyleSheet.absoluteFill, { backgroundColor: c.bg }, root]}>
       <Pressable
         accessible
         accessibilityRole="button"
@@ -192,10 +192,7 @@ function Overlay({ started, onDone }: { started: boolean; onDone(): void }) {
         onPress={skip}
         style={styles.center}
       >
-        <Animated.View
-          testID="launch-splash-ring"
-          style={[styles.ring, { borderColor: scheme === 'dark' ? c.sage : c.leaf }, ring]}
-        />
+        <Animated.View testID="launch-splash-ring" style={[styles.ring, { borderColor: c.brand }, ring]} />
         <Animated.View style={mark}>
           <Image
             testID="launch-splash-mark"
@@ -205,7 +202,7 @@ function Overlay({ started, onDone }: { started: boolean; onDone(): void }) {
           />
         </Animated.View>
         <Animated.View style={[styles.word, word]}>
-          <Txt weight={700} color={c.ink} style={{ fontSize: 26, lineHeight: 32, letterSpacing: -0.5 }}>
+          <Txt weight={700} color={c.text} style={{ fontSize: 26, lineHeight: 32, letterSpacing: -0.5 }}>
             {APP_NAME}
           </Txt>
         </Animated.View>

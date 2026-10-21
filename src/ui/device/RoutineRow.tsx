@@ -7,7 +7,7 @@ import { Txt } from '../Txt';
 
 /** Satu rutinitas (desain 2c): ikon, nama, isi singkat, tombol Jalankan. Taruh di dalam `ListGroup`. */
 export function RoutineRow({ routine, last, onRun }: { routine: Routine; last: boolean; onRun: () => void }) {
-  const { c } = useTheme();
+  const { c, shadow, marker } = useTheme();
   return (
     <View
       style={{
@@ -15,21 +15,19 @@ export function RoutineRow({ routine, last, onRun }: { routine: Routine; last: b
         alignItems: 'center',
         gap: 12,
         paddingVertical: 12,
-        borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: c.line,
       }}
     >
       <View
         style={{
           width: 40,
           height: 40,
-          borderRadius: 14,
-          backgroundColor: c.mint,
+          borderRadius: 20,
+          backgroundColor: c.sunken,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Icon name={iconOr(routine.icon, 'bell')} size={22} color={c.green} />
+        <Icon name={iconOr(routine.icon, 'bell')} size={22} color={marker.rumah.ink} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Txt weight={600}>{routine.name}</Txt>
@@ -46,13 +44,12 @@ export function RoutineRow({ routine, last, onRun }: { routine: Routine; last: b
           height: 48,
           paddingHorizontal: 16,
           borderRadius: 24,
-          borderWidth: 1,
-          borderColor: c.line,
-          backgroundColor: c.card,
+          boxShadow: shadow.e1,
+          backgroundColor: c.surface,
           justifyContent: 'center',
         }}
       >
-        <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
+        <Txt weight={600} color={c.brandInk} style={{ fontSize: 15 }}>
           Jalankan
         </Txt>
       </Pressable>

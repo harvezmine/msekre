@@ -26,7 +26,7 @@ export default function Masuk() {
 }
 
 function Isi({ id }: { id: string }) {
-  const { c, scheme } = useTheme();
+  const { c, scheme, marker } = useTheme();
   const assistant = useAssistantName();
   const { mode } = useApi();
   const { close } = useSheet();
@@ -105,7 +105,7 @@ function Isi({ id }: { id: string }) {
       <View
         style={{
           marginHorizontal: 16,
-          backgroundColor: c.mint,
+          backgroundColor: c.sunken,
           borderRadius: 16,
           paddingVertical: 12,
           paddingHorizontal: 16,
@@ -148,7 +148,7 @@ function Isi({ id }: { id: string }) {
           {detail.data.what.map((line) => (
             <View key={line} style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ marginTop: 2 }}>
-                <Icon name="check" size={20} color={c.green} />
+                <Icon name="check" size={20} color={c.brandInk} />
               </View>
               <Txt style={{ flex: 1 }}>{line}</Txt>
             </View>
@@ -161,7 +161,7 @@ function Isi({ id }: { id: string }) {
         </Txt>
       ) : null}
       {retry && flow.message ? (
-        <Txt color={c.clay} accessibilityLiveRegion="polite" style={{ marginHorizontal: 16 }}>
+        <Txt color={marker.warn.ink} accessibilityLiveRegion="polite" style={{ marginHorizontal: 16 }}>
           {flow.message}
         </Txt>
       ) : null}
@@ -180,13 +180,13 @@ function Isi({ id }: { id: string }) {
           marginHorizontal: 16,
           height: 56,
           borderRadius: 28,
-          backgroundColor: c.green,
+          backgroundColor: c.brand,
           alignItems: 'center',
           justifyContent: 'center',
           opacity: working || soon ? 0.6 : 1,
         }}
       >
-        <Txt weight={600} color={c.onGreen} style={{ fontSize: 17 }}>
+        <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
           {label}
         </Txt>
       </Pressable>

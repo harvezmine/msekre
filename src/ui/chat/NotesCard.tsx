@@ -13,7 +13,7 @@ export interface NotesInfo {
 
 /** Kartu notulen rapat: tiga keputusan dan tautan Baca notulen (layar notulen menyusul di tugas lain). */
 export function NotesCard({ notes, onOpen }: { notes: NotesInfo; onOpen?: () => void }) {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const toast = useToast();
   return (
     <ChatCard>
@@ -23,12 +23,12 @@ export function NotesCard({ notes, onOpen }: { notes: NotesInfo; onOpen?: () => 
             width: 40,
             height: 40,
             borderRadius: 14,
-            backgroundColor: c.mint,
+            backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name="note" size={22} color={c.green} />
+          <Icon name="note" size={22} color={marker.agenda.ink} />
         </View>
         <View style={{ flex: 1 }}>
           <Txt weight={600}>{notes.title}</Txt>
@@ -40,7 +40,7 @@ export function NotesCard({ notes, onOpen }: { notes: NotesInfo; onOpen?: () => 
       <View style={{ gap: 8 }}>
         {notes.decisions.map((d, i) => (
           <View key={d} style={{ flexDirection: 'row', gap: 10 }}>
-            <Txt weight={600} color={c.green} style={{ width: 16 }}>
+            <Txt weight={600} color={marker.agenda.ink} style={{ width: 16 }}>
               {i + 1}
             </Txt>
             <Txt style={{ flex: 1 }}>{d}</Txt>
@@ -54,10 +54,10 @@ export function NotesCard({ notes, onOpen }: { notes: NotesInfo; onOpen?: () => 
         hitSlop={{ top: 4, bottom: 4 }}
         style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}
       >
-        <Txt weight={600} color={c.green}>
+        <Txt weight={600} color={c.brandInk}>
           Baca notulen
         </Txt>
-        <Icon name="chevR" size={18} color={c.green} />
+        <Icon name="chevR" size={18} color={c.brandInk} />
       </Pressable>
     </ChatCard>
   );

@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import type { Service } from '@/api/contract';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -6,7 +6,7 @@ import { Txt } from '../Txt';
 import { ServiceTile } from './ServiceTile';
 
 /** Jalan menyambungkan: Kotak lewat Tambah perangkat, selain itu lembar masuk layanan. */
-export const connectRoute = (id: string) =>
+export const connectRoute = (id: string): Href =>
   id === 'kotak' ? '/perangkat/tambah' : `/terhubung/masuk?id=${encodeURIComponent(id)}`;
 
 /** Satu baris katalog (desain 2h): ubin huruf, nama, dan "Sambungkan" atau lencana "Segera hadir". */
@@ -37,7 +37,7 @@ export function CatalogRow({ service, last }: { service: Service; last: boolean 
             paddingHorizontal: 10,
             height: 28,
             borderRadius: 14,
-            backgroundColor: c.paper,
+            backgroundColor: c.bg,
             justifyContent: 'center',
           }}
         >
@@ -53,7 +53,7 @@ export function CatalogRow({ service, last }: { service: Service; last: boolean 
           android_ripple={{ color: c.ripple }}
           style={{ height: 48, paddingHorizontal: 12, justifyContent: 'center' }}
         >
-          <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
+          <Txt weight={600} color={c.brandInk} style={{ fontSize: 15 }}>
             Sambungkan
           </Txt>
         </Pressable>
@@ -64,7 +64,7 @@ export function CatalogRow({ service, last }: { service: Service; last: boolean 
 
 /** Kartu pembungkus baris-baris katalog. */
 export function CatalogGroup({ title, items }: { title: string; items: Service[] }) {
-  const { c } = useTheme();
+  const { c, shadow } = useTheme();
   return (
     <View style={{ gap: 12 }}>
       <Txt weight={600} style={{ fontSize: 15, lineHeight: 20, paddingHorizontal: 4, paddingTop: 12 }}>
@@ -72,9 +72,8 @@ export function CatalogGroup({ title, items }: { title: string; items: Service[]
       </Txt>
       <View
         style={{
-          backgroundColor: c.card,
-          borderWidth: 1,
-          borderColor: c.line,
+          backgroundColor: c.surface,
+          boxShadow: shadow.e1,
           borderRadius: 24,
           paddingVertical: 4,
           paddingLeft: 16,

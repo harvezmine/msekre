@@ -13,7 +13,7 @@ export default function NotFound() {
     <View
       style={{
         flex: 1,
-        backgroundColor: c.paper,
+        backgroundColor: c.bg,
         paddingTop: insets.top + 24,
         paddingBottom: insets.bottom + 32,
         paddingHorizontal: 24,

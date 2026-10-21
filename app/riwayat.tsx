@@ -21,7 +21,7 @@ const NEAR_END = 240;
 // Riwayat (desain 2m): yang sudah dikerjakan asisten, per hari, dengan Batalkan untuk kiriman yang masih tertahan.
 // Daftarnya dari GET /history, halaman demi halaman.
 export default function Riwayat() {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const assistant = useAssistantName();
   const [label, setLabel] = useState(LABELS[0]!);
   const kind = HISTORY_FILTERS.find((f) => f.label === label)?.kind;
@@ -39,7 +39,7 @@ export default function Riwayat() {
   const groups = groupByDay(h.items, h.now);
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Riwayat" />
       <View style={{ paddingBottom: 8 }}>
         <FilterChips options={LABELS} value={label} onChange={setLabel} />
@@ -59,7 +59,7 @@ export default function Riwayat() {
           <View style={{ paddingTop: 24, gap: 12 }}>
             <Txt color={c.muted}>{h.error}</Txt>
             <Pressable accessibilityRole="button" accessibilityLabel="Coba lagi" onPress={() => void h.retry()}>
-              <Txt weight={600} color={c.green}>
+              <Txt weight={600} color={c.brandInk}>
                 Coba lagi
               </Txt>
             </Pressable>
@@ -96,13 +96,13 @@ export default function Riwayat() {
             onPress={() => void h.loadMore()}
             style={{ height: 48, justifyContent: 'center', alignItems: 'center', opacity: h.loadingMore ? 0.5 : 1 }}
           >
-            <Txt weight={600} color={c.green}>
+            <Txt weight={600} color={c.brandInk}>
               {h.loadingMore ? 'Sebentar ya…' : 'Tampilkan yang lebih lama'}
             </Txt>
           </Pressable>
         ) : null}
         {h.moreError ? (
-          <Txt v="caption" color={c.clay} style={{ textAlign: 'center' }}>
+          <Txt v="caption" color={marker.warn.ink} style={{ textAlign: 'center' }}>
             {h.moreError}
           </Txt>
         ) : null}
@@ -124,7 +124,7 @@ function Entry({
   busy: boolean;
   onCancel: () => void;
 }) {
-  const { c } = useTheme();
+  const { c, shadow, marker } = useTheme();
   const struck = entry.status === 'dibatalkan';
   const strike = struck ? ({ textDecorationLine: 'line-through' } as const) : null;
   const href = linkHref(entry.link);
@@ -133,7 +133,7 @@ function Entry({
   const left = entry.undoable ? remainingSec(entry.undoable.until, now) : 0;
   const body = (
     <>
-      <Txt weight={500} color={struck ? c.muted : c.ink} style={strike}>
+      <Txt weight={500} color={struck ? c.muted : c.text} style={strike}>
         {entry.title}
       </Txt>
       <Txt v="caption" color={c.muted} style={strike}>
@@ -149,12 +149,12 @@ function Entry({
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: c.mint,
+            backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name={iconOr(entry.icon, 'history')} size={20} color={c.green} />
+          <Icon name={iconOr(entry.icon, 'history')} size={20} color={c.text} />
         </View>
         {last ? null : <View style={{ flex: 1, width: 1.5, backgroundColor: c.line }} />}
       </View>
@@ -175,7 +175,7 @@ function Entry({
           <Txt
             v="caption"
             weight={600}
-            color={entry.status === 'terkirim' ? c.leafText : entry.status === 'gagal' ? c.clay : c.muted}
+            color={entry.status === 'terkirim' ? c.brandInk : entry.status === 'gagal' ? marker.warn.ink : c.muted}
           >
             {STATUS_TEXT[entry.status]}
           </Txt>
@@ -193,9 +193,8 @@ function Entry({
                 height: 48,
                 paddingHorizontal: 16,
                 borderRadius: 24,
-                borderWidth: 1,
-                borderColor: c.line,
-                backgroundColor: c.card,
+                boxShadow: shadow.e1,
+                backgroundColor: c.surface,
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 8,

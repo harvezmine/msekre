@@ -22,7 +22,7 @@ const SEGMENTS = ['Hari ini', 'Minggu ini', 'Kalender'] as const;
 type Segment = (typeof SEGMENTS)[number];
 
 export default function Agenda() {
-  const { c, scheme } = useTheme();
+  const { c, marker, shadow } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const alarm = useAlarmStatus();
@@ -46,7 +46,7 @@ export default function Agenda() {
 
   if (!TODAY || !NOW) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top, paddingHorizontal: 20 }}>
+      <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top, paddingHorizontal: 20 }}>
         <Txt v="title" accessibilityRole="header" style={{ paddingTop: 8 }}>
           Agenda
         </Txt>
@@ -77,7 +77,7 @@ export default function Agenda() {
   const remaining = today.filter((a) => !isPast(a, TODAY, NOW) && !a.done).length;
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
       <ScrollView contentContainerStyle={{ paddingTop: 8, paddingBottom: 96 }}>
         <View
           style={{
@@ -99,7 +99,8 @@ export default function Agenda() {
               width: 48,
               height: 48,
               borderRadius: 24,
-              backgroundColor: c.mint,
+              backgroundColor: c.surface,
+              boxShadow: shadow.e1,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -117,16 +118,16 @@ export default function Agenda() {
               marginHorizontal: 16,
               marginTop: 12,
               borderRadius: 20,
-              backgroundColor: c.clayBg,
+              backgroundColor: c.sunken,
               padding: 16,
               flexDirection: 'row',
               alignItems: 'center',
               gap: 12,
             }}
           >
-            <Icon name="bell" size={22} color={c.clay} />
+            <Icon name="bell" size={22} color={marker.warn.ink} />
             <View style={{ flex: 1 }}>
-              <Txt weight={600} color={c.clay}>
+              <Txt weight={600} color={marker.warn.ink}>
                 Alarm belum bisa bunyi tepat waktu
               </Txt>
               <Txt v="caption" color={c.muted}>
@@ -163,7 +164,7 @@ export default function Agenda() {
             </View>
             {leftover ? (
               <Card style={{ marginHorizontal: 16, marginTop: 8, paddingTop: 16, paddingBottom: 20, gap: 12 }}>
-                <Txt weight={600} color={c.green} style={{ fontSize: 15, lineHeight: 20 }}>
+                <Txt v="caption" color={c.muted}>
                   Kemarin belum selesai
                 </Txt>
                 <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
@@ -245,7 +246,7 @@ export default function Agenda() {
         accessibilityRole="button"
         accessibilityLabel="Tambah"
         onPress={() => router.push('/agenda/tambah')}
-        android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
+        android_ripple={{ color: c.ripple }}
         style={{
           position: 'absolute',
           right: 20,
@@ -254,19 +255,15 @@ export default function Agenda() {
           paddingLeft: 18,
           paddingRight: 24,
           borderRadius: 28,
-          backgroundColor: c.green,
+          backgroundColor: c.brand,
           flexDirection: 'row',
           alignItems: 'center',
           gap: 8,
-          elevation: 3,
-          shadowColor: '#0D2B22',
-          shadowOpacity: scheme === 'dark' ? 0.4 : 0.14,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 2 },
+          boxShadow: shadow.e2,
         }}
       >
-        <Icon name="plus" size={22} color={c.onGreen} />
-        <Txt weight={600} color={c.onGreen}>
+        <Icon name="plus" size={22} color={c.onBrand} />
+        <Txt weight={600} color={c.onBrand}>
           Tambah
         </Txt>
       </Pressable>
@@ -286,14 +283,12 @@ function PillButton({ label, green = false, onPress }: { label: string; green?: 
         flex: 1,
         height: 48,
         borderRadius: 24,
-        borderWidth: 1,
-        borderColor: c.line,
-        backgroundColor: c.card,
+        backgroundColor: c.sunken,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Txt weight={600} color={green ? c.green : c.ink} style={{ fontSize: 15 }}>
+      <Txt weight={600} color={green ? c.brandInk : c.text} style={{ fontSize: 15 }}>
         {label}
       </Txt>
     </Pressable>

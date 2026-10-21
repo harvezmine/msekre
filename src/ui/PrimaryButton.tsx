@@ -24,14 +24,14 @@ export function PrimaryButton({
       style={{
         height: 56,
         borderRadius: 28,
-        backgroundColor: c.green,
+        backgroundColor: c.brand,
         opacity: disabled ? 0.4 : 1,
         alignItems: 'center',
         justifyContent: 'center',
         alignSelf: 'stretch',
       }}
     >
-      <Txt weight={600} color={c.onGreen} style={{ fontSize: 17 }}>
+      <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
         {label}
       </Txt>
     </Pressable>

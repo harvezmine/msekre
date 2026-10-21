@@ -126,7 +126,7 @@ export function Sheet({ onClose, children, testID }: Props) {
       <Animated.View
         pointerEvents="none"
         style={[
-          { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(13,43,34,0.45)' },
+          { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: c.scrim },
           backdropStyle,
         ]}
       />
@@ -145,7 +145,7 @@ export function Sheet({ onClose, children, testID }: Props) {
           }}
           style={[
             {
-              backgroundColor: c.card,
+              backgroundColor: c.surface,
               borderTopLeftRadius: 28,
               borderTopRightRadius: 28,
               paddingTop: 12,
@@ -163,7 +163,7 @@ export function Sheet({ onClose, children, testID }: Props) {
               height: 4,
               borderRadius: 2,
               marginBottom: 16,
-              backgroundColor: c.stepOff,
+              backgroundColor: c.sunken2,
             }}
           />
           <SheetContext value={controls}>{children}</SheetContext>

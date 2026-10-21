@@ -1,16 +1,13 @@
 import { View, type ViewProps } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
-import { radius } from '@/theme/tokens';
 
+/** Permukaan kartu lama: tanpa garis tepi, bayangan sangat lembut (`e1`), radius 24. Komponen baru memakai `Surface`. */
 export function Card({ style, ...rest }: ViewProps) {
-  const { c } = useTheme();
+  const { c, shadow, radius } = useTheme();
   return (
     <View
       {...rest}
-      style={[
-        { backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.card, padding: 20 },
-        style,
-      ]}
+      style={[{ backgroundColor: c.surface, borderRadius: radius.tile, padding: 20, boxShadow: shadow.e1 }, style]}
     />
   );
 }

@@ -18,13 +18,13 @@ export function MediaFailed({ onRetry, style }: { onRetry: () => void; style?: S
           gap: 4,
           minHeight: 120,
           borderRadius: 12,
-          backgroundColor: c.mint,
+          backgroundColor: c.sunken,
           padding: 12,
         },
         style,
       ]}
     >
-      <Icon name="camera" size={28} color={c.green} />
+      <Icon name="camera" size={28} color={c.text} />
       <Txt color={c.muted} style={{ textAlign: 'center' }}>
         Gambar belum bisa dimuat.
       </Txt>
@@ -34,7 +34,7 @@ export function MediaFailed({ onRetry, style }: { onRetry: () => void; style?: S
         onPress={onRetry}
         style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 16 }}
       >
-        <Txt weight={600} color={c.green}>
+        <Txt weight={600} color={c.brandInk}>
           Coba muat lagi
         </Txt>
       </Pressable>

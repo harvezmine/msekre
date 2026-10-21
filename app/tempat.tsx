@@ -57,7 +57,7 @@ function Pilihan() {
               }}
             >
               <Txt weight={selected ? 600 : 500}>{p}</Txt>
-              {selected ? <Icon name="check" size={24} color={c.green} /> : null}
+              {selected ? <Icon name="check" size={24} color={c.brandInk} /> : null}
             </Pressable>
           );
         })}

@@ -38,12 +38,12 @@ export function Toast({ text }: { text: string }) {
           paddingVertical: 14,
           paddingHorizontal: 20,
           borderRadius: 16,
-          backgroundColor: c.ink,
+          backgroundColor: c.text,
         },
         style,
       ]}
     >
-      <Txt weight={500} color={c.paper} style={{ fontSize: 15, lineHeight: 22, textAlign: 'center' }}>
+      <Txt weight={500} color={c.bg} style={{ fontSize: 15, lineHeight: 22, textAlign: 'center' }}>
         {text}
       </Txt>
     </Animated.View>

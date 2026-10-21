@@ -26,6 +26,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { Initials } from '@/ui/Initials';
 import type { IconName } from '@/ui/icons';
+import type { AccentTone } from '@/ui/kit';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Txt } from '@/ui/Txt';
 import { Wordmark } from '@/ui/Wordmark';
@@ -38,6 +39,20 @@ interface Row {
   /** Rute yang dibuka, atau teks toast bila layarnya belum dibangun. */
   go: { route: Href } | { toast: string } | { run: () => void };
 }
+
+/** Warna ikon per baris (Fase R): penanda kategori di lingkaran netral; Asisten hijau brand. */
+const ROW_TONE: Partial<Record<IconName, AccentTone>> = {
+  user: 'brand',
+  chat: 'brand',
+  lock: 'terhubung',
+  shield: 'terhubung',
+  bell: 'agenda',
+  clock: 'agenda',
+  moon: 'usaha',
+  phone: 'terhubung',
+  link: 'terhubung',
+  logout: 'warn',
+};
 
 /** Isi kepala Akun. Mode contoh memakai isian desain; mode server hanya data akun asli, tanpa nama contoh. */
 function accountOf(p: Profile) {
@@ -61,7 +76,7 @@ const NOTIF_STATUS: Record<PushPermission, string> = {
 
 // Akun (desain 2q). Baris yang layarnya belum ada memunculkan toast "segera hadir".
 export default function Akun() {
-  const { c } = useTheme();
+  const { c, marker, shadow } = useTheme();
   const connections = useConnections();
   const { mode } = useApi();
   const profile = useProfile();
@@ -182,7 +197,7 @@ export default function Akun() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Akun" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 4, paddingBottom: 8 }}>
@@ -191,7 +206,7 @@ export default function Akun() {
               width: 64,
               height: 64,
               borderRadius: 32,
-              backgroundColor: c.mint,
+              backgroundColor: c.brandSoft,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -211,7 +226,8 @@ export default function Akun() {
         {plan ? (
           <View
             style={{
-              backgroundColor: c.mint,
+              backgroundColor: c.surface,
+              boxShadow: shadow.e1,
               borderRadius: 24,
               paddingVertical: 16,
               paddingLeft: 20,
@@ -222,11 +238,11 @@ export default function Akun() {
             }}
           >
             <View style={{ flex: 1 }}>
-              <Txt v="caption" weight={600} color={c.green}>
+              <Txt v="caption" weight={600} color={c.brandInk}>
                 Langganan
               </Txt>
               <Txt v="subtitle">{`Paket ${plan.name}`}</Txt>
-              <Txt v="caption" color={plan.status === 'berakhir' ? c.clay : c.muted}>
+              <Txt v="caption" color={plan.status === 'berakhir' ? marker.warn.ink : c.muted}>
                 {planText(plan, undefined, tzOffsetMinutes ?? ACCOUNT_TZ_MINUTES)}
               </Txt>
             </View>
@@ -237,7 +253,7 @@ export default function Akun() {
               android_ripple={{ color: c.ripple }}
               style={{ height: 48, paddingHorizontal: 16, justifyContent: 'center' }}
             >
-              <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
+              <Txt weight={600} color={c.brandInk} style={{ fontSize: 15 }}>
                 Perpanjang
               </Txt>
             </Pressable>
@@ -247,7 +263,7 @@ export default function Akun() {
             accessibilityRole="button"
             accessibilityLabel="Muat paket lagi"
             onPress={() => void retry()}
-            style={{ backgroundColor: c.mint, borderRadius: 24, padding: 16 }}
+            style={{ backgroundColor: c.sunken, borderRadius: 24, padding: 16 }}
           >
             <Txt color={c.muted}>Paket belum bisa dimuat. Ketuk untuk mencoba lagi.</Txt>
           </Pressable>
@@ -259,6 +275,7 @@ export default function Akun() {
               <ListRow
                 key={r.title}
                 icon={r.icon}
+                tone={ROW_TONE[r.icon]}
                 title={r.title}
                 subtitle={r.subtitle}
                 last={j === rows.length - 1}
@@ -285,8 +302,9 @@ export default function Akun() {
                 />
               ) : null}
               <ListRow icon="clock" title="Alarm" last={!__DEV__} onPress={() => router.push('/alarm')} />
+              {__DEV__ ? <ListRow icon="info" title="Pemeriksa Inti" onPress={() => router.push('/inti')} /> : null}
               {__DEV__ ? (
-                <ListRow icon="info" title="Pemeriksa Inti" last onPress={() => router.push('/inti')} />
+                <ListRow icon="palette" title="Komponen" last onPress={() => router.push('/dev/kit')} />
               ) : null}
             </ListGroup>
           </View>

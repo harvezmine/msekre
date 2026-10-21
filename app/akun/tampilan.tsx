@@ -14,10 +14,10 @@ const HINT: Record<AppearancePreference, string | null> = {
 /** Satu setengah petak pratinjau: kertas, kartu, dan garis tulisan dalam warna pilihan itu. */
 function Half({ p }: { p: Palette }) {
   return (
-    <View style={{ flex: 1, backgroundColor: p.paper, padding: 5, gap: 3, justifyContent: 'center' }}>
-      <View style={{ height: 4, width: '70%', borderRadius: 2, backgroundColor: p.ink }} />
-      <View style={{ height: 8, borderRadius: 3, backgroundColor: p.card, borderWidth: 1, borderColor: p.line }} />
-      <View style={{ height: 4, width: '40%', borderRadius: 2, backgroundColor: p.green }} />
+    <View style={{ flex: 1, backgroundColor: p.bg, padding: 5, gap: 3, justifyContent: 'center' }}>
+      <View style={{ height: 4, width: '70%', borderRadius: 2, backgroundColor: p.text }} />
+      <View style={{ height: 8, borderRadius: 3, backgroundColor: p.surface, borderWidth: 1, borderColor: p.line }} />
+      <View style={{ height: 4, width: '40%', borderRadius: 2, backgroundColor: p.brand }} />
     </View>
   );
 }
@@ -46,10 +46,10 @@ function Preview({ value }: { value: AppearancePreference }) {
 
 // Tampilan (di bawah Akun): ikut HP, selalu terang, atau selalu gelap. Berlaku seketika dan diingat di HP ini.
 export default function Tampilan() {
-  const { c } = useTheme();
+  const { c, shadow } = useTheme();
   const { preference, setPreference } = useAppearance();
   return (
-    <View style={{ flex: 1, backgroundColor: c.paper }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Tampilan" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32, gap: 8 }}>
         <View style={{ gap: 8 }} accessibilityRole="radiogroup">
@@ -70,9 +70,10 @@ export default function Tampilan() {
                   gap: 12,
                   padding: 16,
                   borderRadius: 20,
-                  borderWidth: on ? 1.5 : 1,
-                  borderColor: on ? c.green : c.line,
-                  backgroundColor: on ? c.mint : c.card,
+                  borderWidth: 2,
+                  borderColor: on ? c.brand : 'transparent',
+                  backgroundColor: on ? c.brandSoft : c.surface,
+                  boxShadow: on ? undefined : shadow.e1,
                 }}
               >
                 <View
@@ -81,16 +82,16 @@ export default function Tampilan() {
                     height: 22,
                     borderRadius: 11,
                     borderWidth: 2,
-                    borderColor: on ? c.green : c.muted,
+                    borderColor: on ? c.brand : c.muted,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  {on ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.green }} /> : null}
+                  {on ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.brand }} /> : null}
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Txt weight={600}>{APPEARANCE_LABEL[value]}</Txt>
-                  {hint ? <Txt color={on ? c.ink : c.muted}>{hint}</Txt> : null}
+                  {hint ? <Txt color={on ? c.text : c.muted}>{hint}</Txt> : null}
                 </View>
                 <Preview value={value} />
               </Pressable>

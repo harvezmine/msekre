@@ -43,7 +43,7 @@ export default function Tambah() {
 }
 
 function Isi() {
-  const { c } = useTheme();
+  const { c, marker } = useTheme();
   const { close } = useSheet();
   const toast = useToast();
   const openSuara = useOpenVoice();
@@ -101,9 +101,9 @@ function Isi() {
         style={{
           minHeight: 104,
           borderWidth: 1.5,
-          borderColor: c.green,
+          borderColor: c.brand,
           borderRadius: 20,
-          backgroundColor: c.paper,
+          backgroundColor: c.bg,
           paddingVertical: 8,
           paddingLeft: 16,
           paddingRight: 8,
@@ -123,8 +123,8 @@ function Isi() {
           accessibilityLabel="Tulis yang mau ditambahkan"
           placeholder="Ingatkan saya bayar pajak motor tanggal 25"
           placeholderTextColor={c.muted}
-          cursorColor={c.green}
-          selectionColor={c.green}
+          cursorColor={c.text}
+          selectionColor={marker.agenda.base}
           textAlignVertical="top"
           style={{
             flex: 1,
@@ -133,7 +133,7 @@ function Isi() {
             fontFamily: FONT[400],
             fontSize: 17,
             lineHeight: 26,
-            color: c.ink,
+            color: c.text,
           }}
         />
         <IconButton icon="mic" label="Bicara" tinted onPress={() => openSuara('push')} />
@@ -155,23 +155,23 @@ function Isi() {
           <Txt v="caption" weight={600} color={c.muted}>
             Akan saya simpan sebagai
           </Txt>
-          <View style={{ backgroundColor: c.mint, borderRadius: 20, padding: 16, gap: 12 }}>
+          <View style={{ backgroundColor: c.sunken, borderRadius: 20, padding: 16, gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <View
                 style={{
                   width: 40,
                   height: 40,
                   borderRadius: 14,
-                  backgroundColor: c.card,
+                  backgroundColor: c.surface,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Icon name={KIND_ICON[parsed.item.kind]} size={22} color={c.green} />
+                <Icon name={KIND_ICON[parsed.item.kind]} size={22} color={marker.agenda.ink} />
               </View>
               <View style={{ flex: 1 }}>
                 <Txt weight={600}>{parsed.item.title}</Txt>
-                <Txt v="caption" color={c.green}>
+                <Txt v="caption" color={c.brandInk}>
                   {KIND_LABEL[parsed.item.kind]}
                 </Txt>
               </View>
@@ -182,7 +182,7 @@ function Isi() {
               {parsed.item.way === 'alarm' ? <Row label="Cara" value="Bunyi sebagai alarm" /> : null}
             </View>
             {parsed.guessedTime ? (
-              <Txt v="caption" color={c.micSub}>
+              <Txt v="caption" color={c.muted}>
                 Jamnya saya tebak.
               </Txt>
             ) : null}
@@ -202,10 +202,10 @@ function Isi() {
           borderRadius: 28,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: parsed ? c.green : c.track,
+          backgroundColor: parsed ? c.brand : c.sunken2,
         }}
       >
-        <Txt weight={600} color={parsed ? c.onGreen : c.muted} style={{ fontSize: 17 }}>
+        <Txt weight={600} color={parsed ? c.onBrand : c.muted} style={{ fontSize: 17 }}>
           Simpan
         </Txt>
       </Pressable>

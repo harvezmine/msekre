@@ -1,81 +1,44 @@
-import { Pressable, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Icon } from './Icon';
 import type { IconName } from './icons';
-import { Txt } from './Txt';
+import type { AccentTone } from './kit/AccentIcon';
+import { ListRow as KitListRow } from './kit/ListRow';
 
 interface Props {
   icon: IconName;
   title: string;
   subtitle?: string;
   onPress?: () => void;
-  /** Peringatan: tile dan keterangan berwarna clay (contoh perangkat tidak terjangkau). */
+  /** Peringatan: ikon dan keterangan berwarna koral, penanda `warn` (contoh perangkat tidak terjangkau). */
   warn?: boolean;
-  /** Baris terakhir dalam kartu: tanpa garis bawah. */
+  /** Dulu: baris terakhir tanpa garis bawah. Baris Fase R tidak bergaris, jadi diabaikan. */
   last?: boolean;
-  /** Ganti chevron, contoh centang. */
-  trailing?: React.ReactNode;
+  /** Ganti chevron, contoh centang atau sakelar. */
+  trailing?: ReactNode;
+  /** Warna bidang ikon; bawaannya netral. */
+  tone?: AccentTone;
 }
 
-/** Baris kartu daftar: tile ikon 40, judul, keterangan, chevron (desain 2h dan 2q). Taruh di dalam `ListGroup`. */
-export function ListRow({ icon, title, subtitle, onPress, warn = false, last = false, trailing }: Props) {
-  const { c } = useTheme();
+/** Baris daftar layar lama, kini memakai `ListRow` Fase R (tanpa kotak, ikon dalam lingkaran). */
+export function ListRow({ icon, title, subtitle, onPress, warn = false, trailing, tone }: Props) {
+  const { marker } = useTheme();
   return (
-    <Pressable
-      accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
+    <KitListRow
+      icon={icon}
+      tone={warn ? 'warn' : (tone ?? 'neutral')}
+      title={title}
+      description={subtitle}
+      descriptionColor={warn ? marker.warn.ink : undefined}
+      descriptionLines={0}
       onPress={onPress}
-      android_ripple={{ color: c.ripple }}
-      style={{
-        minHeight: 64,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: c.line,
-      }}
-    >
-      <View
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 14,
-          backgroundColor: warn ? c.clayBg : c.mint,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon name={icon} size={22} color={warn ? c.clay : c.green} />
-      </View>
-      <View style={{ flex: 1, minWidth: 0, paddingVertical: 8 }}>
-        <Txt weight={600}>{title}</Txt>
-        {subtitle ? (
-          <Txt v="caption" color={warn ? c.clay : c.muted}>
-            {subtitle}
-          </Txt>
-        ) : null}
-      </View>
-      {trailing ?? <Icon name="chevR" size={20} color={c.muted} />}
-    </Pressable>
+      trailing={trailing}
+      inset={0}
+    />
   );
 }
 
-/** Kartu pembungkus baris-baris ListRow. */
-export function ListGroup({ children }: { children: React.ReactNode }) {
-  const { c } = useTheme();
-  return (
-    <View
-      style={{
-        backgroundColor: c.card,
-        borderWidth: 1,
-        borderColor: c.line,
-        borderRadius: 24,
-        paddingVertical: 4,
-        paddingLeft: 16,
-        paddingRight: 12,
-      }}
-    >
-      {children}
-    </View>
-  );
+/** Kelompok baris: baris Fase R langsung di atas latar, tanpa bingkai. */
+export function ListGroup({ children }: { children: ReactNode }) {
+  return <View>{children}</View>;
 }

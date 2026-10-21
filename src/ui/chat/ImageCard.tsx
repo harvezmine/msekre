@@ -45,12 +45,12 @@ export function ImageCard({
             width: '100%',
             aspectRatio: 1,
             borderRadius: 12,
-            backgroundColor: c.mint,
+            backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Icon name="camera" size={32} color={c.green} />
+          <Icon name="camera" size={32} color={c.text} />
         </View>
       )}
       {image.caption ? (

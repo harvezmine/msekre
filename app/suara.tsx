@@ -5,7 +5,7 @@ import { KeyboardAvoidingView, Linking, Pressable, ScrollView, TextInput, View }
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
-import { onForest, FONT } from '@/theme/tokens';
+import { onVoice, FONT } from '@/theme/tokens';
 import { Icon } from '@/ui/Icon';
 import type { IconName } from '@/ui/icons';
 import { Inti, type IntiState } from '@/ui/inti/Inti';
@@ -40,7 +40,7 @@ function SuaraSegera() {
     <View
       style={{
         flex: 1,
-        backgroundColor: c.voice,
+        backgroundColor: c.voiceCanvas,
         paddingTop: insets.top + 24,
         paddingBottom: insets.bottom + 36,
         paddingHorizontal: 28,
@@ -50,7 +50,7 @@ function SuaraSegera() {
       }}
     >
       <StatusBar style="light" />
-      <Txt testID="suara-segera" v="title" color={onForest.strong} style={{ textAlign: 'center' }}>
+      <Txt testID="suara-segera" v="title" color={onVoice.strong} style={{ textAlign: 'center' }}>
         {VOICE_SOON_TEXT}
       </Txt>
       <Pressable
@@ -61,11 +61,11 @@ function SuaraSegera() {
           height: 56,
           paddingHorizontal: 40,
           borderRadius: 28,
-          backgroundColor: onForest.strong,
+          backgroundColor: onVoice.strong,
           justifyContent: 'center',
         }}
       >
-        <Txt v="subtitle" color="#0E3A2C">
+        <Txt v="subtitle" color={onVoice.onStrong}>
           Selesai
         </Txt>
       </Pressable>
@@ -89,7 +89,7 @@ function SuaraAktif() {
           ? assistantName
           : (voice.note ?? HINT_HOLD);
   return (
-    <View style={{ flex: 1, backgroundColor: c.voice }}>
+    <View style={{ flex: 1, backgroundColor: c.voiceCanvas }}>
       <StatusBar style="light" />
       {/* Edge-to-edge: jendela tidak mengecil saat papan ketik muncul, jadi 'padding' menaikkan isi (kolom ketik dan draf). */}
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
@@ -109,13 +109,13 @@ function SuaraAktif() {
           <View style={{ paddingHorizontal: 28, gap: 8, minHeight: 72 }}>
             {voice.transcript ? (
               <>
-                <Txt v="caption" color={onForest.soft}>
+                <Txt v="caption" color={onVoice.soft}>
                   Anda
                 </Txt>
                 <Txt
                   testID="suara-ucapan"
                   weight={500}
-                  color={voice.transcriptFinal ? onForest.text : onForest.hint}
+                  color={voice.transcriptFinal ? onVoice.text : onVoice.hint}
                   style={{ fontSize: 20, lineHeight: 28 }}
                   maxFontSizeMultiplier={1.4}
                 >
@@ -146,7 +146,7 @@ function SuaraAktif() {
             </Pressable>
             <Txt
               v="caption"
-              color={onForest.soft}
+              color={onVoice.soft}
               accessibilityLiveRegion="polite"
               style={{ marginTop: 12, paddingHorizontal: 28, textAlign: 'center' }}
             >
@@ -156,14 +156,14 @@ function SuaraAktif() {
           <View style={{ paddingHorizontal: 28, gap: 8, minHeight: 72 }}>
             {voice.reply ? (
               <>
-                <Txt v="caption" color={onForest.soft}>
+                <Txt v="caption" color={onVoice.soft}>
                   {assistantName}
                 </Txt>
                 <Txt
                   testID="suara-balasan"
                   accessibilityLiveRegion="polite"
                   weight={600}
-                  color={onForest.strong}
+                  color={onVoice.strong}
                   style={{ fontSize: 26, lineHeight: 34, letterSpacing: -0.26 }}
                   maxFontSizeMultiplier={1.4}
                 >
@@ -193,12 +193,12 @@ function SuaraAktif() {
                 height: 56,
                 paddingHorizontal: 40,
                 borderRadius: 28,
-                backgroundColor: onForest.strong,
+                backgroundColor: onVoice.strong,
                 justifyContent: 'center',
               }}
             >
               {/* warna forest di atas tombol terang, sama di dua mode */}
-              <Txt v="subtitle" color="#0E3A2C">
+              <Txt v="subtitle" color={onVoice.onStrong}>
                 Selesai
               </Txt>
             </Pressable>
@@ -211,7 +211,7 @@ function SuaraAktif() {
           blocked={voice.permission !== 'explain'}
           waiting={voice.permission === 'waiting'}
           bottom={insets.bottom}
-          background={c.voice}
+          background={c.voiceCanvas}
           onAllow={() => void voice.requestPermission()}
           onSettings={() => {
             void Linking.openSettings().catch(() => {});
@@ -248,15 +248,15 @@ function RoundAction({
           height: 56,
           borderRadius: 28,
           borderWidth: 1,
-          borderColor: onForest.buttonLine,
-          backgroundColor: pressed ? onForest.buttonLine : onForest.button,
+          borderColor: onVoice.buttonLine,
+          backgroundColor: pressed ? onVoice.buttonLine : onVoice.button,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Icon name={icon} size={24} color={onForest.text} />
+        <Icon name={icon} size={24} color={onVoice.text} />
       </Pressable>
-      <Txt v="caption" color={onForest.label} style={{ textAlign: 'center' }}>
+      <Txt v="caption" color={onVoice.label} style={{ textAlign: 'center' }}>
         {label}
       </Txt>
     </View>
@@ -280,20 +280,20 @@ function TypeBar({ onSend }: { onSend: (text: string) => void }) {
         onSubmitEditing={send}
         returnKeyType="send"
         placeholder="Ketik di sini"
-        placeholderTextColor={onForest.hint}
-        cursorColor={onForest.text}
-        selectionColor={onForest.soft}
+        placeholderTextColor={onVoice.hint}
+        cursorColor={onVoice.text}
+        selectionColor={onVoice.soft}
         style={{
           flex: 1,
           height: 52,
           borderRadius: 26,
           borderWidth: 1,
-          borderColor: onForest.buttonLine,
-          backgroundColor: onForest.button,
+          borderColor: onVoice.buttonLine,
+          backgroundColor: onVoice.button,
           paddingHorizontal: 20,
           fontFamily: FONT[400],
           fontSize: 16,
-          color: onForest.text,
+          color: onVoice.text,
         }}
       />
       <Pressable
@@ -306,12 +306,12 @@ function TypeBar({ onSend }: { onSend: (text: string) => void }) {
           height: 52,
           paddingHorizontal: 20,
           borderRadius: 26,
-          backgroundColor: onForest.strong,
+          backgroundColor: onVoice.strong,
           opacity: text.trim() ? 1 : 0.5,
           justifyContent: 'center',
         }}
       >
-        <Txt weight={600} color="#0E3A2C">
+        <Txt weight={600} color={onVoice.onStrong}>
           Kirim
         </Txt>
       </Pressable>
@@ -354,13 +354,13 @@ function PermissionPanel({
         borderTopRightRadius: 28,
         backgroundColor: background,
         borderTopWidth: 1,
-        borderColor: onForest.buttonLine,
+        borderColor: onVoice.buttonLine,
       }}
     >
-      <Txt v="title" color={onForest.strong}>
+      <Txt v="title" color={onVoice.strong}>
         {waiting ? 'Menunggu mikrofon dinyalakan' : blocked ? 'Mikrofon sedang dimatikan' : 'Izinkan mikrofon ya'}
       </Txt>
-      <Txt color={onForest.text}>
+      <Txt color={onVoice.text}>
         {waiting
           ? 'Nyalakan mikrofon di pengaturan HP, lalu kembali ke sini.'
           : blocked
@@ -375,12 +375,12 @@ function PermissionPanel({
           style={{
             height: 56,
             borderRadius: 28,
-            backgroundColor: onForest.strong,
+            backgroundColor: onVoice.strong,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Txt weight={600} color="#0E3A2C" style={{ fontSize: 17 }}>
+          <Txt weight={600} color={onVoice.onStrong} style={{ fontSize: 17 }}>
             {blocked ? 'Buka pengaturan' : 'Izinkan'}
           </Txt>
         </Pressable>
@@ -390,7 +390,7 @@ function PermissionPanel({
           onPress={onClose}
           style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Txt weight={600} color={onForest.label}>
+          <Txt weight={600} color={onVoice.label}>
             Nanti saja
           </Txt>
         </Pressable>

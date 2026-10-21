@@ -43,18 +43,16 @@ export function ChoicesCard({
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 8,
-                backgroundColor: taken ? c.green : c.card,
-                borderWidth: taken ? 0 : 1,
-                borderColor: c.line,
+                backgroundColor: taken ? c.brandSoft : c.sunken,
               }}
             >
-              {taken && <Icon name="check" size={20} color={c.onGreen} />}
+              {taken && <Icon name="check" size={20} color={c.brandInk} />}
               <View style={{ flexShrink: 1 }}>
-                <Txt weight={600} color={taken ? c.onGreen : c.green}>
+                <Txt weight={600} color={taken ? c.brandInk : c.text}>
                   {choice.title}
                 </Txt>
                 {choice.description ? (
-                  <Txt v="caption" color={taken ? c.onGreen : c.muted}>
+                  <Txt v="caption" color={c.muted}>
                     {choice.description}
                   </Txt>
                 ) : null}
