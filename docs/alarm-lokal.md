@@ -83,7 +83,7 @@ Kode native belum pernah dikompilasi atau dijalankan di Mac ini. Setelah build E
 
 1. Build berhasil (Kotlin dan manifest tergabung); `adb shell dumpsys package id.my.secretary.dev | grep -i alarm`
    menunjukkan receiver `AlarmReceiver` dan `RescheduleReceiver`.
-2. Akun → Notifikasi → Alarm tepat waktu: tiga izin terbaca benar; Buka pengaturan membuka layar yang tepat
+2. Akun → Pemberitahuan → Alarm: tiga izin terbaca benar; Buka pengaturan membuka layar yang tepat
    (Android 12, 13, 14+).
 3. Coba alarm 1 menit lagi, HP dikunci: layar menyala, suara alarm berulang, layar alarm tampil di atas layar kunci;
    Geser mematikan suara; setelah itu aplikasi tidak lagi tampil di atas layar kunci.

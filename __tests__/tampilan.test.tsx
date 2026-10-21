@@ -2,7 +2,6 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import { Appearance, StyleSheet, Text } from 'react-native';
 import Akun from '../app/akun';
 import Beranda from '../app/(tabs)/index';
-import Tampilan from '../app/akun/tampilan';
 import { renderWithProviders } from './helpers';
 import { useTheme } from '@/theme/ThemeProvider';
 import { dark, light } from '@/theme/tokens';
@@ -46,11 +45,12 @@ function Probe() {
   return <Text testID="probe">{`${scheme} ${c.bg}`}</Text>;
 }
 
+// Tampilan dipilih langsung di Akun: segmen Ikuti HP / Terang / Gelap, tanpa halaman sendiri.
 const show = async () => {
   const view = await renderWithProviders(
     <>
       <Probe />
-      <Tampilan />
+      <Akun />
     </>,
     { appearance: true },
   );
@@ -59,7 +59,7 @@ const show = async () => {
   return view;
 };
 const probe = () => screen.getByTestId('probe').props.children as string;
-const radio = (name: string) => screen.getByRole('radio', { name });
+const option = (name: string) => screen.getByRole('tab', { name });
 const systemChange = async (next: 'light' | 'dark') => {
   phone = next;
   await act(async () => listener?.({ colorScheme: next }));
@@ -67,7 +67,7 @@ const systemChange = async (next: 'light' | 'dark') => {
 
 test('bawaannya Ikuti HP dan mengikuti mode HP, juga saat HP berganti', async () => {
   await show();
-  expect(radio('Ikuti HP').props.accessibilityState.checked).toBe(true);
+  expect(option('Ikuti HP')).toBeSelected();
   expect(probe()).toBe(`light ${light.bg}`);
   await systemChange('dark');
   expect(probe()).toBe(`dark ${dark.bg}`);
@@ -77,13 +77,14 @@ test('bawaannya Ikuti HP dan mengikuti mode HP, juga saat HP berganti', async ()
 
 test('Gelap berlaku seketika walau HP terang, dan diteruskan ke bagian native', async () => {
   await show();
-  await fireEvent.press(radio('Gelap'));
+  await fireEvent.press(option('Gelap'));
   expect(probe()).toBe(`dark ${dark.bg}`);
-  expect(radio('Gelap').props.accessibilityState.checked).toBe(true);
+  expect(option('Gelap')).toBeSelected();
+  expect(option('Ikuti HP')).not.toBeSelected();
   expect(setScheme).toHaveBeenLastCalledWith('dark');
   await systemChange('light');
   expect(probe()).toBe(`dark ${dark.bg}`);
-  await fireEvent.press(radio('Terang'));
+  await fireEvent.press(option('Terang'));
   expect(setScheme).toHaveBeenLastCalledWith('light');
   expect(probe()).toBe(`light ${light.bg}`);
 });
@@ -91,16 +92,16 @@ test('Gelap berlaku seketika walau HP terang, dan diteruskan ke bagian native', 
 test('Ikuti HP mengembalikan ke sistem dan mengikuti HP lagi', async () => {
   phone = 'dark';
   await show();
-  await fireEvent.press(radio('Terang'));
+  await fireEvent.press(option('Terang'));
   expect(probe()).toBe(`light ${light.bg}`);
-  await fireEvent.press(radio('Ikuti HP'));
+  await fireEvent.press(option('Ikuti HP'));
   expect(setScheme).toHaveBeenLastCalledWith('unspecified');
   expect(probe()).toBe(`dark ${dark.bg}`);
 });
 
 test('pilihan tersimpan di HP dan dipakai lagi saat aplikasi dibuka ulang, sebelum layar tampil', async () => {
   const first = await show();
-  await fireEvent.press(radio('Gelap'));
+  await fireEvent.press(option('Gelap'));
   expect(mockStore.get('tampilan')).toBe('dark');
   await first.unmount();
   setScheme.mockClear();
@@ -132,17 +133,11 @@ test('Beranda berlatar gelap di seluruh aplikasi walau HP terang', async () => {
   expect(backgrounds).not.toContain(light.bg.toLowerCase());
 });
 
-test('baris Tampilan di Akun menunjukkan pilihan sekarang', async () => {
-  await renderWithProviders(
-    <>
-      <Akun />
-      <Tampilan />
-    </>,
-    { appearance: true },
-  );
-  expect(await screen.findByRole('button', { name: 'Tampilan. Ikuti HP' })).toBeTruthy();
-  await fireEvent.press(radio('Gelap'));
-  expect(screen.getByRole('button', { name: 'Tampilan. Gelap' })).toBeTruthy();
-  await fireEvent.press(radio('Terang'));
-  expect(screen.getByRole('button', { name: 'Tampilan. Terang' })).toBeTruthy();
+test('Akun tidak lagi punya halaman Tampilan: pilihannya ada di baris itu sendiri', async () => {
+  await show();
+  expect(screen.queryByRole('button', { name: /^Tampilan/ })).toBeNull();
+  expect(screen.getByText('Tampilan')).toBeOnTheScreen();
+  await fireEvent.press(option('Terang'));
+  expect(option('Terang')).toBeSelected();
+  expect(mockStore.get('tampilan')).toBe('light');
 });

@@ -273,10 +273,10 @@ describe('Akun lewat HttpTransport', () => {
     await settle();
     expect(calls('GET', '/account').length).toBeGreaterThan(0);
     expect(screen.getByText('Budi Santoso')).toBeOnTheScreen();
-    expect(screen.getByText('Paket Coba')).toBeOnTheScreen();
-    expect(screen.getByText('Coba gratis, tersisa 5 hari')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'HP yang terhubung. Pixel 8 (HP ini) dan 1 lainnya' })).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Sapaan harian. Tiap hari jam 07.00' })).toBeOnTheScreen();
+    expect(screen.getByText('Coba gratis · 5 hari')).toBeOnTheScreen();
+    expect(screen.getAllByTestId('ruas-sisa', { includeHiddenElements: true })).toHaveLength(5);
+    expect(screen.getByRole('button', { name: 'Asisten. Nadia' })).toBeOnTheScreen();
+    expect(screen.queryByText('Data contoh')).toBeNull();
     expect(screen.queryByText(/Fase|dibangun|Rina/)).toBeNull();
     const open = jest.spyOn(Linking, 'openURL').mockImplementation(async () => {});
     await fireEvent.press(screen.getByRole('button', { name: 'Perpanjang' }));
@@ -306,6 +306,7 @@ describe('Akun lewat HttpTransport', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Simpan' }));
     await settle();
     expect(JSON.parse(String(calls('PUT', '/account/assistant')[0]![1]!.body))).toEqual({ name: 'Sari' });
+    await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
     expect(screen.getByRole('button', { name: 'Sari' })).toBeOnTheScreen();
   });
 
@@ -340,15 +341,15 @@ describe('Akun lewat HttpTransport', () => {
     });
     await showRoute('/akun/notifikasi', { api });
     await settle();
-    await fireEvent.press(screen.getByRole('switch', { name: 'Usaha' }));
+    await fireEvent.press(screen.getByRole('switch', { name: 'Pesan' }));
     await settle();
-    expect(screen.getByRole('switch', { name: 'Usaha' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Pesan' })).toBeChecked();
     expect(toastNow()?.text).toBe(ERROR_TEXT);
     fail = false;
-    await fireEvent.press(screen.getByRole('switch', { name: 'Usaha' }));
+    await fireEvent.press(screen.getByRole('switch', { name: 'Pesan' }));
     await settle();
-    expect(JSON.parse(String(calls('PUT', '/account/notifications')[1]![1]!.body))).toEqual({ usaha: false });
-    expect(screen.getByRole('switch', { name: 'Usaha' })).not.toBeChecked();
+    expect(JSON.parse(String(calls('PUT', '/account/notifications')[1]![1]!.body))).toEqual({ pesan: false });
+    expect(screen.getByRole('switch', { name: 'Pesan' })).not.toBeChecked();
   });
 
   test('keluarkan HP: DELETE /account/phones/:id', async () => {
@@ -357,7 +358,7 @@ describe('Akun lewat HttpTransport', () => {
         ? { body: account({ phones: [account().phones[0]], rev: 5 }) }
         : undefined,
     );
-    await showRoute('/akun/hp', { api });
+    await showRoute('/akun/keamanan', { api });
     await settle();
     await fireEvent.press(screen.getByRole('button', { name: 'Keluarkan Galaxy A54' }));
     await fireEvent.press(await screen.findByRole('button', { name: 'Ya, keluarkan' }));
@@ -365,7 +366,8 @@ describe('Akun lewat HttpTransport', () => {
     await settle();
     expect(calls('DELETE', '/account/phones/p2')).toHaveLength(1);
     expect(screen.queryByText('Galaxy A54')).toBeNull();
-    expect(screen.getByText('Pixel 8 (HP ini)')).toBeOnTheScreen();
+    expect(screen.getByText('Pixel 8')).toBeOnTheScreen();
+    expect(screen.getByText('HP ini')).toBeOnTheScreen();
   });
 
   test('event account dari server menggantikan Akun; GET /account gagal: Coba lagi', async () => {
@@ -373,13 +375,13 @@ describe('Akun lewat HttpTransport', () => {
     const { api, sockets } = serverApi((path) =>
       path === '/account' && fail ? { status: 500, body: { error: 'server' } } : undefined,
     );
-    await showRoute('/akun/privasi', { api });
+    await showRoute('/akun/keamanan', { api });
     await settle();
     expect(screen.getByText(ERROR_TEXT)).toBeOnTheScreen();
     fail = false;
     await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
     await settle();
-    expect(screen.getByText('12 hal diingat')).toBeOnTheScreen();
+    expect(screen.getByText('12 hal')).toBeOnTheScreen();
     await act(async () => {
       sockets[0]!.onopen?.({});
       sockets[0]!.onmessage?.({
@@ -389,12 +391,13 @@ describe('Akun lewat HttpTransport', () => {
         }),
       });
     });
-    expect(screen.getByText('Tidak ada yang diingat')).toBeOnTheScreen();
+    expect(screen.getByText('0 hal')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: /^Hapus yang Nadia tahu dari Gmail/ })).toBeNull();
   });
 
   test('mode gelap', async () => {
     const { api } = serverApi(() => undefined);
-    await showRoute('/akun/hp', { api, scheme: 'dark' });
+    await showRoute('/akun/keamanan', { api, scheme: 'dark' });
     await settle();
     expect(screen.getByText('Galaxy A54')).toHaveStyle({ color: dark.text });
   });

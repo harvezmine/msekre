@@ -448,7 +448,7 @@ sebagai contoh.
 
 ### 2.11 `GET/PUT /account/security`, `POST /account/pin`, `POST /account/pin/verify`, lupa PIN
 
-PIN opsional (keputusan founder): **bawaan mati**. Kalau pemilik menghidupkannya (Akun > PIN), aksi yang dijaga di
+PIN opsional (keputusan founder): **bawaan mati**. Kalau pemilik menghidupkannya (Akun > Keamanan > PIN), aksi yang dijaga di
 Perangkat (mematikan kamera, mematikan alarm rumah, membuka kunci pintu) meminta PIN 6 angka; kalau mati, aksi itu
 langsung jalan. Pembayaran tidak pernah memakai PIN. Semua jalur ini memakai token.
 

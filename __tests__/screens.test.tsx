@@ -29,3 +29,9 @@ test('Mode Suara: Selesai menutup, Ketik membuka kolom ketik di tempat', async (
   expect(screen.getByLabelText('Ketik pesan')).toBeTruthy();
   expect(router.replace).not.toHaveBeenCalledWith('/chat');
 });
+
+test('Riwayat dibuka dari kepala chat (Akun hanya berisi pengaturan)', async () => {
+  await renderWithProviders(<Chat />);
+  await fireEvent.press(screen.getByRole('button', { name: 'Riwayat' }));
+  expect(router.push).toHaveBeenCalledWith('/riwayat');
+});

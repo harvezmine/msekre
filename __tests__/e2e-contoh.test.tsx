@@ -240,7 +240,7 @@ test('Terhubung: dari Akun, sambungkan TikTok, simpul baru di cincin, hapus yang
   await settle();
   await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
   await settle();
-  await fireEvent.press(await screen.findByRole('button', { name: /^Terhubung/ }));
+  await fireEvent.press(await screen.findByRole('button', { name: /^Layanan tersambung/ }));
   expect(currentRoute()).toBe('/terhubung');
   await fireEvent.press(await screen.findByRole('button', { name: 'Sambungkan TikTok Shop & Tokopedia' }));
   await fireEvent.press(await screen.findByRole('button', { name: 'Masuk (contoh)' }));
@@ -278,8 +278,10 @@ test('Riwayat: entri dari kiriman tampil dengan hitung mundur dan Batalkan menco
   await settle();
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
   await settle();
-  await go('/riwayat');
+  // Riwayat dibuka dari kepala chat (Akun hanya berisi pengaturan).
+  await fireEvent.press(screen.getByRole('button', { name: 'Riwayat' }));
   await settle();
+  expect(currentRoute()).toBe('/riwayat');
   expect(screen.getByText('Mengirim balasan ke Pak Budi')).toBeOnTheScreen();
   expect(screen.getByText(/^sisa [45]:\d\d$/)).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Batalkan' }));
@@ -288,24 +290,26 @@ test('Riwayat: entri dari kiriman tampil dengan hitung mundur dan Batalkan menco
   expect(screen.getByText('Mengirim balasan ke Pak Budi')).toHaveStyle({ textDecorationLine: 'line-through' });
 });
 
-test('Akun: ganti nama asisten mengubah Beranda dan chat; notifikasi, HP, privasi terbuka', async () => {
+test('Akun: ganti nama asisten mengubah Beranda dan chat; Pemberitahuan dan Keamanan terbuka', async () => {
   await showRoute('/');
   await settle();
   await go('/akun');
   await settle();
   expect(screen.getByText('Rina Wulandari')).toBeOnTheScreen();
 
-  await fireEvent.press(screen.getByRole('button', { name: /^Nama dan gaya asisten/ }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Asisten. Nadia' }));
   await settle();
   expect(currentRoute()).toBe('/akun/asisten');
   await fireEvent.changeText(screen.getByLabelText('Nama asisten'), 'Sari');
   await fireEvent.press(screen.getByRole('button', { name: 'Simpan' }));
   await settle();
   expect(toastNow()?.text).toBe('Tersimpan. Sekarang saya Sari.');
+  expect(currentRoute()).toBe('/akun/asisten');
+  await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
   expect(currentRoute()).toBe('/akun');
-  expect(screen.getByRole('button', { name: /^Privasi\. Lihat dan hapus yang Sari tahu/ })).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Asisten. Sari' })).toBeOnTheScreen();
 
-  await fireEvent.press(screen.getByRole('button', { name: /^Notifikasi/ }));
+  await fireEvent.press(screen.getByRole('button', { name: /^Pemberitahuan/ }));
   await settle();
   expect(currentRoute()).toBe('/akun/notifikasi');
   await fireEvent.press(screen.getByRole('switch', { name: 'Rumah' }));
@@ -313,17 +317,16 @@ test('Akun: ganti nama asisten mengubah Beranda dan chat; notifikasi, HP, privas
   expect(screen.getByRole('switch', { name: 'Rumah' })).not.toBeChecked();
   await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
 
-  await fireEvent.press(screen.getByRole('button', { name: /^HP yang terhubung/ }));
-  await settle();
-  expect(currentRoute()).toBe('/akun/hp');
-  expect(screen.getByRole('button', { name: 'Keluarkan Galaxy A54' })).toBeOnTheScreen();
-  await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
+  // Tampilan langsung di Akun (pilihannya diuji di tampilan.test.tsx).
+  expect(screen.getByRole('tab', { name: 'Ikuti HP' })).toBeOnTheScreen();
 
-  await fireEvent.press(screen.getByRole('button', { name: /^Privasi/ }));
+  await fireEvent.press(screen.getByRole('button', { name: /^Keamanan/ }));
   await settle();
-  expect(currentRoute()).toBe('/akun/privasi');
-  expect(screen.getByRole('button', { name: 'Hapus yang Sari tahu dari Moka' })).toBeOnTheScreen();
+  expect(currentRoute()).toBe('/akun/keamanan');
+  expect(screen.getByRole('button', { name: 'Keluarkan Galaxy A54' })).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Hapus yang Sari tahu dari Moka. 48 hal' })).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
+  expect(currentRoute()).toBe('/akun');
 
   // Nama baru sampai ke Inti (bilah tab) dan chat.
   await go('/');

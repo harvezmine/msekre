@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { AppState } from 'react-native';
 import Agenda from '../app/(tabs)/agenda';
 import Akun from '../app/akun';
+import Notifikasi from '../app/akun/notifikasi';
 import Alarm from '../app/alarm';
 import IzinAlarm, { brandTips } from '../app/izin-alarm';
 import { createTestApi, renderWithProviders, toastNow } from './helpers';
@@ -195,23 +196,26 @@ describe('pintu masuk ke panduan', () => {
     expect(screen.queryByText('Alarm belum bisa bunyi tepat waktu')).toBeNull();
   });
 
-  test('Akun: baris Alarm tepat waktu hanya di HP dengan alarm native, dan keterangannya mengikuti izin', async () => {
+  test('Pemberitahuan: baris Alarm hanya di HP dengan alarm native, nilainya mengikuti izin; Akun ikut menyebutnya', async () => {
     install({ notifications: 'denied' });
-    const first = await renderWithProviders(<Akun />);
+    const first = await renderWithProviders(<Notifikasi />);
     await advance(0);
-    const row = screen.getByRole('button', { name: /^Alarm tepat waktu\. Ada izin yang perlu dinyalakan/ });
-    await fireEvent.press(row);
+    await fireEvent.press(screen.getByRole('button', { name: 'Alarm. Perlu izin' }));
     expect(router.push).toHaveBeenCalledWith('/izin-alarm');
     await first.unmount();
-    install();
-    const second = await renderWithProviders(<Akun />);
+    const akun = await renderWithProviders(<Akun />);
     await advance(0);
-    expect(screen.getByRole('button', { name: /^Alarm tepat waktu\. Siap/ })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Pemberitahuan. Perlu izin' })).toBeOnTheScreen();
+    await akun.unmount();
+    install();
+    const second = await renderWithProviders(<Notifikasi />);
+    await advance(0);
+    expect(screen.getByRole('button', { name: 'Alarm. Siap' })).toBeOnTheScreen();
     await second.unmount();
     install(GOOD, false);
-    await renderWithProviders(<Akun />);
+    await renderWithProviders(<Notifikasi />);
     await advance(0);
-    expect(screen.queryByText('Alarm tepat waktu')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Alarm/ })).toBeNull();
   });
 });
 

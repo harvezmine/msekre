@@ -29,7 +29,7 @@ dimulai, supaya rinciannya selalu mengikuti kode terbaru.
 | 3 | Isi chat | Satu utas: chat di aplikasi menampilkan seluruh percakapan, dari WA maupun aplikasi. Pesan dari WA diberi tanda kecil "lewat WhatsApp" | Fase 1 |
 | 4 | Kanal balasan | Balasan dikirim ke kanal tempat pengguna terakhir menulis. Pesan proaktif (sapaan, pengingat, kabar rumah) dikirim lewat notifikasi aplikasi dulu, dan lewat WA kalau aplikasinya tidak terpasang atau tidak dibuka 3 hari | Fase 1 |
 | 5 | Batalkan kiriman | Pesan ke orang lain ditahan 5 menit sebelum dikirim, dan bisa dibatalkan selama itu. Pesan yang sudah terkirim tidak ditarik | Fase 5 |
-| 6 | PIN | **Opsional, bawaan mati** (Akun > PIN). Kalau dihidupkan, diminta untuk mematikan kamera, mematikan alarm rumah, dan membuka kunci pintu (memakai `home_pins` yang sudah ada); kalau mati, aksi itu langsung jalan. Pembayaran tidak pernah memakai PIN | Diputuskan |
+| 6 | PIN | **Opsional, bawaan mati** (Akun > Keamanan > PIN). Kalau dihidupkan, diminta untuk mematikan kamera, mematikan alarm rumah, dan membuka kunci pintu (memakai `home_pins` yang sudah ada); kalau mati, aksi itu langsung jalan. Pembayaran tidak pernah memakai PIN | Diputuskan |
 | 8 | Akun dan percobaan | Aplikasi adalah add-on: tidak ada daftar dari aplikasi. Akun dan masa coba hanya lewat WhatsApp; nomor yang belum terdaftar diarahkan ke WhatsApp (`belum_terdaftar` + `waNumber`) | Diputuskan |
 | 9 | Dokumen | Diunduh biasa dengan token ke HP, lalu dibuka di penampil bawaan atau dibagikan; tanpa URL bertanda tangan | Diputuskan |
 | 7 | Kata panggil kotak | "Nadia" | K1 (di luar roadmap ini) |
@@ -500,7 +500,7 @@ Dijalankan di build EAS `preview` di Android sungguhan, mode contoh dulu, lalu m
 3. Keluar dari akun membuang berkas yang sudah diunduh.
 
 ### PIN dan lupa PIN
-1. Saklar PIN di Akun > PIN: bawaan mati; buat PIN (masukkan, ulangi), ganti PIN, matikan permintaan PIN.
+1. Saklar PIN di Akun > Keamanan: bawaan mati; buat PIN (masukkan, ulangi), ganti PIN, matikan permintaan PIN.
 2. PIN hidup: mematikan kamera dan alarm rumah meminta PIN; membuka kunci pintu meminta konfirmasi dan PIN.
 3. PIN salah berkali-kali: pesan ramah, titik dikosongkan, tidak macet.
 4. Lupa PIN: kode enam angka dikirim ke WhatsApp, lalu PIN baru dibuat dua kali; PIN lama tidak berlaku lagi.

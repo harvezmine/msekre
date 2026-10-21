@@ -148,10 +148,10 @@ test('alur 3: alarm Tunda 10 menit, kembali ke Agenda, item ditunda sampai 07.10
   }
 });
 
-test('alur 4: Akun, Terhubung, Sambungkan TikTok Shop, Masuk, Selesai, kembali ke Beranda', async () => {
+test('alur 4: Akun, Layanan tersambung, Sambungkan TikTok Shop, Masuk, Selesai, kembali ke Beranda', async () => {
   await showRoute('/');
   await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
-  await fireEvent.press(await screen.findByRole('button', { name: /^Terhubung/ }));
+  await fireEvent.press(await screen.findByRole('button', { name: /^Layanan tersambung/ }));
   expect(currentRoute()).toBe('/terhubung');
   await fireEvent.press(await screen.findByRole('button', { name: 'Sambungkan TikTok Shop & Tokopedia' }));
   expect(currentRoute()).toBe('/terhubung/masuk');

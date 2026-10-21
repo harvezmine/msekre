@@ -14,14 +14,10 @@ const HANYA_TERANG = new Set(
 const CIRI_GELAP = [dark.bg, dark.text, dark.surface, dark.sunken].map((h) => h.toLowerCase());
 
 /**
- * Pengecualian yang disengaja (dicari lewat nama layar dan warna):
- * - Tampilan: petak pratinjau "Terang" memakai warna terang di dua mode.
- * Mode Suara dan Alarm memakai kanvas suara (#07090B) dengan tombol terang `onVoice.strong` di dua mode.
+ * Pengecualian yang disengaja (dicari lewat nama layar dan warna). Saat ini tidak ada; Mode Suara dan Alarm memakai
+ * kanvas suara (#07090B) dengan tombol terang `onVoice.strong` di dua mode.
  */
-const IZIN: Record<string, string[]> = {
-  // Petak pratinjau pilihan Terang memang berwarna terang.
-  Tampilan: [light.bg.toLowerCase(), light.line.toLowerCase()],
-};
+const IZIN: Record<string, string[]> = {};
 
 interface Node {
   type: string;

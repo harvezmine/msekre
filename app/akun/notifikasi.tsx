@@ -1,90 +1,98 @@
-import { router, type Href } from 'expo-router';
+// Pemberitahuan: apakah kabar dan alarm sampai ke HP ini, dan kabar jenis apa saja yang dikirim.
+import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
-import { getAlarmScheduler } from '@/alarm';
-import { alarmBlocked, useAlarmStatus } from '@/alarm/useAlarmStatus';
-import { NOTIFICATION_KINDS } from '@/api/account';
-import { usePush, type PushPermission } from '@/api/usePush';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { AccountNotifications } from '@/api/contract';
 import { useAccount } from '@/api/useAccount';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useNotifications } from '@/ui/akun/notifications';
 import { BackHeader } from '@/ui/BackHeader';
-import { ListGroup, ListRow } from '@/ui/ListRow';
+import type { IconName } from '@/ui/icons';
+import { ListRow, type AccentTone } from '@/ui/kit';
 import { Toggle } from '@/ui/Toggle';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 
-const PERMISSION_TEXT: Record<PushPermission, string> = {
-  granted: 'Aktif di HP ini',
-  undetermined: 'Belum diizinkan di HP ini',
-  denied: 'Dimatikan di pengaturan HP',
+const ICON = 46;
+/** Ikon tiap jenis kabar: penanda kategori di lingkaran netral; pesan dari asisten hijau brand. */
+const KIND_ICON: Record<keyof AccountNotifications, { icon: IconName; tone: AccentTone }> = {
+  pesan: { icon: 'chat', tone: 'brand' },
+  pengingat: { icon: 'bell', tone: 'agenda' },
+  ringkasanHarian: { icon: 'sun', tone: 'agenda' },
+  rumah: { icon: 'home', tone: 'rumah' },
+  usaha: { icon: 'store', tone: 'usaha' },
 };
 
-// Notifikasi (di bawah Akun): izin dari HP, izin alarm, dan jenis notifikasi mana yang dikirim.
 export default function Notifikasi() {
-  const { c } = useTheme();
-  const { permission, canAskAgain } = usePush();
-  const alarm = useAlarmStatus();
-  const { account, status, error, retry, setNotifications } = useAccount();
+  const { c, marker } = useTheme();
+  const insets = useSafeAreaInsets();
   const toast = useToast();
-  const change = async (key: (typeof NOTIFICATION_KINDS)[number]['key'], on: boolean) => {
+  const { account, status, error, retry, setNotifications } = useAccount();
+  const { kinds, phoneOn, alarm, alarmReady } = useNotifications(account);
+  const change = async (key: keyof AccountNotifications, on: boolean) => {
     const res = await setNotifications({ [key]: on });
     if (!res.ok && res.message) toast(res.message);
   };
+  const warn = (ok: boolean) => (ok ? undefined : marker.warn.ink);
+
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <BackHeader title="Notifikasi" />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32, gap: 12 }}>
-        <ListGroup>
+      <BackHeader title="Pemberitahuan" large />
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+        {/* Izin HP: sudah menyala cukup dibaca; belum, ketuk untuk meminta izin atau membuka pengaturan HP. */}
+        <ListRow
+          icon="phone"
+          tone={phoneOn ? 'brand' : 'neutral'}
+          iconSize={ICON}
+          title="Izin HP"
+          value={phoneOn ? 'Nyala' : 'Perlu izin'}
+          valueColor={warn(phoneOn)}
+          chevron={!phoneOn}
+          onPress={phoneOn ? undefined : () => router.push('/izin-notifikasi')}
+        />
+        {/* Hanya di HP yang punya alarm sendiri (build Android dengan modul alarm). */}
+        {alarm.native ? (
           <ListRow
-            icon="bell"
-            title="Izin notifikasi"
-            subtitle={PERMISSION_TEXT[permission === 'denied' && canAskAgain ? 'undetermined' : permission]}
-            last={!getAlarmScheduler().native}
-            onPress={() => router.push('/izin-notifikasi')}
+            icon="clock"
+            tone="agenda"
+            iconSize={ICON}
+            title="Alarm"
+            value={alarm.status ? (alarmReady ? 'Siap' : 'Perlu izin') : undefined}
+            valueColor={warn(alarmReady)}
+            chevron
+            onPress={() => router.push('/izin-alarm')}
           />
-          {getAlarmScheduler().native ? (
-            <ListRow
-              icon="clock"
-              title="Alarm tepat waktu"
-              subtitle={
-                alarm.status
-                  ? alarmBlocked(alarm.status)
-                    ? 'Ada izin yang perlu dinyalakan'
-                    : 'Siap, bunyi walau HP terkunci'
-                  : undefined
-              }
-              last
-              onPress={() => router.push('/izin-alarm' as Href)}
-            />
-          ) : null}
-        </ListGroup>
+        ) : null}
 
-        <Txt weight={600} style={{ fontSize: 15, lineHeight: 20, paddingHorizontal: 4, paddingTop: 8 }}>
-          Kabar yang dikirim ke HP
-        </Txt>
+        <View style={{ height: 16 }} />
+
         {account ? (
-          <ListGroup>
-            {NOTIFICATION_KINDS.map((k, i) => (
-              <ListRow
-                key={k.key}
-                icon="bell"
-                title={k.title}
-                subtitle={k.note}
-                last={i === NOTIFICATION_KINDS.length - 1}
-                trailing={
-                  <Toggle
-                    value={account.notifications[k.key]}
-                    onChange={(next) => void change(k.key, next)}
-                    label={k.title}
-                  />
-                }
-              />
-            ))}
-          </ListGroup>
+          kinds.map((k) => (
+            <ListRow
+              key={k.key}
+              icon={KIND_ICON[k.key].icon}
+              tone={KIND_ICON[k.key].tone}
+              iconSize={ICON}
+              title={k.title}
+              trailing={
+                <Toggle
+                  value={account.notifications[k.key]}
+                  onChange={(next) => void change(k.key, next)}
+                  label={k.title}
+                />
+              }
+            />
+          ))
         ) : (
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: 8, paddingHorizontal: 20, paddingTop: 8 }}>
             <Txt color={c.muted}>{status === 'error' ? error : 'Sebentar ya, saya ambil dulu.'}</Txt>
             {status === 'error' ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Coba lagi" onPress={() => void retry()}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Coba lagi"
+                onPress={() => void retry()}
+                style={{ minHeight: 48, justifyContent: 'center' }}
+              >
                 <Txt weight={600} color={c.brandInk}>
                   Coba lagi
                 </Txt>
@@ -92,9 +100,6 @@ export default function Notifikasi() {
             ) : null}
           </View>
         )}
-        <Txt v="caption" color={c.muted} style={{ paddingHorizontal: 4 }}>
-          Alarm yang sudah dijadwalkan di HP tetap berbunyi walau notifikasinya dimatikan di sini.
-        </Txt>
       </ScrollView>
     </View>
   );

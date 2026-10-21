@@ -193,6 +193,24 @@ dibangun ulang dengan kit di R2–R6.
   dibuka remote-nya; tahan ubin mana pun membuka remote. Rutinitas sebagai deretan pil, hanya bila ada.
 - Pratinjau web: `/perangkat/ac-kamar?lainnya=1` membuka Lainnya, `/perangkat?tempat=Rumah` memilih tempat.
 
+## Akun yang sederhana (R5)
+
+- **Akun** (`app/akun.tsx`, papan bingkai 19): kartu profil (`src/ui/akun/ProfileCard.tsx`: avatar 68 bercincin gradasi
+  brand, nama, satu baris paket dari `planLine` dengan Perpanjang ke WhatsApp; masa coba memakai batang 7 ruas dari
+  `trialBar`), lalu **paling banyak enam baris** tanpa kalimat keterangan: Asisten (nama), Pemberitahuan (Nyala / Mati /
+  Perlu izin), Tampilan (segmen langsung di baris itu), Keamanan (PIN / Mati), Layanan tersambung (jumlah, ke
+  Terhubung), Bantuan (WhatsApp). Keluar sebagai tombol teks koral, "Data contoh" dan versi kecil, dan satu baris Coba
+  (mode contoh dan build pengembangan saja) yang membuka lembar jalan pintas layar uji.
+- **Kedalaman paling banyak dua**: Akun → halaman baris → lembar konfirmasi.
+  - `akun/asisten`: nama (Simpan hanya muncul saat diubah), gaya bicara sebagai segmen dengan satu contoh kalimat,
+    sakelar Sapaan pagi + jam. Gaya dan sapaan berlaku seketika, dikembalikan bila server menolak.
+  - `akun/notifikasi` (Pemberitahuan): Izin HP (ketuk hanya bila perlu izin), Alarm (HP dengan alarm native), lalu
+    sakelar per jenis. Rumah hanya bila ada perangkat, Usaha hanya bila ada data usaha (`useNotifications`).
+  - `akun/keamanan`: PIN (+ Ganti PIN, Lupa PIN), HP yang terhubung (Keluarkan), yang asisten tahu per layanan (ketuk =
+    lembar konfirmasi hapus), Hapus akun (WhatsApp), Kebijakan privasi.
+- Halaman lama `akun/sapaan`, `akun/tampilan`, `akun/hp`, dan `akun/privasi` sudah digabung dan dihapus. Riwayat dibuka
+  dari kepala chat (ikon jam), bukan dari Akun.
+
 ## Gerak
 
 - Pelan dan halus: tekan pegas `{ damping 20, stiffness 260, mass 0,7 }`; blok 320 ms; angka 160 ms; segmen 200 ms.

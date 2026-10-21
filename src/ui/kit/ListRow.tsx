@@ -30,6 +30,10 @@ export interface KitListRowProps {
   /** Ukuran lingkaran ikon; bawaan 44. */
   iconSize?: number;
   accessibilityLabel?: string;
+  /** Peran untuk pembaca layar bila baris bisa ditekan; bawaan `button` (`link` untuk tautan ke luar aplikasi). */
+  role?: 'button' | 'link';
+  /** Warna nilai di kanan; bawaannya redup. */
+  valueColor?: string;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -53,6 +57,8 @@ export function ListRow({
   inset = 20,
   iconSize = 44,
   accessibilityLabel,
+  role = 'button',
+  valueColor,
   style,
 }: KitListRowProps) {
   const { c } = useTheme();
@@ -61,7 +67,7 @@ export function ListRow({
   return (
     <View style={style}>
       <Pressable
-        accessibilityRole={onPress ? 'button' : undefined}
+        accessibilityRole={onPress ? role : undefined}
         accessibilityLabel={label}
         onPress={onPress}
         android_ripple={onPress ? { color: c.ripple } : undefined}
@@ -91,11 +97,12 @@ export function ListRow({
           ) : null}
         </View>
         {value !== undefined ? (
-          <Txt v="body" tabular color={c.muted}>
+          <Txt v="body" tabular color={valueColor ?? c.muted}>
             {value}
           </Txt>
         ) : null}
-        {trailing}
+        {/* Pembungkus: kontrol yang meratakan dirinya sendiri (sakelar) tetap di tengah baris. */}
+        {trailing ? <View>{trailing}</View> : null}
         {showChevron ? <Icon name="chevR" size={20} color={c.faint} /> : null}
       </Pressable>
       {children ? (

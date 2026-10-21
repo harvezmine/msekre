@@ -5,8 +5,11 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { IconButton } from './IconButton';
 import { Txt } from './Txt';
 
-/** Kepala layar dalam: tombol kembali, judul, dan keterangan satu baris (desain 2d, 2f). */
-export function BackHeader({ title, sub }: { title: string; sub?: string }) {
+/**
+ * Kepala layar dalam: tombol kembali, judul, dan keterangan satu baris (desain 2d, 2f). `large`: judul 20/600 seperti
+ * kepala Akun dan remote (§3 `header`).
+ */
+export function BackHeader({ title, sub, large = false }: { title: string; sub?: string; large?: boolean }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   return (
@@ -15,7 +18,7 @@ export function BackHeader({ title, sub }: { title: string; sub?: string }) {
         <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
       </View>
       <View style={{ flex: 1 }}>
-        <Txt v="section" accessibilityRole="header">
+        <Txt v={large ? 'header' : 'section'} accessibilityRole="header">
           {title}
         </Txt>
         {sub ? (

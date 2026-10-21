@@ -106,11 +106,7 @@ function Navigator() {
           <Stack.Screen name="akun" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="akun/keamanan" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="akun/asisten" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="akun/sapaan" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="akun/notifikasi" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="akun/tampilan" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="akun/hp" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="akun/privasi" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen
             name="akun/konfirmasi"
             options={{

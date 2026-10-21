@@ -1,4 +1,4 @@
-import { planText, STYLES } from '@/api/account';
+import { planLine, planText, STYLES, trialBar } from '@/api/account';
 import { AccountController } from '@/api/accountController';
 import {
   accountSchema,
@@ -138,6 +138,34 @@ describe('skema dan pembacaan longgar', () => {
     expect(planText({ name: 'Bisnis', status: 'aktif' }, now)).toBe('Aktif');
     expect(planText({ name: 'Bisnis', status: 'berakhir', until: until(-3) }, now)).toBe('Sudah berakhir');
     expect(STYLES.map((s) => s.title)).toEqual(['Singkat', 'Ramah', 'Formal']);
+  });
+
+  test('baris paket di kartu profil dan batang hari masa coba (hari kalender WIB)', () => {
+    const until = '2026-10-24T17:00:00Z';
+    const trial = { name: 'Coba', status: 'trial', until } as const;
+    // 21 Okt 23.30 WIB: tiga hari lagi; lewat tengah malam WIB: dua.
+    expect(planLine(trial, Date.parse('2026-10-21T16:30:00Z'))).toBe('Coba gratis · 3 hari');
+    expect(trialBar(trial, Date.parse('2026-10-21T16:30:00Z'))).toBe(3);
+    expect(planLine(trial, Date.parse('2026-10-21T17:10:00Z'))).toBe('Coba gratis · 2 hari');
+    // Hari terakhir: tetap satu ruas.
+    expect(planLine(trial, Date.parse('2026-10-24T01:00:00Z'))).toBe('Coba gratis · hari terakhir');
+    expect(trialBar(trial, Date.parse('2026-10-24T01:00:00Z'))).toBe(1);
+    expect(planLine(trial, Date.parse('2026-10-24T17:00:00Z'))).toBe('Sudah berakhir');
+    expect(trialBar(trial, Date.parse('2026-10-24T17:00:00Z'))).toBeNull();
+    // Hari pertama masa coba 7 hari: tujuh ruas penuh.
+    const start = Date.parse('2026-10-21T03:00:00Z');
+    expect(trialBar({ ...trial, until: new Date(start + 7 * 86_400_000).toISOString() }, start)).toBe(7);
+    expect(trialBar({ name: 'Coba', status: 'trial' }, start)).toBeNull();
+    // Aktif: tanpa tahun bila tahun ini, dengan tahun bila tahun lain.
+    const now = Date.parse('2026-10-21T03:00:00Z');
+    expect(planLine({ name: 'Bisnis', status: 'aktif', until: '2026-11-21T17:00:00Z' }, now)).toBe(
+      'Aktif sampai 21 Nov',
+    );
+    expect(planLine({ name: 'Bisnis', status: 'aktif', until: '2027-01-12T05:00:00Z' }, now)).toBe(
+      'Aktif sampai 12 Jan 2027',
+    );
+    expect(trialBar({ name: 'Bisnis', status: 'aktif', until: '2027-01-12T05:00:00Z' }, now)).toBeNull();
+    expect(planLine({ name: 'Bisnis', status: 'berakhir' }, now)).toBe('Sudah berakhir');
   });
 
   test('versi di Akun: versi dan nomor build aplikasi terpasang, atau versi app.config bila tidak ada', () => {

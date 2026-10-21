@@ -311,9 +311,10 @@ describe('profil di mode server', () => {
     const account = await api.transport.account();
     jest.spyOn(api.transport, 'account').mockResolvedValue({ ...account, plan: { name: 'Coba', status: 'aktif' } });
     await renderWithProviders(<Akun />, { api });
+    // Tanpa nama: nomornya yang menjadi judul kartu profil.
     expect(await screen.findByText('+62 813-1111-2222')).toBeTruthy();
-    expect(screen.getByText('Akun Anda')).toBeTruthy();
-    expect(screen.getByText('Paket Coba')).toBeTruthy();
+    expect(screen.queryByText('Akun Anda')).toBeNull();
+    expect(await screen.findByText('Aktif')).toBeTruthy();
     expect(screen.queryByText(/Rina|Wulandari|Aktif sampai/)).toBeNull();
   });
 
@@ -556,7 +557,12 @@ describe('keluar', () => {
 describe('mode data', () => {
   test('Akun menunjukkan mode sekarang dan membuka lembar pilihan', async () => {
     await renderWithProviders(<Akun />);
+    // Build pengembangan: Mode data ada di lembar Coba paling bawah.
+    await fireEvent.press(screen.getByRole('button', { name: 'Coba' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Mode data. Contoh' }));
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
     expect(router.push).toHaveBeenCalledWith('/mode');
   });
 

@@ -186,6 +186,8 @@ export default function Chat() {
             </Txt>
           )}
         </View>
+        {/* Riwayat (yang sudah dikerjakan asisten) dibuka dari sini; Akun hanya berisi pengaturan. */}
+        <IconButton icon="history" label="Riwayat" onPress={() => router.push('/riwayat')} />
         <IconButton icon="wave" label="Mode Suara" tinted onPress={() => openSuara('replace')} />
       </View>
       <ConnectionBanner text={banner} />

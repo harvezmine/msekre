@@ -1,6 +1,7 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import Keamanan from '../app/akun/keamanan';
+import { PIN_CHANGED_TEXT } from '@/ui/device/PinReset';
 import { createTestApi, renderWithProviders, toastNow } from './helpers';
 import type { Api } from '@/api/ApiProvider';
 
@@ -33,13 +34,49 @@ async function type(digits: string) {
 const security = (api: Api) => (api.transport as unknown as { security(): Promise<unknown> }).security();
 const toggle = () => screen.getByRole('switch', { name: LABEL });
 
-test('bawaan: PIN mati, tanpa PIN, dan pembayaran tidak memakai PIN', async () => {
+test('bawaan: PIN mati dan belum ada PIN, jadi tanpa Ganti PIN dan Lupa PIN; tanpa kalimat keterangan', async () => {
   const api = await show();
   expect(toggle()).not.toBeChecked();
-  expect(screen.getByText('Mati')).toBeOnTheScreen();
+  expect(screen.getByText('PIN')).toBeOnTheScreen();
   expect(screen.queryByRole('button', { name: /Ganti PIN/ })).toBeNull();
-  expect(screen.getByText(/Pembayaran tidak pernah memakai PIN/)).toBeOnTheScreen();
+  expect(screen.queryByRole('button', { name: /Lupa PIN/ })).toBeNull();
+  expect(screen.queryByText(/Secara bawaan|Pembayaran/)).toBeNull();
   expect(await security(api)).toEqual({ pinEnabled: false, hasPin: false });
+});
+
+test('tiga bagian di satu halaman: PIN, HP yang terhubung, dan yang asisten tahu', async () => {
+  await show({ security: { pinEnabled: true, pin: '123456' } });
+  expect(screen.getByRole('header', { name: 'Keamanan' })).toBeOnTheScreen();
+  expect(screen.getByRole('header', { name: 'HP yang terhubung' })).toBeOnTheScreen();
+  expect(screen.getByRole('header', { name: 'Yang Nadia tahu' })).toBeOnTheScreen();
+  expect(screen.getByText('Pixel 8')).toBeOnTheScreen();
+  expect(screen.getByText('HP ini')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Keluarkan Galaxy A54' })).toBeOnTheScreen();
+  expect(screen.getAllByRole('button', { name: /^Keluarkan/ })).toHaveLength(1);
+  expect(screen.getByRole('button', { name: 'Hapus yang Nadia tahu dari Moka. 48 hal' })).toBeOnTheScreen();
+  expect(screen.getByText('48 hal')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Hapus akun. WhatsApp' })).toBeOnTheScreen();
+  expect(screen.getByRole('link', { name: 'Kebijakan privasi' })).toBeOnTheScreen();
+  // Keluarkan HP lain dan hapus per layanan memakai lembar konfirmasinya.
+  await fireEvent.press(screen.getByRole('button', { name: 'Keluarkan Galaxy A54' }));
+  expect(router.push).toHaveBeenLastCalledWith('/akun/konfirmasi?aksi=hp&id=hp-lama');
+  await fireEvent.press(screen.getByRole('button', { name: 'Hapus yang Nadia tahu dari Moka. 48 hal' }));
+  expect(router.push).toHaveBeenLastCalledWith('/terhubung/konfirmasi?id=moka&aksi=lupa');
+});
+
+test('Lupa PIN dari halaman Keamanan: kode lewat WhatsApp, lalu PIN baru', async () => {
+  const api = await show({ security: { pinEnabled: true, pin: '123456' } });
+  await fireEvent.press(screen.getByRole('button', { name: 'Lupa PIN' }));
+  expect(screen.getByText('Lupa PIN?')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode ke WhatsApp' }));
+  await settle();
+  await type('123456');
+  await type('246810');
+  await type('246810');
+  expect(toastNow()?.text).toBe(PIN_CHANGED_TEXT);
+  expect(await api.transport.verifyPin('246810')).toBe(true);
+  // Kembali ke halaman pengaturan.
+  expect(toggle()).toBeChecked();
 });
 
 test('menghidupkan tanpa PIN: Buat PIN, ulangi, lalu PIN aktif', async () => {
@@ -153,7 +190,7 @@ test('keadaan tidak terbaca: pesan dan sakelar belum bisa dipakai', async () => 
   jest.spyOn(api.transport, 'security').mockRejectedValue(new Error('network'));
   await renderWithProviders(<Keamanan />, { api });
   await settle();
-  expect(screen.getByText('Pengaturan keamanan belum bisa dimuat. Coba lagi sebentar ya.')).toBeOnTheScreen();
+  expect(screen.getByText('PIN belum bisa dimuat. Coba lagi sebentar ya.')).toBeOnTheScreen();
   expect(screen.queryByRole('switch')).toBeNull();
   expect(router.push).not.toHaveBeenCalled();
 });

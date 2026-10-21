@@ -4,6 +4,7 @@ import { router, useIsFocused } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { AppState, Linking, Platform } from 'react-native';
 import Akun from '../app/akun';
+import Notifikasi from '../app/akun/notifikasi';
 import Chat from '../app/chat';
 import IzinNotifikasi from '../app/izin-notifikasi';
 import Pilih from '../app/mulai/pilih';
@@ -551,15 +552,42 @@ describe('setelah pengenalan', () => {
 
 describe('Akun', () => {
   test.each([
-    [UNDETERMINED, 'Belum diizinkan'],
-    [GRANTED, 'Aktif'],
-    [DENIED, 'Dimatikan di pengaturan HP'],
-    [DENIED_ASK, 'Belum diizinkan'],
-  ])('baris Notifikasi menyebut keadaannya (%#)', async (permission, text) => {
+    [UNDETERMINED, 'Perlu izin'],
+    [GRANTED, 'Nyala'],
+    [DENIED, 'Perlu izin'],
+    [DENIED_ASK, 'Perlu izin'],
+  ])('baris Pemberitahuan menyebut keadaannya dalam satu-dua kata (%#)', async (permission, text) => {
     N.getPermissionsAsync.mockResolvedValue(permission);
     await mount(<Akun />);
-    expect(screen.getByText(text)).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: /^Notifikasi/ }));
+    await fireEvent.press(screen.getByRole('button', { name: `Pemberitahuan. ${text}` }));
     expect(router.push).toHaveBeenCalledWith('/akun/notifikasi');
+  });
+
+  test('izin ada tetapi semua jenis kabar dimatikan: Mati', async () => {
+    N.getPermissionsAsync.mockResolvedValue(GRANTED);
+    const api = createTestApi();
+    await api.transport.setNotifications({
+      pesan: false,
+      pengingat: false,
+      ringkasanHarian: false,
+      rumah: false,
+      usaha: false,
+    });
+    await mount(<Akun />, api);
+    expect(screen.getByRole('button', { name: 'Pemberitahuan. Mati' })).toBeOnTheScreen();
+  });
+
+  test('halaman Pemberitahuan: izin HP yang sudah ada cukup dibaca, tidak membuka apa-apa', async () => {
+    N.getPermissionsAsync.mockResolvedValue(GRANTED);
+    await mount(<Notifikasi />);
+    expect(screen.getByText('Nyala')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: /^Izin HP/ })).toBeNull();
+  });
+
+  test('halaman Pemberitahuan: izin ditolak membuka lembar izin (yang mengarah ke pengaturan HP)', async () => {
+    N.getPermissionsAsync.mockResolvedValue(DENIED);
+    await mount(<Notifikasi />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Izin HP. Perlu izin' }));
+    expect(router.push).toHaveBeenCalledWith('/izin-notifikasi');
   });
 });
