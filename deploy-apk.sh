@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Bangun APK pratinjau Sekretaris AI di EAS, lalu terbitkan sebagai rilis terbaru di GitHub (harvezmine/msekre).
+# Bangun APK pratinjau Sekretaris AI di EAS, lalu terbitkan sebagai rilis terbaru di repo publik khusus rilis
+# (harvezmine/sekretaris-apk). Kode tetap di repo msekre, yang boleh privat.
 # Halaman secretary.my.id/apk selalu menunjuk ke rilis terbaru lewat link tetap, jadi landing tidak perlu diubah:
-#   https://github.com/harvezmine/msekre/releases/latest/download/sekretaris-ai.apk
+#   https://github.com/harvezmine/sekretaris-apk/releases/latest/download/sekretaris-ai.apk
 #
 # Pakai (dari folder mobile/):
 #   ./deploy-apk.sh                  cek repo, tes, build, terbitkan
@@ -12,7 +13,7 @@
 # akses tulis ke repo. Nomor versi (versionCode) dinaikkan otomatis oleh EAS (eas.json: appVersionSource remote).
 set -euo pipefail
 
-REPO="harvezmine/msekre"
+REPO="harvezmine/sekretaris-apk"
 ASSET="sekretaris-ai.apk"
 PROFILE="preview"
 EAS=(npx --yes eas-cli@25)
@@ -28,7 +29,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h | --help)
-      sed -n '2,13p' "$0"
+      sed -n '2,14p' "$0"
       exit 0
       ;;
     *)
@@ -116,7 +117,7 @@ BODY="${NOTES:-Versi pratinjau aplikasi Android Sekretaris AI.}
 Commit: $COMMIT
 Build EAS: https://expo.dev/accounts/harvezzs-team/projects/harvez/builds/$BUILD_ID
 SHA-256: $SHA"
-gh release create "$TAG" "$WORK/$ASSET" "$WORK/$ASSET.sha256" --repo "$REPO" --target "$COMMIT" \
+gh release create "$TAG" "$WORK/$ASSET" "$WORK/$ASSET.sha256" --repo "$REPO" \
   --title "Sekretaris AI $APP_VERSION ($BUILD_VERSION)" --notes "$BODY" --latest >/dev/null
 
 log "Memeriksa link unduhan terbaru"
