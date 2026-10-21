@@ -98,8 +98,12 @@ Aturan lain: lihat bagian 4 (masa berlaku kode, batas percobaan, batas per nomor
 Request:
 
 ```json
-{ "phone": "6281220457781", "code": "482915" }
+{ "phone": "6281220457781", "code": "482915", "device": { "name": "Pixel 8", "platform": "android" } }
 ```
+
+`device` opsional (HP yang sedang masuk): `name` = nama model HP (1 sampai 80 huruf), `platform` = `android` atau `ios`.
+Server menyimpannya di sesi ini supaya `Account.phones[].name` dan `platform` (2.18) terisi; tanpa `device` (atau bentuknya
+salah) namanya kosong dan Akun menampilkan nama bawaan. Aplikasi tidak pernah memblokir masuk karena `device`.
 
 Response 200 (`token` dipakai di `Authorization`; `user` sama dengan `GET /me`):
 
@@ -319,8 +323,9 @@ Response `{ "ok": true }`. `platform`: `android` atau `ios`.
   (satu perangkat fisik = satu pemilik pada satu waktu). Aplikasi mengirim ulang setiap kali dibuka dari keadaan
   mati (satu kali per proses) dan saat token berubah, jadi pendaftaran yang hilang pulih sendiri.
 - Logout menghapus token push sesi itu. Token yang ditolak FCM (`UNREGISTERED`) dihapus server.
-- Jenis token yang dikirim aplikasi bergantung pada pembangunan push (Expo push atau token FCM native); putuskan
-  bersama saat mengisi `push.ts`, lihat pertanyaan terbuka di bagian 10.
+- **Diputuskan:** aplikasi mengirim token FCM native (`getDevicePushTokenAsync`), bukan token Expo. Server mengirim lewat
+  FCM HTTP v1 dengan service account Firebase (milik founder, disimpan di server; bukan di aplikasi). Bidang `pushToken`
+  di atas berisi token FCM itu.
 
 `DELETE /push-tokens` (mencabut token):
 
@@ -408,6 +413,276 @@ dengan "Buka di Perangkat" (membuka layar Perangkat), tanpa sakelar atau pengatu
 dibaca `other`: tanpa ikon salju dan pengatur suhu, dan sakelar nyala-mati hanya bila `switchable: true` (bila
 `switchable` tidak ada: boleh untuk `lamp`, `ac`, `plug`, `tv`). Pengatur suhu hanya untuk `deviceKind: "ac"` yang
 tidak `sensitive`. Server lama tanpa `deviceKind`: kartu dengan `temp` dibaca AC.
+
+### 2.10 `GET /media/:id`
+
+Mengirim berkasnya: gambar QRIS, gambar, dokumen, suara. Dirujuk dari `mediaId` di bagian `image`, `document`,
+`audio`, dan kartu `qris`.
+
+Persyaratan:
+
+- Kepemilikan dicek: media milik pengguna lain (atau tidak ada) dibalas 404 `tidak_ditemukan`.
+- `Content-Type` yang benar (sama dengan `mime` di bagian pesan) dan `Content-Disposition`: `inline` untuk gambar
+  dan audio, `attachment; filename="<name>"` (dengan `filename*` UTF-8) untuk dokumen.
+- Dukungan `Range` (`206 Partial Content`, `Accept-Ranges: bytes`) supaya audio bisa diputar dan dilompati.
+- `Cache-Control: private, max-age=...` (jangan `public`). `ETag` boleh.
+- Media dari WhatsApp harus disalin ke penyimpanan server saat pesan masuk (URL Fonnte kedaluwarsa). Gambar QRIS
+  dari modul pembayaran disimpan dengan cara yang sama. Pesan yang menunjuk media yang sudah dihapus: 404, dan
+  aplikasi menampilkan kendala biasa.
+- Otorisasi lewat `Authorization: Bearer`, sama dengan jalur lain.
+
+**Dokumen dibuka lewat unduhan biasa (diputuskan founder, tanpa URL bertanda tangan).** Aplikasi mengunduh dokumen
+sendiri dengan header `Authorization: Bearer` ke cache HP (`GET /media/:id` apa adanya), lalu:
+
+- **Buka**: dibuka di aplikasi bawaan HP. Android: `ACTION_VIEW` dengan alamat `content://` dan izin baca
+  (`FLAG_GRANT_READ_URI_PERMISSION`); tanpa aplikasi yang bisa membukanya, jatuh ke lembar bagikan.
+- **Bagikan**: lembar bagikan sistem.
+- Selama mengunduh, kedua tombol sibuk ("Mengunduh…"). Gagal: "Berkasnya belum bisa diunduh. Coba lagi sebentar ya."
+  atau, bila tidak ada aplikasi pembuka dan lembar bagikan tidak tersedia, "Tidak ada aplikasi di HP ini yang bisa
+  membuka berkas ini."
+
+Karena itu server TIDAK perlu `POST /media/:id/link` atau `?sig=`; yang dibutuhkan hanya `Content-Type`,
+`Content-Disposition` dan `Content-Length` yang benar di atas (nama berkas dan jenisnya sudah ada di bagian `document`).
+Dokumen dibuang dari cache oleh sistem Android saat ruang HP sempit. Aplikasi mode contoh membuat berkas teks kecil
+sebagai contoh.
+
+### 2.11 `GET/PUT /account/security`, `POST /account/pin`, `POST /account/pin/verify`, lupa PIN
+
+PIN opsional (keputusan founder): **bawaan mati**. Kalau pemilik menghidupkannya (Akun > PIN), aksi yang dijaga di
+Perangkat (mematikan kamera, mematikan alarm rumah, membuka kunci pintu) meminta PIN 6 angka; kalau mati, aksi itu
+langsung jalan. Pembayaran tidak pernah memakai PIN. Semua jalur ini memakai token.
+
+`GET /account/security` dan `PUT /account/security` membalas keadaan:
+
+```json
+{ "pinEnabled": false, "hasPin": false }
+```
+
+- `PUT` mengirim `{ "pinEnabled": true }` atau `{ "pinEnabled": false, "pin": "123456" }` (objek ketat). `pinEnabled: true`
+  tanpa PIN dibalas 400 `tidak_valid`: PIN dibuat dulu lewat `POST /account/pin` (atau sekaligus, lihat di bawah).
+  **Mematikan WAJIB membawa `pin` (PIN yang sekarang)**: `pin` hilang atau salah dibalas 403 `pin_salah`, jadi permintaan
+  PIN tidak bisa dimatikan hanya dengan token yang sah (sesi yang dicuri). Mematikan tidak menghapus PIN-nya (`hasPin`
+  tetap `true`). Layar Keamanan memeriksa PIN yang sekarang lewat `verify` lebih dulu supaya salah PIN langsung
+  terlihat di layar PIN.
+- `POST /account/pin` membuat atau mengganti PIN, membalas keadaan yang sama:
+  `{ "pin": "123456" }` (belum ada PIN) atau `{ "pin": "654321", "currentPin": "123456" }` (ganti). PIN harus 6 angka
+  (`^\d{6}$`, kalau tidak 400 `tidak_valid`). Sudah ada PIN tapi `currentPin` hilang: 400 `tidak_valid`; `currentPin`
+  salah: 403 `pin_salah`. Isi boleh membawa `"enable": true`: PIN tersimpan **dan** permintaan PIN hidup dalam satu
+  langkah, atomik (gagal berarti tidak ada yang berubah). Aplikasi memakai ini saat pengguna membuat PIN pertama, supaya
+  gagal menghidupkan (sinyal putus di tengah) tidak meninggalkan PIN yang sudah dibuat tapi belum dihidupkan. Tanpa
+  `enable`, membuat PIN tidak menghidupkan permintaan PIN.
+- `POST /account/pin/verify` dengan `{ "pin": "123456" }` membalas `{ "ok": true }`, atau 403 `pin_salah`. Aplikasi
+  memanggilnya hanya di layar Keamanan (mengganti atau mematikan PIN). **Perangkat tidak memakainya**: PIN untuk
+  mematikan kamera atau membuka kunci dikirim bersama perintahnya dan diperiksa server (lihat 2.9). Beri batas
+  percobaan salah (juga untuk perintah perangkat) dengan 429 `terlalu_sering` (`retryInSec`).
+- Disimpan sebagai hash (memakai `home_pins` yang sudah ada); PIN tidak masuk log.
+- **Lupa PIN** (mengatur ulang tanpa PIN lama) lewat kode WhatsApp, seperti masuk:
+  - `POST /account/pin/reset/start` (tanpa isi) → `{ "resendInSec": 60 }`. Server mengirim kode 6 angka ke WhatsApp
+    pemilik (sekali pakai, kedaluwarsa pendek). Terlalu sering: 429 `terlalu_sering` (`retryInSec`).
+  - `POST /account/pin/reset/verify` dengan `{ "code": "123456", "pin": "654321" }` (objek ketat) → `SecurityRes`.
+    Kode cocok menyimpan `pin` sebagai PIN baru (`hasPin: true`); `pinEnabled` tidak berubah. Kode salah atau
+    kedaluwarsa: 400 `kode_salah`. Beri batas percobaan salah.
+  - **Pengaman setelah ganti PIN (aturan server).** Begitu `reset/verify` berhasil, server (1) mengirim pemberitahuan
+    WhatsApp ke pemilik: "PIN Anda baru saja diganti lewat aplikasi. Kalau bukan Anda, balas pesan ini.", dan (2) menahan
+    aksi yang dijaga PIN (buka kunci, matikan kamera, matikan alarm) selama 15 menit: dibalas **423 `pin_baru`**,
+    sebelum PIN diperiksa. Aplikasi menampilkan "PIN baru bisa dipakai untuk membuka pintu 15 menit lagi. Ini pengaman
+    kalau HP dipegang orang lain." **Mematikan permintaan PIN** (`PUT /account/security` dengan `pinEnabled: false`)
+    ikut ditahan selama 15 menit itu dengan 423 `pin_baru`, sebelum PIN diperiksa; kalau tidak, orang yang memegang HP
+    bisa mengatur ulang PIN lalu mematikan permintaan PIN untuk membuka pintu. Setelah PIN berhasil diganti aplikasi menampilkan "PIN sudah diganti. Kami kirim
+    pemberitahuan ke WhatsApp Anda."
+  - Aplikasi: "Lupa PIN?" di lembar PIN dan di Keamanan membuka alur "Kode dikirim ke WhatsApp Anda" (kirim kode,
+    masukkan kode, buat PIN baru, ulangi). Kode dan PIN baru dikirim bersama di langkah terakhir; kode salah
+    mengembalikan ke langkah kode. Server tiruan: kode `123456` cocok, kode lain `kode_salah` (`000000` contohnya).
+
+### 2.12 Beranda: `GET /home`, `PUT /places/current`, dan event `home`
+
+Beranda satu pandang. Server yang menyusun ringkasannya; aplikasi hanya menampilkan.
+
+`GET /home` → 200 `Home`:
+
+```json
+{
+  "place": "Semua",
+  "places": ["Rumah", "Kedai Dago", "Kedai Riau"],
+  "greetingName": "Rina",
+  "summary": "Ada 3 hal yang perlu Anda hari ini.",
+  "approvals": [
+    { "id": "d-17", "to": "Pak Budi", "channel": "whatsapp", "what": "balasan", "text": "...", "status": "draft",
+      "ask": "Balasan untuk Pak Budi soal harga sewa sudah siap. Kirim?" }
+  ],
+  "agendaToday": [{ "id": "a1", "time": "09.00", "title": "Rapat dengan supplier susu", "kind": "meeting" }],
+  "house": {
+    "lines": [
+      { "deviceId": "ac-kamar", "icon": "snow", "text": "AC kamar nyala · 24°", "label": "AC kamar", "on": true, "switchable": true },
+      { "deviceId": "pintu-depan", "icon": "lock", "text": "Pintu depan terkunci", "switchable": false }
+    ]
+  },
+  "business": { "source": "dari Moka", "sales": "Rp4.250.000", "change": "naik 12% dari Senin lalu", "down": false, "alert": "Susu UHT tinggal 6 karton" },
+  "ring": { "nodes": [{ "key": "wa", "icon": "chat", "label": "WhatsApp", "reachable": true }] },
+  "rev": 51
+}
+```
+
+`PUT /places/current` dengan `{ "place": "Kedai Dago" }` (objek ketat) → 200 `Home` untuk tempat itu. Tempat yang tidak
+dikenal pengguna: 400 `tidak_valid`. Pilihan tempat milik pengguna (dipakai juga oleh Perangkat dan Usaha), bukan milik
+satu perangkat; server mengirim event `home` ke semua koneksi pengguna.
+
+Aturan:
+
+- `place`: `Semua` atau salah satu tempat pengguna. `places`: semua tempat nyata milik pengguna (tanpa `Semua`), berurutan;
+  pemilih tempat menampilkan `Semua` lalu isi `places`, tanpa tempat contoh. `PUT /places/current` gagal: pilihan
+  sementara di layar dikembalikan dan pengguna diberi tahu. Server lama tanpa `places` dibaca kosong (hanya `Semua`). Teks (`summary`, `text`, `sales`, `change`, `alert`) sudah jadi,
+  berbahasa Indonesia sehari-hari; aplikasi tidak menyusunnya.
+- `greetingName`: nama untuk sapaan, atau `null` (aplikasi menyapa "Selamat pagi" tanpa nama). Server asli tidak pernah
+  mengirim nama orang lain.
+- `approvals`: draf berstatus `draft` (menunggu persetujuan), yang tertua dulu. Isinya `Draft` yang sama dengan kartu di
+  chat, ditambah `ask` (opsional): kalimat kartu "Butuh persetujuan Anda". Tanpa `ask` aplikasi menyusun "{Jenis} untuk
+  {penerima} sudah siap. Kirim?". Aplikasi menampilkan satu kartu (yang pertama) dan tombol Lihat membuka chat. Draf yang
+  disetujui, dibuang, atau dibatalkan keluar dari daftar pada event `home` berikutnya.
+- `agendaToday`: paling banyak 3 baris (`HOME_AGENDA_MAX`), hari ini menurut jam, TANPA tugas (`kind: task`). `time`
+  berformat `HH.MM`; `kind` adalah `reminder`, `meeting`, atau `recurring` (jenis yang belum dikenal tetap tampil).
+- `house.lines`: baris kartu Rumah, berurutan. `icon` adalah nama ikon aplikasi; nama yang tidak dikenal diganti ikon
+  bawaan (jangan ditolak). `on` ada hanya pada baris yang punya sakelar (AC); `switchable` = sakelar boleh diketuk
+  (perangkat terjangkau). `sensitive` (opsional) = perangkat dijaga (kunci, kamera, alarm): sakelar **tidak** tampil di
+  Beranda walau `switchable`, jadi sakelar tampil hanya bila `switchable && !sensitive`. Sakelar memanggil `POST /home/devices/:id` (bagian 2.9) dengan `{ "on": true|false }`.
+  `label` (opsional) adalah nama perangkat untuk pembaca layar.
+- `business`: ringkasan usaha untuk tempat terpilih, atau `null` kalau pengguna tidak punya usaha (kartu Usaha tidak
+  tampil). `down: true` mewarnai `change` sebagai peringatan. `alert`: satu kalimat peringatan atau `null`. Tempat
+  tanpa usaha (misalnya Rumah) boleh memakai angka gabungan.
+- `ring.nodes`: simpul cincin Beranda dari layanan tersambung dan perangkat yang punya simpul cincin, berurutan.
+  `reachable: false` = layanan/perangkat sumbernya tidak terjangkau (simpul abu-abu, "CCTV tidak terjangkau").
+- `rev`: naik setiap isi Beranda berubah, per pengguna. Event `home` yang `rev`-nya lebih kecil dari yang dipegang
+  aplikasi dibuang. Beranda dimuat ulang dengan `GET /home` setiap koneksi stream terbuka (juga yang pertama), dan
+  jawaban `GET`/`PUT` yang `rev`-nya sama atau lebih baru dipakai apa adanya (tidak diubah di sisi aplikasi).
+- Server menyiarkan `{ "type": "home", "home": Home }` setiap kali isinya berubah (draf, agenda, perangkat, layanan,
+  tempat, usaha); beberapa perubahan dalam satu giliran boleh digabung. Jangan siarkan kalau tidak ada yang berubah.
+- Pembacaan longgar (aplikasi): ikon yang tidak dikenal, bidang tambahan, dan baris yang rusak tidak menggagalkan
+  Beranda; baris rusak dibuang. Hanya `place` atau `rev` yang hilang membuat jawaban dianggap salah (kendala server).
+- `rev` tidak pernah turun di aplikasi: jawaban `GET /home` yang `rev`-nya lebih lama dari Beranda yang dipegang (event
+  `home` masuk selagi memuat) dibuang dan dimuat sekali lagi. Aturan yang sama berlaku untuk Agenda, Perangkat, dan Usaha.
+- Sapaan di Beranda mengikuti jam di zona pengguna (pagi 04-10, siang 11-14, sore 15-17, selain itu malam); kartu Agenda
+  dan Rumah tidak tampil kalau `agendaToday` atau `house.lines` kosong.
+- Perubahan ini aditif; `CONTRACT_VERSION` tetap 1.
+
+### 2.13 Agenda dan alarm: `/agenda` dan event `agenda`
+
+Agenda satu pengguna: pengingat, tugas, rapat, dan yang berulang. Server mengurai kalimat bebas; aplikasi hanya
+menampilkan pratinjau dan menyimpannya.
+
+`AgendaItem`:
+
+```json
+{
+  "id": "a10", "date": "2026-10-21", "time": "07.00", "at": "2026-10-21T00:00:00.000Z",
+  "title": "Berangkat ke bandara", "kind": "reminder", "way": "alarm",
+  "note": "Penerbangan GA 408 jam 09.15, Terminal 3"
+}
+```
+
+- `date` ("YYYY-MM-DD") dan `time` ("HH.MM") adalah jam dinding menurut zona waktu pengguna di server; dipakai untuk
+  mengelompokkan per hari dan ditampilkan. `at` adalah saat yang sama sebagai ISO 8601 dengan zona dan menjadi acuan
+  alarm di HP. `allDay: true` = sepanjang hari (`time` `00.00` diabaikan, tidak ada alarm berbunyi).
+- `kind`: `reminder`, `task`, `meeting`, `recurring`. `way` (opsional): `alarm` (bunyi di HP), `call` (telepon),
+  `notif` (notifikasi biasa). **Tanpa `way`, pengingat dibaca `notif`**: hanya `way: "alarm"` yang dijanjikan aplikasi
+  sebagai alarm ("Bunyi sebagai alarm"), dijadwalkan di HP, dan dikabarkan lewat tanda terima; selain itu "Lewat
+  notifikasi". `repeat`: keterangan berulang yang sudah jadi ("Tiap Senin"). `note`: keterangan.
+- **Item berulang = kejadian.** Setiap kejadian punya `id` sendiri, `<seriesId>:<YYYY-MM-DD>` (tanggal kejadian itu,
+  contoh `jemput:2026-10-26`), ditambah `seriesId` (`jemput`) yang sama untuk semua kejadian satu deret. Selesai, tunda
+  (`PATCH`), dan tanda terima alarm berlaku per kejadian (id kejadian); menyelesaikan satu kejadian tidak menyentuh yang
+  lain. Aplikasi menjadwalkan satu alarm per kejadian dalam 7 hari ke depan. Item sekali tidak punya `seriesId`.
+- `done`: tugas atau pengingat selesai. `snoozedUntil` (ISO): ditunda; pengingat berikutnya berbunyi pada saat itu,
+  bukan pada `at`. `notesMessageId`: rapat yang notulennya sudah ada di chat (id pesan notulen).
+
+`GET /agenda?from=YYYY-MM-DD&to=YYYY-MM-DD` → 200:
+
+```json
+{ "items": [ ... ], "leftover": { "id": "l1", "title": "Kirim penawaran katering ke Bu Sari", "kind": "task", "...": "..." },
+  "from": "2026-10-19", "to": "2026-11-01", "today": "2026-10-21", "now": "06.30", "tzOffsetMinutes": 420, "rev": 12 }
+```
+
+- Tanpa `from`/`to`: Senin pekan ini sampai Minggu pekan depan (14 hari), cukup untuk Hari ini, Minggu ini, dan alarm 7
+  hari ke depan. Aplikasi SELALU memuat rentang bawaan ini (digabung dengan rentang bulan yang pernah dibuka di Kalender)
+  tiap memuat ulang, dan sebelum menyamakan alarm memastikan `today` sampai `today + 7` sudah dimuat (pergantian pekan
+  tanpa menutup aplikasi tidak membuat alarm pekan depan terlewat). `from`/`to` di jawaban adalah rentang yang sebenarnya dijawab (kedua ujung termasuk). Aplikasi meminta
+  rentang bulan penuh saat membuka Kalender. `from` > `to` atau bukan tanggal: 400 `tidak_valid`.
+- `items`: urut tanggal lalu jam. `leftover`: tugas hari kemarin yang belum selesai ("Kemarin belum selesai"), atau
+  `null`. `today` dan `now` ("HH.MM") adalah hari ini dan jam sekarang menurut zona pengguna; aplikasi memakainya untuk
+  garis "sekarang" dan menandai yang sudah lewat, jadi layar tidak bergantung pada zona waktu HP. Aplikasi memajukan
+  `today` dan `now` sendiri tiap menit dari jawaban terakhir (garis "sekarang" dan "Kemarin belum selesai" berganti walau
+  aplikasi tidak ditutup) dan memuat ulang rentangnya saat hari berganti.
+- `tzOffsetMinutes`: selisih zona waktu pengguna dari UTC dalam menit (WIB 420, WITA 480, WIT 540). Jam yang berasal dari
+  waktu ISO ("Ditunda sampai 07.10") ditampilkan menurut zona ini, bukan zona HP, supaya sama dengan `time` yang ditulis
+  server. Server lama tanpa bidang ini dibaca 420.
+- `rev`: naik setiap agenda pengguna berubah.
+
+`GET /agenda/:id` → `{ "item": AgendaItem }` (layar alarm yang dibuka dari tautan, item di luar rentang yang dimuat).
+Tidak ada: 404 `tidak_ditemukan`.
+
+`POST /agenda/parse` dengan `{ "text": "Ingatkan saya bayar pajak motor tanggal 25" }` (objek ketat) → 200 (kalimat yang tidak
+bisa dibaca: 422 `tidak_paham`, aplikasi menulis "Saya belum paham waktunya. Coba tulis misalnya: besok jam 9 rapat."):
+
+```json
+{ "preview": { "item": { "date": "2026-10-25", "time": "09.00", "at": "...", "title": "Bayar pajak motor",
+                          "kind": "reminder", "way": "alarm" }, "guessedTime": true } }
+```
+
+Belum disimpan. `guessedTime: true` = jam tidak disebut dan server menebak; aplikasi menulis "Jamnya saya tebak".
+Aplikasi meminta pratinjau setelah pengguna berhenti mengetik ~400 ms, jadi satu kalimat paling banyak satu request.
+Teks kosong atau bukan teks: 400 `tidak_valid`.
+
+`POST /agenda` dengan `{ "item": <item pratinjau, tanpa id> }` → 200 `{ "item": AgendaItem }` (server memberi `id`).
+Server memvalidasi ulang dan boleh memperbaiki isinya.
+
+`PATCH /agenda/:id` dengan `{ "done": true }` dan/atau `{ "snoozeUntil": "<ISO 8601>" }` (objek ketat, minimal satu) →
+200 `{ "item": AgendaItem }`. "Tunda 10 menit" di layar alarm mengirim `snoozeUntil` = **maks(`snoozedUntil` ?? `at`,
+sekarang) + 10 menit**: alarm 07.00 yang baru ditekan 07.25 ditunda sampai 07.35, bukan 07.10 yang sudah lewat. Aplikasi
+memasang alarm tundaan di HP LEBIH DULU (tanpa menunggu internet), baru mengirim `PATCH`; kalau `PATCH` gagal, alarm di HP
+tetap berbunyi pada waktunya, tanpa tanda terima, dan `PATCH` yang sama diulang pada penyamaan alarm berikutnya (juga
+sesudah aplikasi ditutup) sampai berhasil. Item tidak ada: 404. Jawaban `item`, `POST /agenda`, dan `GET /agenda/:id`
+dibaca longgar (bidang tambahan yang rusak atau baru dibuang, itemnya tetap dipakai).
+
+`POST /agenda/leftover` dengan `{ "choice": "today" | "drop" }` → 200 `{ "item": AgendaItem | null }`. `today`
+membuat tugasnya di agenda hari ini (item baru); `drop` melepasnya (`null`). Tidak ada sisa kemarin: 404.
+
+**Alarm di HP dan tanda terima.** Aplikasi menjadwalkan sendiri alarm lokal (`AlarmManager.setAlarmClock`, jadi bunyi
+walau HP terkunci atau internet mati) untuk setiap item `kind` `reminder`/`recurring` dengan `way: "alarm"`, belum
+`done`, dalam 7 hari ke depan, pada `snoozedUntil ?? at`. Setelah HP berhasil menjadwalkannya, aplikasi mengirim
+
+`POST /agenda/:id/alarm-ack` dengan `{ "scheduledFor": "<ISO 8601>" }` → 200 `{ "ok": true }`
+
+dan aturan untuk server adalah:
+
+- Aplikasi HANYA mengirim tanda terima setelah alarm benar-benar terpasang DAN akan terdengar: izin alarm tepat waktu
+  diberikan, notifikasi aktif, dan saluran notifikasi `alarm` tidak dimatikan pengguna. Kalau salah satunya mati,
+  tidak ada tanda terima dan pengingat jalan lewat WhatsApp seperti biasa.
+- Server TIDAK mengirim pengingat yang sama (item dan `scheduledFor` yang sama) lewat WhatsApp: HP yang membunyikannya.
+  Tanda terima itu juga menahan push `pengingat` untuk pengingat yang sama (HP sudah membunyikannya sendiri).
+- **Tanda terima milik sesi (HP) yang mengirimnya**, dikenali dari token `Authorization`; server menyimpannya per sesi.
+  Tanda terima gugur saat sesi itu keluar (`auth/logout`), saat token push HP itu dicabut (`DELETE /push-tokens`, bagian
+  2.8), dan saat ganti akun (sesi lain). Pilihan "paling sederhana dan kuat": aplikasi TIDAK mengirim penghapusan
+  tersendiri saat keluar atau ganti mode, cukup mengandalkan pencabutan sesi dan token push yang sudah diulang sampai
+  berhasil; di HP sendiri semua alarm lokal dibatalkan saat keluar.
+- **Cadangan bila HP tidak terlihat:** tanda terima hanya menahan WhatsApp kalau HP itu terlihat dalam 12 jam terakhir
+  (stream tersambung atau request apa pun dengan token sesi itu). HP yang lama tidak terlihat (mati, aplikasi dihapus,
+  henti paksa) tidak dipercaya lagi: server kirim lewat WhatsApp seperti biasa.
+- Tanda terima berlaku untuk pasangan (id kejadian, `scheduledFor`). Kalau `at` atau `snoozedUntil` berubah, tanda terima lama
+  gugur dan HP mengirim yang baru setelah menjadwalkan ulang; sebelum itu server mengikuti jalur biasa.
+- Tanpa tanda terima pada saat pengingat jatuh tempo (HP mati, izin alarm tepat waktu dimatikan, aplikasi dihapus,
+  atau `way` bukan `alarm`), server mengirim pengingat lewat WhatsApp seperti biasa. Itu cadangan, bukan duplikat.
+- Idempoten: pasangan yang sama boleh dikirim berulang (aplikasi mengirim sekali per pasangan per proses, dan lagi
+  setelah dibuka ulang). Item tidak ada: 404; `scheduledFor` bukan ISO 8601: 400.
+- Alarm yang sudah berbunyi dan dimatikan di HP tidak perlu dikabarkan; `done` hanya berubah lewat `PATCH`.
+
+**Stream.** `{ "type": "agenda", "items": [AgendaItem], "removed": ["id"], "leftover": AgendaItem | null, "rev": 13 }`.
+Semua bidang selain `rev` opsional: `items` menambah atau menggantikan (upsert menurut `id`), `removed` membuang,
+`leftover` (kalau ada) menggantikan sisa kemarin (`null` = hilang). Event dengan `rev` lebih kecil dari yang dipegang
+aplikasi dibuang. Gabungkan perubahan yang berdekatan; jangan siarkan kalau tidak ada yang berubah. Setiap koneksi
+stream terbuka, aplikasi memuat ulang rentang yang ia pegang dengan `GET /agenda`. Rentang di luar yang dimuat boleh
+tetap ikut di `items`.
+
+- Pembacaan longgar (aplikasi): item yang rusak atau berjenis yang belum dikenal dibuang satu per satu, bukan
+  menggagalkan agenda. `Home.agendaToday` tetap dari `/home` (bagian 2.12) dan dihitung server dari agenda yang sama.
+- Perubahan ini aditif; `CONTRACT_VERSION` tetap 1.
 
 ### 2.14 Perangkat: `GET /devices`, `POST /routines/:id/run`, `PUT /box`, dan event `device`
 
@@ -805,274 +1080,6 @@ Stream: `{ "type": "account", "account": Account }`. Menggantikan Akun di layar,
 dipegang aplikasi (upsert). Siarkan saat paket berubah (masa coba habis, langganan dibayar lewat WhatsApp), nama atau gaya
 diubah (juga lewat percakapan), sapaan atau notifikasi diubah, HP masuk atau keluar, PIN berubah, dan ingatan dilupakan. Bagian
 yang sedang diubah di layar tidak ditimpa sampai permintaannya selesai.
-
-### 2.10 `GET /media/:id`
-
-Mengirim berkasnya: gambar QRIS, gambar, dokumen, suara. Dirujuk dari `mediaId` di bagian `image`, `document`,
-`audio`, dan kartu `qris`.
-
-Persyaratan:
-
-- Kepemilikan dicek: media milik pengguna lain (atau tidak ada) dibalas 404 `tidak_ditemukan`.
-- `Content-Type` yang benar (sama dengan `mime` di bagian pesan) dan `Content-Disposition`: `inline` untuk gambar
-  dan audio, `attachment; filename="<name>"` (dengan `filename*` UTF-8) untuk dokumen.
-- Dukungan `Range` (`206 Partial Content`, `Accept-Ranges: bytes`) supaya audio bisa diputar dan dilompati.
-- `Cache-Control: private, max-age=...` (jangan `public`). `ETag` boleh.
-- Media dari WhatsApp harus disalin ke penyimpanan server saat pesan masuk (URL Fonnte kedaluwarsa). Gambar QRIS
-  dari modul pembayaran disimpan dengan cara yang sama. Pesan yang menunjuk media yang sudah dihapus: 404, dan
-  aplikasi menampilkan kendala biasa.
-- Otorisasi lewat `Authorization: Bearer`, sama dengan jalur lain.
-
-**Dokumen dibuka lewat unduhan biasa (diputuskan founder, tanpa URL bertanda tangan).** Aplikasi mengunduh dokumen
-sendiri dengan header `Authorization: Bearer` ke cache HP (`GET /media/:id` apa adanya), lalu:
-
-- **Buka**: dibuka di aplikasi bawaan HP. Android: `ACTION_VIEW` dengan alamat `content://` dan izin baca
-  (`FLAG_GRANT_READ_URI_PERMISSION`); tanpa aplikasi yang bisa membukanya, jatuh ke lembar bagikan.
-- **Bagikan**: lembar bagikan sistem.
-- Selama mengunduh, kedua tombol sibuk ("Mengunduh…"). Gagal: "Berkasnya belum bisa diunduh. Coba lagi sebentar ya."
-  atau, bila tidak ada aplikasi pembuka dan lembar bagikan tidak tersedia, "Tidak ada aplikasi di HP ini yang bisa
-  membuka berkas ini."
-
-Karena itu server TIDAK perlu `POST /media/:id/link` atau `?sig=`; yang dibutuhkan hanya `Content-Type`,
-`Content-Disposition` dan `Content-Length` yang benar di atas (nama berkas dan jenisnya sudah ada di bagian `document`).
-Dokumen dibuang dari cache oleh sistem Android saat ruang HP sempit. Aplikasi mode contoh membuat berkas teks kecil
-sebagai contoh.
-
-### 2.11 `GET/PUT /account/security`, `POST /account/pin`, `POST /account/pin/verify`, lupa PIN
-
-PIN opsional (keputusan founder): **bawaan mati**. Kalau pemilik menghidupkannya (Akun > PIN), aksi yang dijaga di
-Perangkat (mematikan kamera, mematikan alarm rumah, membuka kunci pintu) meminta PIN 6 angka; kalau mati, aksi itu
-langsung jalan. Pembayaran tidak pernah memakai PIN. Semua jalur ini memakai token.
-
-`GET /account/security` dan `PUT /account/security` membalas keadaan:
-
-```json
-{ "pinEnabled": false, "hasPin": false }
-```
-
-- `PUT` mengirim `{ "pinEnabled": true }` atau `{ "pinEnabled": false, "pin": "123456" }` (objek ketat). `pinEnabled: true`
-  tanpa PIN dibalas 400 `tidak_valid`: PIN dibuat dulu lewat `POST /account/pin` (atau sekaligus, lihat di bawah).
-  **Mematikan WAJIB membawa `pin` (PIN yang sekarang)**: `pin` hilang atau salah dibalas 403 `pin_salah`, jadi permintaan
-  PIN tidak bisa dimatikan hanya dengan token yang sah (sesi yang dicuri). Mematikan tidak menghapus PIN-nya (`hasPin`
-  tetap `true`). Layar Keamanan memeriksa PIN yang sekarang lewat `verify` lebih dulu supaya salah PIN langsung
-  terlihat di layar PIN.
-- `POST /account/pin` membuat atau mengganti PIN, membalas keadaan yang sama:
-  `{ "pin": "123456" }` (belum ada PIN) atau `{ "pin": "654321", "currentPin": "123456" }` (ganti). PIN harus 6 angka
-  (`^\d{6}$`, kalau tidak 400 `tidak_valid`). Sudah ada PIN tapi `currentPin` hilang: 400 `tidak_valid`; `currentPin`
-  salah: 403 `pin_salah`. Isi boleh membawa `"enable": true`: PIN tersimpan **dan** permintaan PIN hidup dalam satu
-  langkah, atomik (gagal berarti tidak ada yang berubah). Aplikasi memakai ini saat pengguna membuat PIN pertama, supaya
-  gagal menghidupkan (sinyal putus di tengah) tidak meninggalkan PIN yang sudah dibuat tapi belum dihidupkan. Tanpa
-  `enable`, membuat PIN tidak menghidupkan permintaan PIN.
-- `POST /account/pin/verify` dengan `{ "pin": "123456" }` membalas `{ "ok": true }`, atau 403 `pin_salah`. Aplikasi
-  memanggilnya hanya di layar Keamanan (mengganti atau mematikan PIN). **Perangkat tidak memakainya**: PIN untuk
-  mematikan kamera atau membuka kunci dikirim bersama perintahnya dan diperiksa server (lihat 2.9). Beri batas
-  percobaan salah (juga untuk perintah perangkat) dengan 429 `terlalu_sering` (`retryInSec`).
-- Disimpan sebagai hash (memakai `home_pins` yang sudah ada); PIN tidak masuk log.
-- **Lupa PIN** (mengatur ulang tanpa PIN lama) lewat kode WhatsApp, seperti masuk:
-  - `POST /account/pin/reset/start` (tanpa isi) → `{ "resendInSec": 60 }`. Server mengirim kode 6 angka ke WhatsApp
-    pemilik (sekali pakai, kedaluwarsa pendek). Terlalu sering: 429 `terlalu_sering` (`retryInSec`).
-  - `POST /account/pin/reset/verify` dengan `{ "code": "123456", "pin": "654321" }` (objek ketat) → `SecurityRes`.
-    Kode cocok menyimpan `pin` sebagai PIN baru (`hasPin: true`); `pinEnabled` tidak berubah. Kode salah atau
-    kedaluwarsa: 400 `kode_salah`. Beri batas percobaan salah.
-  - **Pengaman setelah ganti PIN (aturan server).** Begitu `reset/verify` berhasil, server (1) mengirim pemberitahuan
-    WhatsApp ke pemilik: "PIN Anda baru saja diganti lewat aplikasi. Kalau bukan Anda, balas pesan ini.", dan (2) menahan
-    aksi yang dijaga PIN (buka kunci, matikan kamera, matikan alarm) selama 15 menit: dibalas **423 `pin_baru`**,
-    sebelum PIN diperiksa. Aplikasi menampilkan "PIN baru bisa dipakai untuk membuka pintu 15 menit lagi. Ini pengaman
-    kalau HP dipegang orang lain." Setelah PIN berhasil diganti aplikasi menampilkan "PIN sudah diganti. Kami kirim
-    pemberitahuan ke WhatsApp Anda."
-  - Aplikasi: "Lupa PIN?" di lembar PIN dan di Keamanan membuka alur "Kode dikirim ke WhatsApp Anda" (kirim kode,
-    masukkan kode, buat PIN baru, ulangi). Kode dan PIN baru dikirim bersama di langkah terakhir; kode salah
-    mengembalikan ke langkah kode. Server tiruan: kode `123456` cocok, kode lain `kode_salah` (`000000` contohnya).
-
-### 2.12 Beranda: `GET /home`, `PUT /places/current`, dan event `home`
-
-Beranda satu pandang. Server yang menyusun ringkasannya; aplikasi hanya menampilkan.
-
-`GET /home` → 200 `Home`:
-
-```json
-{
-  "place": "Semua",
-  "places": ["Rumah", "Kedai Dago", "Kedai Riau"],
-  "greetingName": "Rina",
-  "summary": "Ada 3 hal yang perlu Anda hari ini.",
-  "approvals": [
-    { "id": "d-17", "to": "Pak Budi", "channel": "whatsapp", "what": "balasan", "text": "...", "status": "draft",
-      "ask": "Balasan untuk Pak Budi soal harga sewa sudah siap. Kirim?" }
-  ],
-  "agendaToday": [{ "id": "a1", "time": "09.00", "title": "Rapat dengan supplier susu", "kind": "meeting" }],
-  "house": {
-    "lines": [
-      { "deviceId": "ac-kamar", "icon": "snow", "text": "AC kamar nyala · 24°", "label": "AC kamar", "on": true, "switchable": true },
-      { "deviceId": "pintu-depan", "icon": "lock", "text": "Pintu depan terkunci", "switchable": false }
-    ]
-  },
-  "business": { "source": "dari Moka", "sales": "Rp4.250.000", "change": "naik 12% dari Senin lalu", "down": false, "alert": "Susu UHT tinggal 6 karton" },
-  "ring": { "nodes": [{ "key": "wa", "icon": "chat", "label": "WhatsApp", "reachable": true }] },
-  "rev": 51
-}
-```
-
-`PUT /places/current` dengan `{ "place": "Kedai Dago" }` (objek ketat) → 200 `Home` untuk tempat itu. Tempat yang tidak
-dikenal pengguna: 400 `tidak_valid`. Pilihan tempat milik pengguna (dipakai juga oleh Perangkat dan Usaha), bukan milik
-satu perangkat; server mengirim event `home` ke semua koneksi pengguna.
-
-Aturan:
-
-- `place`: `Semua` atau salah satu tempat pengguna. `places`: semua tempat nyata milik pengguna (tanpa `Semua`), berurutan;
-  pemilih tempat menampilkan `Semua` lalu isi `places`, tanpa tempat contoh. `PUT /places/current` gagal: pilihan
-  sementara di layar dikembalikan dan pengguna diberi tahu. Server lama tanpa `places` dibaca kosong (hanya `Semua`). Teks (`summary`, `text`, `sales`, `change`, `alert`) sudah jadi,
-  berbahasa Indonesia sehari-hari; aplikasi tidak menyusunnya.
-- `greetingName`: nama untuk sapaan, atau `null` (aplikasi menyapa "Selamat pagi" tanpa nama). Server asli tidak pernah
-  mengirim nama orang lain.
-- `approvals`: draf berstatus `draft` (menunggu persetujuan), yang tertua dulu. Isinya `Draft` yang sama dengan kartu di
-  chat, ditambah `ask` (opsional): kalimat kartu "Butuh persetujuan Anda". Tanpa `ask` aplikasi menyusun "{Jenis} untuk
-  {penerima} sudah siap. Kirim?". Aplikasi menampilkan satu kartu (yang pertama) dan tombol Lihat membuka chat. Draf yang
-  disetujui, dibuang, atau dibatalkan keluar dari daftar pada event `home` berikutnya.
-- `agendaToday`: paling banyak 3 baris (`HOME_AGENDA_MAX`), hari ini menurut jam, TANPA tugas (`kind: task`). `time`
-  berformat `HH.MM`; `kind` adalah `reminder`, `meeting`, atau `recurring` (jenis yang belum dikenal tetap tampil).
-- `house.lines`: baris kartu Rumah, berurutan. `icon` adalah nama ikon aplikasi; nama yang tidak dikenal diganti ikon
-  bawaan (jangan ditolak). `on` ada hanya pada baris yang punya sakelar (AC); `switchable` = sakelar boleh diketuk
-  (perangkat terjangkau). `sensitive` (opsional) = perangkat dijaga (kunci, kamera, alarm): sakelar **tidak** tampil di
-  Beranda walau `switchable`, jadi sakelar tampil hanya bila `switchable && !sensitive`. Sakelar memanggil `POST /home/devices/:id` (bagian 2.9) dengan `{ "on": true|false }`.
-  `label` (opsional) adalah nama perangkat untuk pembaca layar.
-- `business`: ringkasan usaha untuk tempat terpilih, atau `null` kalau pengguna tidak punya usaha (kartu Usaha tidak
-  tampil). `down: true` mewarnai `change` sebagai peringatan. `alert`: satu kalimat peringatan atau `null`. Tempat
-  tanpa usaha (misalnya Rumah) boleh memakai angka gabungan.
-- `ring.nodes`: simpul cincin Beranda dari layanan tersambung dan perangkat yang punya simpul cincin, berurutan.
-  `reachable: false` = layanan/perangkat sumbernya tidak terjangkau (simpul abu-abu, "CCTV tidak terjangkau").
-- `rev`: naik setiap isi Beranda berubah, per pengguna. Event `home` yang `rev`-nya lebih kecil dari yang dipegang
-  aplikasi dibuang. Beranda dimuat ulang dengan `GET /home` setiap koneksi stream terbuka (juga yang pertama), dan
-  jawaban `GET`/`PUT` yang `rev`-nya sama atau lebih baru dipakai apa adanya (tidak diubah di sisi aplikasi).
-- Server menyiarkan `{ "type": "home", "home": Home }` setiap kali isinya berubah (draf, agenda, perangkat, layanan,
-  tempat, usaha); beberapa perubahan dalam satu giliran boleh digabung. Jangan siarkan kalau tidak ada yang berubah.
-- Pembacaan longgar (aplikasi): ikon yang tidak dikenal, bidang tambahan, dan baris yang rusak tidak menggagalkan
-  Beranda; baris rusak dibuang. Hanya `place` atau `rev` yang hilang membuat jawaban dianggap salah (kendala server).
-- `rev` tidak pernah turun di aplikasi: jawaban `GET /home` yang `rev`-nya lebih lama dari Beranda yang dipegang (event
-  `home` masuk selagi memuat) dibuang dan dimuat sekali lagi. Aturan yang sama berlaku untuk Agenda, Perangkat, dan Usaha.
-- Sapaan di Beranda mengikuti jam di zona pengguna (pagi 04-10, siang 11-14, sore 15-17, selain itu malam); kartu Agenda
-  dan Rumah tidak tampil kalau `agendaToday` atau `house.lines` kosong.
-- Perubahan ini aditif; `CONTRACT_VERSION` tetap 1.
-
-### 2.13 Agenda dan alarm: `/agenda` dan event `agenda`
-
-Agenda satu pengguna: pengingat, tugas, rapat, dan yang berulang. Server mengurai kalimat bebas; aplikasi hanya
-menampilkan pratinjau dan menyimpannya.
-
-`AgendaItem`:
-
-```json
-{
-  "id": "a10", "date": "2026-10-21", "time": "07.00", "at": "2026-10-21T00:00:00.000Z",
-  "title": "Berangkat ke bandara", "kind": "reminder", "way": "alarm",
-  "note": "Penerbangan GA 408 jam 09.15, Terminal 3"
-}
-```
-
-- `date` ("YYYY-MM-DD") dan `time` ("HH.MM") adalah jam dinding menurut zona waktu pengguna di server; dipakai untuk
-  mengelompokkan per hari dan ditampilkan. `at` adalah saat yang sama sebagai ISO 8601 dengan zona dan menjadi acuan
-  alarm di HP. `allDay: true` = sepanjang hari (`time` `00.00` diabaikan, tidak ada alarm berbunyi).
-- `kind`: `reminder`, `task`, `meeting`, `recurring`. `way` (opsional): `alarm` (bunyi di HP), `call` (telepon),
-  `notif` (notifikasi biasa). **Tanpa `way`, pengingat dibaca `notif`**: hanya `way: "alarm"` yang dijanjikan aplikasi
-  sebagai alarm ("Bunyi sebagai alarm"), dijadwalkan di HP, dan dikabarkan lewat tanda terima; selain itu "Lewat
-  notifikasi". `repeat`: keterangan berulang yang sudah jadi ("Tiap Senin"). `note`: keterangan.
-- **Item berulang = kejadian.** Setiap kejadian punya `id` sendiri, `<seriesId>:<YYYY-MM-DD>` (tanggal kejadian itu,
-  contoh `jemput:2026-10-26`), ditambah `seriesId` (`jemput`) yang sama untuk semua kejadian satu deret. Selesai, tunda
-  (`PATCH`), dan tanda terima alarm berlaku per kejadian (id kejadian); menyelesaikan satu kejadian tidak menyentuh yang
-  lain. Aplikasi menjadwalkan satu alarm per kejadian dalam 7 hari ke depan. Item sekali tidak punya `seriesId`.
-- `done`: tugas atau pengingat selesai. `snoozedUntil` (ISO): ditunda; pengingat berikutnya berbunyi pada saat itu,
-  bukan pada `at`. `notesMessageId`: rapat yang notulennya sudah ada di chat (id pesan notulen).
-
-`GET /agenda?from=YYYY-MM-DD&to=YYYY-MM-DD` → 200:
-
-```json
-{ "items": [ ... ], "leftover": { "id": "l1", "title": "Kirim penawaran katering ke Bu Sari", "kind": "task", "...": "..." },
-  "from": "2026-10-19", "to": "2026-11-01", "today": "2026-10-21", "now": "06.30", "tzOffsetMinutes": 420, "rev": 12 }
-```
-
-- Tanpa `from`/`to`: Senin pekan ini sampai Minggu pekan depan (14 hari), cukup untuk Hari ini, Minggu ini, dan alarm 7
-  hari ke depan. Aplikasi SELALU memuat rentang bawaan ini (digabung dengan rentang bulan yang pernah dibuka di Kalender)
-  tiap memuat ulang, dan sebelum menyamakan alarm memastikan `today` sampai `today + 7` sudah dimuat (pergantian pekan
-  tanpa menutup aplikasi tidak membuat alarm pekan depan terlewat). `from`/`to` di jawaban adalah rentang yang sebenarnya dijawab (kedua ujung termasuk). Aplikasi meminta
-  rentang bulan penuh saat membuka Kalender. `from` > `to` atau bukan tanggal: 400 `tidak_valid`.
-- `items`: urut tanggal lalu jam. `leftover`: tugas hari kemarin yang belum selesai ("Kemarin belum selesai"), atau
-  `null`. `today` dan `now` ("HH.MM") adalah hari ini dan jam sekarang menurut zona pengguna; aplikasi memakainya untuk
-  garis "sekarang" dan menandai yang sudah lewat, jadi layar tidak bergantung pada zona waktu HP. Aplikasi memajukan
-  `today` dan `now` sendiri tiap menit dari jawaban terakhir (garis "sekarang" dan "Kemarin belum selesai" berganti walau
-  aplikasi tidak ditutup) dan memuat ulang rentangnya saat hari berganti.
-- `tzOffsetMinutes`: selisih zona waktu pengguna dari UTC dalam menit (WIB 420, WITA 480, WIT 540). Jam yang berasal dari
-  waktu ISO ("Ditunda sampai 07.10") ditampilkan menurut zona ini, bukan zona HP, supaya sama dengan `time` yang ditulis
-  server. Server lama tanpa bidang ini dibaca 420.
-- `rev`: naik setiap agenda pengguna berubah.
-
-`GET /agenda/:id` → `{ "item": AgendaItem }` (layar alarm yang dibuka dari tautan, item di luar rentang yang dimuat).
-Tidak ada: 404 `tidak_ditemukan`.
-
-`POST /agenda/parse` dengan `{ "text": "Ingatkan saya bayar pajak motor tanggal 25" }` (objek ketat) → 200 (kalimat yang tidak
-bisa dibaca: 422 `tidak_paham`, aplikasi menulis "Saya belum paham waktunya. Coba tulis misalnya: besok jam 9 rapat."):
-
-```json
-{ "preview": { "item": { "date": "2026-10-25", "time": "09.00", "at": "...", "title": "Bayar pajak motor",
-                          "kind": "reminder", "way": "alarm" }, "guessedTime": true } }
-```
-
-Belum disimpan. `guessedTime: true` = jam tidak disebut dan server menebak; aplikasi menulis "Jamnya saya tebak".
-Aplikasi meminta pratinjau setelah pengguna berhenti mengetik ~400 ms, jadi satu kalimat paling banyak satu request.
-Teks kosong atau bukan teks: 400 `tidak_valid`.
-
-`POST /agenda` dengan `{ "item": <item pratinjau, tanpa id> }` → 200 `{ "item": AgendaItem }` (server memberi `id`).
-Server memvalidasi ulang dan boleh memperbaiki isinya.
-
-`PATCH /agenda/:id` dengan `{ "done": true }` dan/atau `{ "snoozeUntil": "<ISO 8601>" }` (objek ketat, minimal satu) →
-200 `{ "item": AgendaItem }`. "Tunda 10 menit" di layar alarm mengirim `snoozeUntil` = **maks(`snoozedUntil` ?? `at`,
-sekarang) + 10 menit**: alarm 07.00 yang baru ditekan 07.25 ditunda sampai 07.35, bukan 07.10 yang sudah lewat. Aplikasi
-memasang alarm tundaan di HP LEBIH DULU (tanpa menunggu internet), baru mengirim `PATCH`; kalau `PATCH` gagal, alarm di HP
-tetap berbunyi pada waktunya, tanpa tanda terima, dan `PATCH` yang sama diulang pada penyamaan alarm berikutnya (juga
-sesudah aplikasi ditutup) sampai berhasil. Item tidak ada: 404. Jawaban `item`, `POST /agenda`, dan `GET /agenda/:id`
-dibaca longgar (bidang tambahan yang rusak atau baru dibuang, itemnya tetap dipakai).
-
-`POST /agenda/leftover` dengan `{ "choice": "today" | "drop" }` → 200 `{ "item": AgendaItem | null }`. `today`
-membuat tugasnya di agenda hari ini (item baru); `drop` melepasnya (`null`). Tidak ada sisa kemarin: 404.
-
-**Alarm di HP dan tanda terima.** Aplikasi menjadwalkan sendiri alarm lokal (`AlarmManager.setAlarmClock`, jadi bunyi
-walau HP terkunci atau internet mati) untuk setiap item `kind` `reminder`/`recurring` dengan `way: "alarm"`, belum
-`done`, dalam 7 hari ke depan, pada `snoozedUntil ?? at`. Setelah HP berhasil menjadwalkannya, aplikasi mengirim
-
-`POST /agenda/:id/alarm-ack` dengan `{ "scheduledFor": "<ISO 8601>" }` → 200 `{ "ok": true }`
-
-dan aturan untuk server adalah:
-
-- Aplikasi HANYA mengirim tanda terima setelah alarm benar-benar terpasang DAN akan terdengar: izin alarm tepat waktu
-  diberikan, notifikasi aktif, dan saluran notifikasi `alarm` tidak dimatikan pengguna. Kalau salah satunya mati,
-  tidak ada tanda terima dan pengingat jalan lewat WhatsApp seperti biasa.
-- Server TIDAK mengirim pengingat yang sama (item dan `scheduledFor` yang sama) lewat WhatsApp: HP yang membunyikannya.
-  Tanda terima itu juga menahan push `pengingat` untuk pengingat yang sama (HP sudah membunyikannya sendiri).
-- **Tanda terima milik sesi (HP) yang mengirimnya**, dikenali dari token `Authorization`; server menyimpannya per sesi.
-  Tanda terima gugur saat sesi itu keluar (`auth/logout`), saat token push HP itu dicabut (`DELETE /push-tokens`, bagian
-  2.8), dan saat ganti akun (sesi lain). Pilihan "paling sederhana dan kuat": aplikasi TIDAK mengirim penghapusan
-  tersendiri saat keluar atau ganti mode, cukup mengandalkan pencabutan sesi dan token push yang sudah diulang sampai
-  berhasil; di HP sendiri semua alarm lokal dibatalkan saat keluar.
-- **Cadangan bila HP tidak terlihat:** tanda terima hanya menahan WhatsApp kalau HP itu terlihat dalam 12 jam terakhir
-  (stream tersambung atau request apa pun dengan token sesi itu). HP yang lama tidak terlihat (mati, aplikasi dihapus,
-  henti paksa) tidak dipercaya lagi: server kirim lewat WhatsApp seperti biasa.
-- Tanda terima berlaku untuk pasangan (id kejadian, `scheduledFor`). Kalau `at` atau `snoozedUntil` berubah, tanda terima lama
-  gugur dan HP mengirim yang baru setelah menjadwalkan ulang; sebelum itu server mengikuti jalur biasa.
-- Tanpa tanda terima pada saat pengingat jatuh tempo (HP mati, izin alarm tepat waktu dimatikan, aplikasi dihapus,
-  atau `way` bukan `alarm`), server mengirim pengingat lewat WhatsApp seperti biasa. Itu cadangan, bukan duplikat.
-- Idempoten: pasangan yang sama boleh dikirim berulang (aplikasi mengirim sekali per pasangan per proses, dan lagi
-  setelah dibuka ulang). Item tidak ada: 404; `scheduledFor` bukan ISO 8601: 400.
-- Alarm yang sudah berbunyi dan dimatikan di HP tidak perlu dikabarkan; `done` hanya berubah lewat `PATCH`.
-
-**Stream.** `{ "type": "agenda", "items": [AgendaItem], "removed": ["id"], "leftover": AgendaItem | null, "rev": 13 }`.
-Semua bidang selain `rev` opsional: `items` menambah atau menggantikan (upsert menurut `id`), `removed` membuang,
-`leftover` (kalau ada) menggantikan sisa kemarin (`null` = hilang). Event dengan `rev` lebih kecil dari yang dipegang
-aplikasi dibuang. Gabungkan perubahan yang berdekatan; jangan siarkan kalau tidak ada yang berubah. Setiap koneksi
-stream terbuka, aplikasi memuat ulang rentang yang ia pegang dengan `GET /agenda`. Rentang di luar yang dimuat boleh
-tetap ikut di `items`.
-
-- Pembacaan longgar (aplikasi): item yang rusak atau berjenis yang belum dikenal dibuang satu per satu, bukan
-  menggagalkan agenda. `Home.agendaToday` tetap dari `/home` (bagian 2.12) dan dihitung server dari agenda yang sama.
-- Perubahan ini aditif; `CONTRACT_VERSION` tetap 1.
 
 ## 3. Bentuk pesan, bagian, dan kartu
 
@@ -1512,9 +1519,9 @@ Pembayaran:
    membalas 404 `belum_terdaftar` dengan `waNumber` (bagian 2.1 dan 4).
 2. ~~URL dokumen~~ **Diputuskan:** dokumen dibuka lewat unduhan biasa dengan header token ke cache HP, lalu penampil
    bawaan atau lembar bagikan (bagian 2.10). Tidak ada URL bertanda tangan.
-3. Jenis token push: token Expo atau token FCM native? Mempengaruhi `push.ts` dan apakah proyek Firebase wajib sejak
-   awal. (Aplikasi sekarang memakai `expo-notifications`; `google-services.json` dari Firebase masih persiapan
-   founder.)
+3. ~~Jenis token push~~ **Diputuskan:** token FCM native (`getDevicePushTokenAsync`); server mengirim lewat FCM HTTP v1
+   dengan service account Firebase (bagian 2.8). `google-services.json` dari Firebase masih persiapan founder (EAS file
+   secret `GOOGLE_SERVICES_JSON`).
 4. Kebijakan keluar: `auth/logout` hanya mencabut sesi ini atau semua sesi? Bawaan usulan: sesi ini saja.
 5. Masa berlaku sesi (usulan 90 hari geser) dan batas laju kode (usulan di bagian 4): setuju?
 6. Pilihan penyimpanan pesan aplikasi (9.4): tabel baru `app_messages` atau kolom di `messages`?
@@ -1580,7 +1587,7 @@ Media dan push:
 - (bila diputuskan) URL bertanda tangan: sah, kedaluwarsa, salah pengguna, tanda tangan diubah;
 - `POST /push-tokens`: upsert, pemindahan kepemilikan token, dihapus saat logout, token ditolak FCM dihapus;
 - `DELETE /push-tokens`: tanpa `Authorization` berhasil, token tidak dikenal tetap `ok`, `pushToken` kosong 400;
-- `501 belum_tersedia` untuk `POST /home/devices/:id`.
+- `POST /home/devices/:id` sudah diisi (2.9); `501 belum_tersedia` tinggal untuk fitur lain yang belum ada di server.
 
 Kanal:
 - pemetaan Outbox: `text`, `buttons`, `list`, `image`, `document`, `audio` → bagian kontrak yang benar;

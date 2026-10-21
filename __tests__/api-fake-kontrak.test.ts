@@ -366,6 +366,39 @@ describe('paritas dengan server', () => {
     expect(await transport.setSecurity({ pinEnabled: true })).toEqual({ pinEnabled: true, hasPin: true });
   });
 
+  test('sesudah lupa PIN: mematikan permintaan PIN juga ditahan 15 menit (423 pin_baru), lalu boleh', async () => {
+    const { transport } = setup({ security: { pinEnabled: true, pin: '123456' } });
+    await transport.pinResetStart();
+    await transport.pinResetVerify({ code: '123456', pin: '654321' });
+    // Ditahan sebelum PIN diperiksa: PIN benar pun ditolak.
+    await expect(transport.setSecurity({ pinEnabled: false, pin: '654321' })).rejects.toMatchObject({
+      code: 'pin_cooldown',
+      status: 423,
+      error: 'pin_baru',
+    });
+    // Menghidupkan tidak ditahan.
+    expect(await transport.setSecurity({ pinEnabled: true })).toEqual({ pinEnabled: true, hasPin: true });
+    await after(15 * 60_000);
+    expect(await transport.setSecurity({ pinEnabled: false, pin: '654321' })).toEqual({
+      pinEnabled: false,
+      hasPin: true,
+    });
+  });
+
+  test('authVerify menerima nama HP (opsional; bentuk salah diabaikan)', async () => {
+    const { transport } = setup();
+    await transport.authStart({ phone: '628122046' });
+    const ok = await transport.authVerify({
+      phone: '628122046',
+      code: '123456',
+      device: { name: 'Pixel 8', platform: 'android' },
+    });
+    expect(ok.token).toBeTruthy();
+    await transport.authStart({ phone: '628122047' });
+    const bad = await transport.authVerify({ phone: '628122047', code: '123456', device: { name: 5 } } as never);
+    expect(bad.token).toBeTruthy();
+  });
+
   test('POST /account/pin dengan enable: PIN dan permintaan PIN berubah bersama; gagal berarti tidak ada yang berubah', async () => {
     const { transport } = setup();
     expect(await transport.setPin({ pin: '123456', enable: true })).toEqual({ pinEnabled: true, hasPin: true });

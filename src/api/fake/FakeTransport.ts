@@ -652,6 +652,9 @@ export class FakeTransport implements Transport {
     return this.call(true, () => {
       const { pinEnabled, pin } = parse(securityUpdateReqSchema, req);
       if (pinEnabled && this.pinValue === null) throw invalid();
+      // Sesudah lupa PIN, permintaan PIN juga tidak boleh dimatikan selama jeda pengaman (ditahan sebelum PIN diperiksa).
+      if (!pinEnabled && this.pinResetAt > 0 && this.clock.now() - this.pinResetAt < PIN_COOLDOWN_MS)
+        throw pinCooldown();
       // Mematikan permintaan PIN butuh PIN yang sekarang: tanpa itu, token yang sah saja tidak cukup.
       if (!pinEnabled && this.pinValue !== null && pin !== this.pinValue) throw wrongPin();
       this.pinEnabled = pinEnabled;

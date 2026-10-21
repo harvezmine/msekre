@@ -48,7 +48,12 @@ describe('layar masuk', () => {
     await renderWithProviders(<Masuk />, { api });
     await signIn();
     await waitFor(() => expect(router.push).toHaveBeenCalledWith('/mulai/pilih'));
-    expect(verify).toHaveBeenCalledWith({ phone: PHONE, code: '123456' });
+    // Nama HP ikut dikirim (expo-device ditiru di jest-expo) supaya daftar HP di Akun terisi.
+    expect(verify).toHaveBeenCalledWith({
+      phone: PHONE,
+      code: '123456',
+      device: { name: 'mock', platform: 'ios' },
+    });
     expect(await api.session.get()).toMatch(/^contoh-/);
   });
 
@@ -248,6 +253,19 @@ describe('layar masuk: nomor, tunggu, dan aksesibilitas', () => {
     expect(await screen.findByText(WRONG_CODE_TEXT)).toBeTruthy();
     expect(announce).toHaveBeenCalledWith(WRONG_CODE_TEXT);
     announce.mockRestore();
+  });
+
+  test('mode contoh: petunjuk jelas bahwa 6 angka apa saja diterima (dan tidak ada kode yang terisi sendiri)', async () => {
+    await renderWithProviders(<Masuk />, { api: createTestApi() });
+    expect(screen.getByText('Mode contoh: isi 6 angka apa saja, misalnya 123456.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim kode' }));
+    expect(screen.getByLabelText('Kode dari WhatsApp')).toHaveDisplayValue('');
+    expect(screen.getByText('Mode contoh: isi 6 angka apa saja, misalnya 123456.')).toBeOnTheScreen();
+  });
+
+  test('mode server: tanpa petunjuk contoh', async () => {
+    await renderWithProviders(<Masuk />, { api: createTestApi({ mode: 'server', requireSession: true }) });
+    expect(screen.queryByText(/Mode contoh/)).toBeNull();
   });
 
   test('Ganti mode data membuka lembar mode', async () => {

@@ -2,6 +2,7 @@ import { createContext, createElement, use, useCallback, useEffect, useMemo, use
 import { AppState } from 'react-native';
 import { clearDocumentCache } from '@/files/documents';
 import { useApi } from './ApiProvider';
+import { deviceInfo } from './deviceInfo';
 import type { AuthStartRes, AuthVerifyRes, Me } from './contract';
 import type { Transport } from './transport';
 
@@ -88,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const start = useCallback((phone: string) => transport.authStart({ phone }), [transport]);
   const verify = useCallback(
     async (phone: string, code: string) => {
-      const res = await transport.authVerify({ phone, code });
+      const res = await transport.authVerify({ phone, code, device: deviceInfo() });
       apply(transport, () => ({ transport, status: 'signedIn', me: res.user }));
       return res;
     },

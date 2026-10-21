@@ -25,6 +25,8 @@ import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 
 const CODE_LENGTH = 6;
+/** Mode contoh tidak mengirim WhatsApp sungguhan; kode apa pun diterima. */
+export const SAMPLE_CODE_HINT = 'Mode contoh: isi 6 angka apa saja, misalnya 123456.';
 
 /** Nomor E.164 tanpa "+": 62 di depan angka yang sudah dibersihkan. */
 const toE164 = (digits: string) => `62${digits}`;
@@ -257,6 +259,11 @@ export default function MulaiMasuk() {
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.02 }}
               />
             </View>
+            {mode === 'contoh' ? (
+              <Txt v="caption" color={c.muted}>
+                {SAMPLE_CODE_HINT}
+              </Txt>
+            ) : null}
             {error ? (
               <Txt v="caption" color={c.clay} accessibilityLiveRegion="polite">
                 {error}

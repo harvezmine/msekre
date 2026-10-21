@@ -103,6 +103,8 @@ test('Lupa PIN: kode dikirim ke WhatsApp, lalu PIN baru dibuat dan dipakai', asy
   for (let i = 0; i < 4; i++) await advance(0);
   expect(screen.getByText('Masukkan kode')).toBeOnTheScreen();
   expect(screen.getByText('Kode dikirim ke WhatsApp Anda.')).toBeOnTheScreen();
+  // Mode contoh: tidak ada WhatsApp sungguhan, jadi kodenya disebut.
+  expect(screen.getByText('Mode contoh: kodenya 123456.')).toBeOnTheScreen();
   await type('123456');
   expect(screen.getByText('Buat PIN baru')).toBeOnTheScreen();
   await type('654321');
@@ -118,7 +120,7 @@ test('Lupa PIN: kode dikirim ke WhatsApp, lalu PIN baru dibuat dan dipakai', asy
   expect(deviceById(latest, 'kamera-tamu')!.on).toBe(true);
   expect(
     screen.getByText(
-      'PIN baru bisa dipakai untuk membuka pintu 15 menit lagi. Ini pengaman kalau HP dipegang orang lain.',
+      'PIN baru bisa dipakai untuk membuka pintu, mematikan kamera, atau mematikan alarm 15 menit lagi. Ini pengaman kalau HP dipegang orang lain.',
     ),
   ).toBeOnTheScreen();
   await advance(15 * 60_000);

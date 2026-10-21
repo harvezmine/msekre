@@ -188,7 +188,18 @@ export const authStartReqSchema = z.object({ phone: phoneSchema });
 /** Kode 6 angka dikirim lewat WhatsApp; `resendInSec` adalah jeda sebelum boleh minta kode lagi. */
 export const authStartResSchema = z.object({ resendInSec: z.number().int().nonnegative() });
 
-export const authVerifyReqSchema = z.object({ phone: phoneSchema, code: z.string().regex(/^\d{6}$/) });
+/** HP yang sedang masuk, untuk nama di daftar HP di Akun. Opsional dan longgar: bentuk yang salah diabaikan server. */
+export const deviceInfoSchema = z.object({
+  name: z.string().min(1).max(80),
+  platform: z.enum(['android', 'ios']),
+});
+
+export const authVerifyReqSchema = z.object({
+  phone: phoneSchema,
+  code: z.string().regex(/^\d{6}$/),
+  // Bentuk yang salah dibaca sebagai tidak ada: nama HP tidak pernah menggagalkan masuk.
+  device: deviceInfoSchema.optional().catch(undefined),
+});
 
 export const meSchema = z.object({
   id: idSchema,
@@ -1331,6 +1342,7 @@ export const apiErrorSchema = z.object({
 
 export type AuthStartReq = z.infer<typeof authStartReqSchema>;
 export type AuthStartRes = z.infer<typeof authStartResSchema>;
+export type DeviceInfo = z.infer<typeof deviceInfoSchema>;
 export type AuthVerifyReq = z.infer<typeof authVerifyReqSchema>;
 export type AuthVerifyRes = z.infer<typeof authVerifyResSchema>;
 export type SecurityRes = z.infer<typeof securityResSchema>;

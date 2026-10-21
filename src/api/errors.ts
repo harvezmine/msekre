@@ -14,7 +14,7 @@ export const NOT_REGISTERED_TEXT = 'Nomor ini belum memakai Sekretaris AI. Mulai
 export const PIN_NEEDED_TEXT = 'Aksi ini perlu PIN. Masukkan PIN dulu ya.';
 /** PIN baru diganti lewat lupa PIN: aksi yang dijaga PIN ditahan 15 menit. */
 export const PIN_COOLDOWN_TEXT =
-  'PIN baru bisa dipakai untuk membuka pintu 15 menit lagi. Ini pengaman kalau HP dipegang orang lain.';
+  'PIN baru bisa dipakai untuk membuka pintu, mematikan kamera, atau mematikan alarm 15 menit lagi. Ini pengaman kalau HP dipegang orang lain.';
 export const WRONG_PIN_TEXT = 'PIN belum cocok, coba lagi.';
 export const INVALID_NAME_TEXT = 'Nama asisten cukup huruf saja, 2 sampai 20 huruf.';
 export const TOO_OFTEN_TEXT = 'Tunggu sebentar ya, lalu coba lagi.';

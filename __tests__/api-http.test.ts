@@ -849,7 +849,7 @@ describe('kegagalan khusus', () => {
     expect(e).toMatchObject({ code: 'pin_cooldown', status: 423, error: 'pin_baru' });
     expect(friendlyError(e)).toBe(PIN_COOLDOWN_TEXT);
     expect(PIN_COOLDOWN_TEXT).toBe(
-      'PIN baru bisa dipakai untuk membuka pintu 15 menit lagi. Ini pengaman kalau HP dipegang orang lain.',
+      'PIN baru bisa dipakai untuk membuka pintu, mematikan kamera, atau mematikan alarm 15 menit lagi. Ini pengaman kalau HP dipegang orang lain.',
     );
   });
 

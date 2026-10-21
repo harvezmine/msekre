@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { useApi } from '@/api/ApiProvider';
 import { friendlyError } from '@/api/errors';
 import { useSecurity } from '@/api/useSecurity';
 import { isApiFailure } from '@/api/transport';
@@ -12,6 +13,8 @@ import { PinPad, type PinVerdict } from './PinPad';
 export const PIN_CHANGED_TEXT = 'PIN sudah diganti. Kami kirim pemberitahuan ke WhatsApp Anda.';
 
 const MISMATCH = 'PIN belum sama, ulangi ya.';
+/** Mode contoh tidak mengirim WhatsApp sungguhan; hanya kode ini yang cocok. */
+export const SAMPLE_RESET_HINT = 'Mode contoh: kodenya 123456.';
 const WRONG_CODE = 'Kodenya belum cocok. Coba lagi ya.';
 
 type Step = 'ask' | 'code' | 'new' | 'repeat';
@@ -28,6 +31,7 @@ interface Props {
  */
 export function PinReset({ onDone, onCancel }: Props) {
   const { c } = useTheme();
+  const { mode } = useApi();
   const security = useSecurity({ load: false });
   const [step, setStep] = useState<Step>('ask');
   const [sending, setSending] = useState(false);
@@ -120,6 +124,11 @@ export function PinReset({ onDone, onCancel }: Props) {
   }[step];
   return (
     <View style={{ gap: 8 }}>
+      {step === 'code' && mode === 'contoh' ? (
+        <Txt v="caption" color={c.muted} style={{ textAlign: 'center' }}>
+          {SAMPLE_RESET_HINT}
+        </Txt>
+      ) : null}
       {step === 'code' && problem ? (
         <Txt
           accessibilityRole="alert"
