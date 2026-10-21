@@ -58,10 +58,23 @@ export function UserBubble({ text, startsExchange = false, status, onRetry }: Us
   );
 }
 
-/** Jawaban asisten: teks polos tanpa gelembung. */
+/** Jawaban asisten: gelembung permukaan (`surface`) rata kiri, sudut kiri atas lancip; tenang tanpa bayangan. */
 export function AssistantLine({ text }: { text: string }) {
+  const { c } = useTheme();
   return (
-    <View style={{ alignSelf: 'flex-start', maxWidth: '86%', paddingHorizontal: 4 }}>
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        maxWidth: '86%',
+        backgroundColor: c.surface,
+        borderTopLeftRadius: 6,
+        borderTopRightRadius: 20,
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+      }}
+    >
       <Txt>{text}</Txt>
     </View>
   );

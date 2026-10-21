@@ -37,8 +37,8 @@ export function ChoicesCard({
               onPress={() => onChoose(choice.id)}
               android_ripple={{ color: c.ripple }}
               style={{
-                minHeight: 48,
-                borderRadius: 24,
+                minHeight: 52,
+                borderRadius: 26,
                 paddingHorizontal: 20,
                 flexDirection: 'row',
                 alignItems: 'center',

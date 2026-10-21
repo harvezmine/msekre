@@ -1,3 +1,5 @@
+// Niat layar: bicara dengan asisten lewat tulisan dan menyetujui yang ia siapkan. Tindakan tersering: ketik lalu Kirim
+// (atau mic), lingkaran besar di zona jempol paling bawah. Riwayat satu ketukan dari kepala (ikon jam).
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { memo, useEffect, useRef, useState } from 'react';
 import {
@@ -38,6 +40,7 @@ import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
 import type { IconName } from '@/ui/icons';
 import { IntiOrb } from '@/ui/inti/IntiOrb';
+import { PressableScale } from '@/ui/kit/PressableScale';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
 import { useToast } from '@/ui/toastStore';
@@ -60,7 +63,7 @@ const SUGGESTIONS: { icon: IconName; text: string }[] = [
 // bawah); menggulir ke atas memuat pesan yang lebih lama.
 export default function Chat() {
   const assistantName = useAssistantName();
-  const { c } = useTheme();
+  const { c, shadow } = useTheme();
   const insets = useSafeAreaInsets();
   const live = useLive();
   const { kosong, draf, pesan, isi } = useLocalSearchParams<{
@@ -167,21 +170,21 @@ export default function Chat() {
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
       <View
         style={{
-          height: 64,
+          minHeight: 64,
           flexDirection: 'row',
           alignItems: 'center',
           gap: 8,
           paddingHorizontal: 8,
-          borderBottomWidth: 1,
-          borderBottomColor: c.line,
         }}
       >
         <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
         <IntiOrb size={40} glow={false} dim={intiOff} paused={!live} />
         <View style={{ flex: 1, marginLeft: 4 }}>
-          <Txt v="subtitle">{assistantName}</Txt>
+          <Txt v="section" numberOfLines={1}>
+            {assistantName}
+          </Txt>
           {status !== null && (
-            <Txt v="caption" color={c.muted}>
+            <Txt v="caption" color={status === 'Siap membantu' ? c.brandInk : c.muted}>
               {status}
             </Txt>
           )}
@@ -197,13 +200,14 @@ export default function Chat() {
           <Note />
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24 }}>
             <IntiOrb size={92} dim={intiOff} paused={!live} />
-            <Txt v="title" style={{ textAlign: 'center' }}>
+            <Txt v="title" accessibilityRole="header" style={{ textAlign: 'center' }}>
               Mau saya bantu urus apa?
             </Txt>
           </View>
-          <View style={{ gap: 8 }}>
+          {/* Contoh kalimat di zona jempol, tepat di atas kolom ketik: ketuk mengisi kolomnya, Anda yang mengirim. */}
+          <View style={{ gap: 10 }}>
             {SUGGESTIONS.map((s) => (
-              <Pressable
+              <PressableScale
                 key={s.text}
                 accessibilityRole="button"
                 accessibilityLabel={s.text}
@@ -212,20 +216,21 @@ export default function Chat() {
                   input.current?.focus();
                 }}
                 style={{
-                  height: 52,
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: c.line,
+                  minHeight: 56,
+                  borderRadius: 24,
                   backgroundColor: c.surface,
+                  boxShadow: shadow.e1,
                   paddingHorizontal: 16,
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 12,
                 }}
               >
-                <Icon name={s.icon} size={22} color={c.text} />
-                <Txt>{s.text}</Txt>
-              </Pressable>
+                <Icon name={s.icon} size={22} color={c.muted} />
+                <Txt v="row" style={{ flex: 1 }}>
+                  {s.text}
+                </Txt>
+              </PressableScale>
             ))}
           </View>
         </View>

@@ -34,8 +34,8 @@ export function QrisCard({ qris, mediaUrl }: { qris: Qris; mediaUrl: (mediaId: s
             flexDirection: 'row',
             alignItems: 'center',
             gap: 8,
-            minHeight: 48,
-            borderRadius: 16,
+            minHeight: 52,
+            borderRadius: 20,
             backgroundColor: c.brandSoft,
             paddingHorizontal: 16,
           }}
@@ -54,10 +54,8 @@ export function QrisCard({ qris, mediaUrl }: { qris: Qris; mediaUrl: (mediaId: s
           style={{
             width: 208,
             height: 208,
-            borderRadius: 16,
-            backgroundColor: c.bg,
-            borderWidth: 1,
-            borderColor: c.line,
+            borderRadius: 20,
+            backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',
             gap: 8,

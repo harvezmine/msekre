@@ -58,9 +58,9 @@ export function ConfirmSendCard({
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
+            width: 44,
+            height: 44,
+            borderRadius: 22,
             backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',
@@ -71,7 +71,9 @@ export function ConfirmSendCard({
           </Txt>
         </View>
         <View style={{ flex: 1 }}>
-          <Txt weight={600}>{to}</Txt>
+          <Txt v="row" weight={600}>
+            {to}
+          </Txt>
           <Txt v="caption" color={c.muted}>
             lewat {channel}
           </Txt>

@@ -1,16 +1,34 @@
-import { Pressable, type ViewProps } from 'react-native';
+import { View, type ViewProps } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Card } from '../Card';
+import { PressableScale } from '../kit/PressableScale';
 import { Txt } from '../Txt';
 
-/** Bingkai kartu di dalam utas chat (radius 20, isi 16; selebar kolom sampai paling besar 340). */
+/**
+ * Bingkai kartu di dalam utas chat: permukaan tenang tanpa garis (radius 24, isi 16, bayangan `e1`), selebar kolom sampai
+ * paling besar 360. Satu kartu = satu hal yang bisa disentuh (draf, perangkat, pilihan, pembayaran, berkas, notulen).
+ */
 export function ChatCard({ style, ...rest }: ViewProps) {
+  const { c, shadow } = useTheme();
   return (
-    <Card {...rest} style={[{ borderRadius: 20, padding: 16, gap: 12, maxWidth: 340, alignSelf: 'stretch' }, style]} />
+    <View
+      {...rest}
+      style={[
+        {
+          backgroundColor: c.surface,
+          boxShadow: shadow.e1,
+          borderRadius: 24,
+          padding: 16,
+          gap: 14,
+          maxWidth: 360,
+          alignSelf: 'stretch',
+        },
+        style,
+      ]}
+    />
   );
 }
 
-/** Tombol bulat 48 dp di dalam kartu chat; yang utama berlatar hijau. */
+/** Tombol bulat 52 dp di dalam kartu chat (mengecil pelan saat ditekan); yang utama berlatar hijau brand. */
 export function CardButton({
   label,
   onPress,
@@ -25,26 +43,26 @@ export function CardButton({
 }) {
   const { c } = useTheme();
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      android_ripple={{ color: c.ripple }}
       style={{
         opacity: disabled ? 0.5 : 1,
         flex: 1,
-        height: 48,
-        borderRadius: 24,
+        minHeight: 52,
+        paddingHorizontal: 12,
+        borderRadius: 26,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: primary ? c.brand : c.sunken,
       }}
     >
-      <Txt weight={600} color={primary ? c.onBrand : c.text}>
+      <Txt weight={600} color={primary ? c.onBrand : c.text} numberOfLines={1}>
         {label}
       </Txt>
-    </Pressable>
+    </PressableScale>
   );
 }

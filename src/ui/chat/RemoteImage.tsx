@@ -17,7 +17,7 @@ export function MediaFailed({ onRetry, style }: { onRetry: () => void; style?: S
           justifyContent: 'center',
           gap: 4,
           minHeight: 120,
-          borderRadius: 12,
+          borderRadius: 18,
           backgroundColor: c.sunken,
           padding: 12,
         },

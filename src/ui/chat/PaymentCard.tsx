@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import { formatRupiah } from '@/api/format';
 import type { Card } from '@/api/contract';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Icon } from '../Icon';
+import { AccentIcon } from '../kit/AccentIcon';
 import { Txt } from '../Txt';
 import { ChatCard } from './ChatCard';
 
@@ -18,19 +18,10 @@ export function PaymentCard({ payment }: { payment: Payment }) {
   return (
     <ChatCard>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 14,
-            backgroundColor: c.sunken,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon name="bolt" size={22} color={c.text} />
-        </View>
-        <Txt weight={600}>{payment.title}</Txt>
+        <AccentIcon icon="bolt" tone="brand" size={44} />
+        <Txt v="row" weight={600} style={{ flex: 1 }}>
+          {payment.title}
+        </Txt>
       </View>
       <View style={{ gap: 6 }}>
         {rows.map(([k, v, strong], i) => (

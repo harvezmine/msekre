@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import type { MediaSource } from '@/api/transport';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Icon } from '../Icon';
+import { AccentIcon } from '../kit/AccentIcon';
 import { Txt } from '../Txt';
 import { CardButton, ChatCard } from './ChatCard';
 import { useDocumentActions } from './useDocumentActions';
@@ -26,20 +26,11 @@ export function FileCard({ file, mediaUrl }: { file: FileInfo; mediaUrl: (mediaI
   return (
     <ChatCard>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <View
-          style={{
-            width: 40,
-            height: 48,
-            borderRadius: 12,
-            backgroundColor: c.sunken,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon name="file" size={22} color={c.text} />
-        </View>
+        <AccentIcon icon="file" tone="usaha" size={44} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Txt weight={600}>{file.name}</Txt>
+          <Txt v="row" weight={600}>
+            {file.name}
+          </Txt>
           <Txt v="caption" color={c.muted}>
             {file.meta}
           </Txt>

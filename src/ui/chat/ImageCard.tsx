@@ -31,7 +31,7 @@ export function ImageCard({
           uri={media.uri}
           headers={media.headers}
           label={label}
-          style={{ width: '100%', aspectRatio: 1, borderRadius: 12 }}
+          style={{ width: '100%', aspectRatio: 1, borderRadius: 18 }}
           reload={reload}
         />
       ) : media !== null && media.kind === 'sampleQr' ? (
@@ -44,7 +44,7 @@ export function ImageCard({
           style={{
             width: '100%',
             aspectRatio: 1,
-            borderRadius: 12,
+            borderRadius: 18,
             backgroundColor: c.sunken,
             alignItems: 'center',
             justifyContent: 'center',

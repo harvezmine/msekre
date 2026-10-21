@@ -1,11 +1,12 @@
 import { useEffect, useState, type Ref } from 'react';
-import { Keyboard, Pressable, TextInput, View, type TextInputInstance } from 'react-native';
+import { Keyboard, TextInput, View, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
 import { Icon } from '../Icon';
 import { IconButton } from '../IconButton';
+import { PressableScale } from '../kit/PressableScale';
 import { useToast } from '@/ui/toastStore';
 import { useOpenVoice } from '@/voice/available';
 
@@ -22,7 +23,10 @@ interface Props {
   onAttach?: () => void;
 }
 
-/** Bilah ketik di bawah: lampiran, kolom teks, lalu mic (kosong) atau kirim (ada teks). */
+/**
+ * Bilah ketik di zona jempol: lampiran (48), kolom teks (56), lalu mic (kosong) atau kirim (ada teks) sebagai lingkaran
+ * besar 56 tepat di bawah ibu jari.
+ */
 export function Composer({ value, onChangeText, onSend, inputRef, strongMic = false, disabledText, onAttach }: Props) {
   const assistantName = useAssistantName();
   const { c, marker } = useTheme();
@@ -44,9 +48,10 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
   const solid = !off && (hasText || strongMic);
   return (
     <View
+      testID="zona-jempol"
       style={{
-        height: 88 + (keyboard ? 0 : insets.bottom),
-        paddingBottom: 8 + (keyboard ? 0 : insets.bottom),
+        paddingTop: 8,
+        paddingBottom: 12 + (keyboard ? 0 : insets.bottom),
         paddingHorizontal: 12,
         flexDirection: 'row',
         alignItems: 'center',
@@ -75,8 +80,8 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
         selectionColor={marker.agenda.base}
         style={{
           flex: 1,
-          height: 52,
-          borderRadius: 26,
+          minHeight: 56,
+          borderRadius: 28,
           backgroundColor: c.sunken,
           paddingHorizontal: 20,
           fontFamily: FONT[400],
@@ -84,24 +89,25 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
           color: c.text,
         }}
       />
-      <Pressable
+      <PressableScale
         accessibilityRole="button"
         accessibilityLabel={hasText ? 'Kirim pesan' : 'Bicara'}
         accessibilityState={{ disabled: off }}
         disabled={off}
+        haptic={hasText ? 'success' : 'light'}
         onPress={hasText ? onSend : () => openSuara('replace')}
         style={{
-          width: 52,
-          height: 52,
-          borderRadius: 26,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
           backgroundColor: solid ? c.brand : c.sunken,
           opacity: off ? 0.5 : 1,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Icon name={hasText ? 'send' : 'mic'} size={24} color={solid ? c.onBrand : c.text} />
-      </Pressable>
+        <Icon name={hasText ? 'send' : 'mic'} size={26} color={solid ? c.onBrand : c.text} />
+      </PressableScale>
     </View>
   );
 }

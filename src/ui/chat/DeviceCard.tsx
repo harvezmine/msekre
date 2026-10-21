@@ -4,6 +4,7 @@ import type { DeviceKind } from '@/api/contract';
 import { AC_MAX, AC_MIN } from '@/api/constants';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
+import { AccentIcon } from '../kit/AccentIcon';
 import type { IconName } from '../icons';
 import { Toggle } from '../Toggle';
 import { Txt } from '../Txt';
@@ -51,7 +52,7 @@ export function DeviceCardView({
   onTemp,
   onOpen,
 }: DeviceCardViewProps) {
-  const { c, marker } = useTheme();
+  const { c } = useTheme();
   const step = (d: number) => {
     if (temp === undefined || temp + d < AC_MIN || temp + d > AC_MAX) return;
     void Haptics.selectionAsync();
@@ -60,25 +61,17 @@ export function DeviceCardView({
   return (
     <ChatCard>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: c.sunken,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon
-            name={guarded && kind !== 'lock' && kind !== 'camera' ? 'shield' : (KIND_ICON[kind] ?? 'home')}
-            size={22}
-            color={marker.rumah.ink}
-          />
-        </View>
+        {/* Menyala = lingkaran hijau penuh (keadaan nyala selalu hijau); mati = netral dengan ikon oranye kecil. */}
+        <AccentIcon
+          icon={guarded && kind !== 'lock' && kind !== 'camera' ? 'shield' : (KIND_ICON[kind] ?? 'home')}
+          tone={on && !guarded ? 'on' : 'rumah'}
+          size={44}
+        />
         <View style={{ flex: 1 }}>
-          <Txt weight={600}>{name}</Txt>
-          <Txt v="caption" color={c.muted}>
+          <Txt v="row" weight={600}>
+            {name}
+          </Txt>
+          <Txt v="caption" color={on && !guarded ? c.brandInk : c.muted}>
             {status}
           </Txt>
         </View>
@@ -99,8 +92,8 @@ export function DeviceCardView({
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            backgroundColor: c.bg,
-            borderRadius: 16,
+            backgroundColor: c.sunken,
+            borderRadius: 28,
             padding: 4,
           }}
         >
@@ -140,9 +133,9 @@ function StepButton({
       accessibilityState={{ disabled }}
       onPress={onPress}
       android_ripple={{ color: c.ripple, borderless: true, radius: 24 }}
-      style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
+      style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' }}
     >
-      <Icon name={icon} size={24} color={disabled ? c.sunken2 : c.text} />
+      <Icon name={icon} size={24} color={disabled ? c.faint : c.text} />
     </Pressable>
   );
 }

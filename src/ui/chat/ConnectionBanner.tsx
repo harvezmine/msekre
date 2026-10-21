@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { BLOCKED_TEXT, UPGRADE_TEXT } from '@/api/errors';
 import type { ConnectionStatus } from '@/api/transport';
 import { useTheme } from '@/theme/ThemeProvider';
+import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 
 /** Koneksi harus putus selama ini sebelum banner tampil, supaya kedipan sesaat tidak mengagetkan. */
@@ -36,7 +37,10 @@ export function useLateOffline(connection: ConnectionStatus): boolean {
   return offline && lateEpisode === episode;
 }
 
-/** Bilah di bawah header dengan teks dari {@link bannerText}; tanpa teks tidak tampil. */
+/**
+ * Kabar tenang di bawah kepala chat dengan teks dari {@link bannerText}: kapsul `sunken` dengan ikon kecil, tanpa warna
+ * peringatan yang besar. Tanpa teks tidak tampil.
+ */
 export function ConnectionBanner({ text }: { text: string | null }) {
   const { c, marker } = useTheme();
   if (!text) return null;
@@ -45,9 +49,22 @@ export function ConnectionBanner({ text }: { text: string | null }) {
       testID="banner-koneksi"
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
-      style={{ backgroundColor: c.sunken, paddingVertical: 10, paddingHorizontal: 16 }}
+      style={{
+        marginHorizontal: 16,
+        marginTop: 4,
+        marginBottom: 4,
+        minHeight: 48,
+        borderRadius: 20,
+        backgroundColor: c.sunken,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+      }}
     >
-      <Txt v="caption" color={marker.warn.ink} weight={600}>
+      <Icon name="info" size={20} color={marker.warn.ink} />
+      <Txt v="caption" color={c.text} weight={600} style={{ flex: 1, fontSize: 15, lineHeight: 20 }}>
         {text}
       </Txt>
     </View>

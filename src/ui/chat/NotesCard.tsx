@@ -1,6 +1,7 @@
 import { Pressable, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
+import { AccentIcon } from '../kit/AccentIcon';
 import { Txt } from '../Txt';
 import { ChatCard } from './ChatCard';
 import { useToast } from '@/ui/toastStore';
@@ -18,20 +19,11 @@ export function NotesCard({ notes, onOpen }: { notes: NotesInfo; onOpen?: () => 
   return (
     <ChatCard>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 14,
-            backgroundColor: c.sunken,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon name="note" size={22} color={marker.agenda.ink} />
-        </View>
+        <AccentIcon icon="note" tone="agenda" size={44} />
         <View style={{ flex: 1 }}>
-          <Txt weight={600}>{notes.title}</Txt>
+          <Txt v="row" weight={600}>
+            {notes.title}
+          </Txt>
           <Txt v="caption" color={c.muted} tabular>
             {notes.when}
           </Txt>
@@ -52,7 +44,7 @@ export function NotesCard({ notes, onOpen }: { notes: NotesInfo; onOpen?: () => 
         accessibilityLabel="Baca notulen"
         onPress={onOpen ?? (() => toast('Notulen lengkap segera hadir.'))}
         hitSlop={{ top: 4, bottom: 4 }}
-        style={{ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+        style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4 }}
       >
         <Txt weight={600} color={c.brandInk}>
           Baca notulen
