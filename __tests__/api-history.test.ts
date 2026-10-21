@@ -144,6 +144,23 @@ describe('Riwayat: halaman dan saringan', () => {
     expect(s.controller.getState().lists.semua!.items.map((e) => e.id)).toEqual(['baru']);
   });
 
+  test('kedua jawaban lebih lama dari yang sudah dilihat: jawaban kedua dipakai, tidak memuat selamanya', async () => {
+    let n = 0;
+    const s = scripted(() => {
+      n += 1;
+      if (n === 1) return page([entry('a', 1)], null, 9);
+      return page([entry(`lama${n}`, 1)], null, 3);
+    });
+    await s.controller.load();
+    await s.controller.load();
+    const list = s.controller.getState().lists.semua!;
+    expect(list.status).toBe('ready');
+    expect(list.items.map((e) => e.id)).toEqual(['lama3']);
+    // Berikutnya tetap memuat seperti biasa (tidak macet di "memuat").
+    await s.controller.load();
+    expect(s.controller.getState().lists.semua!.status).toBe('ready');
+  });
+
   test('reloadAll memuat ulang semua saringan yang pernah dibuka, juga saat stream tersambung lagi', async () => {
     const s = scripted(() => page([entry('a', 1)], null));
     await s.controller.load();

@@ -203,3 +203,24 @@ test('mode gelap memakai warna gelap', async () => {
   await show({ scheme: 'dark' });
   expect(screen.getByText('Membeli token listrik')).toHaveStyle({ color: dark.ink });
 });
+
+test('detak tiap detik hanya selagi ada kiriman yang masa tahannya belum lewat', async () => {
+  const api = createTestApi();
+  const real = await api.transport.history({});
+  const past = (id: string): (typeof real.items)[number] => ({
+    id,
+    at: new Date(Date.now() - 60 * 60_000).toISOString(),
+    kind: 'kirim',
+    icon: 'mail',
+    title: 'Mengirim balasan',
+    status: 'menunggu',
+    undoable: { draftId: `d-${id}`, until: new Date(Date.now() - 60_000).toISOString() },
+  });
+  jest
+    .spyOn(api.transport, 'history')
+    .mockResolvedValue({ ...real, now: new Date().toISOString(), items: [past('x')] });
+  const every = jest.spyOn(globalThis, 'setInterval');
+  await show({ api });
+  expect(every.mock.calls.filter(([, ms]) => ms === 1000)).toHaveLength(0);
+  every.mockRestore();
+});

@@ -169,9 +169,15 @@ describe('Riwayat lewat HttpTransport', () => {
       undoable: { draftId: 'o-1', until: new Date(serverNow + 270_000).toISOString() },
       link: { route: '/chat' },
     });
+    const newer = { ...held, status: 'dibatalkan', undoable: undefined, title: 'Kiriman lain' };
+    // Server sungguhan tidak menurunkan `rev`: setelah event 6, muat ulang pun membawa keadaan yang sama atau lebih baru.
+    let eventSent = false;
     const { api, calls, sockets } = serverApi((path, init) => {
       if (path === '/history') {
-        return { body: { items: [held], before: null, rev: 4, now: new Date(serverNow).toISOString() } };
+        const body = eventSent
+          ? { items: [newer], before: null, rev: 6, now: new Date(serverNow).toISOString() }
+          : { items: [held], before: null, rev: 4, now: new Date(serverNow).toISOString() };
+        return { body };
       }
       if (path === '/drafts/o-1' && init.method === 'POST') {
         return {
@@ -193,13 +199,10 @@ describe('Riwayat lewat HttpTransport', () => {
     expect(screen.queryByRole('button', { name: 'Batalkan' })).toBeNull();
     // Event dari server (rev lebih baru) tetap menimpa; yang lebih lama dibuang.
     await act(async () => {
+      eventSent = true;
       sockets[0]!.onopen?.({});
       sockets[0]!.onmessage?.({
-        data: JSON.stringify({
-          type: 'history',
-          rev: 6,
-          entry: { ...held, status: 'dibatalkan', undoable: undefined, title: 'Kiriman lain' },
-        }),
+        data: JSON.stringify({ type: 'history', rev: 6, entry: newer }),
       });
       sockets[0]!.onmessage?.({
         data: JSON.stringify({ type: 'history', rev: 2, entry: entry('lama', 1, { title: 'Terlalu lama' }) }),

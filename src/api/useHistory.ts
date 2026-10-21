@@ -45,9 +45,10 @@ export function useHistory(kind?: HistoryKind): HistoryApi {
   }, [controller, kind, focused]);
   const list = state.lists[kind ?? 'semua'];
   const items = list?.items ?? [];
-  const counting = items.some((e) => e.undoable);
-  // Jam HP, diperbarui tiap detik selama ada kiriman yang bisa dibatalkan; jam server = jam HP + selisih dari server.
+  // Jam HP, diperbarui tiap detik selama ada kiriman yang masih bisa dibatalkan; jam server = jam HP + selisih dari server.
   const [clock, setClock] = useState(() => Date.now());
+  // Hanya kiriman yang `until`-nya belum lewat: yang sudah lewat tidak perlu detak tiap detik.
+  const counting = items.some((e) => e.undoable && Date.parse(e.undoable.until) > clock + state.skewMs);
   useEffect(() => {
     if (!counting) return;
     const tick = () => setClock(Date.now());

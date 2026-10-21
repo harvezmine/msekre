@@ -103,11 +103,13 @@ export class HistoryController {
     if (!this.state.lists[key]) this.setList(key, EMPTY_LIST);
     const job = (async () => {
       try {
-        // `rev` tidak pernah turun: jawaban yang lebih lama dari yang sudah dilihat dibuang dan dimuat sekali lagi.
+        // `rev` tidak pernah turun: jawaban yang lebih lama dari yang sudah dilihat dibuang dan dimuat sekali lagi. Kalau
+        // percobaan kedua pun lebih lama (server di-reset, replika tertinggal), halaman itu dipakai: layar tidak boleh
+        // memuat selamanya.
         for (let attempt = 0; attempt < 2; attempt++) {
           const page = await this.transport.history({ kind });
-          if (page.rev < this.rev) continue;
-          this.rev = page.rev;
+          if (page.rev < this.rev && attempt === 0) continue;
+          this.rev = Math.max(this.rev, page.rev);
           this.generation.set(key, (this.generation.get(key) ?? 0) + 1);
           this.setList(
             key,
