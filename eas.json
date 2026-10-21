@@ -4,18 +4,26 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "env": {
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=\"-XX:MaxMetaspaceSize=1g -Xmx4g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8\" -Dorg.gradle.parallel=false -Dorg.gradle.workers.max=2 -Dorg.gradle.daemon=false"
+      }
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
       "android": { "buildType": "apk" }
     },
     "preview": {
+      "extends": "base",
       "distribution": "internal",
       "autoIncrement": true,
       "env": { "EXPO_PUBLIC_WA_NUMBER": "6288214533604" },
       "android": { "buildType": "apk" }
     },
     "production": {
+      "extends": "base",
       "autoIncrement": true,
       "env": { "EXPO_PUBLIC_WA_NUMBER": "6288214533604" },
       "android": { "buildType": "app-bundle" }
