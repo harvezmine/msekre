@@ -12,6 +12,16 @@ import { MemoryAlarmScheduler, setAlarmScheduler } from '@/alarm';
 import { getPendingSnoozes, PendingSnoozes, setPendingSnoozes } from '@/alarm/pendingSnooze';
 import { type SampleState } from '@/sample/store';
 
+// Gerak Inti dikurangi di sini. Gerak penuhnya berulang tanpa henti (napas 4 detik, gelombang 2,4 detik); dengan jam
+// tiruan, tes yang memajukan jam satu menit menjalankan ribuan bingkai animasi satu per satu (6-7 detik per tes, lewat
+// batas 15 detik saat mesin sibuk dan cache dingin). Layar alarm tidak diuji geraknya di sini (lihat Inti.test.tsx).
+jest.mock('react-native-reanimated', () => {
+  const actual = jest.requireActual('react-native-reanimated');
+  const useReducedMotion = () => true;
+  // Proxy, bukan salinan: ekspor reanimated berupa getter (termasuk `default`).
+  return new Proxy(actual, { get: (target, key) => (key === 'useReducedMotion' ? useReducedMotion : target[key]) });
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   setPendingSnoozes(new PendingSnoozes(false));
