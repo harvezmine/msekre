@@ -18,6 +18,22 @@ const googleServicesFile =
   process.env.GOOGLE_SERVICES_JSON ??
   (existsSync(join(__dirname, localGoogleServices)) ? localGoogleServices : undefined);
 
+// Izin yang dibawa pustaka tetapi tidak dipakai aplikasi ini dibuang dari manifes (`tools:node="remove"`):
+// - penyimpanan luar (READ/WRITE_EXTERNAL_STORAGE): berkas hanya di folder aplikasi sendiri;
+// - USE_BIOMETRIC / USE_FINGERPRINT: aplikasi tidak memakai sidik jari (PIN sendiri);
+// - SYSTEM_ALERT_WINDOW ("tampil di atas aplikasi lain"): hanya menu pengembang build `development` yang memerlukannya,
+//   jadi dibuang di semua build lain (preview dan production). EAS mengisi `EAS_BUILD_PROFILE`; build lokal
+//   (`expo run:android`, `expo prebuild`) tanpa variabel itu juga dianggap pengembangan.
+const isDevelopmentBuild =
+  process.env.EAS_BUILD_PROFILE === undefined || process.env.EAS_BUILD_PROFILE === 'development';
+const blockedPermissions = [
+  'android.permission.READ_EXTERNAL_STORAGE',
+  'android.permission.WRITE_EXTERNAL_STORAGE',
+  'android.permission.USE_BIOMETRIC',
+  'android.permission.USE_FINGERPRINT',
+  ...(isDevelopmentBuild ? [] : ['android.permission.SYSTEM_ALERT_WINDOW']),
+];
+
 const config: ExpoConfig = {
   name: 'Sekretaris AI',
   // Sama dengan slug proyek EAS founder (extra.eas.projectId); tidak tampil di HP.
@@ -37,6 +53,7 @@ const config: ExpoConfig = {
       monochromeImage: './assets/brand/icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    blockedPermissions,
     ...(googleServicesFile ? { googleServicesFile } : {}),
   },
   web: {
@@ -58,6 +75,8 @@ const config: ExpoConfig = {
       },
     ],
     'expo-font',
+    // APK lebih kecil: hanya arsitektur HP Android yang masih beredar (arm64 dan arm 32-bit), tanpa x86.
+    ['expo-build-properties', { android: { buildArchs: ['arm64-v8a', 'armeabi-v7a'] } }],
     'expo-status-bar',
     'expo-secure-store',
     'expo-sharing',
