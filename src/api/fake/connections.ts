@@ -196,7 +196,7 @@ const SOON: { id: string; name: string; icon: string; category: ServiceCategory 
 ];
 
 /** Kalimat bawaan "Yang bisa Nadia lakukan" untuk layanan yang tidak punya keterangan lengkap. */
-const SOON_WHAT = ['Layanan ini segera hadir. Nanti Nadia bisa membantu di sini.'];
+const SOON_WHAT = ['Layanan ini segera hadir. Nanti saya bisa membantu di sini.'];
 
 export interface FakeConnectionsContext {
   /** Waktu (ms) saat server tiruan dibuat; "terakhir dipakai" dan "sejak" dihitung mundur dari sini. */

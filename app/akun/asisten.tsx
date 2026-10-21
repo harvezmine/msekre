@@ -6,6 +6,7 @@ import { greetingPreview, isAssistantName, STYLES } from '@/api/account';
 import { ASSISTANT_NAME_MAX } from '@/api/contract';
 import type { AssistantStyle } from '@/api/contract';
 import { INVALID_NAME_TEXT } from '@/api/errors';
+import { DEFAULT_ASSISTANT } from '@/brand';
 import { useAccount } from '@/api/useAccount';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
@@ -86,7 +87,7 @@ export default function Asisten() {
             maxLength={ASSISTANT_NAME_MAX}
             autoCapitalize="words"
             autoCorrect={false}
-            placeholder="Contoh: Nadia"
+            placeholder={`Contoh: ${DEFAULT_ASSISTANT}`}
             placeholderTextColor={c.muted}
             style={{
               height: 56,

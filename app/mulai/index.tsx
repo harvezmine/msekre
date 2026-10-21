@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Inti } from '@/ui/inti/Inti';
 import { PrimaryButton } from '@/ui/PrimaryButton';
@@ -12,6 +13,7 @@ import { Wordmark } from '@/ui/Wordmark';
 export default function Mulai() {
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
+  const assistant = useAssistantName();
   return (
     <ScrollView
       style={{ backgroundColor: c.paper }}
@@ -28,7 +30,7 @@ export default function Mulai() {
         <Inti size={180} onDark={scheme === 'dark'} />
         <View style={{ gap: 12 }}>
           <Txt v="display" accessibilityRole="header" style={{ textAlign: 'center' }}>
-            Halo, saya Nadia, sekretaris AI Anda.
+            Halo, saya {assistant}, sekretaris AI Anda.
           </Txt>
           <Txt weight={400} color={c.muted} style={{ fontSize: 17, lineHeight: 26, textAlign: 'center' }}>
             Saya bantu urus jadwal, pesan, rumah, dan usaha Anda. Dari sini atau dari WhatsApp.

@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from 'react';
 import { AppState, Linking, Platform } from 'react-native';
+import { DEFAULT_ASSISTANT } from '@/brand';
 import { useApi } from './ApiProvider';
 import { isChatFocused } from './pushPresence';
 import { canOpen, routeKind } from './routeAccess';
@@ -142,7 +143,7 @@ export function PushProvider({ children }: { children: ReactNode }) {
   const { status: authStatus, me } = useAuth();
   const [state, setState] = useState<PermissionState>({ permission: 'undetermined', canAskAgain: true });
   const { permission } = state;
-  const assistantName = me?.assistantName?.trim() || 'Nadia';
+  const assistantName = me?.assistantName?.trim() || DEFAULT_ASSISTANT;
 
   // Saluran: tiap aplikasi mulai, dan nama saluran pesan mengikuti nama asisten (Android boleh mengubah nama saluran).
   useEffect(() => {
