@@ -18,7 +18,7 @@ import { ringWindowEnd } from '@/alarm/ringWindow';
 import type { ScheduledAlarm } from '@/alarm/types';
 import { gradients, light, onVoice } from '@/theme/tokens';
 import { Icon } from '@/ui/Icon';
-import { Inti } from '@/ui/inti/Inti';
+import { IntiOrb } from '@/ui/inti/IntiOrb';
 import { SwipeToConfirm } from '@/ui/SwipeToConfirm';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
@@ -169,7 +169,7 @@ export default function Alarm() {
         }}
       >
         <StatusBar style="light" />
-        <Inti size={96} onDark paused={!live} />
+        <IntiOrb size={88} paused={!live} />
         <Txt testID="alarm-kosong" v="title" color={onVoice.strong} style={{ textAlign: 'center' }}>
           {id ? 'Memuat alarm…' : 'Tidak ada alarm yang sedang berbunyi.'}
         </Txt>
@@ -252,7 +252,7 @@ export default function Alarm() {
     <View style={{ flex: 1, backgroundColor: light.voiceCanvas }}>
       <StatusBar style="light" />
       <View style={{ alignItems: 'center', paddingTop: insets.top + 56, paddingHorizontal: 28, gap: 8 }}>
-        <Inti size={96} onDark paused={!live} />
+        <IntiOrb size={88} paused={!live} />
         <View style={{ marginTop: 24, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Icon name="bell" size={16} color={onVoice.soft} />
           <Txt weight={600} color={onVoice.soft} style={{ fontSize: 15, lineHeight: 20 }}>
@@ -304,7 +304,7 @@ export default function Alarm() {
           <AlarmButton label={`Tunda ${SNOOZE_MINUTES} menit`} onPress={() => void snooze()} />
           {canAsk ? (
             <AlarmButton label={`Tanya ${assistantName}`} onPress={() => void ask()}>
-              <Inti size={24} onDark paused />
+              <IntiOrb size={24} glow={false} paused />
             </AlarmButton>
           ) : null}
         </View>

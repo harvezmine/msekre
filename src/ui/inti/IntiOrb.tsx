@@ -8,8 +8,9 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, RadialGradient, Stop } from 'react-native-svg';
 import { useTheme } from '@/theme/ThemeProvider';
 import { gradients, motion } from '@/theme/tokens';
 
@@ -43,6 +44,14 @@ interface Props {
   halo?: boolean;
   /** Layar tak terlihat atau aplikasi di latar: napas dan putaran berhenti. */
   paused?: boolean;
+  /** Cincin gradasi tipis yang berputar (3,2 detik): asisten sedang berpikir (Mode Suara). */
+  thinking?: boolean;
+  /** Tidak tersambung: redup dan kelabu. */
+  dim?: boolean;
+  /** Tanpa cahaya di sekeliling, untuk tempat sempit (kepala chat, tombol kecil). */
+  glow?: boolean;
+  /** Keras-pelannya suara yang sudah dihaluskan (0..1): cahaya membesar `1 + 0,45 × level` (§5.1). */
+  level?: SharedValue<number>;
 }
 
 /**
@@ -50,20 +59,29 @@ interface Props {
  * sangat pelan (16 detik). "Kurangi gerakan" atau `paused`: diam, tampilan tetap sama. Hiasan saja: sentuhan dan
  * aksesibilitas diurus pembungkusnya (`IntiButton`).
  */
-export function IntiOrb({ size, halo = false, paused = false }: Props) {
+export function IntiOrb({
+  size,
+  halo = false,
+  paused = false,
+  thinking = false,
+  dim = false,
+  glow = true,
+  level,
+}: Props) {
   const reduce = useReducedMotion();
   const still = reduce || paused;
-  const glow = size * 2.1;
+  const glowSize = size * 2.1;
   return (
     <View
       testID="inti-bola"
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={{ width: size, height: size }}
+      style={[{ width: size, height: size }, dim ? { opacity: 0.35, filter: [{ grayscale: 0.8 }] } : null]}
     >
-      <Glow size={glow} offset={(glow - size) / 2} still={still} />
+      {glow ? <Glow size={glowSize} offset={(glowSize - size) / 2} still={still} level={level} /> : null}
       {halo ? <Halo size={size} still={still} /> : null}
+      {thinking ? <ThinkingRing size={size} still={still} /> : null}
       <View
         style={{
           ...StyleSheet.absoluteFill,
@@ -100,7 +118,17 @@ export function IntiOrb({ size, halo = false, paused = false }: Props) {
   );
 }
 
-function Glow({ size, offset, still }: { size: number; offset: number; still: boolean }) {
+function Glow({
+  size,
+  offset,
+  still,
+  level,
+}: {
+  size: number;
+  offset: number;
+  still: boolean;
+  level?: SharedValue<number>;
+}) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const t = useSharedValue(0.5);
   useEffect(() => {
@@ -115,7 +143,7 @@ function Glow({ size, offset, still }: { size: number; offset: number; still: bo
   }, [still, t]);
   const style = useAnimatedStyle(() => ({
     opacity: 0.62 + 0.38 * t.get(),
-    transform: [{ scale: 0.9 + 0.16 * t.get() }],
+    transform: [{ scale: (0.9 + 0.16 * t.get()) * (1 + 0.45 * (level?.get() ?? 0)) }],
   }));
   return (
     <Animated.View
@@ -230,5 +258,45 @@ function Halo({ size, still }: { size: number; still: boolean }) {
         style,
       ]}
     />
+  );
+}
+
+/**
+ * Cincin berpikir (papan: `conic-gradient` teal, biru, limau, memudar di ujung) selebar 2,5 dp, 7 dp di luar bola,
+ * berputar 3,2 detik. Diam: cincin tetap terlihat tanpa putaran.
+ */
+function ThinkingRing({ size, still }: { size: number; still: boolean }) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const turn = useSharedValue(0);
+  useEffect(() => {
+    if (still) {
+      cancelAnimation(turn);
+      return;
+    }
+    turn.set(0);
+    turn.set(withRepeat(withTiming(360, { duration: motion.inti.thinking, easing: Easing.linear }), -1));
+    return () => cancelAnimation(turn);
+  }, [still, turn]);
+  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.get()}deg` }] }));
+  const d = size + 14;
+  const r = d / 2 - 1.25;
+  return (
+    <Animated.View
+      testID="inti-berpikir"
+      style={[{ position: 'absolute', left: -7, top: -7, width: d, height: d }, style]}
+    >
+      <Svg width={d} height={d}>
+        <Defs>
+          <LinearGradient id={`ir${uid}`} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={gradients.inti.sweep[0]} stopOpacity={0} />
+            <Stop offset="0.35" stopColor="#19B3A6" stopOpacity={1} />
+            <Stop offset="0.65" stopColor="#3B6FE0" stopOpacity={1} />
+            <Stop offset="0.85" stopColor={gradients.inti.highlight} stopOpacity={1} />
+            <Stop offset="1" stopColor={gradients.inti.sweep[0]} stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+        <Circle cx={d / 2} cy={d / 2} r={r} stroke={`url(#ir${uid})`} strokeWidth={2.5} fill="none" />
+      </Svg>
+    </Animated.View>
   );
 }

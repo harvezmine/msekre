@@ -62,13 +62,22 @@ export function pcmBytes(samples: Int16Array): Uint8Array {
   return new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength);
 }
 
-/** Keras-pelannya suara, 0 sampai 1 (akar rata-rata kuadrat, diperbesar supaya bicara biasa terasa), untuk cincin Inti. */
+/** Keras-pelannya suara dari RMS (0..1) dalam desibel: -50 dB → 0, -10 dB → 1 (§5.1). Hening = 0. */
+export function levelFromRms(rms: number): number {
+  if (!(rms > 0)) return 0;
+  const db = 20 * Math.log10(rms);
+  return Math.min(1, Math.max(0, (db + 50) / 40));
+}
+
+/**
+ * Keras-pelannya suara, 0 sampai 1, untuk gelombang dan cahaya Inti: akar rata-rata kuadrat dalam desibel (-50 dB → 0,
+ * -10 dB → 1, §5.1), jadi bisikan tetap terlihat dan teriakan tidak memenuhi layar.
+ */
 export function level(samples: Int16Array): number {
   if (samples.length === 0) return 0;
   let sum = 0;
   for (let i = 0; i < samples.length; i++) sum += samples[i]! * samples[i]!;
-  const rms = Math.sqrt(sum / samples.length) / 32768;
-  return Math.min(1, rms * 6);
+  return levelFromRms(Math.sqrt(sum / samples.length) / 32768);
 }
 
 /** Lama audio PCM 16 kHz mono, dalam milidetik. */

@@ -12,6 +12,10 @@ import { MAIN_AC_ID } from '@/sample/devices';
 import { setAudioModeAsync } from 'expo-audio';
 
 const flush = () => act(async () => {});
+/** Gelombang dan Inti hanya hiasan (disembunyikan dari pembaca layar): dicari termasuk elemen tersembunyi. */
+const HIDDEN = { includeHiddenElements: true };
+/** Kanvas gelombang; `testID` = keadaan yang dituju. */
+const wave = (state: string) => screen.getByTestId(`gelombang-${state}`, HIDDEN);
 const advance = (ms: number) =>
   act(async () => {
     jest.advanceTimersByTime(ms);
@@ -52,15 +56,21 @@ function captureAppState() {
 
 test('satu ucapan: mendengar, teks bertahap, berpikir, balasan tampil, berbicara, lalu siap lagi', async () => {
   await renderWithProviders(<Suara />);
+  // Belum bicara: satu petunjuk redup di tempat ucapan akan muncul; gelombang bernapas pelan.
   expect(screen.getByText('Tahan Inti sambil bicara')).toBeOnTheScreen();
+  expect(wave('idle')).toBeOnTheScreen();
+  expect(screen.getByLabelText('Siap')).toBeOnTheScreen();
   const inti = screen.getByRole('button', { name: 'Tahan untuk bicara' });
 
   await fireEvent(inti, 'pressIn');
   await flush();
   expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light);
   expect(stream.start).toHaveBeenCalledTimes(1);
-  expect(screen.getByText('Mendengar')).toBeOnTheScreen();
-  expect(screen.getAllByTestId(/^inti-cincin-/)).toHaveLength(2);
+  // Tanpa tulisan keadaan: titik hijau (dibacakan "Mendengar") dan gelombang yang mengikuti suara.
+  expect(screen.getByLabelText('Mendengar')).toBeOnTheScreen();
+  expect(wave('listening')).toBeOnTheScreen();
+  expect(screen.queryByText('Tahan Inti sambil bicara')).toBeNull();
+  expect(inti).toBeBusy();
 
   for (let i = 0; i < 3; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
   // Teks sementara, belum final.
@@ -70,21 +80,27 @@ test('satu ucapan: mendengar, teks bertahap, berpikir, balasan tampil, berbicara
   await fireEvent(inti, 'pressOut');
   await flush();
   expect(stream.stop).toHaveBeenCalled();
-  expect(screen.getByText('Nadia berpikir')).toBeOnTheScreen();
+  // Berpikir: satu kata, gelombang tenang, cincin berputar di Inti.
+  expect(screen.getByText('Sebentar…')).toBeOnTheScreen();
+  expect(screen.getByLabelText('Nadia berpikir')).toBeOnTheScreen();
+  expect(wave('thinking')).toBeOnTheScreen();
+  expect(screen.getByTestId('inti-berpikir', HIDDEN)).toBeOnTheScreen();
   expect(screen.getByTestId('suara-ucapan')).toHaveTextContent('Matikan AC kamar.');
   expect(screen.queryByTestId('suara-balasan')).toBeNull();
-  expect(screen.queryAllByTestId(/^inti-cincin-/)).toHaveLength(0);
 
   await advance(THINK_MS);
   expect(screen.getByTestId('suara-balasan')).toHaveTextContent('Sudah. AC kamar saya matikan.');
-  expect(screen.getAllByTestId(/^inti-gelombang-/)).toHaveLength(3);
+  expect(wave('speaking')).toBeOnTheScreen();
+  expect(screen.getByLabelText('Nadia menjawab')).toBeOnTheScreen();
+  expect(screen.queryByText('Sebentar…')).toBeNull();
+  expect(screen.queryByTestId('inti-berpikir', HIDDEN)).toBeNull();
   expect(audio.players).toHaveLength(1);
   expect(audio.players[0]!.play).toHaveBeenCalled();
   expect((audio.players[0]!.source as { uri: string }).uri).toMatch(/suara\/balasan-1\.wav$/);
 
   await act(async () => audio.finishPlayback());
-  expect(screen.queryAllByTestId(/^inti-gelombang-/)).toHaveLength(0);
-  expect(screen.getByText('Tahan Inti sambil bicara')).toBeOnTheScreen();
+  expect(wave('idle')).toBeOnTheScreen();
+  expect(screen.getByLabelText('Siap')).toBeOnTheScreen();
   // Teksnya tetap tampil.
   expect(screen.getByTestId('suara-balasan')).toHaveTextContent('Sudah. AC kamar saya matikan.');
   expect(audio.players[0]!.removed).toBe(true);
@@ -121,15 +137,15 @@ test('menyela: menahan Inti saat Nadia berbicara menghentikan suaranya', async (
   await renderWithProviders(<Suara />);
   await speak();
   await advance(THINK_MS);
-  expect(screen.getAllByTestId(/^inti-gelombang-/)).toHaveLength(3);
+  expect(wave('speaking')).toBeOnTheScreen();
   const player = audio.players[0]!;
 
   await fireEvent(screen.getByRole('button', { name: 'Tahan untuk bicara' }), 'pressIn');
   await flush();
   expect(player.pause).toHaveBeenCalled();
   expect(player.removed).toBe(true);
-  expect(screen.queryAllByTestId(/^inti-gelombang-/)).toHaveLength(0);
-  expect(screen.getByText('Mendengar')).toBeOnTheScreen();
+  expect(wave('listening')).toBeOnTheScreen();
+  expect(screen.getByLabelText('Mendengar')).toBeOnTheScreen();
   // Ucapan dan balasan sebelumnya dibersihkan untuk giliran baru.
   expect(screen.queryByTestId('suara-balasan')).toBeNull();
 });
@@ -138,7 +154,7 @@ test('ketukan singkat tidak mengirim apa-apa dan memberi petunjuk', async () => 
   await renderWithProviders(<Suara />);
   await speak(1);
   expect(screen.getByText('Tahan Inti sambil bicara')).toBeOnTheScreen();
-  expect(screen.queryByText('Nadia berpikir')).toBeNull();
+  expect(screen.queryByText('Sebentar…')).toBeNull();
   await advance(THINK_MS * 2);
   expect(screen.queryByTestId('suara-balasan')).toBeNull();
 });
@@ -151,8 +167,10 @@ test('Bisukan: teks balasan tetap tampil, tidak ada suara', async () => {
   await advance(THINK_MS);
   expect(screen.getByTestId('suara-balasan')).toHaveTextContent('Sudah. AC kamar saya matikan.');
   expect(audio.players).toHaveLength(0);
-  expect(screen.queryAllByTestId(/^inti-gelombang-/)).toHaveLength(0);
-  expect(screen.getByText('Tahan Inti sambil bicara')).toBeOnTheScreen();
+  expect(screen.queryByTestId('gelombang-speaking', HIDDEN)).toBeNull();
+  expect(wave('idle')).toBeOnTheScreen();
+  // Menyala = hijau lembut, tetap tanpa label tulisan.
+  expect(screen.getByRole('button', { name: 'Suarakan' })).toBeSelected();
 });
 
 test('Bisukan saat suara berjalan menghentikannya', async () => {
@@ -161,7 +179,7 @@ test('Bisukan saat suara berjalan menghentikannya', async () => {
   await advance(THINK_MS);
   await fireEvent.press(screen.getByRole('button', { name: 'Bisukan' }));
   expect(audio.players[0]!.removed).toBe(true);
-  expect(screen.queryAllByTestId(/^inti-gelombang-/)).toHaveLength(0);
+  expect(wave('idle')).toBeOnTheScreen();
   expect(screen.getByTestId('suara-balasan')).toBeOnTheScreen();
 });
 
@@ -172,7 +190,7 @@ test('Ketik: kalimat dikirim sebagai teks dan dijawab seperti ucapan', async () 
   await fireEvent.changeText(screen.getByLabelText('Ketik pesan'), 'Nyalakan AC kamar');
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
   expect(screen.getByTestId('suara-ucapan')).toHaveTextContent('Nyalakan AC kamar');
-  expect(screen.getByText('Nadia berpikir')).toBeOnTheScreen();
+  expect(screen.getByText('Sebentar…')).toBeOnTheScreen();
   expect(stream.start).not.toHaveBeenCalled();
   await advance(THINK_MS);
   expect(screen.getByTestId('suara-balasan')).toHaveTextContent(/AC kamar nyala/);
@@ -348,7 +366,9 @@ test('tidak tersambung: Inti mati dengan kalimat ramah', async () => {
   await renderWithProviders(<Suara />, { api });
   await flush();
   expect(screen.getByText('Belum tersambung. Coba lagi sebentar ya.')).toBeOnTheScreen();
-  expect(screen.queryAllByTestId(/^inti-cincin-/)).toHaveLength(0);
+  // Gelombang redup dan diam, Inti redup.
+  expect(wave('off')).toBeOnTheScreen();
+  expect(screen.getByTestId('inti-bola', HIDDEN)).toHaveStyle({ opacity: 0.35 });
   // Tersambung lagi: menahan Inti membuka sesi baru.
   api.transport.restore();
   await speak();
@@ -415,13 +435,15 @@ test('mode gelap tampil sama dengan teks yang sama', async () => {
   expect(screen.getByTestId('suara-balasan')).toBeOnTheScreen();
 });
 
-test('cincin Inti mengikuti keras-pelannya suara dari mikrofon', async () => {
+test('ucapan sementara: kata terakhir yang belum pasti lebih redup', async () => {
   await renderWithProviders(<Suara />);
   await fireEvent(screen.getByRole('button', { name: 'Tahan untuk bicara' }), 'pressIn');
   await flush();
-  await act(async () => audio.emitBuffer(new Array<number>(1600).fill(20000)));
-  await act(async () => audio.emitBuffer(new Array<number>(1600).fill(0)));
-  expect(screen.getAllByTestId(/^inti-cincin-/)).toHaveLength(2);
+  for (let i = 0; i < 3; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
+  const said = screen.getByTestId('suara-ucapan');
+  expect(said).toHaveTextContent('Matikan AC');
+  expect(screen.getByText('AC')).toHaveStyle({ color: 'rgba(242,243,245,0.42)' });
+  expect(said).toHaveStyle({ fontSize: 32, color: '#F2F3F5' });
 });
 
 test('tombol bisukan memakai ikon pengeras suara, bukan mikrofon', async () => {
@@ -449,7 +471,8 @@ test('layar lain menutupi Mode Suara: rekaman dan suara berhenti', async () => {
   await flush();
   jest.mocked(useIsFocused).mockReturnValue(true);
   expect(player.removed).toBe(true);
-  expect(screen.getByText('Tahan Inti sambil bicara')).toBeOnTheScreen();
+  expect(wave('idle')).toBeOnTheScreen();
+  expect(screen.getByLabelText('Siap')).toBeOnTheScreen();
 });
 
 test('berkas suara balasan ditulis sebagai base64 dan dihapus setelah diputar', async () => {

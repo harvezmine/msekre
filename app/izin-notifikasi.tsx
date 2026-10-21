@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { Pressable, View } from 'react-native';
 import { usePush } from '@/api/usePush';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Inti } from '@/ui/inti/Inti';
+import { IntiOrb } from '@/ui/inti/IntiOrb';
 import { PrimaryButton } from '@/ui/PrimaryButton';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
@@ -19,7 +19,7 @@ export default function IzinNotifikasi() {
 }
 
 function Isi() {
-  const { c, scheme } = useTheme();
+  const { c } = useTheme();
   const { permission, canAskAgain, ask, openSettings } = usePush();
   const { close } = useSheet();
   const busy = useRef(false);
@@ -51,7 +51,7 @@ function Isi() {
   return (
     <View style={{ gap: 8 }}>
       <View style={{ alignItems: 'flex-start', paddingBottom: 8 }}>
-        <Inti size={56} onDark={scheme === 'dark'} />
+        <IntiOrb size={48} glow={false} />
       </View>
       <Txt v="title">{title}</Txt>
       <Txt color={c.muted}>{body}</Txt>

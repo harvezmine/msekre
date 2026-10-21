@@ -130,6 +130,32 @@ dibangun ulang dengan kit di R2–R6.
 - **Petunjuk** (`src/ui/tips.ts`): "Ketuk untuk chat · Tahan untuk bicara" sekali seumur aplikasi di HP ini, dengan
   halo di Inti; menutupi kartu contoh selama tampil; ketukan apa pun menutupnya.
 
+## Mode Suara (R3)
+
+- **Satu niat:** tahan Inti sambil bicara, lalu baca ucapan dan jawabannya dengan tenang. Kanvas selalu gelap
+  (`voiceCanvas`) di mode terang maupun gelap.
+- **Atas:** titik hijau kecil (berdenyut 1,6 detik saat mendengar; dibacakan "Mendengar", "Nadia berpikir", "Nadia
+  menjawab", "Siap"), lalu ucapan besar (`transcript` 32/42; kata terakhir yang belum pasti 42% terang). Berpikir:
+  ucapan meredup dan hanya "Sebentar…" yang berdenyut. Menjawab: ucapan mengecil (20/28, redup), balasan 26/34 di
+  bawahnya (area langsung sopan). Belum ada ucapan: "Tahan Inti sambil bicara" redup di tempat ucapan akan muncul.
+- **Bawah (zona jempol):** gelombang di belakang (62% tinggi layar, menempel di bawah), lalu Bisukan (60, ikon saja),
+  **Inti 88** sebagai tempat menahan, Ketik (60, ikon saja), dan "Selesai" (56). Menyala (dibisukan, sedang mengetik) =
+  hijau lembut + cincin hijau. Kolom ketik dan kartu konfirmasi muncul tepat di atas kontrol; gelombang meredup separuh
+  selama keduanya tampil. Kontrol menempel di bawah (tanpa jarak dari atas), jadi di HP panjang tetap di 40% bawah.
+- **Inti di Mode Suara:** sedikit membesar saat mendengar, cahayanya `1 + 0,45 × level`, cincin gradasi berputar 3,2
+  detik saat berpikir, redup bila belum tersambung. Tahan dari Beranda (`?hold=1`) tetap satu gerakan.
+- **Gelombang** (`src/voice/WavesSkia.tsx`, hitungan di `src/voice/waveMath.ts`): empat lapis §5.1 (warna
+  `gradients.waves`), tiap lapis = jalur tertutup + gradasi tiga warna × pita alfa vertikal (`Blend dstIn`, anak pertama
+  warna, kedua alfa) + `BlurMask` + `blendMode="plus"`, garis puncak tipis di lapis depan, kilau menyapu saat berpikir,
+  bilasan biru-hijau di dasar. Jam frame Reanimated (`useFrameCallback`) memajukan fase, level halus (naik 0,35 / turun
+  0,10 per frame 60 fps, tidak bergantung laju frame), kecepatan, terang, dan kilau di utas UI; jalur dibangun di worklet
+  (`usePathValue`). Keadaan: mendengar = level mikrofon (desibel, lantai 0,12, kecepatan 1); berpikir = 0,14 ± 0,04,
+  kecepatan 0,45, terang 70%, kilau; menjawab = selubung bicara tiruan ±3,4 suku kata/detik, kecepatan 0,8; siap = napas
+  pelan 4,2 detik; mati/kendala = redup dan berhenti pelan-pelan. Semua peralihan meluruh ±300 ms, kanvasnya tidak pernah
+  dipasang ulang. "Kurangi gerakan": bingkai diam dengan denyut terang 2,4 detik. Layar tidak fokus: jam berhenti.
+- **Level mikrofon** (`src/voice/pcm.ts` `level`): RMS → desibel, -50 dB = 0, -10 dB = 1; pengendali menulisnya ke
+  nilai bersama `voice.level`.
+
 ## Gerak
 
 - Pelan dan halus: tekan pegas `{ damping 20, stiffness 260, mass 0,7 }`; blok 320 ms; angka 160 ms; segmen 200 ms.
@@ -140,8 +166,11 @@ dibangun ulang dengan kit di R2–R6.
 
 ## Skia
 
-`@shopify/react-native-skia` 2.14.0 (versi yang dipatok Expo SDK 58; mendukung New Architecture) dipasang untuk
-gelombang Mode Suara (R3). Inti (R2) tidak memakainya: sapuannya PNG yang diputar Reanimated dan cahayanya gradasi
+`@shopify/react-native-skia` 2.14.0 (versi yang dipatok Expo SDK 58; mendukung New Architecture) dipakai hanya untuk
+gelombang Mode Suara (R3). Kanvasnya `opaque` (di Android SurfaceView, jalur termurah), jadi denyut "kurangi gerakan"
+dihitung di dalam Skia, bukan lewat opacity View. Di web, `src/voice/Waves.web.tsx` memuat CanvasKit dulu
+(`public/canvaskit.wasm`, tidak ikut git) lalu memakai komponen Skia yang sama; tanpa berkas itu tampil pita cahaya
+diam. Inti (R2) tidak memakainya: sapuannya PNG yang diputar Reanimated dan cahayanya gradasi
 radial `react-native-svg`, jadi sama di HP, web, dan Jest. Di Jest, `jest.setup.ts` memakai tiruan ringan
 `__tests__/skiaMock.ts` (Canvas = View, komponen gambar lain kosong), jadi tes tidak memuat modul native atau CanvasKit.
 Dampak ukuran APK belum diukur: periksa di build EAS berikutnya.
@@ -158,5 +187,10 @@ pratinjau di alamat, hanya saat pengembangan (`src/dev/query.web.ts`):
 | `/?petunjuk=0` | Beranda pengguna contoh tanpa petunjuk |
 | `/?contoh=baru&petunjuk=0` | Pengguna baru: sapaan, kartu contoh, dua tab |
 | `/?contoh=baru&petunjuk=1` | Pembukaan pertama: petunjuk Inti dengan halo |
+| `/suara?demo=mendengar` | Mode Suara mendengar (level mikrofon tiruan); juga `berpikir`, `menjawab`, `siap` |
+
+Gelombang Skia di web macet dengan waktu virtual Chrome (tiap frame WebGL perangkat lunak lambat). Untuk Mode Suara
+pakai jam sungguhan: `node scripts/shots.mjs '/suara?demo=mendengar' --out <folder> --sizes 393x873 --themes dark
+--motion on --real 8000`. Skrip menyalin `canvaskit.wasm` ke `public/` selama berjalan dan menghapusnya lagi.
 
 Setelah selesai, hentikan server dan hapus `$TMPDIR/metro-*` (disk mesin pengembang sempit).

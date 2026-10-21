@@ -50,3 +50,6 @@ design/*.zip
 coverage/
 credentials.json
 google-services.json
+
+# CanvasKit untuk pratinjau web Skia, disalin sementara oleh scripts/shots.mjs
+/public/canvaskit.wasm

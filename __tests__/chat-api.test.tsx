@@ -182,6 +182,9 @@ describe('mengirim', () => {
   });
 });
 
+/** Inti di kepala chat (yang pertama di pohon; bola Inti disembunyikan dari pembaca layar). */
+const headerInti = () => screen.getAllByTestId('inti-bola', { includeHiddenElements: true })[0]!;
+
 describe('koneksi', () => {
   test('banner sinyal lemah setelah 3 detik putus; Inti di header mati; hilang saat tersambung', async () => {
     const { fake } = await mount();
@@ -191,16 +194,16 @@ describe('koneksi', () => {
     });
     await advance(2999);
     expect(screen.queryByTestId('banner-koneksi')).toBeNull();
-    expect(screen.getByTestId('inti-inti')).not.toHaveStyle({ opacity: 0.35 });
+    expect(headerInti()).not.toHaveStyle({ opacity: 0.35 });
     await advance(1);
     expect(screen.getByText('Sinyal lemah, pesan Anda saya simpan dulu.')).toBeOnTheScreen();
-    expect(screen.getByTestId('inti-inti')).toHaveStyle({ opacity: 0.35 });
+    expect(headerInti()).toHaveStyle({ opacity: 0.35 });
     await act(async () => {
       fake.restore();
     });
     await advance(0);
     expect(screen.queryByTestId('banner-koneksi')).toBeNull();
-    expect(screen.getByTestId('inti-inti')).not.toHaveStyle({ opacity: 0.35 });
+    expect(headerInti()).not.toHaveStyle({ opacity: 0.35 });
   });
 
   test('putus sebentar (kurang dari 3 detik) tidak memunculkan banner', async () => {
@@ -228,7 +231,7 @@ describe('koneksi', () => {
     await renderWithProviders(<Chat />, { api });
     await advance(0);
     expect(screen.getByText(text)).toBeOnTheScreen();
-    expect(screen.getByTestId('inti-inti')).toHaveStyle({ opacity: 0.35 });
+    expect(headerInti()).toHaveStyle({ opacity: 0.35 });
     // Kolom ketik mati dengan petunjuk penyebabnya; mic juga tidak bisa dipakai.
     const input = screen.getByPlaceholderText(placeholder);
     expect(input.props.editable).toBe(false);

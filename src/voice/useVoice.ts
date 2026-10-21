@@ -55,7 +55,8 @@ export function useVoice(): Voice {
   useEffect(() => {
     controllerRef.current = controller;
     void enterVoiceAudio();
-    void activateKeepAwakeAsync(KEEP_AWAKE_TAG);
+    // Layar tetap menyala; kalau HP (atau peramban) menolak, Mode Suara tetap jalan.
+    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
     controller.start();
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' || state === 'inactive') controller.suspend();
@@ -70,7 +71,7 @@ export function useVoice(): Voice {
         // Mikrofon sudah berhenti.
       }
       controllerRef.current = null;
-      void deactivateKeepAwake(KEEP_AWAKE_TAG);
+      deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
       void leaveVoiceAudio();
     };
   }, [controller, stream]);

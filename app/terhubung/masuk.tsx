@@ -10,7 +10,7 @@ import { serviceDomain } from '@/api/serviceCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
-import { Inti } from '@/ui/inti/Inti';
+import { IntiOrb } from '@/ui/inti/IntiOrb';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
 
@@ -26,7 +26,7 @@ export default function Masuk() {
 }
 
 function Isi({ id }: { id: string }) {
-  const { c, scheme, marker } = useTheme();
+  const { c, marker } = useTheme();
   const assistant = useAssistantName();
   const { mode } = useApi();
   const { close } = useSheet();
@@ -114,7 +114,7 @@ function Isi({ id }: { id: string }) {
           gap: 12,
         }}
       >
-        <Inti size={36} onDark={scheme === 'dark'} />
+        <IntiOrb size={36} glow={false} />
         <Txt style={{ flex: 1, fontSize: 15, lineHeight: 22 }}>
           Ini halaman resmi {shortName}. Kata sandi Anda tidak saya lihat atau simpan.
         </Txt>

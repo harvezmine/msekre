@@ -41,14 +41,14 @@ test('tahan Inti di Beranda: Mode Suara terbuka dan langsung mendengar; jari dia
   await settle();
   // Tanpa menekan apa pun di Mode Suara: mikrofon sudah menyala.
   expect(stream.start).toHaveBeenCalledTimes(1);
-  expect(screen.getByText('Mendengar')).toBeOnTheScreen();
+  expect(screen.getByLabelText('Mendengar')).toBeOnTheScreen();
   for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
 
   // Jari diangkat dari Inti yang sama (di aplikasi Pressable-nya masih terpasang di bawah Mode Suara).
   await act(async () => holdBridge.release());
   await settle();
   expect(stream.stop).toHaveBeenCalled();
-  expect(screen.getByText('Nadia berpikir')).toBeOnTheScreen();
+  expect(screen.getByText('Sebentar…')).toBeOnTheScreen();
   expect(screen.getByTestId('suara-ucapan')).toHaveTextContent('Matikan AC kamar.');
   await advance(THINK_MS);
   expect(screen.getByTestId('suara-balasan')).toHaveTextContent('Sudah. AC kamar saya matikan.');

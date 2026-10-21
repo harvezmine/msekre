@@ -1,32 +1,70 @@
+// Niat layar: bicara dengan asisten sambil menahan Inti di bawah jempol, lalu membaca ucapan dan jawabannya dengan tenang.
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Linking, Pressable, ScrollView, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Linking,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  FadeIn,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withSpring,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAssistantName } from '@/api/useProfile';
-import { useTheme } from '@/theme/ThemeProvider';
-import { onVoice, FONT } from '@/theme/tokens';
+import { ThemeProvider } from '@/theme/ThemeProvider';
+import { dark, FONT, motion, onVoice } from '@/theme/tokens';
 import { Icon } from '@/ui/Icon';
 import type { IconName } from '@/ui/icons';
-import { Inti, type IntiState } from '@/ui/inti/Inti';
+import { IntiOrb } from '@/ui/inti/IntiOrb';
+import { PressableScale, useLayoutClass } from '@/ui/kit';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
 import { ConfirmArea } from '@/voice/ConfirmArea';
 import { useVoiceAvailable } from '@/voice/available';
 import { HINT_HOLD, type VoicePhase } from '@/voice/controller';
+import { demoState, useDemoLevel, voiceDemo } from '@/voice/demo';
 import { holdBridge } from '@/voice/holdBridge';
 import { VOICE_SOON_TEXT } from '@/voice/texts';
 import { useVoice } from '@/voice/useVoice';
+import { Waves } from '@/voice/Waves';
+import { WAVE_HEIGHT_RATIO, type WaveState } from '@/voice/waveMath';
 
-const INTI: Record<VoicePhase, IntiState> = {
+const WAVE: Record<VoicePhase, WaveState> = {
   idle: 'idle',
-  listening: 'listen',
-  sending: 'think',
-  thinking: 'think',
-  speaking: 'speak',
+  listening: 'listening',
+  sending: 'thinking',
+  thinking: 'thinking',
+  speaking: 'speaking',
   off: 'off',
-  error: 'off',
+  error: 'error',
 };
+
+/** Kata sementara (belum pasti) dan teks yang sudah lewat: lebih redup dari ucapan yang sedang didengar. */
+const PARTIAL = 'rgba(242,243,245,0.42)';
+const SETTLED = 'rgba(242,243,245,0.55)';
+/** Inti di Mode Suara (§5.1): 88, tepat di bawah jempol. */
+const INTI = 88;
+/** Bisukan dan Ketik: lingkaran 60 tanpa label. */
+const ROUND = 60;
+/** Jempol boleh bergeser jauh selagi menahan Inti: ucapan tidak terputus karena jari sedikit bergerak. */
+const KEEP_HOLD = { top: 240, bottom: 240, left: 240, right: 240 };
+const BREATH = Easing.bezier(0.45, 0, 0.55, 1);
+export const THINKING_TEXT = 'Sebentar…';
 
 /** Mode Suara: tahan Inti sambil bicara, lepas untuk mengirim. Teksnya selalu tampil. Belum tersedia: hanya catatan. */
 export default function Suara() {
@@ -35,13 +73,12 @@ export default function Suara() {
 
 /** Akun yang belum mendapat Mode Suara: tidak membuka sesi atau mikrofon. */
 function SuaraSegera() {
-  const { c } = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <View
       style={{
         flex: 1,
-        backgroundColor: c.voiceCanvas,
+        backgroundColor: dark.voiceCanvas,
         paddingTop: insets.top + 24,
         paddingBottom: insets.bottom + 36,
         paddingHorizontal: 28,
@@ -54,33 +91,23 @@ function SuaraSegera() {
       <Txt testID="suara-segera" v="title" color={onVoice.strong} style={{ textAlign: 'center' }}>
         {VOICE_SOON_TEXT}
       </Txt>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Selesai"
-        onPress={() => router.back()}
-        style={{
-          height: 56,
-          paddingHorizontal: 40,
-          borderRadius: 28,
-          backgroundColor: onVoice.strong,
-          justifyContent: 'center',
-        }}
-      >
-        <Txt v="subtitle" color={onVoice.onStrong}>
-          Selesai
-        </Txt>
-      </Pressable>
+      <DoneButton />
     </View>
   );
 }
 
 function SuaraAktif() {
   const assistantName = useAssistantName();
-  const { c } = useTheme();
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const compact = useLayoutClass() === 'compact';
   const live = useLive();
   const voice = useVoice();
-  const { phase, typing, muted } = voice;
+  // Pratinjau web saja (`?demo=mendengar`); di HP selalu kosong.
+  const [demo] = useState(voiceDemo);
+  useDemoLevel(demo, voice.level);
+  const view = { ...voice, ...demoState(demo) };
+  const { phase, typing, muted, transcript, reply, note, confirm } = view;
   // Dibuka dengan menahan Inti (`?hold=1`): jari masih menempel, jadi langsung mendengar; jari diangkat dari Inti yang
   // sama mengirim ucapannya (src/voice/holdBridge.ts).
   const { hold } = useLocalSearchParams<{ hold?: string }>();
@@ -93,138 +120,132 @@ function SuaraAktif() {
     // Sekali saat layar terbuka: tahanan berikutnya lewat Inti di layar ini.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const label =
-    phase === 'listening'
-      ? 'Mendengar'
-      : phase === 'sending' || phase === 'thinking'
-        ? `${assistantName} berpikir`
-        : phase === 'speaking'
-          ? assistantName
-          : (voice.note ?? HINT_HOLD);
+
+  // Level yang sudah dihaluskan gelombang, dipakai cahaya Inti.
+  const glow = useSharedValue(0);
+  const busy = phase === 'sending' || phase === 'thinking';
+  const listening = phase === 'listening';
+  // Belum ada ucapan: petunjuk (atau kabar) tampil redup di tempat ucapan akan muncul.
+  const placeholder = !transcript && !reply && !busy && !listening ? (note ?? HINT_HOLD) : null;
+  const line = busy ? THINKING_TEXT : transcript || reply ? note : null;
+  const status = listening
+    ? 'Mendengar'
+    : busy
+      ? `${assistantName} berpikir`
+      : phase === 'speaking'
+        ? `${assistantName} menjawab`
+        : phase === 'off' || phase === 'error'
+          ? 'Belum siap'
+          : 'Siap';
+
   return (
-    <View style={{ flex: 1, backgroundColor: c.voiceCanvas }}>
+    <View testID="suara" style={{ flex: 1, backgroundColor: dark.voiceCanvas }}>
       <StatusBar style="light" />
+      <Waves
+        state={WAVE[phase]}
+        level={voice.level}
+        width={width}
+        height={Math.round(height * WAVE_HEIGHT_RATIO)}
+        paused={!live}
+        muted={muted}
+        quiet={typing || confirm !== null}
+        glow={glow}
+      />
       {/* Edge-to-edge: jendela tidak mengecil saat papan ketik muncul, jadi 'padding' menaikkan isi (kolom ketik dan draf). */}
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <ScrollView
+        <View
+          testID="suara-kolom"
           // Lembar izin tampil: isi di belakangnya tidak dibaca TalkBack.
           importantForAccessibility={voice.permission ? 'no-hide-descendants' : 'auto'}
           accessibilityElementsHidden={voice.permission !== null}
-          bounces={false}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingTop: insets.top + 24,
-            paddingBottom: insets.bottom + 36,
-          }}
+          style={{ flex: 1, paddingTop: insets.top }}
         >
-          <View style={{ paddingHorizontal: 28, gap: 8, minHeight: 72 }}>
-            {voice.transcript ? (
-              <>
-                <Txt v="caption" color={onVoice.soft}>
-                  Anda
-                </Txt>
-                <Txt
-                  testID="suara-ucapan"
-                  weight={500}
-                  color={voice.transcriptFinal ? onVoice.text : onVoice.hint}
-                  style={{ fontSize: 20, lineHeight: 28 }}
-                  maxFontSizeMultiplier={1.4}
-                >
-                  {voice.transcript}
-                </Txt>
-              </>
-            ) : null}
-          </View>
-          <View
-            style={{
-              flex: 1,
-              minHeight: 240,
-              maxHeight: 340,
-              alignItems: 'center',
-              justifyContent: 'center',
-              alignSelf: 'stretch',
-            }}
+          <ScrollView
+            testID="suara-isi"
+            style={{ flex: 1 }}
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 }}
           >
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Tahan untuk bicara"
-              accessibilityHint="Tahan sambil bicara, lepas untuk mengirim"
-              accessibilityState={{ busy: phase === 'listening' }}
-              onPressIn={() => void voice.holdStart()}
-              onPressOut={() => void voice.holdEnd()}
-            >
-              <Inti size={200} state={INTI[phase]} onDark paused={!live} level={voice.level} />
-            </Pressable>
-            <Txt
-              v="caption"
-              color={onVoice.soft}
-              accessibilityLiveRegion="polite"
-              style={{ marginTop: 12, paddingHorizontal: 28, textAlign: 'center' }}
-            >
-              {label}
-            </Txt>
-          </View>
-          <View style={{ paddingHorizontal: 28, gap: 8, minHeight: 72 }}>
-            {voice.reply ? (
-              <>
-                <Txt v="caption" color={onVoice.soft}>
-                  {assistantName}
-                </Txt>
+            <LiveDot phase={phase} label={status} paused={!live} />
+            <View style={{ marginTop: compact ? 20 : 28, gap: 20 }}>
+              {placeholder ? (
                 <Txt
-                  testID="suara-balasan"
-                  accessibilityLiveRegion="polite"
-                  weight={600}
-                  color={onVoice.strong}
-                  style={{ fontSize: 26, lineHeight: 34, letterSpacing: -0.26 }}
-                  maxFontSizeMultiplier={1.4}
+                  testID="suara-petunjuk"
+                  v="transcript"
+                  color={PARTIAL}
+                  style={compact ? { fontSize: 28, lineHeight: 38 } : null}
+                  maxFontSizeMultiplier={1.3}
                 >
-                  {voice.reply}
+                  {placeholder}
                 </Txt>
-              </>
-            ) : null}
-          </View>
-          {voice.confirm ? (
-            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-              <ConfirmArea card={voice.confirm.card} messageId={voice.confirm.messageId} />
+              ) : null}
+              {transcript ? (
+                <Said
+                  text={transcript}
+                  final={view.transcriptFinal}
+                  listening={listening}
+                  small={!!reply}
+                  compact={compact}
+                />
+              ) : null}
+              {line ? <StatusLine text={line} pulse={busy} paused={!live} /> : null}
+              {reply ? (
+                <Animated.View entering={FadeIn.duration(motion.screen.duration)}>
+                  <Txt
+                    testID="suara-balasan"
+                    accessibilityLiveRegion="polite"
+                    weight={500}
+                    color={onVoice.text}
+                    style={{ fontSize: compact ? 24 : 26, lineHeight: compact ? 32 : 34, letterSpacing: -0.26 }}
+                    maxFontSizeMultiplier={1.3}
+                  >
+                    {reply}
+                  </Txt>
+                </Animated.View>
+              ) : null}
             </View>
-          ) : null}
-          {typing ? <TypeBar onSend={(text) => voice.sendText(text)} /> : null}
-          <View style={{ paddingHorizontal: 20, paddingTop: 24, flexDirection: 'row', alignItems: 'flex-start' }}>
-            <RoundAction
-              icon={muted ? 'speakerOff' : 'speaker'}
-              label={muted ? 'Suarakan' : 'Bisukan'}
-              pressed={muted}
-              onPress={() => voice.setMuted(!muted)}
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Selesai"
-              onPress={() => router.back()}
-              style={{
-                height: 56,
-                paddingHorizontal: 40,
-                borderRadius: 28,
-                backgroundColor: onVoice.strong,
-                justifyContent: 'center',
-              }}
+            {/* Kartu konfirmasi menempel tepat di atas kontrol, di zona jempol. */}
+            <View style={{ flexGrow: 1, minHeight: 16 }} />
+            {confirm ? (
+              <ThemeProvider scheme="dark">
+                <ConfirmArea card={confirm.card} messageId={confirm.messageId} />
+              </ThemeProvider>
+            ) : null}
+          </ScrollView>
+          <View
+            testID="suara-kontrol"
+            style={{ paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 12) + 18, gap: 16 }}
+          >
+            {typing ? <TypeBar onSend={(text) => voice.sendText(text)} /> : null}
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: compact ? 32 : 44 }}
             >
-              {/* warna forest di atas tombol terang, sama di dua mode */}
-              <Txt v="subtitle" color={onVoice.onStrong}>
-                Selesai
-              </Txt>
-            </Pressable>
-            <RoundAction icon="keyboard" label="Ketik" pressed={typing} onPress={() => voice.setTyping(!typing)} />
+              <RoundAction
+                icon={muted ? 'speakerOff' : 'speaker'}
+                label={muted ? 'Suarakan' : 'Bisukan'}
+                selected={muted}
+                onPress={() => voice.setMuted(!muted)}
+              />
+              <HoldInti
+                phase={phase}
+                paused={!live}
+                glow={glow}
+                onPressIn={() => void voice.holdStart()}
+                onPressOut={() => void voice.holdEnd()}
+              />
+              <RoundAction icon="keyboard" label="Ketik" selected={typing} onPress={() => voice.setTyping(!typing)} />
+            </View>
+            <DoneButton />
           </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
       {voice.permission ? (
         <PermissionPanel
           blocked={voice.permission !== 'explain'}
           waiting={voice.permission === 'waiting'}
           bottom={insets.bottom}
-          background={c.voiceCanvas}
           onAllow={() => void voice.requestPermission()}
           onSettings={() => {
             void Linking.openSettings().catch(() => {});
@@ -238,54 +259,244 @@ function SuaraAktif() {
   );
 }
 
+/**
+ * Titik hijau kecil di kiri atas: Mode Suara hidup. Berdenyut 1,6 detik saat mendengar, 2,6 detik selain itu; kelabu dan
+ * diam bila belum tersambung. Pembaca layar mendapat keadaannya ("Mendengar", "Nadia berpikir") sebagai area langsung.
+ */
+function LiveDot({ phase, label, paused }: { phase: VoicePhase; label: string; paused: boolean }) {
+  const reduce = useReducedMotion();
+  const off = phase === 'off' || phase === 'error';
+  const period = phase === 'listening' ? 1600 : 2600;
+  const t = useSharedValue(1);
+  useEffect(() => {
+    if (off || reduce || paused) {
+      cancelAnimation(t);
+      t.set(1);
+      return;
+    }
+    t.set(1);
+    t.set(withRepeat(withTiming(0.4, { duration: period / 2, easing: BREATH }), -1, true));
+    return () => cancelAnimation(t);
+  }, [off, reduce, paused, period, t]);
+  const style = useAnimatedStyle(() => ({ opacity: t.get() }));
+  return (
+    <View
+      testID="suara-titik"
+      accessible
+      accessibilityLabel={label}
+      accessibilityLiveRegion="polite"
+      style={{ width: 20, height: 20, marginLeft: -3, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <Animated.View
+        style={[
+          {
+            width: 10,
+            height: 10,
+            borderRadius: 5,
+            backgroundColor: off ? onVoice.hint : dark.brand,
+            boxShadow: off ? undefined : '0 0 0 5px rgba(91,191,134,0.18)',
+          },
+          style,
+        ]}
+      />
+    </View>
+  );
+}
+
+/** Ucapan pengguna. Saat mendengar: besar dan terang, kata terakhir yang belum pasti lebih redup. */
+function Said({
+  text,
+  final,
+  listening,
+  small,
+  compact,
+}: {
+  text: string;
+  final: boolean;
+  listening: boolean;
+  /** Balasan sudah tampil: ucapan mengecil dan meredup, balasan yang utama. */
+  small: boolean;
+  compact: boolean;
+}) {
+  if (small) {
+    return (
+      <Txt
+        testID="suara-ucapan"
+        weight={500}
+        color={SETTLED}
+        style={{ fontSize: 20, lineHeight: 28 }}
+        maxFontSizeMultiplier={1.3}
+      >
+        {text}
+      </Txt>
+    );
+  }
+  const partial = listening && !final;
+  const cut = partial ? text.trimEnd().lastIndexOf(' ') : -1;
+  const sure = partial ? text.slice(0, cut + 1) : text;
+  const unsure = partial ? text.slice(cut + 1) : '';
+  return (
+    <Txt
+      testID="suara-ucapan"
+      v="transcript"
+      color={listening ? onVoice.text : SETTLED}
+      style={compact ? { fontSize: 28, lineHeight: 38 } : null}
+      maxFontSizeMultiplier={1.3}
+    >
+      {sure}
+      {unsure ? <Text style={{ color: PARTIAL }}>{unsure}</Text> : null}
+    </Txt>
+  );
+}
+
+/** Satu baris di bawah ucapan: "Sebentar…" yang berdenyut pelan saat berpikir, atau kabar singkat. */
+function StatusLine({ text, pulse, paused }: { text: string; pulse: boolean; paused: boolean }) {
+  const reduce = useReducedMotion();
+  const t = useSharedValue(1);
+  useEffect(() => {
+    if (!pulse || reduce || paused) {
+      cancelAnimation(t);
+      t.set(1);
+      return;
+    }
+    t.set(0.5);
+    t.set(withRepeat(withTiming(1, { duration: 900, easing: BREATH }), -1, true));
+    return () => cancelAnimation(t);
+  }, [pulse, reduce, paused, t]);
+  const style = useAnimatedStyle(() => ({ opacity: t.get() }));
+  return (
+    <Animated.View style={style}>
+      <Txt
+        testID="suara-catatan"
+        weight={500}
+        color={pulse ? onVoice.text : onVoice.soft}
+        style={{ fontSize: 20, lineHeight: 28 }}
+        maxFontSizeMultiplier={1.3}
+      >
+        {text}
+      </Txt>
+    </Animated.View>
+  );
+}
+
+/**
+ * Inti 88 sebagai tempat menahan: tekan dan tahan untuk bicara, lepas untuk mengirim. Membesar sedikit selagi mendengar,
+ * cahayanya mengikuti keras-pelannya suara, cincin berputar saat berpikir, redup bila belum tersambung.
+ */
+function HoldInti({
+  phase,
+  paused,
+  glow,
+  onPressIn,
+  onPressOut,
+}: {
+  phase: VoicePhase;
+  paused: boolean;
+  glow: SharedValue<number>;
+  onPressIn: () => void;
+  onPressOut: () => void;
+}) {
+  const reduce = useReducedMotion();
+  const listening = phase === 'listening';
+  const s = useSharedValue(1);
+  useEffect(() => {
+    s.set(reduce ? 1 : withSpring(listening ? 1.06 : 1, motion.press.spring));
+  }, [listening, reduce, s]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: s.get() }] }));
+  return (
+    <Pressable
+      testID="suara-inti"
+      accessibilityRole="button"
+      accessibilityLabel="Tahan untuk bicara"
+      accessibilityHint="Tahan sambil bicara, lepas untuk mengirim"
+      accessibilityState={{ busy: listening }}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      pressRetentionOffset={KEEP_HOLD}
+      hitSlop={8}
+      style={{ width: INTI, height: INTI, borderRadius: INTI / 2 }}
+    >
+      <Animated.View style={style}>
+        <IntiOrb
+          size={INTI}
+          paused={paused}
+          thinking={phase === 'sending' || phase === 'thinking'}
+          dim={phase === 'off'}
+          level={glow}
+        />
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+/** Bisukan dan Ketik: ikon saja (§2.6). Menyala = hijau lembut dengan cincin hijau. */
 function RoundAction({
   icon,
   label,
   onPress,
-  pressed = false,
+  selected = false,
 }: {
   icon: IconName;
   label: string;
   onPress: () => void;
-  pressed?: boolean;
+  selected?: boolean;
 }) {
   return (
-    <View style={{ flex: 1, alignItems: 'center', gap: 8 }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{ selected: pressed }}
-        onPress={onPress}
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          borderWidth: 1,
-          borderColor: onVoice.buttonLine,
-          backgroundColor: pressed ? onVoice.buttonLine : onVoice.button,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon name={icon} size={24} color={onVoice.text} />
-      </Pressable>
-      <Txt v="caption" color={onVoice.label} style={{ textAlign: 'center' }}>
-        {label}
+    <PressableScale
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      haptic="selection"
+      scaleTo={motion.press.keyScale}
+      onPress={onPress}
+      style={{
+        width: ROUND,
+        height: ROUND,
+        borderRadius: ROUND / 2,
+        backgroundColor: selected ? dark.brandSoft : onVoice.button,
+        boxShadow: selected ? `inset 0 0 0 2px ${dark.brand}` : 'inset 0 1px 0 rgba(255,255,255,0.08)',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Icon name={icon} size={26} color={selected ? dark.brandInk : onVoice.text} />
+    </PressableScale>
+  );
+}
+
+function DoneButton() {
+  return (
+    <PressableScale
+      accessibilityRole="button"
+      accessibilityLabel="Selesai"
+      onPress={() => router.back()}
+      style={{
+        alignSelf: 'center',
+        minHeight: 56,
+        paddingHorizontal: 40,
+        borderRadius: 28,
+        backgroundColor: onVoice.strong,
+        justifyContent: 'center',
+      }}
+    >
+      <Txt v="subtitle" color={onVoice.onStrong}>
+        Selesai
       </Txt>
-    </View>
+    </PressableScale>
   );
 }
 
 /** Pindah ke ketik di dalam Mode Suara: kalimatnya dijawab seperti ucapan. */
 function TypeBar({ onSend }: { onSend: (text: string) => void }) {
   const [text, setText] = useState('');
+  const ready = text.trim().length > 0;
   const send = () => {
-    if (!text.trim()) return;
+    if (!ready) return;
     onSend(text);
     setText('');
   };
   return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 16, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
       <TextInput
         accessibilityLabel="Ketik pesan"
         value={text}
@@ -294,50 +505,49 @@ function TypeBar({ onSend }: { onSend: (text: string) => void }) {
         returnKeyType="send"
         placeholder="Ketik di sini"
         placeholderTextColor={onVoice.hint}
-        cursorColor={onVoice.text}
-        selectionColor={onVoice.soft}
+        cursorColor={dark.brand}
+        selectionColor={dark.brandGlow}
         style={{
           flex: 1,
-          height: 52,
-          borderRadius: 26,
-          borderWidth: 1,
-          borderColor: onVoice.buttonLine,
+          minHeight: 56,
+          borderRadius: 28,
           backgroundColor: onVoice.button,
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
           paddingHorizontal: 20,
           fontFamily: FONT[400],
           fontSize: 16,
           color: onVoice.text,
         }}
       />
-      <Pressable
+      <PressableScale
         accessibilityRole="button"
         accessibilityLabel="Kirim"
-        accessibilityState={{ disabled: !text.trim() }}
-        disabled={!text.trim()}
+        accessibilityState={{ disabled: !ready }}
+        disabled={!ready}
+        haptic="success"
         onPress={send}
         style={{
-          height: 52,
-          paddingHorizontal: 20,
-          borderRadius: 26,
-          backgroundColor: onVoice.strong,
-          opacity: text.trim() ? 1 : 0.5,
+          minHeight: 56,
+          paddingHorizontal: 22,
+          borderRadius: 28,
+          backgroundColor: dark.brand,
+          opacity: ready ? 1 : 0.45,
           justifyContent: 'center',
         }}
       >
-        <Txt weight={600} color={onVoice.onStrong}>
+        <Txt weight={600} color={dark.onBrand}>
           Kirim
         </Txt>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }
 
-/** Lembar izin mikrofon: penjelasan ramah dulu, lalu pengaturan HP kalau sudah ditolak. */
+/** Lembar izin mikrofon: tenang dan singkat. Penjelasan dulu, lalu pengaturan HP kalau sudah ditolak. */
 function PermissionPanel({
   blocked,
   waiting,
   bottom,
-  background,
   onAllow,
   onSettings,
   onClose,
@@ -345,69 +555,85 @@ function PermissionPanel({
   blocked: boolean;
   waiting: boolean;
   bottom: number;
-  background: string;
   onAllow: () => void;
   onSettings: () => void;
   onClose: () => void;
 }) {
   return (
-    <View
-      testID="suara-izin"
-      accessibilityViewIsModal
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        paddingHorizontal: 24,
-        paddingTop: 24,
-        paddingBottom: bottom + 24,
-        gap: 8,
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        backgroundColor: background,
-        borderTopWidth: 1,
-        borderColor: onVoice.buttonLine,
-      }}
-    >
-      <Txt v="title" color={onVoice.strong}>
-        {waiting ? 'Menunggu mikrofon dinyalakan' : blocked ? 'Mikrofon sedang dimatikan' : 'Izinkan mikrofon ya'}
-      </Txt>
-      <Txt color={onVoice.text}>
-        {waiting
-          ? 'Nyalakan mikrofon di pengaturan HP, lalu kembali ke sini.'
-          : blocked
-            ? 'Nyalakan lewat pengaturan HP supaya saya bisa mendengar Anda.'
-            : 'Saya perlu mikrofon untuk mendengar Anda bicara. Suaranya hanya dipakai saat Inti ditahan.'}
-      </Txt>
-      <View style={{ gap: 8, paddingTop: 16 }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={blocked ? 'Buka pengaturan' : 'Izinkan'}
-          onPress={blocked ? onSettings : onAllow}
+    <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'flex-end' }}>
+      <Pressable
+        importantForAccessibility="no"
+        accessibilityElementsHidden
+        onPress={onClose}
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: dark.scrim }}
+      />
+      <Animated.View
+        testID="suara-izin"
+        accessibilityViewIsModal
+        entering={FadeIn.duration(motion.sheet.scrim)}
+        style={{
+          paddingHorizontal: 24,
+          paddingTop: 28,
+          paddingBottom: bottom + 24,
+          gap: 8,
+          borderTopLeftRadius: 30,
+          borderTopRightRadius: 30,
+          backgroundColor: dark.surface,
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+        }}
+      >
+        <View
           style={{
+            width: 56,
             height: 56,
             borderRadius: 28,
-            backgroundColor: onVoice.strong,
+            marginBottom: 12,
+            backgroundColor: dark.brandSoft,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Txt weight={600} color={onVoice.onStrong} style={{ fontSize: 17 }}>
-            {blocked ? 'Buka pengaturan' : 'Izinkan'}
-          </Txt>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Nanti saja"
-          onPress={onClose}
-          style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Txt weight={600} color={onVoice.label}>
-            Nanti saja
-          </Txt>
-        </Pressable>
-      </View>
+          <Icon name={blocked ? 'micOff' : 'mic'} size={26} color={dark.brandInk} />
+        </View>
+        <Txt v="header" color={onVoice.text} accessibilityRole="header">
+          {waiting ? 'Menunggu mikrofon dinyalakan' : blocked ? 'Mikrofon sedang dimatikan' : 'Izinkan mikrofon ya'}
+        </Txt>
+        <Txt color={onVoice.soft}>
+          {waiting
+            ? 'Nyalakan di pengaturan HP, lalu kembali ke sini.'
+            : blocked
+              ? 'Nyalakan di pengaturan HP.'
+              : 'Saya hanya mendengar saat Inti ditahan.'}
+        </Txt>
+        <View style={{ gap: 4, paddingTop: 20 }}>
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel={blocked ? 'Buka pengaturan' : 'Izinkan'}
+            onPress={blocked ? onSettings : onAllow}
+            style={{
+              minHeight: 56,
+              borderRadius: 28,
+              backgroundColor: dark.brand,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Txt weight={600} color={dark.onBrand} style={{ fontSize: 17 }}>
+              {blocked ? 'Buka pengaturan' : 'Izinkan'}
+            </Txt>
+          </PressableScale>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Nanti saja"
+            onPress={onClose}
+            style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Txt weight={600} color={onVoice.label}>
+              Nanti saja
+            </Txt>
+          </Pressable>
+        </View>
+      </Animated.View>
     </View>
   );
 }

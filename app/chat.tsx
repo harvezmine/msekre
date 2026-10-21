@@ -37,7 +37,7 @@ import { Thinking } from '@/ui/chat/Thinking';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
 import type { IconName } from '@/ui/icons';
-import { Inti } from '@/ui/inti/Inti';
+import { IntiOrb } from '@/ui/inti/IntiOrb';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
 import { useToast } from '@/ui/toastStore';
@@ -60,7 +60,7 @@ const SUGGESTIONS: { icon: IconName; text: string }[] = [
 // bawah); menggulir ke atas memuat pesan yang lebih lama.
 export default function Chat() {
   const assistantName = useAssistantName();
-  const { c, scheme } = useTheme();
+  const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const live = useLive();
   const { kosong, draf, pesan, isi } = useLocalSearchParams<{
@@ -177,7 +177,7 @@ export default function Chat() {
         }}
       >
         <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
-        <Inti size={36} state={intiOff ? 'off' : 'idle'} onDark={scheme === 'dark'} paused={!live} />
+        <IntiOrb size={40} glow={false} dim={intiOff} paused={!live} />
         <View style={{ flex: 1, marginLeft: 4 }}>
           <Txt v="subtitle">{assistantName}</Txt>
           {status !== null && (
@@ -194,7 +194,7 @@ export default function Chat() {
         <View style={{ flex: 1, paddingHorizontal: 20, paddingVertical: 16 }}>
           <Note />
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24 }}>
-            <Inti size={104} state={intiOff ? 'off' : 'idle'} onDark={scheme === 'dark'} paused={!live} />
+            <IntiOrb size={92} dim={intiOff} paused={!live} />
             <Txt v="title" style={{ textAlign: 'center' }}>
               Mau saya bantu urus apa?
             </Txt>
