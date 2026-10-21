@@ -8,7 +8,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
-import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AfterSignIn } from '@/api/AfterSignIn';
 import { AccountProvider } from '@/api/AccountProvider';
@@ -25,8 +24,8 @@ import { PushProvider, PushTapHandler } from '@/api/usePush';
 import { AlarmSyncHost } from '@/alarm/useAlarmSync';
 import { AuthProvider, useAuth } from '@/api/useAuth';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
-import { LaunchSplash, useLaunchSplash } from '@/ui/LaunchSplash';
-import { ToastHost } from '@/ui/Toast';
+import { useLaunchSplash } from '@/ui/LaunchSplash';
+import { SplashShell } from '@/ui/SplashShell';
 import { ToastProvider } from '@/ui/toastStore';
 
 // Tautan langsung ke /chat, /suara, /inti tetap punya tab di bawahnya.
@@ -63,147 +62,129 @@ function Navigator() {
     const t = setTimeout(() => SplashScreen.hideAsync().then(done, done), SPLASH_MAX_MS);
     return () => clearTimeout(t);
   }, [hide, onNativeHidden]);
-  const overlay = <LaunchSplash state={splash} />;
-  if (!ready) {
-    return (
-      <>
-        <View style={{ flex: 1, backgroundColor: c.paper }} />
-        <ToastHost />
-        {overlay}
-      </>
-    );
-  }
   return (
-    <>
-      <View
-        style={{ flex: 1 }}
-        importantForAccessibility={splash.visible ? 'no-hide-descendants' : 'auto'}
-        accessibilityElementsHidden={splash.visible}
-      >
-        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.paper } }}>
-          <Stack.Protected guard={entry} redirectTo="/">
-            <Stack.Screen name="mulai/index" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="mulai/masuk" options={{ animation: 'slide_from_right' }} />
-          </Stack.Protected>
-          <Stack.Protected guard={app} redirectTo="/mulai">
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="chat" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="suara" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
-            <Stack.Screen name="inti" />
-            <Stack.Screen
-              name="agenda/tambah"
-              options={{
-                presentation: 'transparentModal',
-                animation: 'none',
-                contentStyle: { backgroundColor: 'transparent' },
-              }}
-            />
-            <Stack.Screen name="perangkat/[id]" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="perangkat/tambah" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen
-              name="pin"
-              options={{
-                presentation: 'transparentModal',
-                animation: 'none',
-                contentStyle: { backgroundColor: 'transparent' },
-              }}
-            />
-            <Stack.Screen
-              name="buka-kunci"
-              options={{
-                presentation: 'transparentModal',
-                animation: 'none',
-                contentStyle: { backgroundColor: 'transparent' },
-              }}
-            />
-            <Stack.Screen name="akun" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="akun/keamanan" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="akun/asisten" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="akun/sapaan" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="akun/notifikasi" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="akun/hp" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="akun/privasi" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen
-              name="akun/konfirmasi"
-              options={{
-                presentation: 'transparentModal',
-                animation: 'none',
-                contentStyle: { backgroundColor: 'transparent' },
-              }}
-            />
-            <Stack.Screen name="riwayat" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="mulai/pilih" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen
-              name="keluar"
-              options={{
-                presentation: 'transparentModal',
-                animation: 'none',
-                contentStyle: { backgroundColor: 'transparent' },
-              }}
-            />
-            <Stack.Screen name="terhubung/index" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="terhubung/[id]" options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen
-              name="terhubung/masuk"
-              options={{
-                presentation: 'transparentModal',
-                animation: 'none',
-                contentStyle: { backgroundColor: 'transparent' },
-              }}
-            />
-            <Stack.Screen
-              name="terhubung/konfirmasi"
-              options={{
-                presentation: 'transparentModal',
-                animation: 'none',
-                contentStyle: { backgroundColor: 'transparent' },
-              }}
-            />
-            <Stack.Screen name="terhubung/tersambung" options={{ gestureEnabled: false, animation: 'fade' }} />
-            <Stack.Screen
-              name="izin-notifikasi"
-              options={{
-                presentation: 'transparentModal',
-                animation: 'none',
-                contentStyle: { backgroundColor: 'transparent' },
-              }}
-            />
-            <Stack.Screen
-              name="izin-alarm"
-              options={{
-                presentation: 'transparentModal',
-                animation: 'none',
-                contentStyle: { backgroundColor: 'transparent' },
-              }}
-            />
-            <Stack.Screen
-              name="tempat"
-              options={{
-                presentation: 'transparentModal',
-                animation: 'none',
-                contentStyle: { backgroundColor: 'transparent' },
-              }}
-            />
-          </Stack.Protected>
-          {/* Alarm yang berbunyi harus selalu bisa dimatikan, juga tanpa sesi (sesi habis, atau belum selesai diperiksa). */}
-          <Stack.Screen name="alarm" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
+    <SplashShell ready={ready} paper={c.paper} splash={splash}>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.paper } }}>
+        <Stack.Protected guard={entry} redirectTo="/">
+          <Stack.Screen name="mulai/index" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="mulai/masuk" options={{ animation: 'slide_from_right' }} />
+        </Stack.Protected>
+        <Stack.Protected guard={app} redirectTo="/mulai">
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="chat" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="suara" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
+          <Stack.Screen name="inti" />
           <Stack.Screen
-            name="mode"
+            name="agenda/tambah"
             options={{
               presentation: 'transparentModal',
               animation: 'none',
               contentStyle: { backgroundColor: 'transparent' },
             }}
           />
-        </Stack>
-        <AfterSignIn />
-        <AlarmSyncHost />
-        <PushTapHandler />
-        <ToastHost />
-      </View>
-      {overlay}
-    </>
+          <Stack.Screen name="perangkat/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="perangkat/tambah" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen
+            name="pin"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen
+            name="buka-kunci"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen name="akun" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/keamanan" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/asisten" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/sapaan" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/notifikasi" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/hp" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/privasi" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen
+            name="akun/konfirmasi"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen name="riwayat" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="mulai/pilih" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen
+            name="keluar"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen name="terhubung/index" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="terhubung/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen
+            name="terhubung/masuk"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen
+            name="terhubung/konfirmasi"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen name="terhubung/tersambung" options={{ gestureEnabled: false, animation: 'fade' }} />
+          <Stack.Screen
+            name="izin-notifikasi"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen
+            name="izin-alarm"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen
+            name="tempat"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+        </Stack.Protected>
+        {/* Alarm yang berbunyi harus selalu bisa dimatikan, juga tanpa sesi (sesi habis, atau belum selesai diperiksa). */}
+        <Stack.Screen name="alarm" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
+        <Stack.Screen
+          name="mode"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'none',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+      </Stack>
+      <AfterSignIn />
+      <AlarmSyncHost />
+      <PushTapHandler />
+    </SplashShell>
   );
 }
 

@@ -3,10 +3,12 @@ import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { usePathname } from 'expo-router';
 import * as Reanimated from 'react-native-reanimated';
-import { AppState, Linking } from 'react-native';
+import { AppState, Linking, StyleSheet, Text } from 'react-native';
 import { ThemeProvider, type Scheme } from '@/theme/ThemeProvider';
 import { dark, light } from '@/theme/tokens';
 import { LaunchSplash, useLaunchSplash } from '@/ui/LaunchSplash';
+import { SplashShell } from '@/ui/SplashShell';
+import { createToastStore, ToastProvider } from '@/ui/toastStore';
 
 jest.mock('react-native-reanimated', () => {
   const actual = jest.requireActual('react-native-reanimated');
@@ -16,6 +18,7 @@ jest.mock('react-native-reanimated', () => {
 });
 
 let handler: ((s: string) => void) | undefined;
+let urlHandler: ((e: { url: string }) => void) | undefined;
 
 function Host({ nativeHidden = true }: { nativeHidden?: boolean }) {
   const splash = useLaunchSplash();
@@ -50,6 +53,11 @@ beforeEach(() => {
   jest.spyOn(Linking, 'getInitialURL').mockResolvedValue(null);
   jest.spyOn(AppState, 'addEventListener').mockImplementation(((_: string, h: (s: string) => void) => {
     handler = h;
+    return { remove: jest.fn() };
+  }) as never);
+  urlHandler = undefined;
+  jest.spyOn(Linking, 'addEventListener').mockImplementation(((_: string, h: (e: { url: string }) => void) => {
+    urlHandler = h;
     return { remove: jest.fn() };
   }) as never);
   jest.mocked(Notifications.useLastNotificationResponse).mockReturnValue(null);
@@ -167,5 +175,125 @@ describe('layar pembuka', () => {
       </ThemeProvider>,
     );
     expect(shown()).toBe(false);
+  });
+});
+
+describe('buka kembali dari latar karena notifikasi atau tautan alarm', () => {
+  const tapped = { actionIdentifier: 'default', notification: { date: 1 } } as never;
+  const rerender = (r: Awaited<ReturnType<typeof mount>>) =>
+    r.rerender(
+      <ThemeProvider>
+        <Host />
+      </ThemeProvider>,
+    );
+
+  async function idle() {
+    const r = await mount();
+    await advance(1500);
+    expect(shown()).toBe(false);
+    await setApp('background');
+    await advance(40 * 60_000);
+    return r;
+  }
+
+  test('ketukan notifikasi tiba sebelum aplikasi aktif: tidak tampil', async () => {
+    const r = await idle();
+    jest.mocked(Notifications.useLastNotificationResponse).mockReturnValue(tapped);
+    await rerender(r);
+    await setApp('active');
+    expect(shown()).toBe(false);
+  });
+
+  test('ketukan notifikasi tiba sesudah aplikasi aktif: layar pembuka langsung menutup', async () => {
+    const r = await idle();
+    await setApp('active');
+    expect(shown()).toBe(true);
+    jest.mocked(Notifications.useLastNotificationResponse).mockReturnValue(tapped);
+    await rerender(r);
+    expect(shown()).toBe(false);
+  });
+
+  test('tautan alarm saat aplikasi hidup: tidak tampil, sebelum maupun sesudah aktif', async () => {
+    await idle();
+    await act(async () => urlHandler?.({ url: 'sekretarisai://alarm?id=a1' }));
+    await setApp('active');
+    expect(shown()).toBe(false);
+
+    await setApp('background');
+    await advance(40 * 60_000);
+    await setApp('active');
+    expect(shown()).toBe(true);
+    await act(async () => urlHandler?.({ url: 'sekretarisai://alarm?id=a2' }));
+    expect(shown()).toBe(false);
+  });
+
+  test('tautan biasa tidak mengubah apa-apa; latar berikutnya tanpa ketukan tampil lagi', async () => {
+    const r = await idle();
+    jest.mocked(Notifications.useLastNotificationResponse).mockReturnValue(tapped);
+    await rerender(r);
+    await setApp('active');
+    expect(shown()).toBe(false);
+    await setApp('background');
+    await advance(40 * 60_000);
+    await setApp('active');
+    expect(shown()).toBe(true);
+  });
+});
+
+describe('susunan akar', () => {
+  function Shell({ ready }: { ready: boolean }) {
+    const splash = useLaunchSplash();
+    const { onNativeHidden } = splash;
+    useEffect(() => onNativeHidden(), [onNativeHidden]);
+    return (
+      <SplashShell ready={ready} paper="#fff" splash={splash}>
+        <Text>isi aplikasi</Text>
+      </SplashShell>
+    );
+  }
+  const store = createToastStore();
+  const tree = (ready: boolean) => (
+    <ThemeProvider>
+      <ToastProvider store={store}>
+        <Shell ready={ready} />
+      </ToastProvider>
+    </ThemeProvider>
+  );
+
+  test('layar pembuka tidak dipasang ulang saat sesi selesai diperiksa', async () => {
+    const r = await render(tree(false));
+    await act(async () => {});
+    expect(screen.queryByText('isi aplikasi')).toBeNull();
+    await advance(900);
+    // Pergantian ke siap di tengah gerakan: gerakan yang sama berlanjut dan selesai pada waktunya (1,2 detik sejak awal).
+    await r.rerender(tree(true));
+    expect(screen.getByText('isi aplikasi', { includeHiddenElements: true })).toBeOnTheScreen();
+    expect(shown()).toBe(true);
+    await advance(400);
+    expect(shown()).toBe(false);
+  });
+
+  test('isi aplikasi disembunyikan dari pembaca layar selama layar pembuka tampil', async () => {
+    await render(tree(true));
+    await act(async () => {});
+    expect(screen.queryByText('isi aplikasi')).toBeNull();
+    expect(screen.getByText('isi aplikasi', { includeHiddenElements: true })).toBeOnTheScreen();
+    await advance(1500);
+    expect(screen.getByText('isi aplikasi')).toBeOnTheScreen();
+  });
+
+  test('toast tampil di atas layar pembuka', async () => {
+    await render(tree(false));
+    await act(async () => {});
+    await act(async () => store.show('Halo'));
+    expect(screen.getByText('Halo')).toBeOnTheScreen();
+    let node = screen.getByTestId('toast').parent;
+    let z: number | undefined;
+    while (node && z === undefined) {
+      z = StyleSheet.flatten(node.props.style as never)?.zIndex;
+      node = node.parent;
+    }
+    expect(z).toBeGreaterThan(0);
+    expect(shown()).toBe(true);
   });
 });

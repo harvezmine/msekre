@@ -27,7 +27,7 @@ const FADE_MS = 250;
 const REDUCED_HOLD_MS = 400;
 const SKIP_FADE_MS = 150;
 
-interface HostState {
+export interface SplashHost {
   visible: boolean;
   /** Dipakai untuk memulai ulang animasi tiap kali layar tampil. */
   run: number;
@@ -44,7 +44,7 @@ interface HostState {
  * Kapan layar pembuka tampil: tiap mulai dingin (kecuali dari alarm atau ketukan notifikasi) dan saat aplikasi
  * kembali dibuka setelah 30 menit di latar. Tertutup sendiri bila layar alarm terbuka.
  */
-export function useLaunchSplash(): HostState {
+export function useLaunchSplash(): SplashHost {
   const pathname = usePathname();
   const response = Notifications.useLastNotificationResponse();
   const [wanted, setWanted] = useState(true);
@@ -79,13 +79,43 @@ export function useLaunchSplash(): HostState {
     pathRef.current = pathname;
   }, [pathname]);
 
+  // Ketukan notifikasi atau tautan alarm saat aplikasi sudah hidup (buka kembali dari latar): tujuannya harus langsung
+  // terlihat. Jawaban notifikasi yang baru bisa datang sebelum atau sesudah aplikasi kembali aktif; dua-duanya ditangani.
+  // Jawaban yang sudah ada saat dipasang milik mulai dingin (ditangani `skipOnLaunch` di atas).
+  const [seenResponse, setSeenResponse] = useState(response);
+  if (response !== undefined && response !== seenResponse) {
+    setSeenResponse(response);
+    if (response !== null) setWanted(false);
+  }
+  // Dibaca pendengar AppState di bawah: sejak ke latar terakhir, aplikasi dibuka oleh ketukan notifikasi atau tautan alarm.
+  const jumpedSinceBackground = useRef(false);
+  useEffect(() => {
+    if (response) jumpedSinceBackground.current = true;
+  }, [response]);
+  useEffect(() => {
+    let sub: { remove(): void } | undefined;
+    try {
+      sub = Linking.addEventListener('url', ({ url }) => {
+        if (!isAlarmTarget(url)) return;
+        jumpedSinceBackground.current = true;
+        setWanted(false);
+      });
+    } catch {
+      // Tanpa pendengar tautan: layar alarm tetap menutup layar pembuka lewat jalurnya (di atas).
+    }
+    return () => sub?.remove();
+  }, []);
+
   useEffect(() => {
     let backgroundedAt: number | null = null;
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'background') {
         backgroundedAt ??= Date.now();
+        jumpedSinceBackground.current = false;
       } else if (next === 'active') {
-        const show = showOnResume({ backgroundedAt, now: Date.now(), pathname: pathRef.current });
+        const show =
+          showOnResume({ backgroundedAt, now: Date.now(), pathname: pathRef.current }) &&
+          !jumpedSinceBackground.current;
         backgroundedAt = null;
         if (show) {
           setCold(false);
@@ -106,7 +136,7 @@ export function useLaunchSplash(): HostState {
  * Layar pembuka animasi di atas navigator. Bingkai pertamanya sama dengan layar pembuka asli (warna latar, tanda S,
  * ukuran, tengah), supaya tidak ada loncatan. Ketuk di mana saja untuk melewati.
  */
-export function LaunchSplash({ state }: { state: HostState }) {
+export function LaunchSplash({ state }: { state: SplashHost }) {
   if (!state.visible) return null;
   return <Overlay key={state.run} started={state.started} onDone={state.dismiss} />;
 }

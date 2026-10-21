@@ -70,7 +70,15 @@ export function ToastHost() {
   return (
     <Animated.View
       pointerEvents="none"
-      style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 16 + (tabBar ? TAB_BAR : 0) }}
+      // zIndex: di atas layar pembuka (yang selalu anak terakhir).
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: insets.bottom + 16 + (tabBar ? TAB_BAR : 0),
+        zIndex: 100,
+        elevation: 100,
+      }}
     >
       <Toast key={id} text={text} />
     </Animated.View>

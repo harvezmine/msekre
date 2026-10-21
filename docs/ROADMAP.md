@@ -489,6 +489,8 @@ Dijalankan di build EAS `preview` di Android sungguhan, mode contoh dulu, lalu m
 3. **Dilewati.** Dibuka dari alarm yang berbunyi atau dari ketukan notifikasi: langsung ke layar tujuan tanpa animasi
    menutupi tombol Matikan atau Tunda.
 4. **Sinyal buruk.** Pemeriksaan sesi macet: layar pembuka tidak menahan aplikasi lebih dari enam detik.
+5. **Buka kembali setelah 30 menit.** Lewat ikon: animasi tampil sekali dan tidak mulai ulang di tengah jalan. Lewat
+   ketukan notifikasi atau alarm yang berbunyi: langsung ke tujuan tanpa animasi. Toast yang muncul tetap terbaca.
 
 ### Dokumen
 1. Buka berkas Excel dan PDF dari chat: terbuka di aplikasi pembuka bawaan HP (Drive, WPS); tanpa aplikasi pembuka,
