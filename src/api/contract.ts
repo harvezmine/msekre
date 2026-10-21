@@ -65,6 +65,8 @@
  * - 401 `tidak_masuk`: token tidak ada, salah, atau sudah keluar. Aplikasi menghapus sesi dan kembali ke layar masuk;
  * - 403 `diblokir`: akun dinonaktifkan atau diblokir di admin. Sesi tidak dihapus;
  * - 403 `pin_salah`: PIN (atau PIN lama, atau PIN untuk mematikan permintaan PIN) tidak cocok atau hilang. Berbeda dari `diblokir`: sesi tidak dihapus, akun tetap aktif;
+ * - 423 `pin_baru`: PIN baru saja diganti lewat lupa PIN; selama 15 menit aksi yang dijaga PIN (buka kunci, matikan kamera,
+ *   matikan alarm) ditolak walau PIN benar. Pengaman kalau HP dipegang orang lain;
  * - 428 `pin_diperlukan`: aksi perangkat yang dijaga (matikan kamera/alarm, buka kunci) butuh `pin` di isi request,
  *   karena pemilik menghidupkan PIN. Aplikasi lalu meminta PIN dan mengulang dengan `pin`;
  * - 404 `tidak_ditemukan`: id draf, pesan, atau media tidak ada (atau milik orang lain);
@@ -1129,6 +1131,7 @@ export const apiErrorCodeSchema = z.enum([
   'diblokir',
   'pin_salah',
   'pin_diperlukan',
+  'pin_baru',
   'belum_terdaftar',
   'tidak_paham',
   'perlu_pembaruan',

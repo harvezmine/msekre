@@ -502,6 +502,8 @@ Dijalankan di build EAS `preview` di Android sungguhan, mode contoh dulu, lalu m
 3. PIN salah berkali-kali: pesan ramah, titik dikosongkan, tidak macet.
 4. Lupa PIN: kode enam angka dikirim ke WhatsApp, lalu PIN baru dibuat dua kali; PIN lama tidak berlaku lagi.
 5. Pembayaran tidak pernah meminta PIN.
+6. Setelah lupa PIN: tampil "PIN sudah diganti. Kami kirim pemberitahuan ke WhatsApp Anda." dan pemberitahuannya masuk
+   WhatsApp; 15 menit pertama membuka kunci, mematikan kamera, dan mematikan alarm ditolak dengan kalimat pengaman.
 
 ### Build di cloud (EAS)
 

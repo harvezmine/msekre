@@ -183,6 +183,9 @@ const invalid = (cause?: unknown) => new ApiFailure('server', { status: 400, err
 const notFound = () => new ApiFailure('server', { status: 404, error: 'tidak_ditemukan' });
 const wrongStatus = () => new ApiFailure('server', { status: 409, error: 'status_draf' });
 const wrongPin = () => new ApiFailure('pin_wrong', { status: 403, error: 'pin_salah' });
+/** Setelah lupa PIN, aksi yang dijaga PIN ditolak selama ini. */
+export const PIN_COOLDOWN_MS = 15 * 60_000;
+const pinCooldown = () => new ApiFailure('pin_cooldown', { status: 423, error: 'pin_baru' });
 const pinNeeded = () => new ApiFailure('pin_required', { status: 428, error: 'pin_diperlukan' });
 const alreadyChosen = () => new ApiFailure('server', { status: 409, error: 'sudah_dipilih' });
 
@@ -239,6 +242,8 @@ export class FakeTransport implements Transport {
   private pinEnabled: boolean;
   /** Kapan kode lupa PIN terakhir diminta (ms); 0 = belum ada yang menunggu. */
   private pinResetAsked = 0;
+  /** Waktu (jam server tiruan) PIN terakhir diganti lewat lupa PIN; 0 = belum pernah. */
+  private pinResetAt = 0;
   private pinValue: string | null;
 
   /** Utas, dari yang terlama (juga urutan `seq`). Kartu draf di sini bisa usang; keadaan terbaru ada di `drafts`. */
@@ -690,6 +695,7 @@ export class FakeTransport implements Transport {
         throw new ApiFailure('kode_salah', { status: 400, error: 'kode_salah' });
       }
       this.pinResetAsked = 0;
+      this.pinResetAt = this.clock.now();
       this.pinValue = pin;
       this.scheduleAccount();
       return this.securityState();
@@ -735,6 +741,8 @@ export class FakeTransport implements Transport {
       if (r.mode !== undefined && !AC_MODES.includes(r.mode)) throw invalid();
       if (r.fan !== undefined && !AC_FANS.includes(r.fan)) throw invalid();
       if (found.needsPin && r.on === false && this.pinEnabled) {
+        // Server asli juga menolak sebelum memeriksa PIN: PIN yang benar pun tidak dipakai selama pengaman.
+        if (this.pinResetAt > 0 && this.clock.now() - this.pinResetAt < PIN_COOLDOWN_MS) throw pinCooldown();
         if (r.pin === undefined) throw pinNeeded();
         if (r.pin !== this.pinValue) throw wrongPin();
       }

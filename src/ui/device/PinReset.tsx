@@ -8,6 +8,9 @@ import { PrimaryButton } from '../PrimaryButton';
 import { Txt } from '../Txt';
 import { PinPad, type PinVerdict } from './PinPad';
 
+/** Kabar setelah PIN diganti lewat lupa PIN (server juga mengirim pemberitahuan ke WhatsApp). */
+export const PIN_CHANGED_TEXT = 'PIN sudah diganti. Kami kirim pemberitahuan ke WhatsApp Anda.';
+
 const MISMATCH = 'PIN belum sama, ulangi ya.';
 const WRONG_CODE = 'Kodenya belum cocok. Coba lagi ya.';
 

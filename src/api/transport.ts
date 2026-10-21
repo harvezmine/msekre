@@ -60,6 +60,7 @@ import type { DataMode } from './mode';
  * - `not_registered`: nomor belum punya akun (404 `belum_terdaftar` dari `auth/start`); `waNumber` kalau server
  *   menyebutnya. Aplikasi adalah add-on, akun hanya dibuat lewat WhatsApp;
  * - `pin_wrong`: PIN (atau PIN lama) tidak cocok (403 `pin_salah`); sesi dan akun tidak terpengaruh;
+ * - `pin_cooldown`: PIN baru diganti lewat lupa PIN dan aksi yang dijaga ditolak 15 menit (423 `pin_baru`);
  * - `pin_required`: aksi perangkat yang dijaga butuh PIN (428 `pin_diperlukan`); aplikasi meminta PIN lalu mengulang;
  * - `not_understood`: server tidak bisa membaca kalimat agenda (422 `tidak_paham`);
  * - `invalid_name`: nama asisten tidak sah (400 `nama_tidak_valid`);
@@ -75,6 +76,7 @@ export type FailureCode =
   | 'not_registered'
   | 'pin_wrong'
   | 'pin_required'
+  | 'pin_cooldown'
   | 'not_understood'
   | 'invalid_name'
   | 'rate_limited'

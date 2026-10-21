@@ -12,6 +12,9 @@ export const DEVICE_UNAVAILABLE_TEXT = 'Kendali perangkat ini segera hadir.';
 export const NOT_UNDERSTOOD_TEXT = 'Saya belum paham waktunya. Coba tulis misalnya: besok jam 9 rapat.';
 export const NOT_REGISTERED_TEXT = 'Nomor ini belum memakai Sekretaris AI. Mulai dulu lewat WhatsApp ya.';
 export const PIN_NEEDED_TEXT = 'Aksi ini perlu PIN. Masukkan PIN dulu ya.';
+/** PIN baru diganti lewat lupa PIN: aksi yang dijaga PIN ditahan 15 menit. */
+export const PIN_COOLDOWN_TEXT =
+  'PIN baru bisa dipakai untuk membuka pintu 15 menit lagi. Ini pengaman kalau HP dipegang orang lain.';
 export const WRONG_PIN_TEXT = 'PIN belum cocok, coba lagi.';
 export const INVALID_NAME_TEXT = 'Nama asisten cukup huruf saja, 2 sampai 20 huruf.';
 export const TOO_OFTEN_TEXT = 'Tunggu sebentar ya, lalu coba lagi.';
@@ -36,6 +39,8 @@ export function friendlyError(e: unknown): string {
       return NOT_REGISTERED_TEXT;
     case 'pin_required':
       return PIN_NEEDED_TEXT;
+    case 'pin_cooldown':
+      return PIN_COOLDOWN_TEXT;
     case 'pin_wrong':
       return WRONG_PIN_TEXT;
     case 'upgrade_required':

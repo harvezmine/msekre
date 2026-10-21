@@ -19,6 +19,7 @@ const FAILURE_DEFAULTS: Record<FailureCode, [number, string]> = {
   blocked: [403, 'diblokir'],
   not_registered: [404, 'belum_terdaftar'],
   pin_wrong: [403, 'pin_salah'],
+  pin_cooldown: [423, 'pin_baru'],
   pin_required: [428, 'pin_diperlukan'],
   not_understood: [422, 'tidak_paham'],
   invalid_name: [400, 'nama_tidak_valid'],

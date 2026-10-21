@@ -6,6 +6,7 @@ import {
   NOT_REGISTERED_TEXT,
   WRONG_PIN_TEXT,
   DEVICE_UNAVAILABLE_TEXT,
+  PIN_COOLDOWN_TEXT,
   deviceError,
   UNAVAILABLE_TEXT,
   UPGRADE_TEXT,
@@ -840,6 +841,16 @@ describe('kegagalan khusus', () => {
     expect(e).toMatchObject({ code: 'upgrade_required', status: 426 });
     expect(friendlyError(e)).toBe(UPGRADE_TEXT);
     expect(UPGRADE_TEXT).toBe('Ada versi aplikasi yang lebih baru. Perbarui dulu ya.');
+  });
+
+  test('423 pin_baru: pengaman setelah PIN diganti', async () => {
+    const { transport } = setup({ reply: () => ({ status: 423, body: { error: 'pin_baru' } }) });
+    const e = await transport.controlDevice('kunci', { on: false, pin: '123456' }).catch((x: unknown) => x);
+    expect(e).toMatchObject({ code: 'pin_cooldown', status: 423, error: 'pin_baru' });
+    expect(friendlyError(e)).toBe(PIN_COOLDOWN_TEXT);
+    expect(PIN_COOLDOWN_TEXT).toBe(
+      'PIN baru bisa dipakai untuk membuka pintu 15 menit lagi. Ini pengaman kalau HP dipegang orang lain.',
+    );
   });
 
   test('501 belum tersedia (kendali perangkat Fase 3)', async () => {

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useDevices } from '@/api/useDevices';
 import { useHome } from '@/api/useHome';
 import { PinPad } from '@/ui/device/PinPad';
-import { PinReset } from '@/ui/device/PinReset';
+import { PIN_CHANGED_TEXT, PinReset } from '@/ui/device/PinReset';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
@@ -36,7 +36,7 @@ function Isi({ id }: { id: string }) {
         onCancel={() => setResetting(false)}
         onDone={() => {
           setResetting(false);
-          toast('PIN baru tersimpan.');
+          toast(PIN_CHANGED_TEXT);
         }}
       />
     );

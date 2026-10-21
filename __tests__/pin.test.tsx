@@ -108,11 +108,20 @@ test('Lupa PIN: kode dikirim ke WhatsApp, lalu PIN baru dibuat dan dipakai', asy
   await type('654321');
   expect(screen.getByText('Ulangi PIN')).toBeOnTheScreen();
   await type('654321');
-  expect(toastNow()?.text).toBe('PIN baru tersimpan.');
+  expect(toastNow()?.text).toBe('PIN sudah diganti. Kami kirim pemberitahuan ke WhatsApp Anda.');
   // Kembali ke lembar PIN: PIN lama tidak berlaku lagi, PIN baru mematikan kamera.
   expect(screen.getByText('Masukkan PIN')).toBeOnTheScreen();
   await type('123456');
   expect(deviceById(latest, 'kamera-tamu')!.on).toBe(true);
+  // Pengaman: 15 menit pertama setelah PIN diganti, aksi yang dijaga ditolak walau PIN-nya benar.
+  await type('654321');
+  expect(deviceById(latest, 'kamera-tamu')!.on).toBe(true);
+  expect(
+    screen.getByText(
+      'PIN baru bisa dipakai untuk membuka pintu 15 menit lagi. Ini pengaman kalau HP dipegang orang lain.',
+    ),
+  ).toBeOnTheScreen();
+  await advance(15 * 60_000);
   await type('654321');
   expect(deviceById(latest, 'kamera-tamu')!.on).toBe(false);
 });

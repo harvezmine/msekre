@@ -48,6 +48,7 @@ Catatan reviu yang lebih pendek ada di `docs/catatan-server-fase-1b.md`.
 | 426 | `perlu_pembaruan` | Versi aplikasi atau kontrak terlalu lama |
 | 429 | `terlalu_sering` | Terlalu sering; bawa `retryInSec` |
 | 500 | `server` | Kendala lain |
+| 423 | `pin_baru` | PIN baru saja diganti lewat lupa PIN: aksi yang dijaga PIN (buka kunci, matikan kamera, matikan alarm) ditolak 15 menit, walau PIN benar |
 | 428 | `pin_diperlukan` | Aksi perangkat yang dijaga butuh `pin` (PIN dihidupkan pemilik) |
 | 501 | `belum_tersedia` | Jalur ada di kontrak tapi belum diisi server |
 
@@ -795,6 +796,12 @@ langsung jalan. Pembayaran tidak pernah memakai PIN. Semua jalur ini memakai tok
   - `POST /account/pin/reset/verify` dengan `{ "code": "123456", "pin": "654321" }` (objek ketat) → `SecurityRes`.
     Kode cocok menyimpan `pin` sebagai PIN baru (`hasPin: true`); `pinEnabled` tidak berubah. Kode salah atau
     kedaluwarsa: 400 `kode_salah`. Beri batas percobaan salah.
+  - **Pengaman setelah ganti PIN (aturan server).** Begitu `reset/verify` berhasil, server (1) mengirim pemberitahuan
+    WhatsApp ke pemilik: "PIN Anda baru saja diganti lewat aplikasi. Kalau bukan Anda, balas pesan ini.", dan (2) menahan
+    aksi yang dijaga PIN (buka kunci, matikan kamera, matikan alarm) selama 15 menit: dibalas **423 `pin_baru`**,
+    sebelum PIN diperiksa. Aplikasi menampilkan "PIN baru bisa dipakai untuk membuka pintu 15 menit lagi. Ini pengaman
+    kalau HP dipegang orang lain." Setelah PIN berhasil diganti aplikasi menampilkan "PIN sudah diganti. Kami kirim
+    pemberitahuan ke WhatsApp Anda."
   - Aplikasi: "Lupa PIN?" di lembar PIN dan di Keamanan membuka alur "Kode dikirim ke WhatsApp Anda" (kirim kode,
     masukkan kode, buat PIN baru, ulangi). Kode dan PIN baru dikirim bersama di langkah terakhir; kode salah
     mengembalikan ke langkah kode. Server tiruan: kode `123456` cocok, kode lain `kode_salah` (`000000` contohnya).

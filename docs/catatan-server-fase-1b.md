@@ -209,7 +209,9 @@ Semua aditif atau memperketat aturan yang belum pernah dipakai server asli; `CON
   salah). `POST /account/pin` menerima `enable: true` (PIN tersimpan dan permintaan PIN hidup dalam satu transaksi).
 - **Lupa PIN**: `POST /account/pin/reset/start` mengirim kode 6 angka lewat WhatsApp (pakai jalur kode masuk yang ada, batas
   laju sama) dan `POST /account/pin/reset/verify { code, pin }` menyimpan PIN baru; kode salah/kedaluwarsa 400 `kode_salah`,
-  kode sekali pakai. `pinEnabled` tidak berubah.
+  kode sekali pakai. `pinEnabled` tidak berubah. **Pengaman setelah ganti PIN:** begitu berhasil, kirim WhatsApp "PIN Anda baru
+  saja diganti lewat aplikasi. Kalau bukan Anda, balas pesan ini." dan tahan aksi yang dijaga PIN (buka kunci, matikan kamera,
+  matikan alarm) 15 menit dengan 423 `pin_baru` (sebelum PIN diperiksa).
 - **`rev` tidak pernah turun di aplikasi.** Server tidak boleh menurunkan `rev` per pengguna (termasuk setelah restart).
   Aplikasi membuang jawaban muat yang `rev`-nya lebih kecil dari yang dipegang.
 

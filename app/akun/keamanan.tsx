@@ -6,7 +6,7 @@ import { useSecurity } from '@/api/useSecurity';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { PinPad, type PinVerdict } from '@/ui/device/PinPad';
-import { PinReset } from '@/ui/device/PinReset';
+import { PIN_CHANGED_TEXT, PinReset } from '@/ui/device/PinReset';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Toggle } from '@/ui/Toggle';
 import { Txt } from '@/ui/Txt';
@@ -108,7 +108,7 @@ export default function Keamanan() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: insets.bottom + 32 }}
         >
-          <PinReset onCancel={() => setFlow(null)} onDone={() => finish('PIN baru tersimpan.')} />
+          <PinReset onCancel={() => setFlow(null)} onDone={() => finish(PIN_CHANGED_TEXT)} />
         </ScrollView>
       </View>
     );
