@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { useEffect, useState, type Ref } from 'react';
 import { Keyboard, Pressable, TextInput, View, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +7,7 @@ import { FONT } from '@/theme/tokens';
 import { Icon } from '../Icon';
 import { IconButton } from '../IconButton';
 import { useToast } from '@/ui/toastStore';
+import { useOpenVoice } from '@/voice/available';
 
 interface Props {
   value: string;
@@ -27,6 +27,7 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
   const assistantName = useAssistantName();
   const { c } = useTheme();
   const toast = useToast();
+  const openSuara = useOpenVoice();
   const insets = useSafeAreaInsets();
   // Saat keyboard terbuka, area gestur di bawah tertutup keyboard: tak perlu jarak tambahan.
   const [keyboard, setKeyboard] = useState(false);
@@ -90,7 +91,7 @@ export function Composer({ value, onChangeText, onSend, inputRef, strongMic = fa
         accessibilityLabel={hasText ? 'Kirim pesan' : 'Bicara'}
         accessibilityState={{ disabled: off }}
         disabled={off}
-        onPress={hasText ? onSend : () => router.replace('/suara')}
+        onPress={hasText ? onSend : () => openSuara('replace')}
         style={{
           width: 52,
           height: 52,

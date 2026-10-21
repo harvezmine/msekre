@@ -1,6 +1,7 @@
 /** Tiruan `expo-audio` untuk jest.setup.ts. Kendalinya: __tests__/audioMock.ts. */
 export function createExpoAudioMock() {
-  type MockListener = (status: { didJustFinish: boolean }) => void;
+  type MockStatus = { didJustFinish?: boolean; error?: string | null; duration?: number };
+  type MockListener = (status: MockStatus) => void;
   type MockOnBuffer = (b: { data: ArrayBuffer; sampleRate: number; channels: number; timestamp: number }) => void;
   const audio = {
     permission: { status: 'granted', granted: true, canAskAgain: true } as {
@@ -34,7 +35,12 @@ export function createExpoAudioMock() {
       audio.onBuffer?.({ data, sampleRate, channels: 1, timestamp: 0 });
     },
     finishPlayback(index?: number): void {
-      for (const l of audio.players[index ?? audio.players.length - 1]?.listeners ?? []) l({ didJustFinish: true });
+      audio.statusUpdate({ didJustFinish: true }, index);
+    },
+    /** Status pemutaran dari pemutar (bawaan yang terakhir): `error`, `duration`, dan seterusnya. */
+    statusUpdate(status: MockStatus, index?: number): void {
+      const full = { didJustFinish: false, error: null, duration: 0, ...status };
+      for (const l of audio.players[index ?? audio.players.length - 1]?.listeners ?? []) l(full);
     },
   };
   const stream = {

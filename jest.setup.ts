@@ -80,6 +80,16 @@ jest.mock('expo-file-system', () => {
     }
     create = jest.fn();
     write = jest.fn(() => Promise.resolve());
+    /** Isi yang ditulis lewat `writeSync`, dari yang pertama. */
+    static writes: { uri: string; content: unknown; options: unknown }[] = [];
+    writeSync = jest.fn((content: unknown, options: unknown) => {
+      File.writes.push({ uri: this.uri, content, options });
+    });
+    /** Berkas yang dibuang (`delete`), dari yang pertama. */
+    static deleted: string[] = [];
+    delete() {
+      File.deleted.push(this.uri);
+    }
     static downloadFileAsync = jest.fn((_url: string, destination: { uri: string }) =>
       Promise.resolve(new File(destination.uri)),
     );

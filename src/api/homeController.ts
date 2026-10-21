@@ -1,6 +1,6 @@
 import type { OrbitNode } from '@/ui/orbit/types';
 import { iconOr } from '@/ui/icons';
-import { friendlyError } from './errors';
+import { deviceError, friendlyError } from './errors';
 import type { Home, StreamEvent } from './contract';
 import type { Transport, Unsubscribe } from './transport';
 
@@ -108,7 +108,7 @@ export class HomeController {
       void this.load();
       return null;
     } catch (e) {
-      return friendlyError(e);
+      return deviceError(e);
     }
   };
 

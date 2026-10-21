@@ -1,4 +1,4 @@
-import { WS_CLOSE_IDLE, WS_CLOSE_UNAUTHORIZED } from '@/api/contract';
+import { WS_CLOSE_IDLE, WS_CLOSE_UNAUTHORIZED, WS_CLOSE_VOICE_UNAVAILABLE } from '@/api/contract';
 import { parseMessageLenient, parseVoiceEventLenient } from '@/api/lenient';
 import { HttpTransport, type SocketLike } from '@/api/http';
 import { createMemorySession } from '@/api/session';
@@ -6,15 +6,19 @@ import type { VoiceCloseReason } from '@/api/transport';
 import type { Speaker, SpeechSource } from '@/voice/audio';
 import {
   HINT_HOLD,
+  NOT_HEARD_TEXT,
   OFFLINE_TEXT,
   SIGNED_OUT_TEXT,
   SPEECH_GATHER_MS,
   SPEECH_WAIT_MS,
+  TURN_TIMEOUT_MS,
+  TURN_TIMEOUT_TEXT,
   VoiceController,
   type VoiceDeps,
 } from '@/voice/controller';
 import { fromBase64, level, silentWav, toBase64, toVoiceFormat } from '@/voice/pcm';
 import { ERROR_TEXT } from '@/api/errors';
+import { VOICE_SOON_TEXT } from '@/voice/texts';
 import { audio } from './audioMock';
 
 const BASE = 'https://app.sekertaris.com';
@@ -113,6 +117,32 @@ describe('HttpTransport.openVoice', () => {
     sockets[0]!.serve({ type: 'end', reason: 'selesai' });
     expect(sockets[0]!.closedWith).toBe(1000);
     expect(reasons).toEqual(['ended']);
+  });
+
+  test('end dengan alasan cancelled hanya pengakuan: soket tetap terbuka dan event sampai', async () => {
+    const { sockets, transport } = setup();
+    const voice = transport.openVoice();
+    const reasons: VoiceCloseReason[] = [];
+    const seen: unknown[] = [];
+    voice.onClose((r) => reasons.push(r));
+    voice.onEvent((e) => seen.push(e));
+    await flush();
+    sockets[0]!.onopen?.({});
+    sockets[0]!.serve({ type: 'end', reason: 'cancelled', turn: 's-1' });
+    expect(sockets[0]!.closedWith).toBeNull();
+    expect(reasons).toEqual([]);
+    expect(seen).toEqual([{ type: 'end', reason: 'cancelled', turn: 's-1' }]);
+  });
+
+  test('4501 belum tersedia dibaca sebagai unavailable', async () => {
+    const { sockets, transport } = setup();
+    const voice = transport.openVoice();
+    const reasons: VoiceCloseReason[] = [];
+    voice.onClose((r) => reasons.push(r));
+    await flush();
+    sockets[0]!.onopen?.({});
+    sockets[0]!.drop(WS_CLOSE_VOICE_UNAVAILABLE);
+    expect(reasons).toEqual(['unavailable']);
   });
 
   test('close dari aplikasi menutup soket tanpa memanggil onClose', async () => {
@@ -368,6 +398,251 @@ describe('VoiceController dengan HttpTransport', () => {
     expect(ctx.controller.getState().phase).toBe('idle');
   });
 
+  const clip = () => toBase64(silentWav(100));
+  const startId = (ws: FakeSocket) => ws.sent.find((m) => m.type === 'start')!.clientId as string;
+
+  test('sisa event dari giliran yang dibatalkan, saat Inti ditahan lagi: diabaikan, mikrofon tetap merekam', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(1600));
+    // Bertanda giliran lama, dan yang tanpa tanda sama sekali (bacaan longgar): tidak mengubah apa pun.
+    ws.serve({ type: 'reply', text: 'Lama', messageId: 'x', turn: 'suara-lama' });
+    ws.serve({ type: 'audio', seq: 0, data: clip(), mime: 'audio/wav', final: true, turn: 'suara-lama' });
+    ws.serve({ type: 'reply', text: 'Tanpa giliran' });
+    ws.serve({ type: 'audio', seq: 0, data: clip(), mime: 'audio/wav', final: true });
+    ws.serve({ type: 'speech', mediaId: 'ucapan-1', mime: 'audio/mpeg' });
+    ws.serve({ type: 'confirm', card: { kind: 'payment', title: 'T', amountRp: 1, lines: [], ask: 'Ya?' } });
+    ws.serve({ type: 'transcript', text: 'ucapan lama', final: true });
+    await flush();
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'listening', reply: null, confirm: null, transcript: '' });
+    expect(ctx.played).toHaveLength(0);
+    expect(ctx.mic.stop).not.toHaveBeenCalled();
+    // Teks sementara dari giliran ini tetap tampil.
+    ws.serve({ type: 'transcript', text: 'halo', final: false, turn: startId(ws) });
+    expect(ctx.controller.getState().transcript).toBe('halo');
+    ctx.controller.pushBuffer(pcm(8000));
+    await ctx.controller.holdEnd();
+    expect(ws.sent.at(-1)).toEqual({ type: 'stop' });
+    expect(ctx.mic.stop).toHaveBeenCalledTimes(1);
+  });
+
+  test('event bertanda giliran lain dibuang setelah menyela; giliran yang berjalan diterima', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    const first = startId(ws);
+    ctx.controller.pushBuffer(pcm(8000));
+    await ctx.controller.holdEnd();
+    expect(ctx.controller.getState().phase).toBe('sending');
+    await ctx.controller.holdStart();
+    const second = ws.sent.filter((m) => m.type === 'start')[1]!.clientId as string;
+    expect(second).not.toBe(first);
+    // Pengakuan batal giliran pertama tidak menyentuh keadaan, soket tetap terbuka.
+    ws.serve({ type: 'end', reason: 'cancelled', turn: first });
+    ws.serve({ type: 'error', code: 'stt_down', turn: first });
+    expect(ws.closedWith).toBeNull();
+    expect(ctx.controller.getState().phase).toBe('listening');
+    ws.serve({ type: 'transcript', text: 'baru', final: false, turn: second });
+    expect(ctx.controller.getState().transcript).toBe('baru');
+  });
+
+  test('keluar dari mendengar lewat jalan apa pun mematikan mikrofon, cincin, dan batas 30 detik', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(1600));
+    ws.serve({ type: 'error', code: 'stt_down', turn: startId(ws) });
+    expect(ctx.controller.getState().phase).toBe('error');
+    expect(ctx.mic.stop).toHaveBeenCalledTimes(1);
+    expect(ctx.levels.at(-1)).toBe(0);
+    const sent = ws.sent.length;
+    jest.advanceTimersByTime(40_000);
+    await flush();
+    expect(ws.sent).toHaveLength(sent);
+    expect(ctx.mic.stop).toHaveBeenCalledTimes(1);
+
+    // Server memutuskan ucapan selesai (thinking) juga mematikannya.
+    await ctx.controller.holdEnd();
+    await ctx.controller.holdStart();
+    ws.serve({ type: 'thinking', on: true, turn: ws.sent.filter((m) => m.type === 'start')[1]!.clientId });
+    expect(ctx.controller.getState().phase).toBe('thinking');
+    expect(ctx.mic.stop).toHaveBeenCalledTimes(2);
+  });
+
+  test('ke latar saat balasan berjalan atau saat menahan: mikrofon dan suara berhenti', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(1600));
+    ctx.controller.suspend();
+    expect(ctx.mic.stop).toHaveBeenCalledTimes(1);
+    expect(ws.sent.at(-1)).toEqual({ type: 'cancel' });
+    expect(ctx.controller.getState().phase).toBe('idle');
+    // Balasan dari giliran yang baru saja dibatalkan datang terlambat.
+    ws.serve({ type: 'reply', text: 'Terlambat', messageId: 'x', turn: startId(ws) });
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', reply: null });
+
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(8000));
+    await ctx.controller.holdEnd();
+    ws.serve({
+      type: 'reply',
+      text: 'Halo',
+      messageId: 'm1',
+      turn: ws.sent.filter((m) => m.type === 'start')[1]!.clientId,
+    });
+    expect(ctx.controller.getState().phase).toBe('speaking');
+    ctx.controller.suspend();
+    expect(ctx.speaker.stop).toHaveBeenCalled();
+    expect(ctx.controller.getState().phase).toBe('idle');
+  });
+
+  test('keadaan berubah sebelum stop dikirim', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    const phases: string[] = [];
+    const send = ws.send.bind(ws);
+    ws.send = (data: string) => {
+      phases.push(`${(JSON.parse(data) as { type: string }).type}:${ctx.controller.getState().phase}`);
+      send(data);
+    };
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(8000));
+    await ctx.controller.holdEnd();
+    expect(phases.at(-1)).toBe('stop:sending');
+  });
+
+  test('dua balasan: dua klip diantre berurutan, pengatur waktu balasan pertama dibersihkan', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    ws.serve({ type: 'reply', text: 'Sebentar ya', messageId: 'm1' });
+    ws.serve({ type: 'audio', seq: 0, data: clip(), mime: 'audio/wav', final: true });
+    ws.serve({ type: 'reply', text: 'Ini jawabannya', messageId: 'm2' });
+    ws.serve({ type: 'audio', seq: 0, data: clip(), mime: 'audio/wav', final: true });
+    expect(ctx.played.map((p) => p.source.uri)).toEqual([
+      expect.stringMatching(/balasan-1\.wav$/),
+      expect.stringMatching(/balasan-2\.wav$/),
+    ]);
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'speaking', reply: 'Ini jawabannya' });
+    // Menunggu lama: klip masih berjalan, jangan dianggap selesai.
+    jest.advanceTimersByTime(SPEECH_WAIT_MS * 2);
+    expect(ctx.controller.getState().phase).toBe('speaking');
+    ctx.played[0]!.done();
+    expect(ctx.controller.getState().phase).toBe('speaking');
+    ctx.played[1]!.done();
+    expect(ctx.controller.getState().phase).toBe('idle');
+  });
+
+  test('balasan kedua datang saat suara balasan pertama belum diputar: yang terkumpul diputar dulu', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    ws.serve({ type: 'reply', text: 'Satu', messageId: 'm1' });
+    ws.serve({ type: 'audio', seq: 0, data: clip(), mime: 'audio/wav' });
+    expect(ctx.played).toHaveLength(0);
+    ws.serve({ type: 'reply', text: 'Dua', messageId: 'm2' });
+    expect(ctx.played).toHaveLength(1);
+    ws.serve({ type: 'audio', seq: 0, data: clip(), mime: 'audio/wav', final: true });
+    expect(ctx.played).toHaveLength(2);
+  });
+
+  test('end dan penutupan biasa: hanya mikrofon dihentikan, suara yang berjalan diselesaikan', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    ws.serve({ type: 'reply', text: 'Halo', messageId: 'm1' });
+    ws.serve({ type: 'audio', seq: 0, data: clip(), mime: 'audio/wav', final: true });
+    ws.serve({ type: 'audio', seq: 1, data: clip(), mime: 'audio/wav' });
+    jest.mocked(ctx.speaker.stop).mockClear();
+    ws.serve({ type: 'end', reason: 'selesai' });
+    // Potongan terakhir yang belum diputar ikut diputar; tidak ada yang dipotong.
+    expect(ctx.speaker.stop).not.toHaveBeenCalled();
+    expect(ctx.played).toHaveLength(2);
+    expect(ctx.controller.getState().phase).toBe('speaking');
+    ctx.played[0]!.done();
+    expect(ctx.controller.getState().phase).toBe('speaking');
+    ctx.played[1]!.done();
+    expect(ctx.controller.getState().phase).toBe('idle');
+  });
+
+  test('end tanpa suara yang berjalan: langsung siap', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    ws.serve({ type: 'reply', text: 'Halo', messageId: 'm1' });
+    ws.serve({ type: 'end' });
+    expect(ctx.controller.getState().phase).toBe('idle');
+  });
+
+  test('tidak terdengar: kalimat sendiri, bukan teks kendala umum', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(8000));
+    await ctx.controller.holdEnd();
+    const turn = startId(ws);
+    ws.serve({ type: 'transcript', text: '', final: true, turn });
+    ws.serve({ type: 'error', code: 'tidak_terdengar', turn });
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: NOT_HEARD_TEXT });
+    expect(NOT_HEARD_TEXT).toBe('Belum terdengar, coba lagi ya.');
+  });
+
+  test('menunggu balasan lebih dari 25 detik: kendala yang jelas, boleh coba lagi', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(8000));
+    await ctx.controller.holdEnd();
+    expect(ctx.controller.getState().phase).toBe('sending');
+    jest.advanceTimersByTime(TURN_TIMEOUT_MS - 1);
+    expect(ctx.controller.getState().phase).toBe('sending');
+    jest.advanceTimersByTime(1);
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'error', note: TURN_TIMEOUT_TEXT });
+    expect(TURN_TIMEOUT_TEXT).toBe('Lama sekali, coba lagi ya.');
+    expect(ws.sent.at(-1)).toEqual({ type: 'cancel' });
+    // Balasan yang datang sesudahnya dari giliran itu dibuang.
+    ws.serve({ type: 'reply', text: 'Terlambat', messageId: 'x', turn: startId(ws) });
+    expect(ctx.controller.getState().reply).toBeNull();
+    await ctx.controller.holdStart();
+    expect(ctx.controller.getState().phase).toBe('listening');
+  });
+
+  test('batas tunggu juga berlaku saat berpikir, dan hilang begitu balasan datang', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    ctx.controller.sendText('Halo');
+    const turn = ws.sent.find((m) => m.type === 'text')!.clientId as string;
+    expect(typeof turn).toBe('string');
+    jest.advanceTimersByTime(TURN_TIMEOUT_MS - 1000);
+    ws.serve({ type: 'reply', text: 'Halo juga', messageId: 'm1', turn });
+    jest.advanceTimersByTime(TURN_TIMEOUT_MS);
+    expect(ctx.controller.getState().note).toBeNull();
+    expect(ctx.controller.getState().reply).toBe('Halo juga');
+
+    ctx.controller.sendText('Lagi');
+    jest.advanceTimersByTime(TURN_TIMEOUT_MS);
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'error', note: TURN_TIMEOUT_TEXT });
+  });
+
+  test('4501 belum tersedia: Inti mati dengan catatan segera hadir', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    ws.drop(WS_CLOSE_VOICE_UNAVAILABLE);
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'off', note: VOICE_SOON_TEXT });
+    expect(VOICE_SOON_TEXT).toBe('Mode Suara segera hadir.');
+  });
+
+  test('pengakuan batal dari server tidak menutup soket', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(1600));
+    ctx.controller.suspend();
+    ws.serve({ type: 'end', reason: 'cancelled', turn: startId(ws) });
+    expect(ws.closedWith).toBeNull();
+    await ctx.controller.holdStart();
+    expect(ctx.sockets).toHaveLength(1);
+    expect(ctx.controller.getState().phase).toBe('listening');
+  });
+
   test('dispose menutup soket', async () => {
     const ctx = build();
     const ws = await open(ctx);
@@ -383,6 +658,32 @@ describe('bacaan dan perkakas', () => {
     expect(parseVoiceEventLenient({ type: 'audio', seq: 0, data: 'AAAA', mime: 'image/png' })).toBeNull();
     expect(parseVoiceEventLenient({ type: 'end' })).toEqual({ type: 'end' });
     expect(parseVoiceEventLenient({ type: 'error', code: 'x' })).toEqual({ type: 'error', code: 'x' });
+  });
+
+  test('parseVoiceEventLenient: reply tanpa messageId diterima, turn dibawa atau dibuang bila rusak', () => {
+    expect(parseVoiceEventLenient({ type: 'reply', text: 'Halo' })).toEqual({ type: 'reply', text: 'Halo' });
+    expect(parseVoiceEventLenient({ type: 'reply', text: 'Halo', turn: 's-1' })).toEqual({
+      type: 'reply',
+      text: 'Halo',
+      turn: 's-1',
+    });
+    expect(parseVoiceEventLenient({ type: 'reply', text: 'Halo', turn: 5 })).toEqual({ type: 'reply', text: 'Halo' });
+    expect(parseVoiceEventLenient({ type: 'transcript', text: 'a', turn: 's-1' })).toEqual({
+      type: 'transcript',
+      text: 'a',
+      final: false,
+      turn: 's-1',
+    });
+    expect(parseVoiceEventLenient({ type: 'end', reason: 'cancelled', turn: 's-1' })).toEqual({
+      type: 'end',
+      reason: 'cancelled',
+      turn: 's-1',
+    });
+    expect(parseVoiceEventLenient({ type: 'confirm', card: { kind: 'baru' }, turn: 's-1' })).toEqual({
+      type: 'error',
+      code: 'kartu_tidak_dikenal',
+      turn: 's-1',
+    });
   });
 
   test('pesan bertanda suara dibaca, juga lewat jalur longgar', () => {

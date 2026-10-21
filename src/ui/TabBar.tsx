@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { useContext } from 'react';
 import { Pressable, View } from 'react-native';
+import { useOpenVoice } from '@/voice/available';
 import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from './Icon';
@@ -23,10 +24,11 @@ export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarPr
   const assistantName = useAssistantName();
   const { c, scheme } = useTheme();
   const live = useContext(TabsLiveContext);
+  const openSuara = useOpenVoice();
 
   const openVoice = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.navigate('/suara');
+    openSuara('navigate');
   };
 
   const tab = (index: number) => {

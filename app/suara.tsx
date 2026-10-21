@@ -12,7 +12,9 @@ import { Inti, type IntiState } from '@/ui/inti/Inti';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
 import { ConfirmArea } from '@/voice/ConfirmArea';
+import { useVoiceAvailable } from '@/voice/available';
 import { HINT_HOLD, type VoicePhase } from '@/voice/controller';
+import { VOICE_SOON_TEXT } from '@/voice/texts';
 import { useVoice } from '@/voice/useVoice';
 
 const INTI: Record<VoicePhase, IntiState> = {
@@ -25,8 +27,53 @@ const INTI: Record<VoicePhase, IntiState> = {
   error: 'off',
 };
 
-/** Mode Suara: tahan Inti sambil bicara, lepas untuk mengirim. Teksnya selalu tampil. */
+/** Mode Suara: tahan Inti sambil bicara, lepas untuk mengirim. Teksnya selalu tampil. Belum tersedia: hanya catatan. */
 export default function Suara() {
+  return useVoiceAvailable() ? <SuaraAktif /> : <SuaraSegera />;
+}
+
+/** Akun yang belum mendapat Mode Suara: tidak membuka sesi atau mikrofon. */
+function SuaraSegera() {
+  const { c } = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: c.voice,
+        paddingTop: insets.top + 24,
+        paddingBottom: insets.bottom + 36,
+        paddingHorizontal: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 32,
+      }}
+    >
+      <StatusBar style="light" />
+      <Txt testID="suara-segera" v="title" color={onForest.strong} style={{ textAlign: 'center' }}>
+        {VOICE_SOON_TEXT}
+      </Txt>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Selesai"
+        onPress={() => router.back()}
+        style={{
+          height: 56,
+          paddingHorizontal: 40,
+          borderRadius: 28,
+          backgroundColor: onForest.strong,
+          justifyContent: 'center',
+        }}
+      >
+        <Txt v="subtitle" color="#0E3A2C">
+          Selesai
+        </Txt>
+      </Pressable>
+    </View>
+  );
+}
+
+function SuaraAktif() {
   const assistantName = useAssistantName();
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -45,6 +92,9 @@ export default function Suara() {
     <View style={{ flex: 1, backgroundColor: c.voice }}>
       <StatusBar style="light" />
       <ScrollView
+        // Lembar izin tampil: isi di belakangnya tidak dibaca TalkBack.
+        importantForAccessibility={voice.permission ? 'no-hide-descendants' : 'auto'}
+        accessibilityElementsHidden={voice.permission !== null}
         bounces={false}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -109,6 +159,7 @@ export default function Suara() {
               </Txt>
               <Txt
                 testID="suara-balasan"
+                accessibilityLiveRegion="polite"
                 weight={600}
                 color={onForest.strong}
                 style={{ fontSize: 26, lineHeight: 34, letterSpacing: -0.26 }}
@@ -127,7 +178,7 @@ export default function Suara() {
         {typing ? <TypeBar onSend={(text) => voice.sendText(text)} /> : null}
         <View style={{ paddingHorizontal: 20, paddingTop: 24, flexDirection: 'row', alignItems: 'flex-start' }}>
           <RoundAction
-            icon="micOff"
+            icon={muted ? 'speakerOff' : 'speaker'}
             label={muted ? 'Suarakan' : 'Bisukan'}
             pressed={muted}
             onPress={() => voice.setMuted(!muted)}
@@ -154,13 +205,15 @@ export default function Suara() {
       </ScrollView>
       {voice.permission ? (
         <PermissionPanel
-          blocked={voice.permission === 'blocked'}
+          blocked={voice.permission !== 'explain'}
+          waiting={voice.permission === 'waiting'}
           bottom={insets.bottom}
           background={c.voice}
           onAllow={() => void voice.requestPermission()}
           onSettings={() => {
             void Linking.openSettings().catch(() => {});
-            voice.closePermission();
+            // Lembar tetap ada; saat pengguna kembali izinnya dicek lagi.
+            voice.waitForSettings();
           }}
           onClose={voice.closePermission}
         />
@@ -266,6 +319,7 @@ function TypeBar({ onSend }: { onSend: (text: string) => void }) {
 /** Lembar izin mikrofon: penjelasan ramah dulu, lalu pengaturan HP kalau sudah ditolak. */
 function PermissionPanel({
   blocked,
+  waiting,
   bottom,
   background,
   onAllow,
@@ -273,6 +327,7 @@ function PermissionPanel({
   onClose,
 }: {
   blocked: boolean;
+  waiting: boolean;
   bottom: number;
   background: string;
   onAllow: () => void;
@@ -282,6 +337,7 @@ function PermissionPanel({
   return (
     <View
       testID="suara-izin"
+      accessibilityViewIsModal
       style={{
         position: 'absolute',
         left: 0,
@@ -299,12 +355,14 @@ function PermissionPanel({
       }}
     >
       <Txt v="title" color={onForest.strong}>
-        {blocked ? 'Mikrofon sedang dimatikan' : 'Izinkan mikrofon ya'}
+        {waiting ? 'Menunggu mikrofon dinyalakan' : blocked ? 'Mikrofon sedang dimatikan' : 'Izinkan mikrofon ya'}
       </Txt>
       <Txt color={onForest.text}>
-        {blocked
-          ? 'Nyalakan lewat pengaturan HP supaya saya bisa mendengar Anda.'
-          : 'Saya perlu mikrofon untuk mendengar Anda bicara. Suaranya hanya dipakai saat Inti ditahan.'}
+        {waiting
+          ? 'Nyalakan mikrofon di pengaturan HP, lalu kembali ke sini.'
+          : blocked
+            ? 'Nyalakan lewat pengaturan HP supaya saya bisa mendengar Anda.'
+            : 'Saya perlu mikrofon untuk mendengar Anda bicara. Suaranya hanya dipakai saat Inti ditahan.'}
       </Txt>
       <View style={{ gap: 8, paddingTop: 16 }}>
         <Pressable

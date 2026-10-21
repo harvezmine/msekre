@@ -333,6 +333,14 @@ Aturan yang wajib dipegang server:
 - Ucapan paling lama 30 detik; teks ucapan (`transcript`) dan teks balasan (`reply`) selalu dikirim, juga bila suara
   dibisukan di aplikasi.
 - Balasan memakai nama dan gaya asisten pengguna, dalam gaya lisan.
+- **Id giliran:** salin `clientId` dari `start`/`text` ke field `turn` di SETIAP event giliran itu; aplikasi membuang event
+  dengan `turn` lain (sisa ucapan yang dibatalkan). Balas `cancel` dengan `end` `reason: "cancelled"` tanpa menutup soket.
+- **Setiap giliran selesai dengan `transcript` final lalu `reply` atau `error`.** Tidak ada ucapan terbaca: `error` kode
+  `tidak_terdengar`. Aplikasi menyerah setelah 25 detik tanpa jawaban.
+- **Satu aliran audio per `reply`**; kalimat pengisi adalah `reply` tersendiri yang diputar berurutan.
+- **Kirim `end` sesungguhnya hanya setelah audio terakhir terkirim.** Aplikasi tidak memotong suara yang sedang diputar.
+- `GET /me` membawa `features.voice`; `false`/hilang membuat semua pintu masuk Mode Suara memunculkan "segera hadir". Server
+  boleh menutup soket dengan 4501 `belum_tersedia` untuk hal yang sama.
 
 **Keputusan untuk founder (belum dipilih, jangan dikunci di kode):**
 1. Suara jadi teks (STT) berbahasa Indonesia, yang menerima aliran PCM 16 kHz: Google Speech-to-Text (streaming),
@@ -342,6 +350,6 @@ Aturan yang wajib dipegang server:
    Azure Neural (id-ID). Pengaruh: pakai `audio` (potongan) atau `speech` (berkas streaming), harga per karakter, dan
    apakah nama asisten pilihan pengguna boleh punya suara berbeda (pria/wanita).
 3. Deteksi selesai bicara di server (VAD) untuk percakapan bebas tangan: aplikasi sekarang hanya tahan-untuk-bicara.
-4. Kalimat pengisi untuk tool yang lama ("Sebentar, saya cek dulu") dikirim sebagai `reply` sementara atau `audio`
-   terpisah?
+4. Kalimat pengisi untuk tool yang lama ("Sebentar, saya cek dulu"): aplikasi sudah siap menerimanya sebagai `reply`
+   tersendiri dengan audionya sendiri (diputar berurutan).
 5. Batas pemakaian suara per paket (biaya STT/TTS) dan apakah Mode Suara termasuk paket dasar.

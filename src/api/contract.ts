@@ -163,6 +163,8 @@ export const STREAM_PING_SEC = 25;
 export const WS_CLOSE_UNAUTHORIZED = 4401;
 /** Kode tutup soket suara yang diam terlalu lama. */
 export const WS_CLOSE_IDLE = 4408;
+/** Kode tutup soket suara: Mode Suara belum tersedia untuk akun ini (`belum_tersedia`). Aplikasi menampilkan catatan "segera hadir". */
+export const WS_CLOSE_VOICE_UNAVAILABLE = 4501;
 /** Panjang maksimum teks pesan atau draf. */
 export const TEXT_MAX = 4096;
 
@@ -193,6 +195,11 @@ export const meSchema = z.object({
   plan: z.object({ name: z.string().min(1), activeUntil: isoDateTimeSchema.nullable() }),
   /** Nomor WhatsApp akun ini (E.164 tanpa "+"), untuk ditampilkan di Akun bila `name` kosong. */
   phone: phoneSchema,
+  /**
+   * Fitur yang boleh dipakai akun ini. `voice`: Mode Suara. Hilang = belum (mode server); mode contoh selalu menyalakannya.
+   * Aplikasi membaca ini dengan longgar: bentuk yang salah dianggap tidak ada.
+   */
+  features: z.object({ voice: z.boolean().optional() }).optional().catch(undefined),
 });
 
 export const authVerifyResSchema = z.object({ token: z.string().min(1), user: meSchema });
@@ -1267,15 +1274,24 @@ export const voiceClientMessageSchema = z.discriminatedUnion('type', [
   /** Buang ucapan ini tanpa menjawab (atau hentikan balasan yang sedang diucapkan). */
   z.object({ type: z.literal('cancel') }),
   /** Pindah ke ketik di dalam Mode Suara: kalimat ini diperlakukan seperti hasil ucapan yang final. */
-  z.object({ type: z.literal('text'), text: textSchema }),
+  z.object({ type: z.literal('text'), text: textSchema, clientId: clientIdSchema.optional() }),
 ]);
+
+/**
+ * `turn` = `clientId` dari `start` (atau `text`) yang dijawab event ini. Server mengisinya di SETIAP event; aplikasi
+ * membuang event dari giliran yang sudah dibatalkan. Event tanpa `turn` tetap diterima (bacaan longgar).
+ */
+const turnField = { turn: clientIdSchema.optional() };
 
 export const voiceEventSchema = z.discriminatedUnion('type', [
   /** Teks ucapan; `final: false` sementara (bisa berubah), `final: true` dipakai untuk menjawab. */
-  z.object({ type: z.literal('transcript'), text: z.string(), final: z.boolean() }),
-  z.object({ type: z.literal('thinking'), on: z.boolean() }),
-  /** Teks balasan. `messageId` = pesan asisten yang sama di utas chat (bertanda `voice`). */
-  z.object({ type: z.literal('reply'), text: z.string().min(1), messageId: idSchema }),
+  z.object({ type: z.literal('transcript'), text: z.string(), final: z.boolean(), ...turnField }),
+  z.object({ type: z.literal('thinking'), on: z.boolean(), ...turnField }),
+  /**
+   * Teks balasan. `messageId` = pesan asisten yang sama di utas chat (bertanda `voice`); boleh hilang. Satu `audio`/`speech`
+   * per `reply`; kalimat pengisi ("sebentar ya") adalah `reply` tersendiri yang diputar berurutan.
+   */
+  z.object({ type: z.literal('reply'), text: z.string().min(1), messageId: idSchema.optional(), ...turnField }),
   /** Potongan audio balasan (`data` base64); `final: true` di potongan terakhir. */
   z.object({
     type: z.literal('audio'),
@@ -1283,16 +1299,23 @@ export const voiceEventSchema = z.discriminatedUnion('type', [
     data: z.string(),
     mime: z.string().regex(/^audio\//),
     final: z.boolean().optional(),
+    ...turnField,
   }),
   /** Balasan lisan sebagai satu berkas: `mediaId` lewat `GET /media/:id`. */
-  z.object({ type: z.literal('speech'), mediaId: idSchema, mime: z.string().regex(/^audio\//) }),
+  z.object({ type: z.literal('speech'), mediaId: idSchema, mime: z.string().regex(/^audio\//), ...turnField }),
   /**
    * Pembayaran, pesan ke orang lain, dan aksi keamanan tidak pernah dijalankan lewat suara saja: server mengirim kartunya
    * (sama dengan kartu di chat) dan menunggu ketukan. `messageId` = pesan di utas yang memuat kartu (dan pilihannya).
    */
-  z.object({ type: z.literal('confirm'), card: cardSchema, messageId: idSchema.optional() }),
-  z.object({ type: z.literal('end'), reason: z.string().optional() }),
-  z.object({ type: z.literal('error'), code: z.string() }),
+  z.object({ type: z.literal('confirm'), card: cardSchema, messageId: idSchema.optional(), ...turnField }),
+  /**
+   * Sesi selesai (soket ditutup), kecuali `reason: 'cancelled'`: itu hanya pengakuan atas `cancel` (dengan `turn`) dan
+   * soket tetap terbuka. Kirim `end` sesungguhnya hanya setelah audio terakhir terkirim; aplikasi membiarkan suara yang
+   * sedang diputar selesai.
+   */
+  z.object({ type: z.literal('end'), reason: z.string().optional(), ...turnField }),
+  /** Setiap giliran diakhiri `transcript` final lalu `reply` atau `error`. Kode `tidak_terdengar` = tidak ada ucapan yang terbaca. */
+  z.object({ type: z.literal('error'), code: z.string(), ...turnField }),
   z.object({ type: z.literal('ping') }),
 ]);
 

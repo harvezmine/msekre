@@ -1,4 +1,4 @@
-import { friendlyError, WRONG_PIN_TEXT } from './errors';
+import { deviceError, WRONG_PIN_TEXT } from './errors';
 import type { Box, Device, DeviceControlReq, DevicesRes, StreamEvent } from './contract';
 import { guessStatus } from './devices';
 import { isApiFailure, type Transport, type Unsubscribe } from './transport';
@@ -123,8 +123,7 @@ export class DevicesController {
         }
       } catch (e) {
         const current = this.state.entries[place];
-        if (!current?.data && this.alive)
-          this.setEntry(place, { data: null, status: 'error', error: friendlyError(e) });
+        if (!current?.data && this.alive) this.setEntry(place, { data: null, status: 'error', error: deviceError(e) });
       } finally {
         this.loading.delete(place);
       }
@@ -170,7 +169,7 @@ export class DevicesController {
       if (this.latest.get(id) === mine && current) this.replace(current);
       if (isApiFailure(e) && e.code === 'pin_required') return { ok: false, reason: 'pin' };
       if (isApiFailure(e) && e.code === 'pin_wrong') return { ok: false, reason: 'pin_wrong', message: WRONG_PIN_TEXT };
-      return { ok: false, reason: 'error', message: friendlyError(e) };
+      return { ok: false, reason: 'error', message: deviceError(e) };
     }
   };
 
@@ -183,7 +182,7 @@ export class DevicesController {
       }
       return { ok: true, summary: res.summary };
     } catch (e) {
-      return { ok: false, message: friendlyError(e) };
+      return { ok: false, message: deviceError(e) };
     }
   };
 
@@ -196,7 +195,7 @@ export class DevicesController {
       return null;
     } catch (e) {
       if (before) this.replaceBox(before);
-      return friendlyError(e);
+      return deviceError(e);
     }
   };
 

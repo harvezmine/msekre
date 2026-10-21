@@ -41,6 +41,7 @@ import { Inti } from '@/ui/inti/Inti';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
 import { useToast } from '@/ui/toastStore';
+import { useOpenVoice } from '@/voice/available';
 
 /** Jarak (dp) dari dasar utas yang masih dianggap "di dasar". */
 const NEAR_BOTTOM = 80;
@@ -64,6 +65,7 @@ export default function Chat() {
   const live = useLive();
   const { kosong, draf, pesan } = useLocalSearchParams<{ kosong?: string; draf?: string; pesan?: string }>();
   const toast = useToast();
+  const openSuara = useOpenVoice();
   const chat = useChat({
     onError: toast,
     onPinRequired: (id) => router.push({ pathname: '/pin', params: { id } }),
@@ -178,7 +180,7 @@ export default function Chat() {
             </Txt>
           )}
         </View>
-        <IconButton icon="wave" label="Mode Suara" tinted onPress={() => router.replace('/suara')} />
+        <IconButton icon="wave" label="Mode Suara" tinted onPress={() => openSuara('replace')} />
       </View>
       <ConnectionBanner text={banner} />
 

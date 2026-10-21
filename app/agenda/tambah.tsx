@@ -12,6 +12,7 @@ import { IconButton } from '@/ui/IconButton';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
+import { useOpenVoice } from '@/voice/available';
 
 /** Nama jenis item di pratinjau. */
 const KIND_LABEL: Record<AgendaNew['kind'], string> = {
@@ -45,6 +46,7 @@ function Isi() {
   const { c } = useTheme();
   const { close } = useSheet();
   const toast = useToast();
+  const openSuara = useOpenVoice();
   const agenda = useAgenda();
   const { preview: ask, add } = agenda;
   const [text, setText] = useState('');
@@ -134,7 +136,7 @@ function Isi() {
             color: c.ink,
           }}
         />
-        <IconButton icon="mic" label="Bicara" tinted onPress={() => router.push('/suara')} />
+        <IconButton icon="mic" label="Bicara" tinted onPress={() => openSuara('push')} />
       </View>
 
       {preparing ? (

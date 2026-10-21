@@ -5,7 +5,10 @@ export const ERROR_TEXT = 'Lagi ada kendala, sudah dilaporkan ke tim. Coba lagi 
 export const WRONG_CODE_TEXT = 'Kodenya belum cocok. Coba cek lagi pesan WhatsApp-nya.';
 export const BLOCKED_TEXT = 'Akun ini sedang tidak aktif. Hubungi tim Sekretaris AI lewat WhatsApp.';
 export const UPGRADE_TEXT = 'Ada versi aplikasi yang lebih baru. Perbarui dulu ya.';
-export const UNAVAILABLE_TEXT = 'Kendali perangkat ini segera hadir.';
+/** Fitur yang belum disediakan server (501). */
+export const UNAVAILABLE_TEXT = 'Fitur ini segera hadir.';
+/** Sama, untuk kendali perangkat. */
+export const DEVICE_UNAVAILABLE_TEXT = 'Kendali perangkat ini segera hadir.';
 export const NOT_UNDERSTOOD_TEXT = 'Saya belum paham waktunya. Coba tulis misalnya: besok jam 9 rapat.';
 export const NOT_REGISTERED_TEXT = 'Nomor ini belum memakai Sekretaris AI. Mulai dulu lewat WhatsApp ya.';
 export const PIN_NEEDED_TEXT = 'Aksi ini perlu PIN. Masukkan PIN dulu ya.';
@@ -15,6 +18,11 @@ export const TOO_OFTEN_TEXT = 'Tunggu sebentar ya, lalu coba lagi.';
 
 /** "Tunggu sebentar ya, coba lagi dalam {n} detik." */
 export const tooOftenText = (retryInSec: number) => `Tunggu sebentar ya, coba lagi dalam ${retryInSec} detik.`;
+
+/** Seperti {@link friendlyError}, tetapi 501 pada kendali perangkat memakai kalimat perangkat. */
+export function deviceError(e: unknown): string {
+  return isApiFailure(e) && e.code === 'unavailable' ? DEVICE_UNAVAILABLE_TEXT : friendlyError(e);
+}
 
 /** Teks ramah untuk kegagalan apa pun dari transport (atau error lain yang tidak terduga). */
 export function friendlyError(e: unknown): string {

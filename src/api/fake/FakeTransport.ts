@@ -166,6 +166,8 @@ export interface FakeOptions {
   connectMs?: number;
   /** Paket di Akun (nama, status, batas, harga) yang menimpa bawaan: Bisnis, aktif sampai 12 Jan 2027. */
   plan?: Partial<AccountPlan>;
+  /** Mode Suara menyala untuk akun ini (`Me.features.voice`). Bawaan menyala. */
+  voice?: boolean;
   /** HP yang terhubung di Akun. Bawaan: Pixel 8 (HP ini) dan Galaxy A54. */
   phones?: AccountPhone[];
 }
@@ -326,7 +328,7 @@ export class FakeTransport implements Transport {
     this.requireSession = options.requireSession ?? false;
     this.afterLimit = options.afterLimit ?? MESSAGES_LIMIT_MAX;
     this.connectMs = options.connectMs ?? 300;
-    this.meValue = sampleMe(this.clock);
+    this.meValue = { ...sampleMe(this.clock), features: { voice: options.voice ?? true } };
     this.accountState = initialAccountState(this.clock, options);
     this.waNumber = options.waNumber === undefined ? FAKE_WA_NUMBER : options.waNumber;
     this.pinValue = options.security?.pin ?? null;

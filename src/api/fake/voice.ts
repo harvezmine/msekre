@@ -1,4 +1,4 @@
-import type { Card, VoiceClientMessage } from '../contract';
+import type { Card, VoiceClientMessage, VoiceEvent } from '../contract';
 import { silentWav, toBase64 } from '@/voice/pcm';
 import { VOICE_SAMPLE_REPLY_MS } from '@/sample/voice';
 import type { VoiceChannel } from '../voiceSession';
@@ -33,6 +33,10 @@ export function attachFakeVoice(channel: VoiceChannel, host: FakeVoiceHost) {
   let chunks = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let shown = '';
+  // Giliran yang sedang dijawab: tiap event membawa `turn` ini, seperti server asli.
+  let turn: string | undefined;
+  const emit = (event: Exclude<VoiceEvent, { type: 'ping' }>) =>
+    channel.receive(turn === undefined ? event : { ...event, turn });
 
   const cancel = () => {
     host.cancel(timer);
@@ -41,15 +45,15 @@ export function attachFakeVoice(channel: VoiceChannel, host: FakeVoiceHost) {
 
   const answer = (spoken: string) => {
     cancel();
-    channel.receive({ type: 'transcript', text: spoken, final: true });
-    channel.receive({ type: 'thinking', on: true });
+    emit({ type: 'transcript', text: spoken, final: true });
+    emit({ type: 'thinking', on: true });
     timer = host.later(host.thinkMs, () => {
       timer = null;
-      const turn = host.turn(spoken);
-      channel.receive({ type: 'thinking', on: false });
-      channel.receive({ type: 'reply', text: turn.replyText, messageId: turn.messageId });
-      if (turn.confirm) channel.receive({ type: 'confirm', ...turn.confirm });
-      channel.receive({
+      const result = host.turn(spoken);
+      emit({ type: 'thinking', on: false });
+      emit({ type: 'reply', text: result.replyText, messageId: result.messageId });
+      if (result.confirm) emit({ type: 'confirm', ...result.confirm });
+      emit({
         type: 'audio',
         seq: 0,
         data: toBase64(silentWav(VOICE_SAMPLE_REPLY_MS)),
@@ -63,6 +67,7 @@ export function attachFakeVoice(channel: VoiceChannel, host: FakeVoiceHost) {
     switch (message.type) {
       case 'start':
         cancel();
+        turn = message.clientId;
         sentence = host.nextSentence();
         chunks = 0;
         shown = '';
@@ -74,19 +79,28 @@ export function attachFakeVoice(channel: VoiceChannel, host: FakeVoiceHost) {
         const partial = words.slice(0, Math.max(1, count)).join(' ');
         if (words.length > 1 && partial !== shown) {
           shown = partial;
-          channel.receive({ type: 'transcript', text: partial, final: false });
+          emit({ type: 'transcript', text: partial, final: false });
         }
         return;
       }
       case 'stop':
-        if (chunks === 0) return;
+        if (chunks === 0) {
+          // Tidak ada ucapan: giliran tetap diakhiri (transcript kosong lalu error).
+          emit({ type: 'transcript', text: '', final: true });
+          emit({ type: 'error', code: 'tidak_terdengar' });
+          return;
+        }
         answer(sentence);
         return;
       case 'text':
+        cancel();
+        turn = message.clientId;
         answer(message.text);
         return;
       case 'cancel':
         cancel();
+        // Pengakuan dibatalkan: soket tetap terbuka.
+        emit({ type: 'end', reason: 'cancelled' });
         return;
     }
   };

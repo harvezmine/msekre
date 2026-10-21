@@ -2,7 +2,7 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import Beranda from '../app/(tabs)/index';
 import Tempat from '../app/tempat';
-import { ERROR_TEXT, UNAVAILABLE_TEXT } from '@/api/errors';
+import { DEVICE_UNAVAILABLE_TEXT, ERROR_TEXT } from '@/api/errors';
 import { ToastHost } from '@/ui/Toast';
 import { HttpTransport, type SocketLike } from '@/api/http';
 import { createMemorySession } from '@/api/session';
@@ -178,7 +178,7 @@ test('mode server: sakelar AC memanggil kendali perangkat; gagal -> toast ramah'
     { api },
   );
   await fireEvent.press(await screen.findByRole('switch', { name: 'AC ruang kerja' }));
-  expect(await screen.findByText(UNAVAILABLE_TEXT)).toBeOnTheScreen();
+  expect(await screen.findByText(DEVICE_UNAVAILABLE_TEXT)).toBeOnTheScreen();
   const call = fetch.mock.calls.find(([u]) => String(u).endsWith('/home/devices/ac%2F1'))!;
   expect(call[1].method).toBe('POST');
   expect(call[1].body).toBe('{"on":false}');

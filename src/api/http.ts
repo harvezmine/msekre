@@ -16,6 +16,7 @@ import {
   securityResSchema,
   waNumberSchema,
   WS_CLOSE_IDLE,
+  WS_CLOSE_VOICE_UNAVAILABLE,
   WS_CLOSE_UNAUTHORIZED,
   type AgendaItem,
   type AgendaNew,
@@ -448,7 +449,8 @@ export class HttpTransport implements Transport {
         const event = parseVoiceEventLenient(data);
         if (!event || event.type === 'ping') return;
         channel.receive(event);
-        if (event.type === 'end') {
+        // `end` dengan alasan "cancelled" hanya pengakuan atas `cancel`: soket tetap terbuka.
+        if (event.type === 'end' && event.reason !== 'cancelled') {
           detach(socket);
           socket.close(1000);
           ws = null;
@@ -467,7 +469,15 @@ export class HttpTransport implements Transport {
           void this.unauthorized(token).then(() => channel.finish('unauthorized'));
           return;
         }
-        channel.finish(ev?.code === WS_CLOSE_IDLE ? 'idle' : ev?.code === 1000 ? 'ended' : 'network');
+        channel.finish(
+          ev?.code === WS_CLOSE_IDLE
+            ? 'idle'
+            : ev?.code === WS_CLOSE_VOICE_UNAVAILABLE
+              ? 'unavailable'
+              : ev?.code === 1000
+                ? 'ended'
+                : 'network',
+        );
       };
     })();
     return channel;

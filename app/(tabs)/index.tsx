@@ -26,6 +26,7 @@ import { ringLabel } from '@/ui/orbit/label';
 import { Toggle } from '@/ui/Toggle';
 import { Initials } from '@/ui/Initials';
 import { Txt } from '@/ui/Txt';
+import { useOpenVoice } from '@/voice/available';
 
 /** Kalimat kartu persetujuan: dari server (`ask`), atau disusun dari jenis dan penerimanya. */
 function approvalText(d: Draft): string {
@@ -46,6 +47,7 @@ function FadeIn({ children }: { children: ReactNode }) {
 export default function Beranda() {
   const { c } = useTheme();
   const live = useLive();
+  const openSuara = useOpenVoice();
   const insets = useSafeAreaInsets();
   const { home, ring, status, error, retry } = useHome();
   // Sapaan menurut jam di zona pengguna (dari agenda, yang jamnya dimajukan sendiri); belum ada: jam HP.
@@ -133,7 +135,7 @@ export default function Beranda() {
                 onPressInti={() => router.navigate('/chat')}
                 onLongPressInti={() => {
                   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.navigate('/suara');
+                  openSuara('navigate');
                 }}
               />
               <Pressable

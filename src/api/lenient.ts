@@ -593,6 +593,11 @@ export function parseAccountLenient(raw: unknown): Account | null {
   return coerced.success ? coerced.data : null;
 }
 
+/** `turn` yang bukan teks sah dibuang (event diterima seperti tanpa `turn`). */
+function turnOf(r: Record<string, unknown>): { turn?: string } {
+  return typeof r.turn === 'string' && r.turn.length > 0 && r.turn.length <= 64 ? { turn: r.turn } : {};
+}
+
 /**
  * Satu event soket suara. Jenis yang tidak dikenal (kontrak yang lebih baru) dan bentuk yang rusak menjadi `null`
  * (dilewati). Kartu `confirm` yang tidak terbaca menjadi `error` `kartu_tidak_dikenal`, supaya layar mengarahkan
@@ -602,10 +607,12 @@ export function parseVoiceEventLenient(raw: unknown): VoiceEvent | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const r = raw as Record<string, unknown>;
   if (r.type === 'transcript' && typeof r.text === 'string' && r.final === undefined) {
-    return { type: 'transcript', text: r.text, final: false };
+    return { type: 'transcript', text: r.text, final: false, ...turnOf(r) };
   }
-  const parsed = voiceEventSchema.safeParse(raw);
+  // `turn` rusak tidak boleh menjatuhkan seluruh event.
+  const clean = 'turn' in r && !('turn' in turnOf(r)) ? { ...r, turn: undefined } : raw;
+  const parsed = voiceEventSchema.safeParse(clean);
   if (parsed.success) return parsed.data;
-  if (r.type === 'confirm') return { type: 'error', code: 'kartu_tidak_dikenal' };
+  if (r.type === 'confirm') return { type: 'error', code: 'kartu_tidak_dikenal', ...turnOf(r) };
   return null;
 }

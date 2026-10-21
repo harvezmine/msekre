@@ -21,6 +21,8 @@ export interface Profile {
   plan: Me['plan'] | null;
   /** Mode contoh (atau di luar `ApiProvider`): layar boleh memakai isian contoh dari desain. */
   sample: boolean;
+  /** Mode Suara boleh dipakai: selalu di mode contoh, di mode server menurut `Me.features.voice` (hilang = belum). */
+  voice: boolean;
 }
 
 /**
@@ -39,6 +41,7 @@ export function useProfile(): Profile {
     phone: me?.phone ?? null,
     plan: me?.plan ?? null,
     sample,
+    voice: sample || me?.features?.voice === true,
   };
 }
 

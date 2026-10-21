@@ -1,8 +1,8 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { router } from 'expo-router';
-import { Linking } from 'react-native';
+import { router, useIsFocused } from 'expo-router';
+import { AppState, Linking } from 'react-native';
 import Suara from '../app/suara';
 import { audio, stream } from './audioMock';
 import { createTestApi, renderWithProviders, useSample } from './helpers';
@@ -29,10 +29,26 @@ async function speak(chunks = 6) {
   await flush();
 }
 
+let appState = captureAppState();
+
 beforeEach(() => {
   jest.clearAllMocks();
   audio.reset();
+  appState = captureAppState();
 });
+afterEach(() => {
+  jest.mocked(AppState.addEventListener).mockImplementation((() => ({ remove: jest.fn() })) as never);
+});
+
+/** Tangkap pendengar AppState; `fire('background')` memanggil semuanya. */
+function captureAppState() {
+  const listeners: ((s: string) => void)[] = [];
+  jest.mocked(AppState.addEventListener).mockImplementation(((_: string, cb: (s: string) => void) => {
+    listeners.push(cb);
+    return { remove: () => void listeners.splice(listeners.indexOf(cb), 1) };
+  }) as never);
+  return { fire: (s: string) => listeners.forEach((l) => l(s)) };
+}
 
 test('satu ucapan: mendengar, teks bertahap, berpikir, balasan tampil, berbicara, lalu siap lagi', async () => {
   await renderWithProviders(<Suara />);
@@ -272,9 +288,44 @@ describe('izin mikrofon', () => {
     expect(screen.getByText('Mikrofon sedang dimatikan')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Buka pengaturan' }));
     expect(open).toHaveBeenCalled();
-    expect(screen.queryByTestId('suara-izin')).toBeNull();
+    // Lembar tetap ada, menunggu pengguna kembali dari pengaturan.
+    expect(screen.getByTestId('suara-izin')).toBeOnTheScreen();
+    expect(screen.getByText('Menunggu mikrofon dinyalakan')).toBeOnTheScreen();
     expect(stream.start).not.toHaveBeenCalled();
+    // Kembali dan izin sudah diberikan: lembar menutup dengan kabar.
+    audio.permission = { status: 'granted', granted: true, canAskAgain: true };
+    await act(async () => appState.fire('active'));
+    await flush();
+    expect(screen.queryByTestId('suara-izin')).toBeNull();
+    expect(screen.getByText('Mikrofon sudah boleh dipakai. Tahan Inti sambil bicara.')).toBeOnTheScreen();
     open.mockRestore();
+  });
+
+  test('kembali dari pengaturan tanpa izin: lembar kembali ke arahan, bisa dibuka lagi', async () => {
+    const open = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+    audio.permission = { status: 'denied', granted: false, canAskAgain: false };
+    await renderWithProviders(<Suara />);
+    await fireEvent(screen.getByRole('button', { name: 'Tahan untuk bicara' }), 'pressIn');
+    await flush();
+    await fireEvent.press(screen.getByRole('button', { name: 'Buka pengaturan' }));
+    await act(async () => appState.fire('active'));
+    await flush();
+    expect(screen.getByText('Mikrofon sedang dimatikan')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Buka pengaturan' }));
+    expect(open).toHaveBeenCalledTimes(2);
+    open.mockRestore();
+  });
+
+  test('lembar izin adalah modal: isi di belakangnya disembunyikan dari pembaca layar', async () => {
+    audio.permission = { status: 'undetermined', granted: false, canAskAgain: true };
+    await renderWithProviders(<Suara />);
+    expect(screen.getByRole('button', { name: 'Tahan untuk bicara' })).toBeOnTheScreen();
+    await fireEvent(screen.getByRole('button', { name: 'Tahan untuk bicara' }), 'pressIn');
+    await flush();
+    expect(screen.getByTestId('suara-izin').props.accessibilityViewIsModal).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Tahan untuk bicara' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Nanti saja' }));
+    expect(screen.getByRole('button', { name: 'Tahan untuk bicara' })).toBeOnTheScreen();
   });
 
   test('jendela sistem ditolak: lembar berubah ke pengaturan, Nanti saja menutup', async () => {
@@ -371,4 +422,81 @@ test('cincin Inti mengikuti keras-pelannya suara dari mikrofon', async () => {
   await act(async () => audio.emitBuffer(new Array<number>(1600).fill(20000)));
   await act(async () => audio.emitBuffer(new Array<number>(1600).fill(0)));
   expect(screen.getAllByTestId(/^inti-cincin-/)).toHaveLength(2);
+});
+
+test('tombol bisukan memakai ikon pengeras suara, bukan mikrofon', async () => {
+  await renderWithProviders(<Suara />);
+  expect(screen.getByTestId('ikon-speaker')).toBeOnTheScreen();
+  expect(screen.queryByTestId('ikon-micOff')).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Bisukan' }));
+  expect(screen.getByTestId('ikon-speakerOff')).toBeOnTheScreen();
+});
+
+test('teks balasan dibacakan pembaca layar (area langsung, sopan)', async () => {
+  await renderWithProviders(<Suara />);
+  await speak();
+  await advance(THINK_MS);
+  expect(screen.getByTestId('suara-balasan').props.accessibilityLiveRegion).toBe('polite');
+});
+
+test('layar lain menutupi Mode Suara: rekaman dan suara berhenti', async () => {
+  await renderWithProviders(<Suara />);
+  await speak();
+  await advance(THINK_MS);
+  const player = audio.players[0]!;
+  jest.mocked(useIsFocused).mockReturnValue(false);
+  await fireEvent.press(screen.getByRole('button', { name: 'Ketik' }));
+  await flush();
+  jest.mocked(useIsFocused).mockReturnValue(true);
+  expect(player.removed).toBe(true);
+  expect(screen.getByText('Tahan Inti sambil bicara')).toBeOnTheScreen();
+});
+
+test('berkas suara balasan ditulis sebagai base64 dan dihapus setelah diputar', async () => {
+  const files = jest.requireMock('expo-file-system').File as {
+    deleted: string[];
+    writes: { uri: string; content: unknown; options: unknown }[];
+  };
+  const deleted = files.deleted.length;
+  const writes = files.writes.length;
+  await renderWithProviders(<Suara />);
+  await speak();
+  await advance(THINK_MS);
+  expect(files.writes.length).toBe(writes + 1);
+  expect(files.writes.at(-1)!.options).toEqual({ encoding: 'base64', append: false });
+  expect(typeof files.writes.at(-1)!.content).toBe('string');
+  expect(files.deleted.length).toBe(deleted);
+  await act(async () => audio.finishPlayback());
+  expect(files.deleted.slice(deleted)).toEqual([files.writes.at(-1)!.uri]);
+});
+
+test('berkas yang belum selesai diputar dihapus saat layar ditutup', async () => {
+  const files = jest.requireMock('expo-file-system').File as { deleted: string[] };
+  const deleted = files.deleted.length;
+  const { unmount } = await renderWithProviders(<Suara />);
+  await speak();
+  await advance(THINK_MS);
+  await unmount();
+  expect(files.deleted.length).toBe(deleted + 1);
+});
+
+describe('Mode Suara belum tersedia di server', () => {
+  test('akun tanpa fitur suara: hanya catatan, tidak ada sesi dan mikrofon', async () => {
+    const api = createTestApi({ mode: 'server', token: 'tok', voice: false });
+    const open = jest.spyOn(api.transport, 'openVoice');
+    await renderWithProviders(<Suara />, { api });
+    await flush();
+    expect(screen.getByTestId('suara-segera')).toHaveTextContent('Mode Suara segera hadir.');
+    expect(screen.queryByRole('button', { name: 'Tahan untuk bicara' })).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
+    expect(router.back).toHaveBeenCalled();
+  });
+
+  test('akun dengan fitur suara di mode server: Mode Suara terbuka', async () => {
+    const api = createTestApi({ mode: 'server', token: 'tok', voice: true });
+    await renderWithProviders(<Suara />, { api });
+    await flush();
+    expect(await screen.findByRole('button', { name: 'Tahan untuk bicara' })).toBeOnTheScreen();
+  });
 });

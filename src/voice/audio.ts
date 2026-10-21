@@ -6,7 +6,6 @@ import {
   type AudioPlayer,
 } from 'expo-audio';
 import { Directory, File, Paths } from 'expo-file-system';
-import { concat, fromBase64 } from './pcm';
 
 /**
  * Izin mikrofon:
@@ -80,28 +79,51 @@ const EXTENSIONS: Record<string, string> = {
 /** Sumber suara yang bisa diputar `expo-audio`. */
 export type SpeechSource = { uri: string; headers?: Record<string, string> };
 
-/** Tulis potongan audio balasan (base64) menjadi satu berkas di cache; alamat berkasnya. */
+/**
+ * Tulis potongan audio balasan (base64) menjadi satu berkas di cache; alamat berkasnya. Base64 ditulis langsung oleh
+ * pustaka berkas (potongan berikutnya ditambahkan), tanpa diurai jadi byte di JavaScript.
+ */
 export function writeSpeechFile(chunksBase64: string[], mime: string, name: string): string {
   const dir = new Directory(Paths.cache, 'suara');
   dir.create({ idempotent: true, intermediates: true });
   const file = new File(dir, `${name}.${EXTENSIONS[mime.toLowerCase()] ?? 'mp3'}`);
   file.create({ overwrite: true });
-  file.write(concat(chunksBase64.map(fromBase64)));
+  chunksBase64.forEach((chunk, i) => file.writeSync(chunk, { encoding: 'base64', append: i > 0 }));
   return file.uri;
 }
 
-/** Pemutar balasan: satu suara pada satu waktu. */
+/** Hapus berkas suara balasan yang sudah diputar. Tidak ada yang rusak kalau berkasnya sudah tidak ada. */
+export function removeSpeechFile(uri: string): void {
+  try {
+    new File(uri).delete();
+  } catch {
+    // Sudah terhapus.
+  }
+}
+
+/** Pemutaran yang tidak kunjung selesai (dan tidak melapor gagal) dianggap selesai: lama klip + ini, atau {@link UNKNOWN_CLIP_MS}. */
+export const CLIP_SLACK_MS = 10_000;
+export const UNKNOWN_CLIP_MS = 60_000;
+
+/** Pemutar balasan: klip diputar berurutan, satu pada satu waktu. */
 export interface Speaker {
-  /** Putar `source`; `onDone` dipanggil saat selesai atau gagal (sekali). Memutar baru menghentikan yang lama. */
+  /**
+   * Putar `source` setelah klip yang sedang jalan selesai; `onDone` dipanggil sekali saat klip ini selesai, gagal, atau
+   * kehabisan waktu.
+   */
   play(source: SpeechSource, onDone: () => void): void;
-  /** Hentikan dan lepaskan pemutar yang sedang jalan. Tidak memanggil `onDone`. */
+  /** Hentikan dan lepaskan pemutar yang sedang jalan dan buang antreannya. Tidak memanggil `onDone`. */
   stop(): void;
 }
 
 export function createSpeaker(): Speaker {
   let current: AudioPlayer | null = null;
   let off: (() => void) | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let queue: { source: SpeechSource; onDone: () => void }[] = [];
   const release = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
     off?.();
     off = null;
     const player = current;
@@ -114,28 +136,45 @@ export function createSpeaker(): Speaker {
       // Pemutar sudah dilepas.
     }
   };
+  const next = () => {
+    if (current) return;
+    const item = queue.shift();
+    if (!item) return;
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      release();
+      item.onDone();
+      next();
+    };
+    const arm = (ms: number) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(done, ms);
+    };
+    try {
+      const player = createAudioPlayer(item.source);
+      current = player;
+      const sub = player.addListener('playbackStatusUpdate', (status) => {
+        if (status.didJustFinish || status.error) return done();
+        // Lama klip diketahui: batas waktunya diperketat.
+        if (status.duration > 0) arm(status.duration * 1000 + CLIP_SLACK_MS);
+      });
+      off = () => sub.remove();
+      arm(UNKNOWN_CLIP_MS);
+      player.play();
+    } catch {
+      done();
+    }
+  };
   return {
     play(source, onDone) {
-      release();
-      let finished = false;
-      const done = () => {
-        if (finished) return;
-        finished = true;
-        release();
-        onDone();
-      };
-      try {
-        const player = createAudioPlayer(source);
-        current = player;
-        const sub = player.addListener('playbackStatusUpdate', (status) => {
-          if (status.didJustFinish) done();
-        });
-        off = () => sub.remove();
-        player.play();
-      } catch {
-        done();
-      }
+      queue.push({ source, onDone });
+      if (!current) next();
     },
-    stop: release,
+    stop() {
+      queue = [];
+      release();
+    },
   };
 }

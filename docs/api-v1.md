@@ -134,13 +134,18 @@ Response 200:
   "name": null,
   "assistantName": "Nadia",
   "plan": { "name": "Percobaan 7 hari", "activeUntil": "2026-10-27T10:00:00.000Z" },
-  "phone": "6281220457781"
+  "phone": "6281220457781",
+  "features": { "voice": true }
 }
 ```
 
 - `name`: boleh `null` (pengguna baru yang belum menyebut namanya); Akun lalu menampilkan `phone`.
 - `assistantName`: nama asisten yang dipilih pengguna (default "Nadia"; di milo-ai ada `assistantNameOf(user)`).
 - `plan.name` wajib terisi; `activeUntil` boleh `null` untuk paket tanpa batas.
+- `features` (opsional): fitur yang boleh dipakai akun ini. `voice: true` = Mode Suara (bagian 5a). **Hilang atau
+  `false` = belum**: di mode server semua pintu masuk Mode Suara (tab bar, Beranda, kolom chat, Agenda) hanya
+  memunculkan "Mode Suara segera hadir." dan `/suara` tidak membuka soket. Mode contoh selalu menyalakannya. Bentuk
+  `features` yang salah dibaca sebagai tidak ada.
 - Dipanggil juga sebagai pemeriksaan penyebab setelah soket gagal terbuka 3 kali berturut-turut (bagian 5): harus
   membalas 403 `diblokir` / 426 / 401 dengan benar.
 
@@ -1168,7 +1173,7 @@ Aplikasi ke server:
 { "type": "audio", "seq": 0, "data": "<base64 PCM, sekitar 50-200 ms>" }
 { "type": "stop" }
 { "type": "cancel" }
-{ "type": "text", "text": "Nyalakan AC kamar" }
+{ "type": "text", "text": "Nyalakan AC kamar", "clientId": "suara-lq3x-2" }
 ```
 
 - `start` membuka satu ucapan. `audio` berurutan (`seq` mulai 0). `stop` = pengguna melepas Inti (push-to-talk);
@@ -1177,6 +1182,14 @@ Aplikasi ke server:
 - `cancel` = buang ucapan ini, atau hentikan jawaban yang sedang berjalan (pengguna menyela / aplikasi ke latar).
   Server berhenti mengirim suara dan tidak menyimpan balasan yang belum selesai.
 - `text` = pindah ke ketik di dalam Mode Suara; diperlakukan seperti ucapan yang sudah final (tanpa `start`).
+  `clientId` (opsional) menjadi id giliran seperti pada `start`.
+- **Id giliran.** `clientId` dari `start` (atau `text`) adalah id giliran. Server menyalin id itu ke field `turn` di
+  SETIAP event yang dikirim untuk giliran tersebut. Aplikasi membuang event yang `turn`-nya bukan giliran yang sedang
+  berjalan (sisa dari ucapan yang dibatalkan atau disela); event tanpa `turn` tetap diterima (bacaan longgar). Server
+  mengakui `cancel` dengan `{ "type": "end", "reason": "cancelled", "turn": "<id>" }`, **tanpa menutup soket**.
+- Selama Inti ditahan (mendengar), aplikasi hanya menerima `transcript` sementara; `reply`, `audio`, `speech`,
+  `confirm`, dan `transcript` final diabaikan (itu sisa giliran lama). Mikrofon, cincin suara, dan batas 30 detik
+  berhenti begitu keadaan keluar dari mendengar, apa pun sebabnya.
 - Ucapan paling lama 30 detik (`VOICE_MAX_UTTERANCE_SEC`); aplikasi berhenti sendiri dan mengirim `stop`. Server
   boleh menolak yang lebih lama dengan `error`.
 - Satu soket boleh melayani banyak ucapan berturut-turut; server menutupnya dengan 4408 bila diam terlalu lama.
@@ -1186,7 +1199,7 @@ Server ke aplikasi:
 ```json
 { "type": "transcript", "text": "Matikan AC kamar", "final": false }
 { "type": "thinking", "on": true }
-{ "type": "reply", "text": "Sudah. AC kamar saya matikan.", "messageId": "831" }
+{ "type": "reply", "text": "Sudah. AC kamar saya matikan.", "messageId": "831", "turn": "suara-lq3x-1" }
 { "type": "audio", "seq": 0, "data": "<base64>", "mime": "audio/mpeg", "final": true }
 { "type": "speech", "mediaId": "ucapan-77", "mime": "audio/mpeg" }
 { "type": "confirm", "card": { "kind": "payment", "...": "..." }, "messageId": "832" }
@@ -1198,7 +1211,10 @@ Server ke aplikasi:
 - `transcript`: teks ucapan; `final: false` sementara dan boleh berubah, `final: true` yang dipakai untuk menjawab.
   Teks selalu tampil di layar (aksesibilitas), jadi `transcript` wajib dikirim.
 - `thinking`: server sedang memproses (agen berjalan). Urutan lazim: `transcript(final)` → `thinking on` →
-  `thinking off` → `reply` → suara → (`confirm`).
+  `thinking off` → `reply` → suara → (`confirm`). **Setiap giliran selalu diakhiri `transcript` final lalu `reply` atau
+  `error`**; giliran tanpa ucapan yang terbaca diakhiri `error` kode `tidak_terdengar` (aplikasi: "Belum terdengar,
+  coba lagi ya."). Aplikasi menunggu paling lama 25 detik setelah ucapan terkirim; lewat itu giliran dianggap gagal
+  ("Lama sekali, coba lagi ya.") dan sisa event-nya dibuang.
 - `reply`: teks balasan. **Pesan asisten yang sama juga disimpan di utas chat** (`via: "app"`, `voice: true`) dan
   dikirim lewat `/stream` seperti pesan lain; `messageId` = id pesan itu. Ucapan pengguna juga masuk utas sebagai
   pesan pengguna dengan `voice: true`. Balasan memakai nama dan gaya asisten pilihan pengguna, dalam gaya lisan
@@ -1207,7 +1223,8 @@ Server ke aplikasi:
   - `audio`: potongan base64 dengan `mime` (`audio/mpeg`, `audio/wav`, `audio/ogg`, `audio/aac`, `audio/mp4`),
     `final: true` di potongan terakhir. Aplikasi menggabungkan potongan lalu memutarnya setelah yang terakhir (atau
     1,2 detik tanpa potongan baru bila `final` tidak pernah dikirim). Sederhana, tapi mulai bunyi setelah seluruh
-    suara jadi.
+    suara jadi. **Satu aliran audio per `reply`**: kalimat pengisi ("sebentar ya") adalah `reply` tersendiri dengan
+    audionya sendiri; aplikasi memutar klip berurutan tanpa memotong yang sebelumnya.
   - `speech`: satu berkas di `GET /media/:id` (bagian 2.10). Aplikasi memutarnya dengan header token sehingga
     pemutar bisa mulai bunyi sambil mengunduh. **Untuk latensi rendah, pakai ini** dengan TTS streaming.
 - `confirm`: pembayaran, pesan ke orang lain, dan aksi keamanan **tidak pernah dijalankan lewat suara saja**. Server
@@ -1215,11 +1232,15 @@ Server ke aplikasi:
   utas (`messageId`, untuk pembayaran juga membawa bagian `choices`), lalu menunggu ketukan pengguna yang masuk lewat
   jalur HTTP biasa (`POST /drafts/:id`, `POST /messages` dengan pilihan). Sebelum ketukan itu tidak ada yang
   dijalankan. Aplikasi menampilkan kartu apa adanya dengan tombolnya; kartu yang tidak dikenal diarahkan ke chat.
-- `end`: server mengakhiri sesi (aplikasi menutup soket). `error.code` tidak pernah ditampilkan; aplikasi memakai
-  kalimat ramah. Jenis di luar daftar ini dilewati.
+- `end`: server mengakhiri sesi (aplikasi menutup soket), **kecuali `reason: "cancelled"`** (pengakuan `cancel`).
+  Kirim `end` sesungguhnya hanya SETELAH audio terakhir terkirim: aplikasi menghentikan mikrofon saja dan membiarkan
+  suara yang sedang diputar selesai, jadi `end` tidak memotong balasan. `error.code` tidak pernah ditampilkan;
+  aplikasi memakai kalimat ramah. Jenis di luar daftar ini dilewati.
+- `reply.messageId` boleh hilang (aplikasi tidak memakainya; teksnya tetap tampil).
 
 Penutupan: 4401 tidak sah (sesi dihapus, pengguna diminta masuk lagi), 4408 diam terlalu lama (aplikasi membuka sesi
-baru saat Inti ditahan lagi), kode lain atau 1006 dianggap tidak tersambung ("Belum tersambung. Coba lagi sebentar
+baru saat Inti ditahan lagi), 4501 `belum_tersedia` (Mode Suara belum dinyalakan untuk akun ini: "Mode Suara segera
+hadir."), kode lain atau 1006 dianggap tidak tersambung ("Belum tersambung. Coba lagi sebentar
 ya.") dan Inti mati sampai Inti ditahan lagi.
 
 Perilaku acuan: `src/api/fake/voice.ts` (skrip server tiruan: teks ucapan muncul bertahap, berpikir, balasan, suara

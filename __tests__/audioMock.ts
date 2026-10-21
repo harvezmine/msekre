@@ -17,6 +17,8 @@ export interface AudioMock {
   emitBuffer(samples: number[], sampleRate?: number): void;
   /** Pemutaran balasan selesai (pemutar terakhir). */
   finishPlayback(index?: number): void;
+  /** Status dari pemutar: `error`, `duration`, dan seterusnya (bawaan pemutar terakhir). */
+  statusUpdate(status: { didJustFinish?: boolean; error?: string | null; duration?: number }, index?: number): void;
 }
 
 export const audio = (jest.requireMock('expo-audio') as { __audio: AudioMock }).__audio;

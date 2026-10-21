@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useAudioStream } from 'expo-audio';
+import { useIsFocused } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
@@ -20,6 +21,7 @@ export interface Voice extends VoiceState {
   setMuted(muted: boolean): void;
   dismissConfirm(): void;
   closePermission(): void;
+  waitForSettings(): void;
   requestPermission(): Promise<void>;
   recheckPermission(): Promise<void>;
 }
@@ -73,6 +75,12 @@ export function useVoice(): Voice {
     };
   }, [controller, stream]);
 
+  // Layar lain menutupi Mode Suara (alarm, notifikasi yang dibuka): rekaman dan suara berhenti.
+  const focused = useIsFocused();
+  useEffect(() => {
+    if (!focused) controller.suspend();
+  }, [focused, controller]);
+
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
   return {
     ...state,
@@ -84,6 +92,7 @@ export function useVoice(): Voice {
     setMuted: controller.setMuted,
     dismissConfirm: controller.dismissConfirm,
     closePermission: controller.closePermission,
+    waitForSettings: controller.waitForSettings,
     requestPermission: controller.requestPermission,
     recheckPermission: controller.recheckPermission.bind(controller),
   };

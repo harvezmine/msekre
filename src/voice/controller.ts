@@ -2,7 +2,8 @@ import { ERROR_TEXT } from '@/api/errors';
 import type { Card, VoiceEvent } from '@/api/contract';
 import { VOICE_MAX_UTTERANCE_SEC } from '@/api/contract';
 import type { Transport, VoiceCloseReason, VoiceSession } from '@/api/transport';
-import { checkMic as realCheckMic, requestMic as realRequestMic, writeSpeechFile } from './audio';
+import { checkMic as realCheckMic, removeSpeechFile, requestMic as realRequestMic, writeSpeechFile } from './audio';
+import { VOICE_SOON_TEXT } from './texts';
 import type { MicPermission, Speaker, SpeechSource } from './audio';
 import { level, pcmBytes, pcmMs, toBase64, toVoiceFormat } from './pcm';
 
@@ -24,8 +25,11 @@ export interface VoiceState {
   muted: boolean;
   /** Mode ketik di dalam Mode Suara. */
   typing: boolean;
-  /** Lembar izin mikrofon: penjelasan sebelum menanyakan, atau arahan ke pengaturan HP. */
-  permission: 'explain' | 'blocked' | null;
+  /**
+   * Lembar izin mikrofon: penjelasan sebelum menanyakan, arahan ke pengaturan HP, atau `waiting` = pengaturan HP sedang
+   * dibuka (lembar tetap ada; saat pengguna kembali izinnya dicek lagi).
+   */
+  permission: 'explain' | 'blocked' | 'waiting' | null;
   /** Satu kalimat di bawah Inti (petunjuk, kendala, tidak tersambung). */
   note: string | null;
 }
@@ -36,6 +40,8 @@ export const SIGNED_OUT_TEXT = 'Sesi Anda berakhir. Masuk lagi ya.';
 export const MIC_FAILED_TEXT = 'Mikrofon belum bisa dipakai. Coba lagi sebentar ya.';
 export const CARD_UNREADABLE_TEXT = 'Permintaan konfirmasi belum bisa ditampilkan di sini. Lanjutkan di chat ya.';
 export const MIC_ALLOWED_TEXT = 'Mikrofon sudah boleh dipakai. Tahan Inti sambil bicara.';
+export const NOT_HEARD_TEXT = 'Belum terdengar, coba lagi ya.';
+export const TURN_TIMEOUT_TEXT = 'Lama sekali, coba lagi ya.';
 
 /** Ucapan lebih pendek dari ini dianggap ketukan biasa, bukan bicara. */
 export const MIN_UTTERANCE_MS = 400;
@@ -43,6 +49,8 @@ export const MIN_UTTERANCE_MS = 400;
 export const SPEECH_WAIT_MS = 6000;
 /** Potongan balasan tanpa tanda terakhir: putar setelah sepi sekian lama. */
 export const SPEECH_GATHER_MS = 1200;
+/** Setelah ucapan terkirim, balasan (atau kendala) harus datang secepat ini. */
+export const TURN_TIMEOUT_MS = 25_000;
 
 const FORMAT = { codec: 'pcm16', sampleRate: 16000, channels: 1 } as const;
 
@@ -80,17 +88,28 @@ export class VoiceController {
   private readonly listeners = new Set<() => void>();
   private session: VoiceSession | null = null;
   private disposed = false;
-  private turn = 0;
+  /** Naik setiap giliran dibatalkan atau dimulai: pekerjaan async dari giliran lama dibuang. */
+  private epoch = 0;
+  /** `clientId` giliran yang sedang berjalan; event server dengan `turn` lain dibuang. */
+  private turnId: string | null = null;
   private pressed = false;
   private starting: Promise<void> | null = null;
+  private micOn = false;
+  private micPending = false;
+  private micStopWanted = false;
   private seq = 0;
   private chunks = 0;
   private samples = 0;
   private limitTimer: ReturnType<typeof setTimeout> | null = null;
+  private turnTimer: ReturnType<typeof setTimeout> | null = null;
   private speechTimer: ReturnType<typeof setTimeout> | null = null;
   private gatherTimer: ReturnType<typeof setTimeout> | null = null;
   private speech: { chunks: string[]; mime: string } | null = null;
+  /** Klip yang sudah diantre di pemutar dan belum selesai; unduhan `speech` yang belum sampai. */
+  private playing = 0;
+  private fetching = 0;
   private files = 0;
+  private fileUris = new Set<string>();
 
   constructor(private readonly deps: VoiceDeps) {}
 
@@ -101,9 +120,19 @@ export class VoiceController {
     return () => this.listeners.delete(listener);
   };
 
+  /**
+   * Satu-satunya tempat keadaan berubah. Meninggalkan `listening` (oleh sebab apa pun) mematikan mikrofon, mereset
+   * cincin, dan membatalkan batas 30 detik; masuk ke `sending`/`thinking` memulai batas tunggu balasan.
+   */
   private set(patch: Partial<VoiceState>) {
     if (this.disposed) return;
+    const prev = this.state.phase;
+    const next = patch.phase ?? prev;
+    if (prev === 'listening' && next !== 'listening') this.releaseMic();
     this.state = { ...this.state, ...patch };
+    const waiting = (p: VoicePhase) => p === 'sending' || p === 'thinking';
+    if (waiting(next) && !waiting(prev)) this.startTurnTimer();
+    else if (!waiting(next)) this.clearTurnTimer();
     for (const l of [...this.listeners]) l();
   }
 
@@ -143,12 +172,14 @@ export class VoiceController {
       return;
     }
     this.interrupt();
-    const turn = ++this.turn;
+    const epoch = this.epoch;
+    const clientId = `suara-${Date.now().toString(36)}-${epoch}`;
+    this.turnId = clientId;
     this.seq = 0;
     this.chunks = 0;
     this.samples = 0;
     const session = this.ensureSession();
-    session.send({ type: 'start', lang: 'id', clientId: `suara-${Date.now().toString(36)}-${turn}`, format: FORMAT });
+    session.send({ type: 'start', lang: 'id', clientId, format: FORMAT });
     this.set({
       phase: 'listening',
       transcript: '',
@@ -159,13 +190,20 @@ export class VoiceController {
     });
     this.deps.haptic();
     this.limitTimer = setTimeout(() => void this.holdEnd(), VOICE_MAX_UTTERANCE_SEC * 1000);
+    this.micOn = true;
+    this.micPending = true;
+    this.micStopWanted = false;
     this.starting = this.deps.mic.start().then(
-      () => undefined,
       () => {
-        if (this.disposed || turn !== this.turn) return;
-        this.clearLimit();
+        this.micPending = false;
+        if (this.micStopWanted) this.stopMic();
+      },
+      () => {
+        this.micPending = false;
+        this.micOn = false;
+        if (this.disposed || epoch !== this.epoch) return;
         this.session?.send({ type: 'cancel' });
-        this.deps.onLevel?.(0);
+        this.turnId = null;
         this.set({ phase: 'error', note: MIC_FAILED_TEXT });
       },
     );
@@ -175,20 +213,21 @@ export class VoiceController {
   holdEnd = async (): Promise<void> => {
     this.pressed = false;
     if (this.disposed || this.state.phase !== 'listening') return;
+    const epoch = this.epoch;
     this.clearLimit();
     // Mikrofon yang sedang menyala dimatikan setelah selesai menyala.
     await this.starting;
-    if (this.disposed || this.state.phase !== 'listening') return;
-    this.deps.mic.stop();
-    this.deps.onLevel?.(0);
+    if (this.disposed || this.state.phase !== 'listening' || epoch !== this.epoch) return;
     this.deps.haptic();
     if (this.chunks === 0 || pcmMs(this.samples) < MIN_UTTERANCE_MS) {
-      this.session?.send({ type: 'cancel' });
+      this.turnId = null;
       this.set({ phase: 'idle', transcript: '', note: HINT_HOLD });
+      this.session?.send({ type: 'cancel' });
       return;
     }
-    this.session?.send({ type: 'stop' });
+    // Keadaan lebih dulu (ini yang mematikan mikrofon), baru `stop` ke server.
     this.set({ phase: 'sending' });
+    this.session?.send({ type: 'stop' });
   };
 
   /** Potongan PCM dari mikrofon. */
@@ -209,7 +248,9 @@ export class VoiceController {
     const clean = text.trim();
     if (this.disposed || !clean) return;
     this.interrupt();
-    this.ensureSession().send({ type: 'text', text: clean });
+    const clientId = `suara-${Date.now().toString(36)}-${this.epoch}`;
+    this.turnId = clientId;
+    this.ensureSession().send({ type: 'text', text: clean, clientId });
     this.set({ phase: 'thinking', transcript: clean, transcriptFinal: true, reply: null, confirm: null, note: null });
   };
 
@@ -235,15 +276,22 @@ export class VoiceController {
     else this.set({ permission: 'blocked' });
   };
 
-  /** Pengguna kembali dari pengaturan HP dan izin sudah diberikan. */
+  /** Pengaturan HP dibuka: lembar tetap ada, menunggu pengguna kembali. */
+  waitForSettings = () => {
+    if (this.state.permission === 'blocked') this.set({ permission: 'waiting' });
+  };
+
+  /** Pengguna kembali dari pengaturan HP: kalau izin sudah diberikan lembar ditutup, kalau belum lembar kembali ke arahan. */
   async recheckPermission(): Promise<void> {
-    if (this.state.permission !== 'blocked') return;
-    if ((await (this.deps.checkMic ?? realCheckMic)()) === 'granted' && !this.disposed) {
-      this.set({ permission: null, note: MIC_ALLOWED_TEXT });
-    }
+    const was = this.state.permission;
+    if (was !== 'blocked' && was !== 'waiting') return;
+    const granted = (await (this.deps.checkMic ?? realCheckMic)()) === 'granted';
+    if (this.disposed) return;
+    if (granted) this.set({ permission: null, note: MIC_ALLOWED_TEXT });
+    else if (this.state.permission === 'waiting') this.set({ permission: 'blocked' });
   }
 
-  /** Aplikasi ke latar: berhenti merekam dan memutar. Sesi dibiarkan, dibuka lagi bila perlu. */
+  /** Aplikasi ke latar atau layar tertutup sebagian: berhenti merekam dan memutar. Sesi dibiarkan, dibuka lagi bila perlu. */
   suspend() {
     if (this.disposed) return;
     this.pressed = false;
@@ -265,18 +313,41 @@ export class VoiceController {
 
   // ---- Dalaman ----
 
-  /** Hentikan rekaman dan suara balasan yang sedang berjalan; server diminta berhenti kalau sedang menjawab. */
+  /**
+   * Hentikan rekaman dan suara balasan yang sedang berjalan; server diminta berhenti kalau sedang mendengar atau menjawab.
+   * Mikrofon dimatikan di fase apa pun.
+   */
   private interrupt() {
+    const phase = this.state.phase;
     this.clearLimit();
+    this.clearTurnTimer();
     this.clearSpeech();
     this.deps.speaker.stop();
-    if (this.state.phase === 'listening') {
-      this.deps.mic.stop();
-      this.session?.send({ type: 'cancel' });
-    } else if (['sending', 'thinking', 'speaking'].includes(this.state.phase)) {
-      this.session?.send({ type: 'cancel' });
+    this.stopMic();
+    if (['listening', 'sending', 'thinking', 'speaking'].includes(phase)) this.session?.send({ type: 'cancel' });
+    this.turnId = null;
+    this.epoch += 1;
+  }
+
+  /** Matikan mikrofon sekali. Kalau masih menyala, dimatikan begitu selesai menyala. */
+  private stopMic() {
+    if (!this.micOn) return;
+    if (this.micPending) {
+      this.micStopWanted = true;
+      return;
     }
-    this.turn += 1;
+    this.micOn = false;
+    try {
+      this.deps.mic.stop();
+    } catch {
+      // Mikrofon sudah berhenti.
+    }
+  }
+
+  private releaseMic() {
+    this.clearLimit();
+    this.stopMic();
+    this.deps.onLevel?.(0);
   }
 
   private clearLimit() {
@@ -284,58 +355,94 @@ export class VoiceController {
     this.limitTimer = null;
   }
 
+  private clearTurnTimer() {
+    if (this.turnTimer) clearTimeout(this.turnTimer);
+    this.turnTimer = null;
+  }
+
+  /** Ucapan terkirim tapi balasan tidak kunjung datang: kendala yang jelas, bukan berpikir selamanya. */
+  private startTurnTimer() {
+    this.clearTurnTimer();
+    this.turnTimer = setTimeout(() => {
+      this.turnTimer = null;
+      const phase = this.state.phase;
+      if (phase !== 'sending' && phase !== 'thinking') return;
+      this.session?.send({ type: 'cancel' });
+      this.turnId = null;
+      this.epoch += 1;
+      this.set({ phase: 'error', note: TURN_TIMEOUT_TEXT });
+    }, TURN_TIMEOUT_MS);
+  }
+
+  /** Buang suara balasan: pengatur waktu, potongan yang terkumpul, klip yang diantre, dan berkasnya. */
   private clearSpeech() {
     if (this.speechTimer) clearTimeout(this.speechTimer);
     if (this.gatherTimer) clearTimeout(this.gatherTimer);
     this.speechTimer = null;
     this.gatherTimer = null;
     this.speech = null;
+    this.playing = 0;
+    this.fetching = 0;
+    this.dropFiles();
+  }
+
+  private dropFiles() {
+    for (const uri of this.fileUris) removeSpeechFile(uri);
+    this.fileUris.clear();
   }
 
   private onClose(session: VoiceSession, reason: VoiceCloseReason) {
     if (this.disposed || session !== this.session) return;
     this.session = null;
-    this.clearSpeech();
     this.clearLimit();
+    this.turnId = null;
+    const graceful = reason === 'ended' || reason === 'idle';
+    if (graceful) {
+      // Selesai: yang sedang diucapkan dibiarkan sampai habis; yang terkumpul tapi belum diputar diputar sekarang.
+      if (this.speechTimer) clearTimeout(this.speechTimer);
+      this.speechTimer = null;
+      if (this.speech) this.playGathered();
+      this.stopMic();
+      this.deps.onLevel?.(0);
+      const speaking = this.state.phase === 'speaking' && (this.playing > 0 || this.fetching > 0);
+      if (!speaking) this.set({ phase: 'idle', note: null });
+      return;
+    }
+    this.epoch += 1;
+    this.clearSpeech();
     this.deps.speaker.stop();
-    if (this.state.phase === 'listening') this.deps.mic.stop();
+    this.stopMic();
     this.deps.onLevel?.(0);
-    this.turn += 1;
     if (reason === 'unauthorized') this.set({ phase: 'off', note: SIGNED_OUT_TEXT });
-    else if (reason === 'network') this.set({ phase: 'off', note: OFFLINE_TEXT });
-    // Selesai atau diam terlalu lama: siap bicara lagi, sesi dibuka saat Inti ditahan.
-    else this.set({ phase: 'idle', note: null });
+    else if (reason === 'unavailable') this.set({ phase: 'off', note: VOICE_SOON_TEXT });
+    else this.set({ phase: 'off', note: OFFLINE_TEXT });
   }
 
   private onEvent(session: VoiceSession, event: VoiceEvent) {
     if (this.disposed || session !== this.session) return;
+    if (event.type === 'ping') return;
+    // Giliran yang sudah dibatalkan: tidak ada yang boleh mengubah layar.
+    if (event.turn !== undefined && event.turn !== this.turnId) return;
+    const phase = this.state.phase;
+    // Sedang menahan Inti: hanya teks sementara dari giliran ini yang berarti; sisanya milik giliran lama.
+    if (phase === 'listening') {
+      if (event.type === 'transcript' && event.final) return;
+      if (['reply', 'audio', 'speech', 'confirm'].includes(event.type)) return;
+    }
     switch (event.type) {
       case 'transcript':
         this.set({ transcript: event.text, transcriptFinal: event.final });
         return;
       case 'thinking':
         if (event.on) {
-          // Server menentukan sendiri ucapan selesai (deteksi hening): mikrofon dimatikan.
-          if (this.state.phase === 'listening') {
-            this.clearLimit();
-            this.deps.mic.stop();
-            this.deps.onLevel?.(0);
-          }
+          // Server menentukan sendiri ucapan selesai (deteksi hening): mikrofon dimatikan lewat `set`.
           this.set({ phase: 'thinking' });
-        } else if (this.state.phase === 'thinking') {
+        } else if (phase === 'thinking') {
           this.set({ phase: 'idle' });
         }
         return;
       case 'reply':
-        if (this.state.muted) {
-          this.set({ reply: event.text, phase: 'idle' });
-          return;
-        }
-        this.set({ reply: event.text, phase: 'speaking' });
-        this.speechTimer = setTimeout(() => {
-          this.speechTimer = null;
-          if (this.state.phase === 'speaking') this.set({ phase: 'idle' });
-        }, SPEECH_WAIT_MS);
+        this.onReply(event.text);
         return;
       case 'audio':
         this.onAudio(event);
@@ -349,13 +456,33 @@ export class VoiceController {
       case 'error':
         this.clearSpeech();
         this.deps.speaker.stop();
+        this.turnId = null;
         if (event.code === 'kartu_tidak_dikenal') this.set({ phase: 'idle', note: CARD_UNREADABLE_TEXT });
+        else if (event.code === 'tidak_terdengar') this.set({ phase: 'idle', note: NOT_HEARD_TEXT });
         else this.set({ phase: 'error', note: ERROR_TEXT });
         return;
       case 'end':
-      case 'ping':
+        // Penutupan sesi ditangani `onClose`; "cancelled" hanya pengakuan atas `cancel`.
         return;
     }
+  }
+
+  private onReply(text: string) {
+    // Suara yang terkumpul milik balasan sebelumnya (kalimat pengisi): putar dulu, berurutan.
+    if (this.speech) this.playGathered();
+    if (this.speechTimer) clearTimeout(this.speechTimer);
+    this.speechTimer = null;
+    if (this.state.muted) {
+      this.set({ reply: text, phase: 'idle' });
+      return;
+    }
+    this.set({ reply: text, phase: 'speaking' });
+    this.speechTimer = setTimeout(() => {
+      this.speechTimer = null;
+      if (this.state.phase === 'speaking' && this.playing === 0 && this.fetching === 0 && !this.speech) {
+        this.set({ phase: 'idle' });
+      }
+    }, SPEECH_WAIT_MS);
   }
 
   private onAudio(event: Extract<VoiceEvent, { type: 'audio' }>) {
@@ -374,35 +501,54 @@ export class VoiceController {
   private playGathered() {
     const speech = this.speech;
     this.speech = null;
+    if (this.gatherTimer) clearTimeout(this.gatherTimer);
+    this.gatherTimer = null;
     if (!speech || speech.chunks.length === 0 || this.state.muted) return;
     try {
       const uri = writeSpeechFile(speech.chunks, speech.mime, `balasan-${++this.files}`);
-      this.playSource({ uri });
+      this.fileUris.add(uri);
+      this.playSource({ uri }, uri);
     } catch {
       // Suaranya gagal disiapkan; tulisannya sudah tampil.
-      if (this.state.phase === 'speaking') this.set({ phase: 'idle' });
+      if (this.state.phase === 'speaking' && this.playing === 0) this.set({ phase: 'idle' });
     }
   }
 
   private async onSpeech(mediaId: string) {
     if (this.state.muted) return;
-    const turn = this.turn;
+    const epoch = this.epoch;
+    this.fetching += 1;
     try {
       const source = await this.deps.transport.mediaUrl(mediaId);
-      if (this.disposed || turn !== this.turn || this.state.muted || source.kind !== 'uri') return;
+      if (this.disposed || epoch !== this.epoch || this.state.muted || source.kind !== 'uri') return;
+      if (this.fetching > 0) this.fetching -= 1;
       this.playSource({ uri: source.uri, headers: source.headers });
     } catch {
-      if (this.state.phase === 'speaking') this.set({ phase: 'idle' });
+      if (epoch === this.epoch && this.fetching > 0) this.fetching -= 1;
+      if (epoch === this.epoch && this.state.phase === 'speaking' && this.playing === 0 && !this.speech) {
+        this.set({ phase: 'idle' });
+      }
     }
   }
 
-  private playSource(source: SpeechSource) {
+  /** Antre satu klip di pemutar (berurutan dengan klip sebelumnya); `file` = berkas sementara yang dihapus setelahnya. */
+  private playSource(source: SpeechSource, file?: string) {
     if (this.disposed) return;
     if (this.speechTimer) clearTimeout(this.speechTimer);
     this.speechTimer = null;
+    this.playing += 1;
+    const epoch = this.epoch;
     this.set({ phase: 'speaking' });
     this.deps.speaker.play(source, () => {
-      if (!this.disposed && this.state.phase === 'speaking') this.set({ phase: 'idle' });
+      if (file) {
+        removeSpeechFile(file);
+        this.fileUris.delete(file);
+      }
+      if (this.disposed || epoch !== this.epoch) return;
+      if (this.playing > 0) this.playing -= 1;
+      if (this.playing === 0 && this.fetching === 0 && !this.speech && this.state.phase === 'speaking') {
+        this.set({ phase: 'idle' });
+      }
     });
   }
 }

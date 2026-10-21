@@ -140,9 +140,10 @@ export type Unsubscribe = () => void;
  * - `ended`: selesai dengan baik (server mengirim `end`, atau aplikasi yang menutup);
  * - `unauthorized`: server menolak token (4401); sesi sudah dihapus;
  * - `idle`: server menutup karena diam terlalu lama (4408);
- * - `network`: tidak tersambung atau putus.
+ * - `network`: tidak tersambung atau putus;
+ * - `unavailable`: Mode Suara belum tersedia untuk akun ini (4501 `belum_tersedia`).
  */
-export type VoiceCloseReason = 'ended' | 'unauthorized' | 'idle' | 'network';
+export type VoiceCloseReason = 'ended' | 'unauthorized' | 'idle' | 'network' | 'unavailable';
 
 /**
  * Satu sesi Mode Suara (`GET /voice`). Pesan yang dikirim sebelum soket terbuka diantre. Setelah tertutup, `send` tidak

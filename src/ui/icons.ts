@@ -19,6 +19,8 @@ export const ICON_PATHS = {
   mic: 'M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM6 11a6 6 0 0 0 12 0M12 17v4',
   micOff:
     'M15 10V6a3 3 0 0 0-5.8-1M9 9v3a3 3 0 0 0 4.6 2.5M6 11a6 6 0 0 0 9.7 4.7M18 11c0 .7-.1 1.4-.3 2M12 17v4M4 4l16 16',
+  speaker: 'M4 9.5v5h3.5l4.5 4v-13l-4.5 4zM15.5 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11',
+  speakerOff: 'M4 9.5v5h3.5l4.5 4v-13l-4.5 4zM16 9.5l4 5M20 9.5l-4 5',
   wave: 'M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4',
   file: 'M7 3h7l5 5v13H7zM14 3v5h5',
   check: 'M5 12.5l4.5 4.5L19 7.5',

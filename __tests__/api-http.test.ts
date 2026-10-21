@@ -5,6 +5,8 @@ import {
   friendlyError,
   NOT_REGISTERED_TEXT,
   WRONG_PIN_TEXT,
+  DEVICE_UNAVAILABLE_TEXT,
+  deviceError,
   UNAVAILABLE_TEXT,
   UPGRADE_TEXT,
   WRONG_CODE_TEXT,
@@ -845,7 +847,9 @@ describe('kegagalan khusus', () => {
     const e = await transport.controlDevice('ac1', { on: true }).catch((x: unknown) => x);
     expect(e).toMatchObject({ code: 'unavailable', status: 501, error: 'belum_tersedia' });
     expect(friendlyError(e)).toBe(UNAVAILABLE_TEXT);
-    expect(UNAVAILABLE_TEXT).toBe('Kendali perangkat ini segera hadir.');
+    expect(UNAVAILABLE_TEXT).toBe('Fitur ini segera hadir.');
+    expect(deviceError(e)).toBe(DEVICE_UNAVAILABLE_TEXT);
+    expect(DEVICE_UNAVAILABLE_TEXT).toBe('Kendali perangkat ini segera hadir.');
   });
 });
 
