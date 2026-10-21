@@ -7,7 +7,13 @@ import Perangkat from '../app/(tabs)/perangkat';
 import Usaha from '../app/(tabs)/usaha';
 import TambahAgenda from '../app/agenda/tambah';
 import Akun from '../app/akun';
+import Asisten from '../app/akun/asisten';
+import Hp from '../app/akun/hp';
 import Keamanan from '../app/akun/keamanan';
+import KonfirmasiAkun from '../app/akun/konfirmasi';
+import Notifikasi from '../app/akun/notifikasi';
+import Privasi from '../app/akun/privasi';
+import Sapaan from '../app/akun/sapaan';
 import Alarm from '../app/alarm';
 import Chat from '../app/chat';
 import Inti from '../app/inti';
@@ -46,6 +52,12 @@ export const ROUTES: Record<string, ComponentType> = {
   '/agenda/tambah': TambahAgenda,
   '/akun': Akun,
   '/akun/keamanan': Keamanan,
+  '/akun/asisten': Asisten,
+  '/akun/sapaan': Sapaan,
+  '/akun/notifikasi': Notifikasi,
+  '/akun/hp': Hp,
+  '/akun/privasi': Privasi,
+  '/akun/konfirmasi': KonfirmasiAkun,
   '/alarm': Alarm,
   '/chat': Chat,
   '/inti': Inti,

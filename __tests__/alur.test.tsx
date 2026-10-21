@@ -37,6 +37,7 @@ test('alur 1: tahan Inti, Mode Suara mematikan AC, Beranda dan Riwayat mencatatn
 
   expect(screen.getByText('AC kamar mati')).toBeOnTheScreen();
   await go('/riwayat');
+  await settle();
   expect(currentRoute()).toBe('/riwayat');
   // Satu entri baru dari suara, satu lagi contoh dari kemarin.
   expect(screen.getAllByText('Mematikan AC kamar')).toHaveLength(2);
@@ -60,11 +61,14 @@ test('alur 2: Lihat, Kirim, Dikirim 10.47, Batalkan di Riwayat dengan toast dan 
   expect(screen.queryByText('Butuh persetujuan Anda')).toBeNull();
 
   await go('/riwayat');
+  await settle();
   expect(screen.getByText('Mengirim balasan ke Pak Budi')).toBeOnTheScreen();
-  expect(screen.getByText('sampai 10.47')).toBeOnTheScreen();
+  expect(screen.getByText(/^sisa [45]:\d\d$/)).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Batalkan' }));
-  expect(screen.getByText('Kiriman ke Pak Budi dibatalkan.')).toBeOnTheScreen();
-  expect(screen.queryByText('sampai 10.47')).toBeNull();
+  await settle();
+  expect(screen.getByText('Kiriman dibatalkan.')).toBeOnTheScreen();
+  expect(screen.queryByText(/^sisa /)).toBeNull();
+  expect(screen.getByText('Dibatalkan')).toBeOnTheScreen();
   expect(screen.getByText('Mengirim balasan ke Pak Budi')).toHaveStyle({ textDecorationLine: 'line-through' });
 
   // Batalkan di Riwayat sampai ke server tiruan: kartu di chat ikut dibatalkan.
@@ -85,6 +89,7 @@ test('alur 2b: Batalkan di chat juga membatalkan di Riwayat (sampai ke penyimpan
   await advance(1);
   expect(sampleState().outgoing['o-budi']!.status).toBe('cancelled');
   await go('/riwayat');
+  await settle();
   expect(screen.getByText('Mengirim balasan ke Pak Budi')).toHaveStyle({ textDecorationLine: 'line-through' });
 });
 
@@ -103,6 +108,7 @@ test('alur Usaha: Pesan lagi membuka chat dengan kartu draf pesanan; Kirim tampi
   expect(sampleState().outgoing['o-budi']!.status).toBe('draft');
   await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
   await go('/riwayat');
+  await settle();
   expect(screen.getByText('Mengirim pesanan ke PT Sumber Susu')).toBeOnTheScreen();
 });
 

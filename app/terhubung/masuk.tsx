@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
 import { useConnections } from '@/api/useConnections';
+import { useAssistantName } from '@/api/useProfile';
 import { serviceInfo } from '@/sample/services';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
@@ -24,6 +25,7 @@ export default function Masuk() {
 
 function Isi({ id }: { id: string }) {
   const { c, scheme } = useTheme();
+  const assistant = useAssistantName();
   const { mode } = useApi();
   const { close } = useSheet();
   const { height } = useWindowDimensions();
@@ -136,7 +138,7 @@ function Isi({ id }: { id: string }) {
         </View>
       ) : detail?.data?.what.length ? (
         <View style={{ marginHorizontal: 16, gap: 8 }}>
-          <Txt weight={600}>Yang bisa Nadia lakukan</Txt>
+          <Txt weight={600}>Yang bisa {assistant} lakukan</Txt>
           {detail.data.what.map((line) => (
             <View key={line} style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ marginTop: 2 }}>

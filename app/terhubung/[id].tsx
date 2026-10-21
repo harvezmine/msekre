@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PERMISSION_OPTIONS, serviceLine } from '@/api/connections';
 import type { ConnectionPermission } from '@/api/contract';
 import { useConnections } from '@/api/useConnections';
+import { useAssistantName } from '@/api/useProfile';
 import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '@/ui/Card';
@@ -12,16 +13,18 @@ import { IconButton } from '@/ui/IconButton';
 import { iconOr, type IconName } from '@/ui/icons';
 import { Txt } from '@/ui/Txt';
 
-const PERMISSION_TEXT: Record<ConnectionPermission, string> = {
-  baca: 'Nadia melihat data, tidak mengubah apa pun.',
-  baca_tulis: 'Nadia boleh bertindak di sini, selalu dengan persetujuan Anda.',
-};
+const permissionText = (assistant: string): Record<ConnectionPermission, string> => ({
+  baca: `${assistant} melihat data, tidak mengubah apa pun.`,
+  baca_tulis: `${assistant} boleh bertindak di sini, selalu dengan persetujuan Anda.`,
+});
 
 // Detail satu layanan (desain 2j): apa yang bisa Nadia lakukan, izin, dan hapus yang Nadia tahu atau putuskan.
 export default function DetailLayanan() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const serviceId = typeof id === 'string' ? id : '';
   const { c } = useTheme();
+  const assistant = useAssistantName();
+  const PERMISSION_TEXT = permissionText(assistant);
   const insets = useSafeAreaInsets();
   const dispatch = useSampleDispatch();
   const { detail, service: listed, setPermission, reloadDetail } = useConnections(serviceId);
@@ -81,8 +84,8 @@ export default function DetailLayanan() {
     memory === undefined
       ? undefined
       : memory === 0
-        ? 'Tidak ada yang Nadia ingat dari sini.'
-        : `${memory} hal diingat Nadia.`;
+        ? `Tidak ada yang ${assistant} ingat dari sini.`
+        : `${memory} hal diingat ${assistant}.`;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.paper }}>
@@ -136,7 +139,7 @@ export default function DetailLayanan() {
         ) : null}
 
         <Card style={{ gap: 12 }}>
-          <Txt v="subtitle">Yang bisa Nadia lakukan</Txt>
+          <Txt v="subtitle">Yang bisa {assistant} lakukan</Txt>
           {data.what.map((line) => (
             <View key={line} style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ marginTop: 2 }}>
@@ -206,7 +209,7 @@ export default function DetailLayanan() {
         >
           <Action
             icon="trash"
-            label="Hapus yang Nadia tahu dari layanan ini"
+            label={`Hapus yang ${assistant} tahu dari layanan ini`}
             color={c.clay}
             border
             onPress={() => router.push(`/terhubung/konfirmasi?id=${service.id}&aksi=lupa`)}

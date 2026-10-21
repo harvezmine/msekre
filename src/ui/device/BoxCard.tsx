@@ -1,5 +1,6 @@
 import { Pressable, View } from 'react-native';
 import type { Box } from '@/api/contract';
+import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
 import { onForest } from '@/theme/tokens';
 import { Card } from '../Card';
@@ -9,6 +10,7 @@ import { Txt } from '../Txt';
 /** Kartu Kotak Sekretaris AI di Ruang tamu (desain 2c): mic dengan Matikan/Nyalakan, speaker, suhu, kelembapan. */
 export function BoxCard({ box, onMic }: { box: Box; onMic: (on: boolean) => void }) {
   const { c } = useTheme();
+  const assistant = useAssistantName();
   const mic = box.micOn;
   return (
     <Card style={{ gap: 16 }}>
@@ -72,7 +74,7 @@ export function BoxCard({ box, onMic }: { box: Box; onMic: (on: boolean) => void
         <View style={{ flex: 1 }}>
           <Txt weight={600}>{mic ? 'Mic menyala' : 'Mic mati'}</Txt>
           <Txt v="caption" color={c.micSub}>
-            {mic ? 'Mendengar saat dipanggil "Nadia"' : 'Tidak mendengar sampai dinyalakan'}
+            {mic ? `Mendengar saat dipanggil "${assistant}"` : 'Tidak mendengar sampai dinyalakan'}
           </Txt>
         </View>
         <Pressable

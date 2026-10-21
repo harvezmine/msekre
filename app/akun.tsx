@@ -1,7 +1,10 @@
 import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
-import { formatPhoneDisplay, formatTanggal } from '@/api/format';
+import { openWhatsApp, planText, RENEW_TEXT, STYLES, WA_UNAVAILABLE_TEXT } from '@/api/account';
+import type { AccountPlan } from '@/api/contract';
+import { formatPhoneDisplay } from '@/api/format';
+import { useAccount } from '@/api/useAccount';
 import { getAlarmScheduler } from '@/alarm';
 import { alarmBlocked, useAlarmStatus } from '@/alarm/useAlarmStatus';
 import { usePush, type PushPermission } from '@/api/usePush';
@@ -26,21 +29,16 @@ interface Row {
 
 /** Isi kepala Akun. Mode contoh memakai isian desain; mode server hanya data akun asli, tanpa nama contoh. */
 function accountOf(p: Profile) {
-  if (p.sample) {
-    return {
-      title: 'Rina Wulandari',
-      phone: '+62 812-2045-7781',
-      plan: 'Paket Bisnis',
-      until: 'Aktif sampai 12 Jan 2027' as string | null,
-    };
-  }
-  const until = p.plan?.activeUntil ? formatTanggal(p.plan.activeUntil) : null;
-  return {
-    title: p.name ?? 'Akun Anda',
-    phone: p.phone ? formatPhoneDisplay(p.phone) : null,
-    plan: p.plan ? `Paket ${p.plan.name}` : 'Paket Anda',
-    until: until ? `Aktif sampai ${until}` : null,
-  };
+  if (p.sample) return { title: 'Rina Wulandari', phone: '+62 812-2045-7781' };
+  return { title: p.name ?? 'Akun Anda', phone: p.phone ? formatPhoneDisplay(p.phone) : null };
+}
+
+/** Baris HP: "Pixel 8 (HP ini)" bila sendiri, selain itu "Pixel 8 (HP ini) dan 1 lainnya". */
+function phonesLine(phones: { name: string; current: boolean }[]): string {
+  const here = phones.find((p) => p.current);
+  const others = phones.length - (here ? 1 : 0);
+  if (!here) return `${phones.length} HP`;
+  return others > 0 ? `${here.name} (HP ini) dan ${others} lainnya` : `${here.name} (HP ini)`;
 }
 
 const NOTIF_STATUS: Record<PushPermission, string> = {
@@ -56,10 +54,17 @@ export default function Akun() {
   const { state, dispatch } = useSample();
   const { mode } = useApi();
   const profile = useProfile();
+  const { account: data, status: accountStatus, retry } = useAccount();
   const { permission, canAskAgain } = usePush();
   const security = useSecurity();
   const alarm = useAlarmStatus();
   const account = accountOf(profile);
+  const plan: AccountPlan | null = data?.plan ?? null;
+  const assistant = data?.assistant.name ?? profile.assistantName;
+  const style = STYLES.find((s) => s.value === data?.assistant.style)?.title.toLowerCase();
+  const renew = async () => {
+    if (!(await openWhatsApp(RENEW_TEXT))) toast(WA_UNAVAILABLE_TEXT);
+  };
   const toast = (text: string) => dispatch({ type: 'showToast', text });
   const demo = mode === 'contoh';
   /** Toast layar yang belum ada: teks contoh bernama fase, atau teks netral di mode server. */
@@ -70,8 +75,14 @@ export default function Akun() {
       {
         icon: 'user',
         title: 'Nama dan gaya asisten',
-        subtitle: demo ? 'Nadia · ramah dan singkat' : undefined,
-        go: { toast: later('Pengaturan asisten dibangun di Fase 2.', 'Pengaturan asisten segera hadir.') },
+        subtitle: data ? `${assistant} · ${style ?? ''}`.replace(/ · $/, '') : undefined,
+        go: { route: '/akun/asisten' },
+      },
+      {
+        icon: 'chat',
+        title: 'Sapaan harian',
+        subtitle: data ? (data.greeting.daily ? `Tiap hari jam ${data.greeting.time ?? '07.00'}` : 'Mati') : undefined,
+        go: { route: '/akun/sapaan' },
       },
     ],
     [
@@ -84,8 +95,8 @@ export default function Akun() {
       {
         icon: 'shield',
         title: 'Privasi',
-        subtitle: 'Lihat dan hapus yang Nadia tahu, per layanan',
-        go: { toast: later('Pengaturan privasi dibangun di Fase 5.', 'Pengaturan privasi segera hadir.') },
+        subtitle: `Lihat dan hapus yang ${assistant} tahu, per layanan`,
+        go: { route: '/akun/privasi' },
       },
     ],
     [
@@ -93,7 +104,7 @@ export default function Akun() {
         icon: 'bell',
         title: 'Notifikasi',
         subtitle: NOTIF_STATUS[permission === 'denied' && canAskAgain ? 'undetermined' : permission],
-        go: { route: '/izin-notifikasi' },
+        go: { route: '/akun/notifikasi' },
       },
       // Hanya di HP yang punya alarm sendiri (build Android dengan modul alarm).
       ...(getAlarmScheduler().native
@@ -115,8 +126,8 @@ export default function Akun() {
       {
         icon: 'phone',
         title: 'HP yang terhubung',
-        subtitle: demo ? 'Pixel 8 (HP ini) dan 1 lainnya' : undefined,
-        go: { toast: later('Daftar HP dibangun di Fase 2.', 'Daftar HP segera hadir.') },
+        subtitle: data ? phonesLine(data.phones) : undefined,
+        go: { route: '/akun/hp' },
       },
       {
         icon: 'link',
@@ -132,7 +143,12 @@ export default function Akun() {
         subtitle: 'Tanya jawab dan hubungi tim',
         go: { toast: later('Bantuan dibangun di Fase 5.', 'Bantuan segera hadir.') },
       },
-      { icon: 'history', title: 'Riwayat', subtitle: 'Semua yang sudah Nadia kerjakan', go: { route: '/riwayat' } },
+      {
+        icon: 'history',
+        title: 'Riwayat',
+        subtitle: `Semua yang sudah ${assistant} kerjakan`,
+        go: { route: '/riwayat' },
+      },
     ],
     [{ icon: 'logout', title: 'Keluar', go: { route: '/keluar' } }],
   ];
@@ -165,41 +181,50 @@ export default function Akun() {
           </View>
         </View>
 
-        <View
-          style={{
-            backgroundColor: c.mint,
-            borderRadius: 24,
-            paddingVertical: 16,
-            paddingLeft: 20,
-            paddingRight: 8,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12,
-          }}
-        >
-          <View style={{ flex: 1 }}>
-            <Txt v="caption" weight={600} color={c.green}>
-              Langganan
-            </Txt>
-            <Txt v="subtitle">{account.plan}</Txt>
-            {account.until ? (
-              <Txt v="caption" color={c.muted}>
-                {account.until}
+        {plan ? (
+          <View
+            style={{
+              backgroundColor: c.mint,
+              borderRadius: 24,
+              paddingVertical: 16,
+              paddingLeft: 20,
+              paddingRight: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Txt v="caption" weight={600} color={c.green}>
+                Langganan
               </Txt>
-            ) : null}
+              <Txt v="subtitle">{`Paket ${plan.name}`}</Txt>
+              <Txt v="caption" color={plan.status === 'berakhir' ? c.clay : c.muted}>
+                {planText(plan)}
+              </Txt>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Perpanjang"
+              onPress={() => void renew()}
+              android_ripple={{ color: c.ripple }}
+              style={{ height: 48, paddingHorizontal: 16, justifyContent: 'center' }}
+            >
+              <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
+                Perpanjang
+              </Txt>
+            </Pressable>
           </View>
+        ) : accountStatus === 'error' ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Kelola"
-            onPress={() => toast(later('Kelola langganan dibangun di Fase 5.', 'Kelola langganan segera hadir.'))}
-            android_ripple={{ color: c.ripple }}
-            style={{ height: 48, paddingHorizontal: 16, justifyContent: 'center' }}
+            accessibilityLabel="Muat paket lagi"
+            onPress={() => void retry()}
+            style={{ backgroundColor: c.mint, borderRadius: 24, padding: 16 }}
           >
-            <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
-              Kelola
-            </Txt>
+            <Txt color={c.muted}>Paket belum bisa dimuat. Ketuk untuk mencoba lagi.</Txt>
           </Pressable>
-        </View>
+        ) : null}
 
         {sections.map((rows, i) => (
           <ListGroup key={i}>

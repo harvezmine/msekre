@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { useConnections } from '@/api/useConnections';
+import { useAssistantName } from '@/api/useProfile';
 import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Sheet, useSheet } from '@/ui/Sheet';
@@ -18,6 +19,7 @@ export default function Konfirmasi() {
 
 function Isi({ id, putus }: { id: string; putus: boolean }) {
   const { c } = useTheme();
+  const assistant = useAssistantName();
   const dispatch = useSampleDispatch();
   const { service, forget, disconnect, busy } = useConnections(id);
   const { close } = useSheet();
@@ -40,7 +42,7 @@ function Isi({ id, putus }: { id: string; putus: boolean }) {
       close(() =>
         toast(
           res.ok
-            ? `Yang Nadia pelajari dari ${service.name} sudah dihapus.`
+            ? `Yang ${assistant} pelajari dari ${service.name} sudah dihapus.`
             : res.message || 'Belum bisa menghapus. Coba lagi sebentar ya.',
         ),
       );
@@ -49,11 +51,13 @@ function Isi({ id, putus }: { id: string; putus: boolean }) {
   const working = putus ? busy.disconnect : busy.forget;
   return (
     <View style={{ gap: 8 }}>
-      <Txt v="title">{putus ? `Putuskan ${service.name}?` : `Hapus yang Nadia pelajari dari ${service.name}?`}</Txt>
+      <Txt v="title">
+        {putus ? `Putuskan ${service.name}?` : `Hapus yang ${assistant} pelajari dari ${service.name}?`}
+      </Txt>
       <Txt color={c.muted}>
         {putus
-          ? 'Nadia tidak lagi membaca atau bertindak di layanan ini. Anda bisa menyambungkannya lagi kapan saja.'
-          : 'Sambungannya tetap ada. Semua yang Nadia ingat dari layanan ini dihapus.'}
+          ? `${assistant} tidak lagi membaca atau bertindak di layanan ini. Anda bisa menyambungkannya lagi kapan saja.`
+          : `Sambungannya tetap ada. Semua yang ${assistant} ingat dari layanan ini dihapus.`}
       </Txt>
       <View style={{ gap: 8, paddingTop: 16 }}>
         <Pressable

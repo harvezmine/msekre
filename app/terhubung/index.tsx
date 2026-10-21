@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '@/api/ApiProvider';
 import { groupByCategory, serviceLine } from '@/api/connections';
 import { useConnections } from '@/api/useConnections';
+import { useAssistantName } from '@/api/useProfile';
 import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { CatalogGroup } from '@/ui/connect/CatalogRow';
@@ -16,6 +17,7 @@ import { Txt } from '@/ui/Txt';
 // Daftar Terhubung (desain 2h, 2i): yang sudah tersambung, katalog menurut kelompok, Rumah, dan Lainnya.
 export default function Terhubung() {
   const { c } = useTheme();
+  const assistant = useAssistantName();
   const insets = useSafeAreaInsets();
   const dispatch = useSampleDispatch();
   const { mode } = useApi();
@@ -34,7 +36,7 @@ export default function Terhubung() {
             Terhubung
           </Txt>
           <Txt v="subtitle" weight={400} color={c.muted}>
-            Semua yang sudah Nadia kenal.
+            Semua yang sudah {assistant} kenal.
           </Txt>
         </View>
 

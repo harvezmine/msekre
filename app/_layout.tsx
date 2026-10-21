@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AfterSignIn } from '@/api/AfterSignIn';
+import { AccountProvider } from '@/api/AccountProvider';
 import { AgendaProvider } from '@/api/AgendaProvider';
 import { ApiProvider, useApi } from '@/api/ApiProvider';
 import { ApiSampleProvider } from '@/api/ApiSampleProvider';
@@ -18,6 +19,7 @@ import { ChatProvider } from '@/api/ChatProvider';
 import { BusinessProvider } from '@/api/BusinessProvider';
 import { ConnectionsProvider } from '@/api/ConnectionsProvider';
 import { DevicesProvider } from '@/api/DevicesProvider';
+import { HistoryProvider } from '@/api/HistoryProvider';
 import { HomeProvider } from '@/api/HomeProvider';
 import { canOpen } from '@/api/routeAccess';
 import { PushProvider, PushTapHandler } from '@/api/usePush';
@@ -96,6 +98,19 @@ function Navigator() {
           />
           <Stack.Screen name="akun" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="akun/keamanan" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/asisten" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/sapaan" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/notifikasi" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/hp" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/privasi" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen
+            name="akun/konfirmasi"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'none',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
           <Stack.Screen name="riwayat" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="mulai/pilih" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen
@@ -191,9 +206,13 @@ export default function RootLayout() {
                     <DevicesProvider>
                       <BusinessProvider>
                         <ConnectionsProvider>
-                          <PushProvider>
-                            <Navigator />
-                          </PushProvider>
+                          <HistoryProvider>
+                            <AccountProvider>
+                              <PushProvider>
+                                <Navigator />
+                              </PushProvider>
+                            </AccountProvider>
+                          </HistoryProvider>
                         </ConnectionsProvider>
                       </BusinessProvider>
                     </DevicesProvider>

@@ -32,7 +32,7 @@ test('profil, langganan, dan catatan PIN tanpa pembayaran', async () => {
   await show();
   expect(screen.getByText('Rina Wulandari')).toBeTruthy();
   expect(screen.getByText('+62 812-2045-7781')).toBeTruthy();
-  expect(screen.getByText('Paket Bisnis')).toBeTruthy();
+  expect(await screen.findByText('Paket Bisnis')).toBeTruthy();
   expect(screen.getByText('Aktif sampai 12 Jan 2027')).toBeTruthy();
   // PIN opsional, bawaan mati.
   expect(await screen.findByRole('button', { name: 'PIN. Mati' })).toBeTruthy();
@@ -55,14 +55,32 @@ test('PIN membuka Keamanan; keterangannya mengikuti keadaan PIN', async () => {
   expect(router.push).toHaveBeenCalledWith('/akun/keamanan');
 });
 
-test('baris lain memunculkan toast yang menyebut fase', async () => {
+test('Bantuan (belum dibangun) memunculkan toast yang menyebut fase', async () => {
   await show();
-  await fireEvent.press(screen.getByRole('button', { name: 'Kelola' }));
-  expect(latest.toast?.text).toBe('Kelola langganan dibangun di Fase 5.');
+  await fireEvent.press(screen.getByRole('button', { name: /^Bantuan/ }));
+  expect(latest.toast?.text).toBe('Bantuan dibangun di Fase 5.');
   expect(router.push).not.toHaveBeenCalled();
 });
 
-test('mode server: toast layar yang belum ada netral ("segera hadir"), tanpa menyebut fase atau isian contoh', async () => {
+test('baris pengaturan membuka halamannya', async () => {
+  await show();
+  expect(await screen.findByRole('button', { name: 'Nama dan gaya asisten. Nadia · ramah' })).toBeTruthy();
+  const opened: [string, string][] = [
+    ['Nama dan gaya asisten', '/akun/asisten'],
+    ['Sapaan harian', '/akun/sapaan'],
+    ['Privasi', '/akun/privasi'],
+    ['Notifikasi', '/akun/notifikasi'],
+    ['HP yang terhubung', '/akun/hp'],
+  ];
+  for (const [title, route] of opened) {
+    await fireEvent.press(screen.getByRole('button', { name: new RegExp(`^${title}`) }));
+    expect(router.push).toHaveBeenLastCalledWith(route);
+  }
+  expect(screen.getByRole('button', { name: 'Sapaan harian. Tiap hari jam 07.00' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'HP yang terhubung. Pixel 8 (HP ini) dan 1 lainnya' })).toBeTruthy();
+});
+
+test('mode server: baris yang belum dibangun netral ("segera hadir"), tanpa menyebut fase atau isian contoh', async () => {
   const api = createTestApi({ mode: 'server', token: 'tok' });
   await renderWithProviders(
     <>
@@ -71,21 +89,11 @@ test('mode server: toast layar yang belum ada netral ("segera hadir"), tanpa men
     </>,
     { api },
   );
-  const texts: string[] = [];
-  for (const name of [/^Nama dan gaya asisten/, /^Privasi/, /^HP yang terhubung/, /^Bantuan/, /^Kelola$/]) {
-    await fireEvent.press(screen.getByRole('button', { name }));
-    texts.push(latest.toast!.text);
-  }
-  expect(texts).toEqual([
-    'Pengaturan asisten segera hadir.',
-    'Pengaturan privasi segera hadir.',
-    'Daftar HP segera hadir.',
-    'Bantuan segera hadir.',
-    'Kelola langganan segera hadir.',
-  ]);
-  expect(texts.join(' ')).not.toMatch(/Fase|dibangun/);
+  await fireEvent.press(screen.getByRole('button', { name: /^Bantuan/ }));
+  expect(latest.toast?.text).toBe('Bantuan segera hadir.');
+  expect(latest.toast?.text).not.toMatch(/Fase|dibangun/);
   // Tidak ada keterangan contoh milik akun lain.
-  expect(screen.queryByText(/Pixel 8|ramah dan singkat/)).toBeNull();
+  expect(screen.queryByText(/ramah dan singkat/)).toBeNull();
 });
 
 test('bagian Coba (hanya development) membuka layar uji', async () => {

@@ -289,6 +289,9 @@ describe('profil di mode server', () => {
       phone: '6281311112222',
       plan: { name: 'Coba', activeUntil: null },
     });
+    // Paket di Akun datang dari GET /account.
+    const account = await api.transport.account();
+    jest.spyOn(api.transport, 'account').mockResolvedValue({ ...account, plan: { name: 'Coba', status: 'aktif' } });
     await renderWithProviders(<Akun />, { api });
     expect(await screen.findByText('+62 813-1111-2222')).toBeTruthy();
     expect(screen.getByText('Akun Anda')).toBeTruthy();

@@ -560,6 +560,6 @@ describe('Akun', () => {
     await mount(<Akun />);
     expect(screen.getByText(text)).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: /^Notifikasi/ }));
-    expect(router.push).toHaveBeenCalledWith('/izin-notifikasi');
+    expect(router.push).toHaveBeenCalledWith('/akun/notifikasi');
   });
 });
