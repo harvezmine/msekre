@@ -177,3 +177,28 @@ Peta ke milo-ai (di sana belum ada satu "layanan Usaha"; `GET /business` adalah 
   `reorderDraftId` berubah (draf dibuat/dikirim/dibuang). Siarkan `business` untuk pasangan `place`+`period` yang
   berubah; gabungkan perubahan yang berdekatan.
 - Pengguna tanpa sumber tersambung: jawab data kosong (bukan 404) dengan `sources` yang bisa disambung.
+
+## Perbaikan setelah tinjauan Fase 2a-6a (F1)
+
+Semua aditif atau memperketat aturan yang belum pernah dipakai server asli; `CONTRACT_VERSION` tetap 1. Uraian lengkap di
+`docs/api-v1.md`; yang perlu dikerjakan server:
+
+- **Tanda terima alarm milik sesi.** Simpan per sesi (`app_sessions`), bukan per akun. Gugurkan saat `auth/logout`,
+  saat `DELETE /push-tokens` mencabut token sesi itu, dan saat ganti akun. Server hanya menahan pengingat WhatsApp kalau
+  HP pemilik tanda terima itu terlihat dalam 12 jam terakhir (stream tersambung atau request apa pun dengan token
+  sesinya); selain itu kirim lewat WhatsApp seperti biasa. Tanda terima juga menahan push `pengingat` untuk pengingat yang
+  sama. Aplikasi tidak mengirim penghapusan tanda terima sendiri: ia mengandalkan pencabutan sesi dan token push.
+- **Kejadian berulang.** Tiap kejadian punya `id` sendiri `<seriesId>:<YYYY-MM-DD>` dan `seriesId`. Selesai, tunda, dan
+  tanda terima per kejadian; `PATCH` dan `alarm-ack` memakai id kejadian.
+- **`way` kosong = `notif`.** Hanya `way: "alarm"` yang dijanjikan aplikasi sebagai alarm di HP.
+- **Tunda** `snoozeUntil` = maks(`snoozedUntil` ?? `at`, sekarang) + 10 menit dari aplikasi. Server tidak perlu menghitung
+  ulang, tapi boleh menolak (400) tundaan yang jauh di masa lalu. `PATCH` yang sama bisa datang berulang dan terlambat
+  (aplikasi mengulangnya sampai berhasil): jadikan idempoten.
+- **`GET /agenda`** menambah `tzOffsetMinutes` (menit dari UTC; WIB 420). `POST /agenda/parse` membalas 422 `tidak_paham`
+  untuk kalimat yang tidak terbaca (bukan 400).
+- **`GET /home`** menambah `places` (tempat nyata pengguna tanpa `Semua`). `PUT /places/current` yang menolak tempat
+  tetap 400.
+- **PIN.** `PUT /account/security { pinEnabled: false }` WAJIB membawa `pin` yang benar (403 `pin_salah` bila hilang atau
+  salah). `POST /account/pin` menerima `enable: true` (PIN tersimpan dan permintaan PIN hidup dalam satu transaksi).
+- **`rev` tidak pernah turun di aplikasi.** Server tidak boleh menurunkan `rev` per pengguna (termasuk setelah restart).
+  Aplikasi membuang jawaban muat yang `rev`-nya lebih kecil dari yang dipegang.

@@ -334,6 +334,31 @@ Dijalankan di perangkat Android sungguhan (mode contoh dan mode server) setelah 
 6. **Token.** Terkirim sekali per pembukaan aplikasi; pasang ulang aplikasi memberi token baru yang terkirim; keluar lalu masuk mengirim lagi; keluar saat mode pesawat lalu online: token dicabut dari server (periksa tabel token di server) dan tidak ada notifikasi lagi.
 7. **Layar kunci.** Isi notifikasi pesan disembunyikan (privat) saat HP terkunci.
 
+## Daftar uji di HP: alarm lokal dan Fase 2a-6a (tinjauan F1)
+
+Dijalankan di build EAS `preview` (bukan development client) di Android sungguhan; kode native belum pernah dikompilasi
+di Mac ini. Rincian cara dan perintah ada di `docs/alarm-lokal.md`.
+
+1. **Henti paksa dan penghemat baterai.** Hentikan paksa atau geser aplikasi dari Recents di HP agresif (Xiaomi, Oppo,
+   Vivo); buka aplikasi lagi: alarm tetap terpasang (`adb shell dumpsys alarm`, cari `id.my.secretary.dev`).
+2. **Notifikasi dimatikan.** Tidak ada tanda terima ke server, panduan izin menyebut notifikasi, pengingat WhatsApp tetap
+   datang.
+3. **Layar kunci.** "Tanya" meminta buka kunci dulu; Kembali mengembalikan layar kunci; 10 menit tanpa disentuh notifikasi
+   hilang; mematikan aplikasi lewat Recents lalu membukanya dari Recents tidak membuka `/alarm` lagi.
+4. **Tanpa internet.** Cold start dengan mode pesawat: judul dan Matikan tampil (tanpa Tanya); Tunda tanpa internet bunyi
+   10 menit kemudian; Tunda telat bunyi 10 menit setelah ditekan; internet kembali: server dan Agenda ikut.
+5. **Tautan layar penuh** di build preview: alarm membuka `/alarm?id=...&title=...` di atas layar kunci.
+6. **Android 14.** Izin layar penuh dicabut (`adb shell appops set id.my.secretary.dev USE_FULL_SCREEN_INTENT deny`) dengan
+   Jangan Ganggu menyala: tetap muncul sebagai notifikasi berbunyi.
+7. **Manifest gabungan.** Receiver, `BOOT_COMPLETED`, `QUICKBOOT_POWERON`, dan izin sesuai harapan.
+8. **`useExactAlarm: false`** di Android 14 pemasangan baru dan deklarasi Play (`USE_EXACT_ALARM`,
+   `USE_FULL_SCREEN_INTENT`).
+9. **Zona waktu.** Zona HP berbeda dari zona akun: jam di Agenda dan "Ditunda sampai" mengikuti zona akun.
+10. **Pergantian pekan.** Aplikasi hidup dari Minggu malam ke Senin pagi: Hari ini, garis "sekarang", dan alarm pekan baru
+    benar tanpa menutup aplikasi.
+11. **Dokumen.** Buka di Drive dan WPS; tanpa aplikasi pembuka, lembar bagikan muncul; tombol tidak tertahan; keluar dari
+    akun membuang berkas unduhan.
+
 ### Build di cloud (EAS)
 
 1. `npx eas-cli login` (sekali).
