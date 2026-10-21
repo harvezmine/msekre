@@ -87,7 +87,8 @@
       "<rootDir>/__tests__/redraw.tsx",
       "<rootDir>/__tests__/daftar-layar.tsx",
       "<rootDir>/__tests__/audioMock.ts",
-      "<rootDir>/__tests__/expoAudioMock.ts"
+      "<rootDir>/__tests__/expoAudioMock.ts",
+      "<rootDir>/__tests__/fakeHttp.ts"
     ]
   }
 }

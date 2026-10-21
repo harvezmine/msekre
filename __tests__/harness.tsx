@@ -18,6 +18,7 @@ import Alarm from '../app/alarm';
 import Chat from '../app/chat';
 import Inti from '../app/inti';
 import IzinAlarm from '../app/izin-alarm';
+import IzinNotifikasi from '../app/izin-notifikasi';
 import Keluar from '../app/keluar';
 import Mode from '../app/mode';
 import MulaiIndex from '../app/mulai/index';
@@ -63,6 +64,7 @@ export const ROUTES: Record<string, ComponentType> = {
   '/chat': Chat,
   '/inti': Inti,
   '/izin-alarm': IzinAlarm,
+  '/izin-notifikasi': IzinNotifikasi,
   '/keluar': Keluar,
   '/mode': Mode,
   '/mulai': MulaiIndex,
