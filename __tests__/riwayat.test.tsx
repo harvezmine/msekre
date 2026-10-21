@@ -43,28 +43,39 @@ function crowded(count: number): SampleState {
   return { ...initialSampleState, history: [...extra, ...initialSampleState.history] };
 }
 
-test('entri per hari dengan jam dan keterangan, lalu keadaan kosong dan saringan', async () => {
+/** Saringan satu tombol: buka lembarnya, pilih, tunggu lembar menutup. */
+async function filter(current: string, next: string) {
+  await fireEvent.press(screen.getByRole('button', { name: `Saring: ${current}` }));
+  await fireEvent.press(screen.getByRole('radio', { name: next }));
+  await advance(250);
+  await settle();
+}
+
+test('garis waktu per hari: ikon, judul, jam, keterangan; satu tombol saring; keadaan kosong', async () => {
   await show();
   expect(screen.getByText('Hari ini')).toBeOnTheScreen();
   expect(screen.getByText('Kemarin')).toBeOnTheScreen();
   expect(screen.getByText('Membeli token listrik')).toBeOnTheScreen();
-  expect(screen.getByText(/^\d\d\.\d\d · Rp100\.000 lunas$/)).toBeOnTheScreen();
+  expect(screen.getByText('Rp100.000 lunas')).toBeOnTheScreen();
+  expect(screen.getAllByText(/^\d\d\.\d\d$/).length).toBeGreaterThan(2);
   expect(screen.getByText('Mengirim laporan penjualan harian')).toBeOnTheScreen();
+  // Tanpa deretan chip: hanya satu tombol saring.
+  expect(screen.queryByRole('button', { name: 'Rumah' })).toBeNull();
 
-  await fireEvent.press(screen.getByRole('button', { name: 'Rumah' }));
-  await settle();
+  await filter('Semua', 'Rumah');
+  expect(screen.getByRole('button', { name: 'Saring: Rumah' })).toBeOnTheScreen();
   expect(screen.getByText('Mengunci pintu depan')).toBeOnTheScreen();
   expect(screen.queryByText('Membeli token listrik')).toBeNull();
 
-  await fireEvent.press(screen.getByRole('button', { name: 'Kiriman' }));
-  await settle();
+  await filter('Rumah', 'Kiriman');
   expect(
     screen.getByText('Belum ada yang dikerjakan di sini. Nanti muncul begitu Nadia mulai bekerja.'),
   ).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Saring: Kiriman' }));
   for (const name of ['Semua', 'Kiriman', 'Rumah', 'Agenda', 'Usaha']) {
-    expect(screen.getByRole('button', { name })).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name })).toBeOnTheScreen();
   }
-  expect(screen.queryByRole('button', { name: 'Pesan' })).toBeNull();
+  expect(screen.getByRole('radio', { name: 'Kiriman' })).toBeChecked();
 });
 
 test('halaman demi halaman: tombol dan ujung gulir memuat yang lebih lama', async () => {

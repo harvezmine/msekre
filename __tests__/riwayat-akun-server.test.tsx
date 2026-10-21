@@ -138,7 +138,7 @@ describe('Riwayat lewat HttpTransport', () => {
     await settle();
     expect(calls('GET', '/history').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Entri a')).toBeOnTheScreen();
-    expect(screen.getByText(/^\d\d\.\d\d · lewat WhatsApp$/)).toBeOnTheScreen();
+    expect(screen.getByText('lewat WhatsApp')).toBeOnTheScreen();
     expect(screen.getByText('Terkirim')).toBeOnTheScreen();
     expect(screen.getByText('Hal dari masa depan')).toBeOnTheScreen();
     expect(screen.getByText('Entri c')).toBeOnTheScreen();
@@ -160,7 +160,11 @@ describe('Riwayat lewat HttpTransport', () => {
     expect(calls('GET', '/history?before=c')).toHaveLength(1);
     expect(screen.getByText('Entri d')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Tampilkan yang lebih lama' })).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Usaha' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Saring: Semua' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Usaha' }));
+    await act(async () => {
+      jest.advanceTimersByTime(250);
+    });
     await settle();
     expect(calls('GET', '/history?kind=usaha')).toHaveLength(1);
     expect(screen.getByText('Entri u')).toBeOnTheScreen();
