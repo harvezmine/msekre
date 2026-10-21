@@ -75,6 +75,8 @@ const config: ExpoConfig = {
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? '',
     // Nomor WhatsApp Sekretaris AI (62812..., tanpa +): cadangan bila server tidak menyebutnya di `belum_terdaftar`.
     waNumber: process.env.EXPO_PUBLIC_WA_NUMBER ?? '',
+    // Proyek EAS milik founder (build di cloud, `npx eas-cli build`).
+    eas: { projectId: '41c28acf-87f2-452b-81ec-c6af2caab19e' },
   },
   experiments: {
     typedRoutes: true,
