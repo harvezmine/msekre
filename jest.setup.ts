@@ -94,3 +94,12 @@ jest.mock('expo-sharing', () => ({
   isAvailableAsync: jest.fn(() => Promise.resolve(true)),
   shareAsync: jest.fn(() => Promise.resolve()),
 }));
+
+// Mikrofon, pemutar, dan layar menyala tanpa modul native. Keadaannya ada di `__audio` (lihat __tests__/audioMock.ts):
+// tes memberi potongan suara mikrofon, menyelesaikan pemutaran, dan mengatur izin.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('expo-audio', () => require('./__tests__/expoAudioMock').createExpoAudioMock());
+jest.mock('expo-keep-awake', () => ({
+  activateKeepAwakeAsync: jest.fn(() => Promise.resolve()),
+  deactivateKeepAwake: jest.fn(() => Promise.resolve()),
+}));

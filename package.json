@@ -6,6 +6,7 @@
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo/ui": "~58.0.21",
     "expo": "~58.0.16",
+    "expo-audio": "~58.0.9",
     "expo-constants": "~58.0.12",
     "expo-dev-client": "~58.0.14",
     "expo-device": "~58.0.5",
@@ -15,6 +16,7 @@
     "expo-haptics": "~58.0.7",
     "expo-image": "~58.0.16",
     "expo-intent-launcher": "~58.0.3",
+    "expo-keep-awake": "~58.0.3",
     "expo-linking": "~58.0.13",
     "expo-notifications": "~58.1.5",
     "expo-router": "~58.0.24",
@@ -83,7 +85,9 @@
       "<rootDir>/__tests__/helpers.tsx",
       "<rootDir>/__tests__/harness.tsx",
       "<rootDir>/__tests__/redraw.tsx",
-      "<rootDir>/__tests__/daftar-layar.tsx"
+      "<rootDir>/__tests__/daftar-layar.tsx",
+      "<rootDir>/__tests__/audioMock.ts",
+      "<rootDir>/__tests__/expoAudioMock.ts"
     ]
   }
 }

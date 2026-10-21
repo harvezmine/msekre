@@ -61,6 +61,16 @@ const config: ExpoConfig = {
     'expo-status-bar',
     'expo-secure-store',
     'expo-sharing',
+    // Mode Suara: mikrofon (RECORD_AUDIO) hanya saat layar suara terbuka; tidak merekam atau memutar di latar.
+    [
+      'expo-audio',
+      {
+        microphonePermission: 'Sekretaris AI memakai mikrofon agar Anda bisa berbicara dengan asisten.',
+        recordAudioAndroid: true,
+        enableBackgroundRecording: false,
+        enableBackgroundPlayback: false,
+      },
+    ],
     [
       'expo-notifications',
       {
