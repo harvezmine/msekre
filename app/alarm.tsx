@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PressableScale } from '@/ui/kit/PressableScale';
+import { useLayoutClass } from '@/ui/kit/layout';
 import { useApi } from '@/api/ApiProvider';
 import type { AgendaItem } from '@/api/contract';
 import { useAgenda } from '@/api/useAgenda';
@@ -28,6 +30,8 @@ const BUZZ_MS = 2000;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
+// Niat layar: mematikan alarm dengan tenang, atau menundanya. Tindakan tersering: geser untuk mematikan, paling bawah
+// di zona jempol (Tunda dan Tanya tepat di atasnya); jam besar dan judul di atas.
 // Alarm layar penuh (desain 2l). Dibuka dari alarm di HP (`sekretarisai://alarm?id=`) atau dengan menahan sebuah
 // pengingat di Agenda (`preview=1`: hanya melihat, alarm aslinya tidak disentuh). Itemnya dimuat lewat kontrak; kalau
 // tidak bisa (tanpa internet, sesi habis), layar tetap tampil dari catatan alarm di HP (`getRinging`), dengan Tunda dan
@@ -39,6 +43,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 export default function Alarm() {
   const assistantName = useAssistantName();
   const insets = useSafeAreaInsets();
+  const compact = useLayoutClass() === 'compact';
   const live = useLive();
   const toast = useToast();
   const { mode } = useApi();
@@ -249,11 +254,19 @@ export default function Alarm() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: light.voiceCanvas }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: light.voiceCanvas,
+        paddingTop: insets.top + (compact ? 24 : 64),
+        paddingBottom: Math.max(compact ? 20 : 32, insets.bottom + 16),
+        paddingHorizontal: 20,
+      }}
+    >
       <StatusBar style="light" />
-      <View style={{ alignItems: 'center', paddingTop: insets.top + 56, paddingHorizontal: 28, gap: 8 }}>
-        <IntiOrb size={88} paused={!live} />
-        <View style={{ marginTop: 24, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      {/* Atas: apa yang berbunyi. Jam besar dan judulnya terbaca dari jauh. */}
+      <View style={{ alignItems: 'center', gap: 8, flexShrink: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Icon name="bell" size={16} color={onVoice.soft} />
           <Txt weight={600} color={onVoice.soft} style={{ fontSize: 15, lineHeight: 20 }}>
             Pengingat · {dayLabel(item.date)}
@@ -265,15 +278,22 @@ export default function Alarm() {
           </Txt>
         ) : null}
         <Txt
-          weight={600}
+          weight={300}
           tabular
           color={onVoice.strong}
-          maxFontSizeMultiplier={1.2}
-          style={{ fontSize: 96, lineHeight: 104, letterSpacing: -2.9 }}
+          maxFontSizeMultiplier={1.1}
+          adjustsFontSizeToFit
+          numberOfLines={1}
+          style={{ fontSize: compact ? 88 : 104, lineHeight: compact ? 96 : 112, letterSpacing: -4 }}
         >
           {item.time}
         </Txt>
-        <Txt weight={600} color={onVoice.strong} style={{ fontSize: 28, lineHeight: 36, textAlign: 'center' }}>
+        <Txt
+          weight={600}
+          color={onVoice.strong}
+          numberOfLines={3}
+          style={{ fontSize: 28, lineHeight: 36, textAlign: 'center' }}
+        >
           {item.title}
         </Txt>
         {item.note ? (
@@ -284,29 +304,29 @@ export default function Alarm() {
               alignItems: 'center',
               gap: 12,
               borderRadius: 20,
-              borderWidth: 1,
-              borderColor: onVoice.buttonLine,
               backgroundColor: onVoice.button,
               paddingVertical: 14,
               paddingHorizontal: 18,
             }}
           >
             <Icon name={isFlight ? 'plane' : 'note'} size={22} color={gradients.waves.mint} />
-            <Txt color={onVoice.text} style={{ flexShrink: 1, fontSize: 17 }}>
+            <Txt color={onVoice.text} numberOfLines={3} style={{ flexShrink: 1, fontSize: 17 }}>
               {item.note}
             </Txt>
           </View>
         ) : null}
       </View>
 
-      <View style={{ position: 'absolute', left: 20, right: 20, bottom: Math.max(40, insets.bottom + 16), gap: 16 }}>
+      {/* Ruang lentur: semua tindakan menempel di bawah (zona jempol), tanpa jarak tetap dari atas. */}
+      <View style={{ flexGrow: 1, minHeight: 24 }} />
+      <View testID="zona-jempol" style={{ gap: 16 }}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <AlarmButton label={`Tunda ${SNOOZE_MINUTES} menit`} onPress={() => void snooze()} />
           {canAsk ? (
             <AlarmButton label={`Tanya ${assistantName}`} onPress={() => void ask()}>
-              <IntiOrb size={24} glow={false} paused />
+              <IntiOrb size={32} glow={false} paused={!live} />
             </AlarmButton>
           ) : null}
+          <AlarmButton label={`Tunda ${SNOOZE_MINUTES} menit`} onPress={() => void snooze()} />
         </View>
         <SwipeToConfirm label="Geser untuk mematikan" actionLabel="Matikan" onConfirm={() => void stop()} />
       </View>
@@ -316,17 +336,16 @@ export default function Alarm() {
 
 function AlarmButton({ label, onPress, children }: { label: string; onPress: () => void; children?: React.ReactNode }) {
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      android_ripple={{ color: onVoice.buttonLine }}
+      haptic="light"
       style={{
         flex: 1,
-        height: 56,
-        borderRadius: 28,
-        borderWidth: 1,
-        borderColor: onVoice.buttonLine,
+        minHeight: 60,
+        paddingHorizontal: 12,
+        borderRadius: 30,
         backgroundColor: onVoice.button,
         flexDirection: 'row',
         alignItems: 'center',
@@ -335,9 +354,9 @@ function AlarmButton({ label, onPress, children }: { label: string; onPress: () 
       }}
     >
       {children}
-      <Txt weight={600} color={onVoice.text}>
+      <Txt weight={600} color={onVoice.text} numberOfLines={1} style={{ flexShrink: 1 }}>
         {label}
       </Txt>
-    </Pressable>
+    </PressableScale>
   );
 }

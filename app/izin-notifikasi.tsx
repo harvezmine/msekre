@@ -53,7 +53,9 @@ function Isi() {
       <View style={{ alignItems: 'flex-start', paddingBottom: 8 }}>
         <IntiOrb size={48} glow={false} />
       </View>
-      <Txt v="title">{title}</Txt>
+      <Txt v="header" accessibilityRole="header">
+        {title}
+      </Txt>
       <Txt color={c.muted}>{body}</Txt>
       <View style={{ gap: 8, paddingTop: 16 }}>
         <PrimaryButton label={primary} onPress={run} />
@@ -62,7 +64,7 @@ function Isi() {
             accessibilityRole="button"
             accessibilityLabel="Nanti saja"
             onPress={() => close()}
-            style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
+            style={{ minHeight: 52, alignItems: 'center', justifyContent: 'center' }}
           >
             <Txt weight={600} color={c.brandInk}>
               Nanti saja

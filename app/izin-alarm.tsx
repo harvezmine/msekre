@@ -9,7 +9,7 @@ import { useAlarmStatus } from '@/alarm/useAlarmStatus';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
 import type { IconName } from '@/ui/icons';
-import { ListGroup, ListRow } from '@/ui/ListRow';
+import { AccentIcon, ListRow } from '@/ui/kit';
 import { PrimaryButton } from '@/ui/PrimaryButton';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
@@ -80,7 +80,9 @@ function Isi() {
   if (!native) {
     return (
       <View style={{ gap: 8 }}>
-        <Txt v="title">Alarm di HP ini</Txt>
+        <Txt v="header" accessibilityRole="header">
+          Alarm di HP ini
+        </Txt>
         <Txt color={c.muted}>
           HP atau aplikasi ini belum bisa membunyikan alarm sendiri. Pengingat tetap sampai lewat notifikasi dan
           WhatsApp.
@@ -112,45 +114,45 @@ function Isi() {
   return (
     <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
       <View style={{ gap: 8 }}>
-        <Txt v="title">Biar pengingat tetap bunyi</Txt>
-        <Txt color={c.muted}>
-          Biar pengingat tetap bunyi walau HP terkunci atau internet mati, ada beberapa hal yang perlu diizinkan.
+        <AccentIcon icon="bell" tone="agenda" size={52} />
+        <Txt v="header" accessibilityRole="header">
+          Biar pengingat tetap bunyi
         </Txt>
+        <Txt color={c.muted}>Izin ini menjaganya walau HP terkunci atau internet mati.</Txt>
 
-        <View style={{ paddingTop: 8 }}>
-          <ListGroup>
-            {rows.map((r, i) => {
-              const state: Grant = status?.[r.key] ?? 'unknown';
-              const ok = state === 'granted';
-              return (
-                <ListRow
-                  key={r.key}
-                  icon={r.icon}
-                  title={r.title}
-                  subtitle={`${STATE_TEXT[state]}. ${r.why}`}
-                  warn={state === 'denied'}
-                  last={battery === undefined && i === rows.length - 1}
-                  onPress={ok ? undefined : () => void openSettings(r.key)}
-                  trailing={ok ? <Icon name="check" size={22} color={c.brandInk} /> : <OpenLabel />}
-                />
-              );
-            })}
-            {battery !== undefined ? (
+        {/* Satu baris per izin: judul, lalu centang hijau (sudah) atau "Atur" (belum, membuka pengaturan HP). */}
+        <View style={{ paddingTop: 4 }}>
+          {rows.map((r) => {
+            const state: Grant = status?.[r.key] ?? 'unknown';
+            const ok = state === 'granted';
+            return (
               <ListRow
-                icon="bolt"
-                title="Penghemat baterai"
-                subtitle={
-                  battery
-                    ? 'Masih membatasi aplikasi. Matikan penghemat baterai untuk aplikasi ini.'
-                    : 'Aman. Aplikasi tidak dibatasi.'
-                }
-                warn={battery}
-                last
-                onPress={battery ? () => void openSettings('battery') : undefined}
-                trailing={battery ? <OpenLabel /> : <Icon name="check" size={22} color={c.brandInk} />}
+                key={r.key}
+                inset={0}
+                icon={r.icon}
+                tone={ok ? 'brand' : state === 'denied' ? 'warn' : 'neutral'}
+                title={r.title}
+                accessibilityLabel={`${r.title}. ${STATE_TEXT[state]}. ${r.why}`}
+                onPress={ok ? undefined : () => void openSettings(r.key)}
+                trailing={ok ? <Icon name="check" size={24} color={c.brandInk} /> : <OpenLabel />}
               />
-            ) : null}
-          </ListGroup>
+            );
+          })}
+          {battery !== undefined ? (
+            <ListRow
+              inset={0}
+              icon="bolt"
+              tone={battery ? 'warn' : 'brand'}
+              title="Penghemat baterai"
+              accessibilityLabel={
+                battery
+                  ? 'Penghemat baterai. Masih membatasi aplikasi. Matikan penghemat baterai untuk aplikasi ini.'
+                  : 'Penghemat baterai. Aman. Aplikasi tidak dibatasi.'
+              }
+              onPress={battery ? () => void openSettings('battery') : undefined}
+              trailing={battery ? <OpenLabel /> : <Icon name="check" size={24} color={c.brandInk} />}
+            />
+          ) : null}
         </View>
 
         {tips ? (
@@ -170,7 +172,7 @@ function Isi() {
           </View>
         ) : null}
 
-        <View style={{ gap: 8, paddingTop: 16 }}>
+        <View style={{ gap: 4, paddingTop: 16 }}>
           <PrimaryButton label="Selesai" onPress={() => close()} />
           <Pressable
             accessibilityRole="button"
@@ -178,9 +180,9 @@ function Isi() {
               tested ? 'Alarm akan berbunyi 1 menit lagi. Kunci HP untuk mencoba' : 'Coba alarm 1 menit lagi'
             }
             onPress={() => void test()}
-            style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
+            style={{ minHeight: 52, alignItems: 'center', justifyContent: 'center' }}
           >
-            <Txt weight={600} color={c.text}>
+            <Txt weight={600} color={c.brandInk} style={{ textAlign: 'center' }}>
               {tested ? 'Alarm akan berbunyi 1 menit lagi. Kunci HP untuk mencoba' : 'Coba alarm 1 menit lagi'}
             </Txt>
           </Pressable>
@@ -190,11 +192,22 @@ function Isi() {
   );
 }
 
+/** Kata tindakan di kanan baris yang belum diizinkan: membuka pengaturan HP. */
 function OpenLabel() {
   const { c } = useTheme();
   return (
-    <Txt v="caption" weight={600} color={c.brandInk} style={{ maxWidth: 88, textAlign: 'right' }}>
-      Buka pengaturan
-    </Txt>
+    <View
+      style={{
+        minHeight: 40,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: c.brandSoft,
+        justifyContent: 'center',
+      }}
+    >
+      <Txt v="label" color={c.brandInk}>
+        Atur
+      </Txt>
+    </View>
   );
 }

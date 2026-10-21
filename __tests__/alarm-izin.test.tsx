@@ -62,9 +62,12 @@ describe('panduan izin alarm', () => {
     expect(screen.getByText(/walau HP terkunci atau internet mati/)).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: /^Alarm tepat waktu\. Belum aktif/ })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: /^Penghemat baterai\. Masih membatasi/ })).toBeOnTheScreen();
-    // Yang sudah aktif tidak menawarkan pengaturan.
-    expect(screen.getByText(/^Sudah aktif\. Supaya pengingat muncul saat HP terkunci/)).toBeOnTheScreen();
-    expect(screen.getAllByText('Buka pengaturan')).toHaveLength(2);
+    // Yang sudah aktif tidak menawarkan pengaturan; satu baris per izin tanpa kalimat keterangan.
+    expect(
+      screen.getByLabelText(/^Tampil di layar kunci\. Sudah aktif\. Supaya pengingat muncul saat HP terkunci/),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText(/Supaya pengingat/)).toBeNull();
+    expect(screen.getAllByText('Atur')).toHaveLength(2);
 
     await fireEvent.press(screen.getByRole('button', { name: /^Alarm tepat waktu/ }));
     await fireEvent.press(screen.getByRole('button', { name: /^Penghemat baterai/ }));
@@ -85,12 +88,14 @@ describe('panduan izin alarm', () => {
     const app = captureAppState();
     await renderWithProviders(<IzinAlarm />);
     await advance(0);
-    expect(screen.getAllByText('Buka pengaturan')).toHaveLength(1);
+    expect(screen.getAllByText('Atur')).toHaveLength(1);
     scheduler.statusValue = { ...scheduler.statusValue, exact: 'granted' };
     await app.fire('active');
     await advance(0);
-    expect(screen.queryByText('Buka pengaturan')).toBeNull();
-    expect(screen.getByText(/^Sudah aktif\. Supaya pengingat bunyi pas waktunya/)).toBeOnTheScreen();
+    expect(screen.queryByText('Atur')).toBeNull();
+    expect(
+      screen.getByLabelText(/^Alarm tepat waktu\. Sudah aktif\. Supaya pengingat bunyi pas waktunya/),
+    ).toBeOnTheScreen();
   });
 
   test('tanpa alarm native (Expo Go, iOS): penjelasan singkat, tanpa pemeriksaan', async () => {
