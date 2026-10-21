@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Pressable, useWindowDimensions, View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
 import { needsReconnect } from '@/api/connections';
 import { clearJoinAnimated } from '@/api/joinSeen';
@@ -11,10 +11,12 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
 import { IntiOrb } from '@/ui/inti/IntiOrb';
+import { PressableScale } from '@/ui/kit/PressableScale';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
 
-// Masuk ke layanan (desain 2j), dibuka dari Terhubung dengan ?id=<layanan>. Tombolnya membuka halaman masuk resmi layanan
+// Niat lembar: masuk ke halaman resmi layanan dengan tenang (kata sandi tidak dilihat asisten). Tindakan tersering: satu
+// tombol hijau besar paling bawah (zona jempol). Dibuka dari Terhubung dengan ?id=<layanan>. Tombolnya membuka halaman masuk resmi layanan
 // di dalam aplikasi; kata sandi tidak lewat aplikasi.
 export default function Masuk() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -83,13 +85,11 @@ function Isi({ id }: { id: string }) {
           alignItems: 'center',
           gap: 8,
           paddingHorizontal: 8,
-          borderBottomWidth: 1,
-          borderBottomColor: c.line,
         }}
       >
         <IconButton icon="x" label="Tutup" onPress={() => close()} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Txt weight={600} accessibilityRole="header">
+          <Txt v="section" accessibilityRole="header">
             Masuk ke {shortName}
           </Txt>
           {domain ? (
@@ -106,7 +106,7 @@ function Isi({ id }: { id: string }) {
         style={{
           marginHorizontal: 16,
           backgroundColor: c.sunken,
-          borderRadius: 16,
+          borderRadius: 20,
           paddingVertical: 12,
           paddingHorizontal: 16,
           flexDirection: 'row',
@@ -123,11 +123,9 @@ function Isi({ id }: { id: string }) {
         <View
           style={{
             marginHorizontal: 16,
-            height: Math.max(220, height * 0.9 - 400),
-            borderWidth: 1.5,
-            borderStyle: 'dashed',
-            borderColor: c.line,
-            borderRadius: 20,
+            height: Math.max(200, height * 0.9 - 420),
+            backgroundColor: c.bg,
+            borderRadius: 24,
             alignItems: 'center',
             justifyContent: 'center',
             gap: 8,
@@ -170,7 +168,7 @@ function Isi({ id }: { id: string }) {
           {shortName} sudah tersambung.
         </Txt>
       ) : null}
-      <Pressable
+      <PressableScale
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ disabled: working || soon }}
@@ -189,7 +187,7 @@ function Isi({ id }: { id: string }) {
         <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
           {label}
         </Txt>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }

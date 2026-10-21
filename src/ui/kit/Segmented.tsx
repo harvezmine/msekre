@@ -19,6 +19,8 @@ interface Props<T extends string> {
   renderOption?: (option: T, selected: boolean) => ReactNode;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /** Peran pembaca layar: `tab` (bawaan, berganti tampilan) atau `radio` (memilih nilai, contoh izin layanan). */
+  role?: 'tab' | 'radio';
 }
 
 const PAD = 4;
@@ -39,6 +41,7 @@ export function Segmented<T extends string>({
   renderOption,
   style,
   testID,
+  role = 'tab',
 }: Props<T>) {
   const { c, shadow, scheme, radius, motion } = useTheme();
   const reduce = useReducedMotion();
@@ -100,9 +103,9 @@ export function Segmented<T extends string>({
         return (
           <Pressable
             key={o}
-            accessibilityRole="tab"
+            accessibilityRole={role}
             accessibilityLabel={text}
-            accessibilityState={{ selected }}
+            accessibilityState={role === 'radio' ? { checked: selected } : { selected }}
             onLayout={onLayoutOf(o)}
             onPress={() => {
               if (selected) return;
@@ -138,7 +141,7 @@ export function Segmented<T extends string>({
     return (
       <View
         testID={testID}
-        accessibilityRole="tablist"
+        accessibilityRole={role === 'radio' ? 'radiogroup' : 'tablist'}
         accessibilityLabel={label}
         style={[track, { paddingHorizontal: 0 }, style]}
       >
@@ -153,7 +156,12 @@ export function Segmented<T extends string>({
     );
   }
   return (
-    <View testID={testID} accessibilityRole="tablist" accessibilityLabel={label} style={[track, style]}>
+    <View
+      testID={testID}
+      accessibilityRole={role === 'radio' ? 'radiogroup' : 'tablist'}
+      accessibilityLabel={label}
+      style={[track, style]}
+    >
       {row}
     </View>
   );

@@ -1,8 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, View } from 'react-native';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
-import { useTheme } from '@/theme/ThemeProvider';
+import { ConfirmBody } from '@/ui/kit';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
@@ -18,7 +17,6 @@ export default function Konfirmasi() {
 }
 
 function Isi({ id, putus }: { id: string; putus: boolean }) {
-  const { c, marker } = useTheme();
   const assistant = useAssistantName();
   const { service, forget, disconnect, busy } = useConnections(id);
   const { close } = useSheet();
@@ -52,46 +50,18 @@ function Isi({ id, putus }: { id: string; putus: boolean }) {
   };
   const working = putus ? busy.disconnect : busy.forget;
   return (
-    <View style={{ gap: 8 }}>
-      <Txt v="title">
-        {putus ? `Putuskan ${service.name}?` : `Hapus yang ${assistant} pelajari dari ${service.name}?`}
-      </Txt>
-      <Txt color={c.muted}>
-        {putus
+    <ConfirmBody
+      icon={putus ? 'x' : 'trash'}
+      title={putus ? `Putuskan ${service.name}?` : `Hapus yang ${assistant} pelajari dari ${service.name}?`}
+      message={
+        putus
           ? `${assistant} tidak lagi membaca atau bertindak di layanan ini. Anda bisa menyambungkannya lagi kapan saja.`
-          : `Sambungannya tetap ada. Semua yang ${assistant} ingat dari layanan ini dihapus.`}
-      </Txt>
-      <View style={{ gap: 8, paddingTop: 16 }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={putus ? 'Ya, putuskan' : 'Ya, hapus'}
-          accessibilityState={{ disabled: working }}
-          disabled={working}
-          onPress={() => void run()}
-          style={{
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: marker.warn.ink,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: working ? 0.6 : 1,
-          }}
-        >
-          <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
-            {putus ? 'Ya, putuskan' : 'Ya, hapus'}
-          </Txt>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Batal"
-          onPress={() => close()}
-          style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Txt weight={600} color={c.brandInk}>
-            Batal
-          </Txt>
-        </Pressable>
-      </View>
-    </View>
+          : `Sambungannya tetap ada. Semua yang ${assistant} ingat dari layanan ini dihapus.`
+      }
+      confirm={putus ? 'Ya, putuskan' : 'Ya, hapus'}
+      busy={working}
+      onConfirm={() => void run()}
+      onCancel={() => close()}
+    />
   );
 }

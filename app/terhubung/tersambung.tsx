@@ -8,10 +8,14 @@ import { useConnections } from '@/api/useConnections';
 import { useHome } from '@/api/useHome';
 import { serviceJoined } from '@/api/serviceCopy';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useLayoutClass } from '@/ui/kit/layout';
 import { Orbit } from '@/ui/orbit/Orbit';
+import { PrimaryButton } from '@/ui/PrimaryButton';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
 
+// Niat layar: merayakan dengan tenang bahwa layanan sudah tersambung (simpul baru masuk ke cincin). Tindakan tersering:
+// Selesai, tombol besar paling bawah (zona jempol).
 // Setelah masuk (desain 2k): simpul baru masuk ke cincin. Juga tujuan alamat kembali dari halaman masuk resmi
 // (`sekretarisai://terhubung/tersambung?id=<id>&ok=1`, atau `ok=0&reason=`), termasuk saat aplikasi dibuka olehnya.
 export default function Tersambung() {
@@ -20,6 +24,7 @@ export default function Tersambung() {
   const { c, shadow } = useTheme();
   const live = useLive();
   const insets = useSafeAreaInsets();
+  const compact = useLayoutClass() === 'compact';
   const { ring } = useHome();
   const { service, detail, flow, status, handleCallback, retry } = useConnections(serviceId);
   const fromCallback = typeof ok === 'string';
@@ -98,7 +103,7 @@ export default function Tersambung() {
       style={{ backgroundColor: c.bg }}
       contentContainerStyle={{
         flexGrow: 1,
-        paddingTop: insets.top + 72,
+        paddingTop: insets.top + (compact ? 24 : 72),
         paddingBottom: Math.max(32, insets.bottom + 16),
         paddingHorizontal: 24,
       }}
@@ -145,23 +150,10 @@ export default function Tersambung() {
           </Txt>
         </Pressable>
       </View>
-      <View style={{ flex: 1 }} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Selesai"
-        onPress={done}
-        style={{
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: c.brand,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
-          Selesai
-        </Txt>
-      </Pressable>
+      <View style={{ flex: 1, minHeight: 24 }} />
+      <View testID="zona-jempol">
+        <PrimaryButton label="Selesai" onPress={done} />
+      </View>
     </ScrollView>
   );
 }

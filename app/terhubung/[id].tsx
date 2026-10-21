@@ -6,10 +6,11 @@ import type { ConnectionPermission } from '@/api/contract';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Card } from '@/ui/Card';
+import { ServiceMark } from '@/ui/connect/ServiceTile';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
-import { iconOr, type IconName } from '@/ui/icons';
+import type { IconName } from '@/ui/icons';
+import { Segmented } from '@/ui/kit';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 
@@ -18,11 +19,12 @@ const permissionText = (assistant: string): Record<ConnectionPermission, string>
   baca_tulis: `${assistant} boleh bertindak di sini, selalu dengan persetujuan Anda.`,
 });
 
-// Detail satu layanan (desain 2j): apa yang bisa Nadia lakukan, izin, dan hapus yang Nadia tahu atau putuskan.
+// Niat layar: memahami satu layanan dalam sekejap (apa yang bisa asisten lakukan, dalam paling banyak tiga baris) dan
+// memilih izinnya. Tindakan tersering: ganti izin (segmen). Hapus dan Putuskan sebagai tombol teks tenang di bawah.
 export default function DetailLayanan() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const serviceId = typeof id === 'string' ? id : '';
-  const { c, shadow, marker } = useTheme();
+  const { c, marker } = useTheme();
   const assistant = useAssistantName();
   const PERMISSION_TEXT = permissionText(assistant);
   const insets = useSafeAreaInsets();
@@ -91,62 +93,34 @@ export default function DetailLayanan() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       {back}
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, gap: 20 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 4 }}>
-          <View
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 20,
-              backgroundColor: c.sunken,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Icon name={iconOr(service.icon, 'link')} size={30} color={warn ? marker.warn.ink : marker.terhubung.ink} />
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 16, gap: 24 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 20 }}>
+          <ServiceMark name={service.name} badge={warn ? 'warn' : 'on'} size={72} />
+          <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
             <Txt v="title" accessibilityRole="header">
               {service.name}
             </Txt>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <View
-                style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: warn ? marker.warn.ink : c.brand }}
-              />
-              <Txt v="caption" color={warn ? marker.warn.ink : c.brandInk} style={{ flexShrink: 1 }}>
-                {serviceLine(service)}
-              </Txt>
-            </View>
+            <Txt v="caption" color={warn ? marker.warn.ink : c.brandInk}>
+              {serviceLine(service)}
+            </Txt>
           </View>
         </View>
 
-        {warn && reconnect ? (
+        {warn ? (
           <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Sambungkan ulang ${service.name}`}
+            accessibilityRole={reconnect ? 'button' : 'text'}
+            accessibilityLabel={
+              reconnect ? `Sambungkan ulang ${service.name}` : (service.attention?.text ?? service.name)
+            }
+            disabled={!reconnect}
             onPress={() => router.push(`/terhubung/masuk?id=${encodeURIComponent(service.id)}`)}
             style={{
+              marginHorizontal: 16,
+              minHeight: 56,
               backgroundColor: c.sunken,
               borderRadius: 20,
-              padding: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <Icon name="info" size={22} color={marker.warn.ink} />
-            <Txt style={{ flex: 1 }} color={marker.warn.ink}>
-              {service.attention?.text}. Ketuk untuk menyambungkan ulang.
-            </Txt>
-          </Pressable>
-        ) : warn ? (
-          <View
-            accessible
-            accessibilityRole="text"
-            style={{
-              backgroundColor: c.sunken,
-              borderRadius: 20,
-              padding: 16,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
               flexDirection: 'row',
               alignItems: 'center',
               gap: 12,
@@ -155,13 +129,17 @@ export default function DetailLayanan() {
             <Icon name="info" size={22} color={marker.warn.ink} />
             <Txt style={{ flex: 1 }} color={marker.warn.ink}>
               {service.attention?.text}
+              {reconnect ? '. Ketuk untuk menyambungkan ulang.' : ''}
             </Txt>
-          </View>
+          </Pressable>
         ) : null}
 
-        <Card style={{ gap: 12 }}>
-          <Txt v="subtitle">Yang bisa {assistant} lakukan</Txt>
-          {data.what.map((line) => (
+        {/* Paling banyak tiga baris pendek: apa yang bisa dilakukan asisten di sini. */}
+        <View style={{ gap: 12, paddingHorizontal: 20 }}>
+          <Txt v="section" accessibilityRole="header">
+            Yang bisa {assistant} lakukan
+          </Txt>
+          {data.what.slice(0, 3).map((line) => (
             <View key={line} style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ marginTop: 2 }}>
                 <Icon name="check" size={20} color={c.brandInk} />
@@ -169,70 +147,32 @@ export default function DetailLayanan() {
               <Txt style={{ flex: 1 }}>{line}</Txt>
             </View>
           ))}
-        </Card>
-
-        <View style={{ gap: 8 }} accessibilityRole="radiogroup">
-          <Txt weight={600} style={{ fontSize: 15, lineHeight: 20, paddingHorizontal: 4 }}>
-            Izin
-          </Txt>
-          {PERMISSION_OPTIONS.map((o) => {
-            const on = data.permission === o.value;
-            return (
-              <Pressable
-                key={o.value}
-                accessibilityRole="radio"
-                accessibilityLabel={o.title}
-                accessibilityHint={PERMISSION_TEXT[o.value]}
-                accessibilityState={{ checked: on }}
-                onPress={() => void change(o.value)}
-                style={{
-                  flexDirection: 'row',
-                  gap: 12,
-                  padding: 16,
-                  borderRadius: 20,
-                  borderWidth: 2,
-                  borderColor: on ? c.brand : 'transparent',
-                  backgroundColor: on ? c.brandSoft : c.surface,
-                  boxShadow: on ? undefined : shadow.e1,
-                }}
-              >
-                <View
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 11,
-                    borderWidth: 2,
-                    borderColor: on ? c.brand : c.muted,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginTop: 1,
-                  }}
-                >
-                  {on ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.brand }} /> : null}
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Txt weight={600}>{o.title}</Txt>
-                  <Txt color={on ? c.text : c.muted}>{PERMISSION_TEXT[o.value]}</Txt>
-                </View>
-              </Pressable>
-            );
-          })}
         </View>
 
-        <View
-          style={{
-            backgroundColor: c.surface,
-            boxShadow: shadow.e1,
-            borderRadius: 24,
-            paddingVertical: 4,
-            paddingHorizontal: 16,
-          }}
-        >
+        <View style={{ gap: 10, paddingHorizontal: 20 }}>
+          <Txt v="section" accessibilityRole="header">
+            Izin
+          </Txt>
+          <Segmented
+            role="radio"
+            label="Izin"
+            options={PERMISSION_OPTIONS.map((o) => o.value)}
+            labels={Object.fromEntries(PERMISSION_OPTIONS.map((o) => [o.value, o.title]))}
+            value={data.permission}
+            onChange={(next) => void change(next)}
+          />
+          <Txt v="caption" color={c.muted} accessibilityLiveRegion="polite" style={{ fontSize: 15, lineHeight: 20 }}>
+            {PERMISSION_TEXT[data.permission]}
+          </Txt>
+        </View>
+
+        {/* Hapus dan Putuskan: tombol teks tenang di bawah, tidak bersaing dengan isi. */}
+        <View style={{ flexGrow: 1 }} />
+        <View style={{ paddingHorizontal: 12 }}>
           <Action
             icon="trash"
             label={`Hapus yang ${assistant} tahu dari layanan ini`}
             color={marker.warn.ink}
-            border
             onPress={() => router.push(`/terhubung/konfirmasi?id=${encodeURIComponent(service.id)}&aksi=lupa`)}
             note={memoryNote}
           />
@@ -252,14 +192,12 @@ function Action({
   icon,
   label,
   color,
-  border = false,
   onPress,
   note,
 }: {
   icon: IconName;
   label: string;
   color: string;
-  border?: boolean;
   onPress: () => void;
   note?: string;
 }) {
@@ -271,12 +209,12 @@ function Action({
       onPress={onPress}
       android_ripple={{ color: c.ripple }}
       style={{
-        minHeight: 60,
+        minHeight: 56,
+        paddingHorizontal: 8,
+        borderRadius: 20,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        borderBottomWidth: border ? 1 : 0,
-        borderBottomColor: c.line,
       }}
     >
       <Icon name={icon} size={22} color={color} />

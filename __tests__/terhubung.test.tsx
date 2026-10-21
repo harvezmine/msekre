@@ -17,9 +17,13 @@ afterAll(() => {
   restoreParams();
 });
 
-test('daftar: tujuh layanan tersambung dengan akun dan terakhir dipakai, CCTV perlu perhatian, katalog menurut kelompok', async () => {
+test('kisi: tujuh layanan tersambung bercentang hijau, CCTV perlu perhatian, katalog menurut kelompok', async () => {
   await show();
-  expect(await screen.findByText('Semua yang sudah Nadia kenal.')).toBeOnTheScreen();
+  expect(await screen.findByText('Tersambung')).toBeOnTheScreen();
+  // Sedikit tulisan: tanpa kalimat keterangan di bawah judul.
+  expect(screen.queryByText('Semua yang sudah Nadia kenal.')).toBeNull();
+  expect(screen.getAllByTestId('lencana-tersambung')).toHaveLength(6);
+  expect(screen.getAllByTestId('lencana-perhatian')).toHaveLength(1);
   expect(screen.getByRole('button', { name: 'Moka. Kopi Rindang · Terakhir dipakai 1 menit lalu' })).toBeOnTheScreen();
   expect(
     screen.getByRole('button', { name: 'Google Kalender. rina@kopirindang.id · Terakhir dipakai 5 menit lalu' }),
@@ -33,7 +37,9 @@ test('daftar: tujuh layanan tersambung dengan akun dan terakhir dipakai, CCTV pe
   }
   // Sepuluh yang bisa disambungkan, ditambah "Sambungkan layanan lain".
   expect(screen.getAllByRole('button', { name: /^Sambungkan / })).toHaveLength(10 + 1);
-  expect(screen.getByText('LG, Samsung, Philips Hue, Aqara, dan 5 lainnya')).toBeOnTheScreen();
+  expect(
+    screen.getByLabelText('Merek perangkat rumah. LG, Samsung, Philips Hue, Aqara, dan 5 lainnya'),
+  ).toBeOnTheScreen();
 });
 
 test('katalog menandai layanan yang segera hadir tanpa tombol Sambungkan', async () => {
@@ -239,6 +245,6 @@ test('Beranda tidak lagi memuat cincin layanan; Terhubung dibuka dari Akun', asy
 
 test('mode gelap: daftar Terhubung tampil', async () => {
   await renderWithProviders(<Terhubung />, { scheme: 'dark' });
-  expect(await screen.findByText('Sudah terhubung')).toBeOnTheScreen();
+  expect(await screen.findByText('Tersambung')).toBeOnTheScreen();
   expect(screen.getByRole('button', { name: 'Imou · CCTV. Tidak terjangkau sejak 10.12' })).toBeOnTheScreen();
 });

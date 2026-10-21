@@ -6,6 +6,7 @@ export { AreaChart, Sparkline } from './Chart';
 export { ChoiceSheet, type Choice } from './ChoiceSheet';
 export { areaPath, scalePoints, smoothPath } from './chartMath';
 export { CoachMark } from './CoachMark';
+export { ConfirmBody } from './ConfirmBody';
 export { Dial, type DialProps } from './Dial';
 export { blockEntering, blockExiting, blockLayout, Enter, enterDelay, useEnterAnimation } from './Enter';
 export { FavouriteToggle, type FavouriteToggleProps } from './FavouriteToggle';
