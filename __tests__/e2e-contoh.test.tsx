@@ -1,10 +1,10 @@
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import { TEMP_DEBOUNCE_MS } from '../app/perangkat/[id]';
 import { PREVIEW_DEBOUNCE_MS } from '../app/agenda/tambah';
 import { audio, stream } from './audioMock';
 import { advance, currentRoute, currentStack, go, mockParams, restoreParams, sampleState, showRoute } from './harness';
 import { createTestApi, toastNow } from './helpers';
+import { DEBOUNCE_MS } from '@/api/devicesController';
 import { THINK_MS } from '@/sample/chat';
 import { deviceById, MAIN_AC_ID } from '@/sample/store';
 import { holdBridge } from '@/voice/holdBridge';
@@ -160,7 +160,7 @@ test('Agenda: Tambah dengan teks yang dirapikan server, tugas dicentang, penging
   expect(screen.getByText('Jemput Kayla les')).toBeOnTheScreen();
 });
 
-test('Perangkat: pilih Rumah, sakelar, rutinitas, detail AC dengan dial, PIN untuk mematikan kamera', async () => {
+test('Perangkat: pilih Rumah, sakelar, rutinitas, remote AC dengan dial, PIN untuk privasi kamera', async () => {
   const api = createTestApi({ security: { pinEnabled: true, pin: '123456' } });
   await showRoute('/perangkat', { api });
   await settle();
@@ -169,27 +169,27 @@ test('Perangkat: pilih Rumah, sakelar, rutinitas, detail AC dengan dial, PIN unt
   await fireEvent.press(await screen.findByRole('radio', { name: 'Rumah' }));
   await advance(300);
   await settle();
-  expect(screen.getByRole('tab', { name: 'Ruang tamu' })).toBeSelected();
+  expect(screen.getByRole('tab', { name: 'Semua' })).toBeSelected();
+  expect(screen.getByRole('tab', { name: 'Ruang tamu' })).toBeOnTheScreen();
 
-  // Lampu tanpa PIN langsung berubah.
-  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu utama, Nyala · 80%' }));
+  // Ubin lampu: ketuk langsung mematikan.
+  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu utama' }));
   await settle();
-  expect(screen.getByText('Mati')).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'Lampu utama' })).not.toBeChecked();
 
   // Rutinitas.
   await fireEvent.press(screen.getByRole('button', { name: 'Jalankan Saya pulang' }));
   await settle();
   expect(toastNow()?.text).toBe('Rutinitas Saya pulang dijalankan.');
 
-  // Detail AC: dial dan tombol suhu.
-  await fireEvent.press(screen.getByRole('tab', { name: 'Kamar' }));
-  await fireEvent.press(screen.getByRole('button', { name: /^AC kamar, / }));
+  // Remote AC: tahan ubin AC, lalu dial dan tombol suhu.
+  await fireEvent(screen.getByRole('switch', { name: 'AC kamar' }), 'longPress');
   await settle();
   expect(currentRoute()).toBe('/perangkat/[id]');
   const dial = screen.getByRole('adjustable', { name: 'Suhu AC kamar' });
   const sendTemp = () =>
     act(async () => {
-      jest.advanceTimersByTime(TEMP_DEBOUNCE_MS);
+      jest.advanceTimersByTime(DEBOUNCE_MS);
     });
   await fireEvent(dial, 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
   await sendTemp();
@@ -201,9 +201,11 @@ test('Perangkat: pilih Rumah, sakelar, rutinitas, detail AC dengan dial, PIN unt
   await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
   expect(currentRoute()).toBe('/perangkat');
 
-  // PIN: kamera tidak mati sebelum PIN benar.
-  await fireEvent.press(screen.getByRole('tab', { name: 'Ruang tamu' }));
-  await fireEvent.press(screen.getByRole('switch', { name: /^Kamera ruang tamu, / }));
+  // PIN: kamera tidak berhenti merekam sebelum PIN benar.
+  await fireEvent.press(screen.getByRole('button', { name: /^Kamera ruang tamu, / }));
+  await settle();
+  expect(currentRoute()).toBe('/perangkat/[id]');
+  await fireEvent.press(screen.getByRole('switch', { name: 'Rekam' }));
   await settle();
   expect(currentRoute()).toBe('/pin');
   expect(screen.getByText('Masukkan PIN')).toBeOnTheScreen();
@@ -213,7 +215,8 @@ test('Perangkat: pilih Rumah, sakelar, rutinitas, detail AC dengan dial, PIN unt
   await dpad('123456');
   expect(deviceById(sampleState(), 'kamera-tamu')!.on).toBe(false);
   await advance(300);
-  expect(currentRoute()).toBe('/perangkat');
+  expect(currentRoute()).toBe('/perangkat/[id]');
+  expect(screen.getByRole('switch', { name: 'Rekam' })).not.toBeChecked();
 });
 
 test('Usaha: Pesan lagi membuat draf, Lihat draf membuka chat di kartu itu', async () => {

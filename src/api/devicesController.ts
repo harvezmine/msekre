@@ -1,7 +1,7 @@
 import { deviceError, WRONG_PIN_TEXT } from './errors';
 import type { Box, Device, DeviceControlReq, DevicesRes, DeviceState, StreamEvent } from './contract';
 import { deviceStateOf, guessStatus, isGuardedAction } from './devices';
-import { isApiFailure, type Transport, type Unsubscribe } from './transport';
+import { isApiFailure, type MediaSource, type Transport, type Unsubscribe } from './transport';
 
 export type DevicesStatus = 'loading' | 'ready' | 'error';
 
@@ -194,6 +194,9 @@ export class DevicesController {
   };
 
   find = (id: string): Device | undefined => findDevice(this.state, id);
+
+  /** Gambar terakhir kamera (`state.snapshotMediaId`) lewat `GET /media/:id`. */
+  mediaUrl = (mediaId: string): Promise<MediaSource> => this.transport.mediaUrl(mediaId);
 
   /**
    * Atur satu perangkat. Aksi yang dijaga (mematikan kamera, membuka kunci) tanpa `pin` lebih dulu bertanya apakah PIN

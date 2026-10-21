@@ -17,7 +17,7 @@ export interface MoreItem {
   tone?: AccentTone;
   /** Kontrol di kanan (Segmented, Toggle). Baris dengan kontrol tidak menutup lembar. */
   control?: ReactNode;
-  /** Chip nilai di kanan (contoh "22.00"), ditekan untuk mengubah. */
+  /** Chip nilai di kanan (contoh "22.00"), ditekan untuk mengubah. Tanpa `onPress`: hanya nilai (baca saja). */
   value?: string;
   /** Aksi baris/chip; lembar menutup dulu, lalu aksi dijalankan. */
   onPress?: () => void;
@@ -30,15 +30,21 @@ export interface MoreItem {
 export function MoreSheet({
   items,
   label = 'Lainnya',
+  footer,
+  defaultOpen = false,
   style,
 }: {
   items: readonly MoreItem[];
   /** Tulisan tombol pemicu (juga nama untuk pembaca layar). */
   label?: string;
+  /** Isi tambahan di bawah baris (contoh papan angka TV, satu kalimat keterangan). */
+  footer?: ReactNode;
+  /** Terbuka sejak awal (pratinjau web untuk tangkapan layar). */
+  defaultOpen?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const { c } = useTheme();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <>
       <PressableScale
@@ -70,6 +76,7 @@ export function MoreSheet({
           {open ? (
             <Sheet onClose={() => setOpen(false)} testID="lembar-lainnya">
               <MoreList title={label} items={items} />
+              {footer}
             </Sheet>
           ) : null}
         </GestureHandlerRootView>
@@ -86,7 +93,12 @@ function MoreList({ title, items }: { title: string; items: readonly MoreItem[] 
       {items.map((it) => {
         const run = it.onPress ? () => close(it.onPress) : undefined;
         const right = it.control ? (
-          it.control
+          // Pembungkus: kontrol yang meratakan dirinya sendiri (sakelar) tetap di tengah baris.
+          <View>{it.control}</View>
+        ) : it.value !== undefined && !run ? (
+          <Txt v="row" weight={600} tabular color={c.muted}>
+            {it.value}
+          </Txt>
         ) : it.value !== undefined ? (
           <Pressable
             accessibilityRole="button"

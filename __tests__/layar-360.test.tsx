@@ -5,7 +5,6 @@ import { LAYAR } from './daftar-layar';
 import { renderWithProviders } from './helpers';
 import Beranda from '../app/(tabs)/index';
 import DetailPerangkat from '../app/perangkat/[id]';
-import { DIAL } from '@/ui/device/dialMath';
 
 // Ponsel sempit: 360 x 740 dp. Hanya useWindowDimensions yang dipakai kode aplikasi (tidak ada Dimensions.get).
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -37,10 +36,10 @@ test('Beranda di 360: tiga sakelar favorit berbagi lebar dalam satu baris, tepi 
   }
 });
 
-test('putaran suhu muat di 360: 280 dp ditambah gutter 16 di kedua sisi tidak lebih dari 320', async () => {
+test('dial suhu muat di 360 (740 tinggi = tall): 320 dp, gutter 20 di kedua sisi', async () => {
   jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'ac-kamar' });
   await renderWithProviders(<DetailPerangkat />);
   const w = StyleSheet.flatten(screen.getByTestId('putaran-suhu').props.style).width as number;
-  expect(w).toBe(DIAL.size);
-  expect(w + 2 * 16).toBeLessThanOrEqual(320);
+  expect(w).toBe(2 * (134 + 26));
+  expect(w + 2 * 20).toBeLessThanOrEqual(360);
 });

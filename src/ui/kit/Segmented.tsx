@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -15,7 +15,10 @@ interface Props<T extends string> {
   labels?: Partial<Record<T, string>>;
   /** Pilihan selebar isinya dan bisa digeser (contoh daftar ruangan). */
   scrollable?: boolean;
+  /** Isi pengganti tulisan (contoh ikon kecepatan kipas); nama pembaca layar tetap dari `labels`. */
+  renderOption?: (option: T, selected: boolean) => ReactNode;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }
 
 const PAD = 4;
@@ -33,7 +36,9 @@ export function Segmented<T extends string>({
   label,
   labels,
   scrollable = false,
+  renderOption,
   style,
+  testID,
 }: Props<T>) {
   const { c, shadow, scheme, radius, motion } = useTheme();
   const reduce = useReducedMotion();
@@ -115,9 +120,13 @@ export function Segmented<T extends string>({
               backgroundColor: selected && !measured ? thumbBg : 'transparent',
             }}
           >
-            <Txt v="label" weight={selected ? 600 : 500} color={selected ? c.text : c.muted} numberOfLines={1}>
-              {text}
-            </Txt>
+            {renderOption ? (
+              renderOption(o, selected)
+            ) : (
+              <Txt v="label" weight={selected ? 600 : 500} color={selected ? c.text : c.muted} numberOfLines={1}>
+                {text}
+              </Txt>
+            )}
           </Pressable>
         );
       })}
@@ -127,7 +136,12 @@ export function Segmented<T extends string>({
   const track: ViewStyle = { backgroundColor: c.sunken, borderRadius: radius.segmentTrack, padding: PAD };
   if (scrollable) {
     return (
-      <View accessibilityRole="tablist" accessibilityLabel={label} style={[track, { paddingHorizontal: 0 }, style]}>
+      <View
+        testID={testID}
+        accessibilityRole="tablist"
+        accessibilityLabel={label}
+        style={[track, { paddingHorizontal: 0 }, style]}
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -139,7 +153,7 @@ export function Segmented<T extends string>({
     );
   }
   return (
-    <View accessibilityRole="tablist" accessibilityLabel={label} style={[track, style]}>
+    <View testID={testID} accessibilityRole="tablist" accessibilityLabel={label} style={[track, style]}>
       {row}
     </View>
   );

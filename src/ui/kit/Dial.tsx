@@ -83,18 +83,20 @@ export function Dial({
   style,
   testID,
 }: DialProps) {
-  const { c, marker, shadow } = useTheme();
+  const { c, marker, shadow, scheme } = useTheme();
   const cls = useLayoutClass();
   const r = radius ?? (cls === 'compact' ? 108 : cls === 'regular' ? 122 : 134);
   const size = 2 * (r + MARGIN);
   const cx = size / 2;
   const cy = size / 2;
+  // Pangkal busur pucat di terang, redup di gelap (papan 11), ujungnya warna penuh.
+  const dark = scheme === 'dark';
   const tint =
     arc === 'cool'
-      ? { pale: '#A7E1F4', base: marker.terhubung.base, ink: marker.terhubung.ink }
+      ? { pale: dark ? '#2A7891' : '#A7E1F4', base: marker.terhubung.base, ink: marker.terhubung.ink }
       : arc === 'warm'
-        ? { pale: '#FFD5A8', base: marker.rumah.base, ink: marker.rumah.ink }
-        : { pale: '#B5E3C6', base: c.brand, ink: c.brandInk };
+        ? { pale: dark ? '#8A5A2B' : '#FFD5A8', base: marker.rumah.base, ink: marker.rumah.ink }
+        : { pale: dark ? '#2F6E4E' : '#B5E3C6', base: c.brand, ink: c.brandInk };
   const gradId = `dial${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
 
   const last = useSharedValue(value);

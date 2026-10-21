@@ -119,12 +119,12 @@ test('perangkat: ganti tempat lewat PUT /places/current, sakelar lampu lewat POS
   await advance(300);
   await settle();
   expect(server.hits('PUT', '/places/current')[0]!.body).toEqual({ place: 'Rumah' });
-  expect(await screen.findByRole('tab', { name: 'Ruang tamu' })).toBeSelected();
+  expect(await screen.findByRole('tab', { name: 'Semua' })).toBeSelected();
 
-  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu utama, Nyala · 80%' }));
+  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu utama' }));
   await settle();
   expect(server.hits('POST', '/home/devices/lampu-utama')).toHaveLength(1);
-  expect(screen.getByText('Mati')).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'Lampu utama' })).not.toBeChecked();
   const devices = await server.backend.devices('Rumah');
   expect(devices.devices.find((d) => d.id === 'lampu-utama')!.on).toBe(false);
 });

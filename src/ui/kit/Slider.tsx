@@ -31,6 +31,10 @@ export interface SliderProps {
   icon?: IconName;
   /** `brand`: isian hijau lembut (bawaan horizontal). `warm`: warna cahaya lampu itu sendiri (bawaan vertikal). */
   fill?: 'brand' | 'warm';
+  /** Untuk `warm`: tiga warna cahaya dari atas ke bawah (lampu dengan suhu warna atau warna pilihan). */
+  warmColors?: readonly [string, string, string];
+  /** Vertikal: ikon di ujung atas dan bawah (bawaan matahari terang dan redup); `null` tanpa ikon. */
+  endIcons?: { top: IconName; bottom: IconName } | null;
   /** Panjang lintasan (vertikal: tinggi). Horizontal bawaannya selebar wadah. */
   length?: number;
   /** Tebal lintasan: horizontal 56, vertikal 112. */
@@ -43,11 +47,13 @@ export interface SliderProps {
   testID?: string;
 }
 
-const WARM = ['#FFE0A6', '#FFC979', '#F5A04F'] as const;
+/** Putih hangat 3000 K (§1.4). */
+export const WARM = ['#FFE0A6', '#FFC979', '#F5A04F'] as const;
 
 /**
  * Penggeser (§8). Horizontal 56 tinggi (volume): lintasan `sunken`, isian hijau lembut dengan pegangan hijau 4 dp.
- * Vertikal 112×440 (lampu): isian warna cahaya lampu dari bawah, garis pegangan putih, ikon matahari di dua ujung.
+ * Vertikal 112×440 (lampu): isian warna cahaya lampu dari bawah, garis pegangan putih, ikon matahari di dua ujung;
+ * vertikal `brand` (tirai): isian hijau lembut dengan garis pegangan hijau.
  * Sentuh di mana saja untuk lompat lalu geser; getar halus tiap 10%. Untuk pembaca layar: kontrol `adjustable`.
  */
 export function Slider({
@@ -63,6 +69,8 @@ export function Slider({
   showValue = false,
   icon,
   fill = orientation === 'vertical' ? 'warm' : 'brand',
+  warmColors = WARM,
+  endIcons = { top: 'sun', bottom: 'sunLo' },
   length,
   thickness,
   hapticEvery,
@@ -197,7 +205,7 @@ export function Slider({
                 ? { position: 'absolute', left: 0, right: 0, bottom: 0 }
                 : { position: 'absolute', left: 0, top: 0, bottom: 0 },
               { borderRadius: vertical ? 0 : thick / 2, overflow: 'hidden' },
-              fill === 'brand' ? { backgroundColor: vertical ? c.brand : c.brandSoft } : null,
+              fill === 'brand' ? { backgroundColor: c.brandSoft } : null,
               fillStyle,
             ]}
           >
@@ -211,9 +219,9 @@ export function Slider({
               >
                 <Defs>
                   <LinearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor={WARM[0]} />
-                    <Stop offset="0.3" stopColor={WARM[1]} />
-                    <Stop offset="1" stopColor={WARM[2]} />
+                    <Stop offset="0" stopColor={warmColors[0]} />
+                    <Stop offset="0.3" stopColor={warmColors[1]} />
+                    <Stop offset="1" stopColor={warmColors[2]} />
                   </LinearGradient>
                 </Defs>
                 <Rect x="0" y="0" width="1" height="1" fill={`url(#${gradId})`} />
@@ -230,7 +238,7 @@ export function Slider({
                       width: 36,
                       height: 5,
                       borderRadius: 3,
-                      backgroundColor: 'rgba(255,255,255,0.85)',
+                      backgroundColor: fill === 'brand' ? c.brand : 'rgba(255,255,255,0.85)',
                     }
                   : {
                       position: 'absolute',
@@ -245,15 +253,17 @@ export function Slider({
             />
           </Animated.View>
           {vertical ? (
-            <>
-              <View pointerEvents="none" style={{ position: 'absolute', top: 24, alignSelf: 'center' }}>
-                <Icon name="sun" size={24} color={c.muted} />
-              </View>
-              <View pointerEvents="none" style={{ position: 'absolute', bottom: 22, alignSelf: 'center' }}>
-                {/* Di atas isian warna cahaya (selalu terang), jadi warnanya tetap gelap di dua mode. */}
-                <Icon name="sunLo" size={22} color="#A64F08" />
-              </View>
-            </>
+            endIcons ? (
+              <>
+                <View pointerEvents="none" style={{ position: 'absolute', top: 24, alignSelf: 'center' }}>
+                  <Icon name={endIcons.top} size={24} color={c.muted} />
+                </View>
+                <View pointerEvents="none" style={{ position: 'absolute', bottom: 22, alignSelf: 'center' }}>
+                  {/* Di atas isian warna cahaya (selalu terang), jadi warnanya tetap gelap di dua mode. */}
+                  <Icon name={endIcons.bottom} size={22} color={fill === 'warm' ? '#A64F08' : c.brandInk} />
+                </View>
+              </>
+            ) : null
           ) : (
             <View
               pointerEvents="none"

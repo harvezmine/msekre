@@ -1,6 +1,8 @@
 import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { devQuery } from '@/dev/query';
 import { newUserSampleState } from '@/sample/fresh';
+import { initialSampleState } from '@/sample/reducer';
+import { PLACES, type Place } from '@/sample/types';
 import { FakeTransport } from './fake/FakeTransport';
 import { HttpTransport } from './http';
 import { loadMode, readApiUrl, saveMode, type DataMode } from './mode';
@@ -47,8 +49,12 @@ export function createApi(mode: DataMode, apiUrl: string | null): Api {
       // Nomor sungguhan dari konfigurasi build, supaya "Mulai lewat WhatsApp" di APK pratinjau tidak menuju nomor palsu.
       // Kosong (tes, build tanpa nomor): bawaan server tiruan.
       ...(readWaNumber() ? { waNumber: readWaNumber() } : {}),
-      // Pratinjau web saat pengembangan: `?contoh=baru` memulai sebagai pengguna baru (Beranda hampir kosong).
+      // Pratinjau web saat pengembangan: `?contoh=baru` memulai sebagai pengguna baru (Beranda hampir kosong);
+      // `?tempat=Rumah` memulai dengan tempat itu terpilih.
       ...(devQuery().contoh === 'baru' ? { sample: newUserSampleState } : {}),
+      ...(PLACES.includes(devQuery().tempat as Place)
+        ? { sample: { ...initialSampleState, place: devQuery().tempat as Place } }
+        : {}),
     }),
   };
 }

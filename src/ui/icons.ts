@@ -86,7 +86,20 @@ export const ICON_PATHS = {
   door: 'M6 20.5V4.5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v16M3.5 20.5h17M14.5 12.5h.01',
   edit: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
   speakerLo: 'M4 9.5v5h3.5l4.5 4v-13l-4.5 4zM15.5 9a4 4 0 0 1 0 6',
+  // Remote virtual (R4): pemutar, kunci terbuka, tirai, baterai, privasi kamera.
+  play: 'M8 5.8v12.4a.8.8 0 0 0 1.2.7l9.6-6.2a.8.8 0 0 0 0-1.4L9.2 5.1a.8.8 0 0 0-1.2.7z',
+  pause: 'M7.5 5h2.5v14H7.5zM14 5h2.5v14H14z',
+  skipBack: 'M6 5.5v13M18 6.2v11.6a.7.7 0 0 1-1.1.6L9 12.6a.7.7 0 0 1 0-1.2l7.9-5.8a.7.7 0 0 1 1.1.6z',
+  skipFwd: 'M18 5.5v13M6 6.2v11.6a.7.7 0 0 0 1.1.6L15 12.6a.7.7 0 0 0 0-1.2L7.1 5.6a.7.7 0 0 0-1.1.6z',
+  unlock:
+    'M6.5 11h11a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-8a.5.5 0 0 1 .5-.5zM8.5 11V8a3.5 3.5 0 0 1 6.8-1.2',
+  curtain: 'M3 4h18M5 4v16M19 4v16M5 4c1.6 5.4 3.6 10.4 6 16M19 4c-1.6 5.4-3.6 10.4-6 16',
+  battery: 'M4 8h13.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM21 10.5v3M6.5 11v2M9.5 11v2',
+  eyeOff: 'M3 12s3.5-6 9-6c1.6 0 3 .5 4.2 1.2M21 12s-3.5 6-9 6c-1.6 0-3-.5-4.2-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2M4 4l16 16',
 } as const;
+
+/** Ikon yang juga diisi (bentuk padat, contoh putar/jeda): isiannya warna ikon. */
+export const FILLED_ICONS: ReadonlySet<string> = new Set(['play', 'pause', 'skipBack', 'skipFwd']);
 
 /** Ikon titik (lebih tebal supaya titiknya terlihat). */
 export const DOT_ICONS: ReadonlySet<string> = new Set(['more', 'grid']);

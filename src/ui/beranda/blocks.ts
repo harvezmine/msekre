@@ -2,7 +2,6 @@ import type { AgendaItem, Device, Draft, Home } from '@/api/contract';
 import { addDays, parts } from '@/api/dates';
 import { canSwitch, deviceStateOf } from '@/api/devices';
 import { greetingFor } from '@/api/format';
-import { iconOr, type IconName } from '../icons';
 
 /**
  * Isi Beranda yang tumbuh pelan-pelan (§6.1 spesifikasi): paling banyak tiga blok, urutannya tetap, masing-masing hanya
@@ -120,20 +119,8 @@ export function pickFavorites(devices: Device[], max = 3): Device[] {
     .map(({ d }) => d);
 }
 
-const KIND_ICON: Partial<Record<Device['kind'], IconName>> = {
-  ac: 'snow',
-  tv: 'tv',
-  lamp: 'bulb',
-  speaker: 'speaker',
-  fan: 'fan',
-  plug: 'bolt',
-  lock: 'lock',
-  camera: 'camera',
-};
-
-export function deviceIcon(d: Device): IconName {
-  return KIND_ICON[d.kind] ?? iconOr(d.icon, 'bulb');
-}
+/** Ikon perangkat (sama dengan Perangkat dan remote). */
+export { deviceIcon } from '../device/present';
 
 /** Satu kata keadaan di sakelar besar: "24°", "Nyala", "Mati", "Terkunci", "Terbuka", "Terputus". */
 export function stateWord(d: Device): string {

@@ -27,12 +27,17 @@ export interface DevicesApi {
   setBoxMic: DevicesController['setBoxMic'];
   /** Sematkan atau lepas perangkat dari Beranda. `null` kalau berhasil, selain itu teks ramah. */
   setFavorite: DevicesController['setFavorite'];
+  /** Gambar terakhir kamera lewat `GET /media/:id`. */
+  mediaUrl: DevicesController['mediaUrl'];
 }
 
 const EMPTY: DevicesState = { entries: {} };
 const NONE: never[] = [];
 const noSubscribe = () => () => {};
 const noState = () => EMPTY;
+const noMedia = async (): Promise<never> => {
+  throw new Error('tanpa sumber data');
+};
 
 /**
  * Perangkat satu tempat untuk layar: dari pengendali bersama di {@link DevicesProvider} (`GET /devices?place=`, event
@@ -64,5 +69,6 @@ export function useDevices(place: string | null | undefined): DevicesApi {
     runRoutine: controller?.runRoutine ?? (async () => ({ ok: false, message: '' })),
     setBoxMic: controller?.setBoxMic ?? (async () => null),
     setFavorite: controller?.setFavorite ?? (async () => null),
+    mediaUrl: controller?.mediaUrl ?? noMedia,
   };
 }

@@ -81,7 +81,8 @@ Teks memakai `<Txt v="row">`; angka jam/uang/suhu diberi `tabular`. `readout` da
 | `Dial` | Suhu AC | Busur 270°, tanpa label skala, angka di tengah; geser cincin atau naik/turun pembaca layar |
 | `TimeRail`, `TimeStrip` | Agenda | Jam + 2–3 kata + satu ikon; garis sekarang hijau, butir berikutnya bertitik biru |
 | `Sparkline`, `AreaChart` | Usaha | Garis ungu, area 14% |
-| `MoreSheet` | "Lainnya" | Kapsul `sunken` 44 di kepala; lembar dengan baris 72: ikon + satu kata + kontrol atau chip nilai |
+| `MoreSheet` | "Lainnya" | Kapsul `sunken` 44 di kepala; lembar dengan baris 72: ikon + satu kata + kontrol atau chip nilai (tanpa `onPress`: nilai baca saja); `footer` untuk isi tambahan (papan angka) |
+| `ChoiceSheet` | Pilih satu (sumber input, timer) | Lembar dengan judul satu kata dan baris 64, centang hijau; memilih menutup lalu menjalankan |
 | `Enter`, `useEnterAnimation`, `blockLayout` | Blok muncul | Pudar + naik 12, 320 ms, jeda 80 ms (maks 3); `blockLayout` untuk blok yang bergeser |
 | `useLayoutClass`, `byLayout` | Ukuran layar | `compact` / `regular` / `tall` |
 | `ThumbZone` | Tata letak layar | Atas, spacer lentur, aksi utama menempel di bawah |
@@ -155,6 +156,42 @@ dibangun ulang dengan kit di R2–R6.
   dipasang ulang. "Kurangi gerakan": bingkai diam dengan denyut terang 2,4 detik. Layar tidak fokus: jam berhenti.
 - **Level mikrofon** (`src/voice/pcm.ts` `level`): RMS → desibel, -50 dB = 0, -10 dB = 1; pengendali menulisnya ke
   nilai bersama `voice.level`.
+
+## Remote virtual dan Perangkat (R4)
+
+- **Satu niat per remote** (komentar pertama tiap berkas di `src/ui/remote/`). `app/perangkat/[id].tsx` memilih tata letak
+  dengan `remoteKindOf` (jenis dulu; jenis `other` menurut kemampuannya; tanpa petunjuk: daya saja) dan menyediakan
+  `RemoteContext` (`control`, `adjust`, `setFavorite`, `retry`, `mediaUrl`, Kotak). Kontrol hanya untuk kemampuan yang
+  dimiliki (`capsOf`; server lama tanpa `capabilities` disusun dari `ac`/`level`).
+- **`RemoteFrame`**: kembali + nama (+ "Perkiraan" kecil untuk perangkat IR) + Lainnya; isi atas, spacer, kontrol utama
+  di zona jempol. Lainnya selalu memuat Favorit (kecuali Kotak dan sensor) dan, untuk IR, satu kalimat "Keadaan ini
+  perkiraan dari perintah terakhir.". Tidak terjangkau: isi diredupkan 38% dan tersembunyi dari pembaca layar, satu
+  baris "Tidak terjangkau" + Coba lagi. Isi hanya bisa digulir bila tidak muat (layar pendek).
+- **Layar utama vs Lainnya:**
+
+  | Remote | Layar utama | Lainnya |
+  |---|---|---|
+  | AC | Dial suhu (busur biru langit saat mendinginkan), suhu ruangan, mode (≤ 5), − / daya / + (76/100/76) | Kipas (segmen batang), Ayun, Timer |
+  | TV | Daya, Sumber, D-pad + OK, Kembali/Beranda/Menu, VOL, Bisukan, CH | Papan angka |
+  | Speaker | Sampul (dari server atau lukisan gradasi dari judul), judul, penyanyi, sebelumnya / putar-jeda 92 / berikutnya, volume | Sumber, Bisu, Daya |
+  | Lampu | Bola lampu bercahaya (ikut terang), persen, penggeser tegak berwarna cahaya, daya | Suhu warna (Hangat/Netral/Dingin), warna (bulatan) bila ada |
+  | Kipas | Baling-baling berputar, kecepatan (tombol besar), Ayun, daya | Timer |
+  | Colokan | Watt sekarang dan kWh hari ini (angka besar), daya 124 | Timer |
+  | Tirai | Jendela bergambar, persen, penggeser tegak, Tutup / Buka | - |
+  | Kunci | Gembok besar, Terkunci/Terbuka, satu tombol Buka (PIN atau "buka kunci?") / Kunci | Baterai |
+  | Kamera | Gambar terakhir + titik rekam, tombol Rekam (privasi dijaga PIN) | - |
+  | Sensor | Bacaan besar, baterai | - |
+  | Kotak | Online, suhu, kelembapan, tombol mic besar | Speaker |
+  | Lainnya | Ikon besar, keadaan, daya | - |
+
+- **Nilai kontinu** (suhu, terang, volume, posisi) lewat `adjust`: layar langsung, server menerima nilai akhir 400 ms
+  setelah perubahan terakhir, dikirim saat layar ditutup, dikembalikan bila gagal. Tombol remote lewat `control({ key })`.
+- **Perangkat** (`app/(tabs)/perangkat.tsx`): judul, tempat kecil (bila lebih dari satu tempat) dan + di kepala; segmen
+  "Semua" + ruangan (di tempat "Semua": per tempat); kisi `gridRows`: AC menyala selebar layar dengan suhu 56, Kotak, ubin
+  dua kolom, tidak terjangkau paling akhir. Kata ubin `tileWord` ("Dingin", "80%", "Vol 18", "Memutar", "Terkunci",
+  "Terputus"). Ketuk ubin sakelar (`tileToggles`) = nyala/mati; kunci, kamera, tirai, sensor, Kotak, dan yang dijaga
+  dibuka remote-nya; tahan ubin mana pun membuka remote. Rutinitas sebagai deretan pil, hanya bila ada.
+- Pratinjau web: `/perangkat/ac-kamar?lainnya=1` membuka Lainnya, `/perangkat?tempat=Rumah` memilih tempat.
 
 ## Gerak
 

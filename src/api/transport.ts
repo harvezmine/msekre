@@ -134,9 +134,14 @@ export type ConnectionStatus = 'connecting' | 'open' | 'closed' | 'blocked' | 'u
  * - `sampleQr`: hanya dari server tiruan. Tidak ada berkas; layar menggambar pola QR contoh (`qrPattern`) dengan SVG,
  *   seperti `QrisCard` di Fase 0b;
  * - `sampleFile`: hanya dari server tiruan. Dokumen contoh tanpa berkas; layar memberi tahu bahwa ini contoh.
+ * - `sampleSnapshot`: hanya dari server tiruan. Gambar terakhir kamera contoh tanpa berkas; layar menggambar ruangan
+ *   contoh.
  */
 export type MediaSource =
-  { kind: 'uri'; uri: string; headers: Record<string, string> } | { kind: 'sampleQr' } | { kind: 'sampleFile' };
+  | { kind: 'uri'; uri: string; headers: Record<string, string> }
+  | { kind: 'sampleQr' }
+  | { kind: 'sampleFile' }
+  | { kind: 'sampleSnapshot' };
 
 export type Unsubscribe = () => void;
 

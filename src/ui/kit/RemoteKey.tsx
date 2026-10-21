@@ -90,7 +90,7 @@ export function RemoteKey({
       break;
   }
   const picked = variant === 'selected' || !!selected;
-  const iconSize = size >= 88 ? 34 : size >= 72 ? 30 : 26;
+  const iconSize = size >= 112 ? 40 : size >= 88 ? 34 : size >= 72 ? 30 : 26;
   const key = (
     <PressableScale
       testID={testID}

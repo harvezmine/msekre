@@ -3,6 +3,7 @@ export { AccentIcon, iconSizeFor, type AccentTone } from './AccentIcon';
 export { ApprovalCard } from './ApprovalCard';
 export { BigNumber, type BigNumberProps } from './BigNumber';
 export { AreaChart, Sparkline } from './Chart';
+export { ChoiceSheet, type Choice } from './ChoiceSheet';
 export { areaPath, scalePoints, smoothPath } from './chartMath';
 export { CoachMark } from './CoachMark';
 export { Dial, type DialProps } from './Dial';

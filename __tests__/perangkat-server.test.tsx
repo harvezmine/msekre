@@ -1,6 +1,7 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import Perangkat from '../app/(tabs)/perangkat';
+import RemotePerangkat from '../app/perangkat/[id]';
 import { ERROR_TEXT } from '@/api/errors';
 import { HttpTransport, type SocketLike } from '@/api/http';
 import { createMemorySession } from '@/api/session';
@@ -78,6 +79,7 @@ function serverApi(handler: (path: string, init: RequestInit) => { status?: numb
 }
 
 beforeEach(() => jest.clearAllMocks());
+afterEach(() => jest.mocked(useLocalSearchParams).mockReturnValue({}));
 
 test('mode server: Perangkat dari GET /devices, kendali lewat POST, dan event device', async () => {
   const { api, fetch, sockets } = serverApi((path) =>
@@ -98,9 +100,9 @@ test('mode server: Perangkat dari GET /devices, kendali lewat POST, dan event de
   await renderWithProviders(<Perangkat />, { api });
   expect(await screen.findByText('Lampu baca')).toBeOnTheScreen();
   expect(screen.getByText('Gerbang')).toBeOnTheScreen();
-  expect(screen.getByText('Lampu mati')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Jalankan Tidur' })).toBeOnTheScreen();
   expect(fetch.mock.calls.some(([u]) => String(u).endsWith('/devices?place=Rumah'))).toBe(true);
-  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu baca, Nyala' }));
+  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu baca' }));
   await act(async () => {});
   const post = fetch.mock.calls.find(([u]) => String(u).endsWith('/home/devices/l1'))!;
   expect(post[1].body).toBe('{"on":false}');
@@ -111,10 +113,11 @@ test('mode server: Perangkat dari GET /devices, kendali lewat POST, dan event de
   });
   await act(async () => {
     sockets[0]!.onmessage?.({
-      data: JSON.stringify({ type: 'device', devices: [{ ...lamp, status: 'Nyala · 50%' }], rev: 4 }),
+      data: JSON.stringify({ type: 'device', devices: [{ ...lamp, level: 50, status: 'Nyala · 50%' }], rev: 4 }),
     });
   });
-  expect(screen.getByText('Nyala · 50%')).toBeOnTheScreen();
+  // Server lama tanpa `state`: terang dibaca dari `level`.
+  expect(screen.getByText('50%')).toBeOnTheScreen();
 });
 
 test('mode server: kendali gagal mengembalikan sakelar dan menampilkan toast', async () => {
@@ -128,9 +131,9 @@ test('mode server: kendali gagal mengembalikan sakelar dan menampilkan toast', a
     </>,
     { api },
   );
-  await fireEvent.press(await screen.findByRole('switch', { name: 'Lampu baca, Nyala' }));
+  await fireEvent.press(await screen.findByRole('switch', { name: 'Lampu baca' }));
   expect(await screen.findByText(ERROR_TEXT)).toBeOnTheScreen();
-  expect(screen.getByRole('switch', { name: 'Lampu baca, Nyala' })).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'Lampu baca' })).toBeChecked();
 });
 
 test('mode server: 428 pin_diperlukan dari perangkat mana pun membuka lembar PIN (bukan toast buntu)', async () => {
@@ -138,26 +141,38 @@ test('mode server: 428 pin_diperlukan dari perangkat mana pun membuka lembar PIN
     path === '/home/devices/l1' ? { status: 428, body: { error: 'pin_diperlukan' } } : undefined,
   );
   await renderWithProviders(<Perangkat />, { api });
-  await fireEvent.press(await screen.findByRole('switch', { name: 'Lampu baca, Nyala' }));
+  await fireEvent.press(await screen.findByRole('switch', { name: 'Lampu baca' }));
   await act(async () => {});
   expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'l1' } });
 });
 
-test('mode server: PIN mati, membuka kunci bertanya dulu tanpa mengirim apa pun; PIN hidup membuka lembar PIN', async () => {
+test('mode server: remote kunci — PIN mati bertanya dulu tanpa mengirim apa pun; PIN hidup membuka lembar PIN', async () => {
   let pinEnabled = false;
   const { api, fetch } = serverApi((path) =>
     path === '/account/security' ? { body: { pinEnabled, hasPin: pinEnabled } } : undefined,
   );
-  await renderWithProviders(<Perangkat />, { api });
-  await fireEvent.press(await screen.findByRole('switch', { name: 'Gerbang, Terkunci' }));
+  jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'k1' });
+  await renderWithProviders(<RemotePerangkat />, { api });
+  // Server lama tanpa `capabilities`: kunci tetap mendapat remote kunci.
+  expect(await screen.findByText('Terkunci')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
   await act(async () => {});
   expect(router.push).toHaveBeenCalledWith({ pathname: '/buka-kunci', params: { id: 'k1' } });
   expect(fetch.mock.calls.some(([u]) => String(u).endsWith('/home/devices/k1'))).toBe(false);
   jest.mocked(router.push).mockClear();
   pinEnabled = true;
-  await fireEvent.press(screen.getByRole('switch', { name: 'Gerbang, Terkunci' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Buka' }));
   await act(async () => {});
   expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'k1' } });
+  expect(fetch.mock.calls.some(([u]) => String(u).endsWith('/home/devices/k1'))).toBe(false);
+});
+
+test('mode server: ubin kunci membuka remote, tidak pernah membuka kunci dari daftar', async () => {
+  const { api, fetch } = serverApi(() => undefined);
+  await renderWithProviders(<Perangkat />, { api });
+  await fireEvent.press(await screen.findByRole('button', { name: 'Gerbang, Terkunci' }));
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/perangkat/[id]', params: { id: 'k1' } });
+  expect(fetch.mock.calls.some(([u]) => String(u).endsWith('/home/devices/k1'))).toBe(false);
 });
 
 test('mode server: kotak ditaruh di ruangan perangkat ber-id box.deviceId, dengan nama ruangan apa pun', async () => {
@@ -175,11 +190,12 @@ test('mode server: kotak ditaruh di ruangan perangkat ber-id box.deviceId, denga
   const { api } = serverApi((path) => (path.startsWith('/devices') ? { body } : undefined));
   await renderWithProviders(<Perangkat />, { api });
   expect(await screen.findByText('Lampu tamu')).toBeOnTheScreen();
-  // Ruangan pertama (Ruang keluarga) tidak memuat Kotak, dan Kotak tidak digambar sebagai ubin.
-  expect(screen.queryByText('Kotak Sekretaris AI')).toBeNull();
-  expect(screen.queryByText('Kotak')).toBeNull();
+  // Kotak hanya satu ubin (perangkat `box` tidak digambar dua kali), di ruangannya sendiri.
+  expect(screen.getAllByRole('button', { name: /^Kotak Sekretaris AI, / })).toHaveLength(1);
+  await fireEvent.press(screen.getByRole('tab', { name: 'Ruang keluarga' }));
+  expect(screen.queryByRole('button', { name: /^Kotak Sekretaris AI, / })).toBeNull();
   await fireEvent.press(screen.getByRole('tab', { name: 'Kamar utama' }));
-  expect(screen.getByText('Kotak Sekretaris AI')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Kotak Sekretaris AI, Mic nyala' })).toBeOnTheScreen();
   expect(screen.queryByText('Lampu tamu')).toBeNull();
 });
 

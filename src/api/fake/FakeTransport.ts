@@ -1069,6 +1069,8 @@ export class FakeTransport implements Transport {
     await this.checkSession();
     if (mediaId === SAMPLE_QR_MEDIA_ID) return { kind: 'sampleQr' };
     if (mediaId === SAMPLE_FILE_MEDIA_ID) return { kind: 'sampleFile' };
+    // Gambar terakhir kamera contoh (`snapshotMediaId` = `snap-<id kamera>`).
+    if (mediaId.startsWith('snap-')) return { kind: 'sampleSnapshot' };
     throw notFound();
   }
 

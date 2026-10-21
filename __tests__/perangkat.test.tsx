@@ -1,14 +1,21 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { StyleSheet } from 'react-native';
 import { useEffect } from 'react';
 import Tambah from '../app/perangkat/tambah';
 import Perangkat from '../app/(tabs)/perangkat';
 import Beranda from '../app/(tabs)/index';
 import { ERROR_TEXT } from '@/api/errors';
+import type { Device } from '@/api/contract';
 import { ApiFailure } from '@/api/transport';
 import { createTestApi, renderWithProviders, stateAfter, toastNow, useSample } from './helpers';
-import { dark } from '@/theme/tokens';
+import { dark, light } from '@/theme/tokens';
 import { deviceById, deviceStatus, houseCard, type SampleState } from '@/sample/store';
+import { gridRows } from '@/ui/device/grid';
+import { tileToggles, tileWord } from '@/ui/device/present';
+
+// Perangkat (papan 16): segmen ruangan, ubin besar bervariasi; ketuk ubin sakelar = nyala/mati, ubin lain dan tahan =
+// remote.
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -32,126 +39,98 @@ async function show(actions: Parameters<typeof renderWithProviders>[1] = { actio
   );
 }
 const status = (id: string) => deviceStatus(deviceById(latest, id)!);
+const remoteOf = (id: string) => ({ pathname: '/perangkat/[id]', params: { id } });
 
-test('Rumah: tab Ruang tamu, kartu Kotak, dan ubin ruang tamu', async () => {
+test('Rumah: segmen Semua terpilih, ubin AC lebar dengan 24°, Kotak, lampu, kamera bergambar, kunci', async () => {
   await show();
-  expect(screen.getByRole('tab', { name: 'Ruang tamu' })).toBeSelected();
-  expect(screen.getByText('Kotak Sekretaris AI')).toBeOnTheScreen();
-  expect(screen.getByText('Mic menyala')).toBeOnTheScreen();
-  expect(screen.getByText('JBL Ruang Tamu')).toBeOnTheScreen();
-  expect(screen.getByText('27°')).toBeOnTheScreen();
-  expect(screen.getByText('68%')).toBeOnTheScreen();
-  for (const n of ['Lampu utama', 'Lampu sudut', 'Kamera ruang tamu', 'Pintu depan']) {
-    expect(screen.getByText(n)).toBeOnTheScreen();
-  }
-  expect(screen.queryByText('Lampu teras')).toBeNull();
+  expect(screen.getByRole('tab', { name: 'Semua' })).toBeSelected();
+  for (const r of ['Ruang tamu', 'Kamar', 'Dapur', 'Teras'])
+    expect(screen.getByRole('tab', { name: r })).toBeOnTheScreen();
+  const ac = screen.getByRole('switch', { name: 'AC kamar' });
+  expect(ac).toBeChecked();
+  expect(ac.props.accessibilityValue).toEqual({ text: 'Dingin' });
+  expect(screen.getByLabelText('24 derajat')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Kotak Sekretaris AI, Mic nyala' })).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'Lampu utama' }).props.accessibilityValue).toEqual({ text: '80%' });
+  expect(screen.getByRole('switch', { name: 'TV ruang tamu' }).props.accessibilityValue).toEqual({ text: 'Vol 18' });
+  expect(screen.getByRole('switch', { name: 'Speaker dapur' }).props.accessibilityValue).toEqual({ text: 'Memutar' });
+  expect(screen.getByTestId('batang-putar', { includeHiddenElements: true })).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Kamera ruang tamu, Merekam' })).toBeOnTheScreen();
+  expect(await screen.findByLabelText('Gambar terakhir Kamera ruang tamu')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Pintu depan, Terkunci' })).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Tirai ruang tamu, 60%' })).toBeOnTheScreen();
+  // Satu atau dua kata keadaan, tanpa kalimat keterangan.
+  expect(screen.queryByText(/lewat|Tidak terjangkau sejak/)).toBeNull();
+  // Ubin menyala hijau lembut, mati netral.
+  expect(StyleSheet.flatten(screen.getByTestId('ubin-lampu-utama').props.style).backgroundColor).toBe(light.brandSoft);
+  expect(StyleSheet.flatten(screen.getByTestId('ubin-lampu-kamar').props.style).backgroundColor).toBe(light.surface);
 });
 
-test('pindah ruangan: Kamar menampilkan AC dan tanpa kartu Kotak', async () => {
+test('pindah ruangan: Kamar menampilkan AC tanpa Kotak; Ruang tamu memuat Kotak', async () => {
   await show();
   await fireEvent.press(screen.getByRole('tab', { name: 'Kamar' }));
   expect(screen.getByRole('tab', { name: 'Kamar' })).toBeSelected();
-  // Teks ubin AC disembunyikan dari pembaca layar; tombol bukanya yang membacakan nama dan keadaan.
-  expect(screen.getByRole('button', { name: 'AC kamar, Nyala · 24°' })).toBeOnTheScreen();
-  expect(screen.getByText('AC kamar', { includeHiddenElements: true })).toBeOnTheScreen();
-  expect(screen.queryByText('Kotak Sekretaris AI')).toBeNull();
-  expect(screen.queryByText('Lampu utama')).toBeNull();
+  expect(screen.getByRole('switch', { name: 'AC kamar' })).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'Kipas kamar anak' })).toBeOnTheScreen();
+  expect(screen.queryByRole('button', { name: /^Kotak Sekretaris AI/ })).toBeNull();
+  expect(screen.queryByRole('switch', { name: 'Lampu utama' })).toBeNull();
+  await fireEvent.press(screen.getByRole('tab', { name: 'Ruang tamu' }));
+  expect(screen.getByRole('button', { name: 'Kotak Sekretaris AI, Mic nyala' })).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('tab', { name: 'Teras' }));
-  expect(screen.getByText('Lampu teras')).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'Lampu teras' })).toBeOnTheScreen();
 });
 
-test('Matikan mic bergantian dengan Nyalakan', async () => {
-  await show();
-  const before = latest.history.length;
-  await fireEvent.press(screen.getByRole('button', { name: 'Matikan mic' }));
-  expect(latest.boxMic).toBe(false);
-  expect(latest.history[0]).toMatchObject({ title: 'Mematikan mic Kotak Sekretaris AI', kind: 'rumah' });
-  expect(latest.history).toHaveLength(before + 1);
-  expect(screen.getByText('Mic mati')).toBeOnTheScreen();
-  await fireEvent.press(screen.getByRole('button', { name: 'Nyalakan mic' }));
-  expect(latest.boxMic).toBe(true);
-  expect(latest.history[0]).toMatchObject({ title: 'Menyalakan mic Kotak Sekretaris AI', kind: 'rumah' });
-  expect(screen.getByText('Mic menyala')).toBeOnTheScreen();
-});
-
-test('sakelar ubin mengubah keadaan, dan baris rumah Beranda mengikuti', async () => {
+test('ketuk ubin sakelar mengubah keadaan, dan baris rumah Beranda mengikuti', async () => {
   await show();
   expect(status('lampu-utama')).toBe('Nyala · 80%');
-  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu utama, Nyala · 80%' }));
+  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu utama' }));
   expect(status('lampu-utama')).toBe('Mati');
-  expect(screen.getByText('Mati')).toBeOnTheScreen();
-  await fireEvent.press(screen.getByRole('tab', { name: 'Kamar' }));
-  await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar, Nyala · 24°' }));
+  expect(screen.getByRole('switch', { name: 'Lampu utama' })).not.toBeChecked();
+  expect(router.push).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
   expect(status('ac-kamar')).toBe('Mati');
   expect(houseCard(latest)[0]!.text).toBe('AC kamar mati');
 });
 
-test('perangkat tidak terjangkau: abu-abu dengan titik clay dan tanpa sakelar', async () => {
+test('tahan ubin (atau aksi pembaca layar) membuka remote; ketuk ubin yang bukan sakelar juga', async () => {
   await show();
-  expect(screen.getByText('Tidak terjangkau sejak 10.12')).toBeOnTheScreen();
+  await fireEvent(screen.getByRole('switch', { name: 'AC kamar' }), 'longPress');
+  expect(router.push).toHaveBeenLastCalledWith(remoteOf('ac-kamar'));
+  await fireEvent(screen.getByRole('switch', { name: 'Lampu utama' }), 'accessibilityAction', {
+    nativeEvent: { actionName: 'longpress' },
+  });
+  expect(router.push).toHaveBeenLastCalledWith(remoteOf('lampu-utama'));
+  // Kunci, kamera, tirai, dan Kotak: ketuk membuka remote, tidak pernah mengubah keadaan.
+  await fireEvent.press(screen.getByRole('button', { name: 'Pintu depan, Terkunci' }));
+  expect(router.push).toHaveBeenLastCalledWith(remoteOf('pintu-depan'));
+  await fireEvent.press(screen.getByRole('button', { name: 'Kamera ruang tamu, Merekam' }));
+  expect(router.push).toHaveBeenLastCalledWith(remoteOf('kamera-tamu'));
+  await fireEvent.press(screen.getByRole('button', { name: 'Kotak Sekretaris AI, Mic nyala' }));
+  expect(router.push).toHaveBeenLastCalledWith(remoteOf('kotak-ruang-tamu'));
+  expect(status('pintu-depan')).toBe('Terkunci');
+  expect(status('kamera-tamu')).toBe('Merekam');
+});
+
+test('perangkat tidak terjangkau: "Terputus", titik koral, bukan sakelar, ketuk membuka remote', async () => {
+  await show();
+  const tile = screen.getByRole('button', { name: 'Lampu sudut, Terputus' });
   expect(screen.getByTestId('titik-tak-terjangkau')).toBeOnTheScreen();
   expect(screen.queryByRole('switch', { name: 'Lampu sudut' })).toBeNull();
-  expect(screen.getAllByRole('switch')).toHaveLength(4);
+  await fireEvent.press(tile);
+  expect(router.push).toHaveBeenCalledWith(remoteOf('lampu-sudut'));
 });
 
-test('PIN mati (bawaan): kamera, alarm, dan pintu langsung dijalankan tanpa lembar PIN', async () => {
-  await show();
-  await fireEvent.press(screen.getByRole('switch', { name: /^Kamera ruang tamu, / }));
-  expect(router.push).not.toHaveBeenCalled();
-  expect(status('kamera-tamu')).toBe('Mati');
-  // Membuka kunci tetap bertanya dulu (bukan PIN): lembar "Buka kunci Pintu depan?" dan kuncinya belum berubah.
-  await fireEvent.press(screen.getByRole('switch', { name: /^Pintu depan, / }));
-  await act(async () => {});
-  expect(router.push).toHaveBeenCalledTimes(1);
-  expect(router.push).toHaveBeenCalledWith({ pathname: '/buka-kunci', params: { id: 'pintu-depan' } });
-  expect(deviceById(latest, 'pintu-depan')!.on).toBe(true);
-});
-
-test('PIN dihidupkan: mematikan kamera membuka lembar PIN, bukan langsung mati', async () => {
-  const api = createTestApi({ security: { pinEnabled: true, pin: '123456' } });
-  await show({ actions: rumah, api });
-  await fireEvent.press(screen.getByRole('switch', { name: /^Kamera ruang tamu, / }));
-  await act(async () => {});
-  expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'kamera-tamu' } });
-  expect(status('kamera-tamu')).toBe('Merekam');
-  // Perangkat yang tidak dijaga tetap langsung.
-  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu utama, Nyala · 80%' }));
-  expect(status('lampu-utama')).toBe('Mati');
-});
-
-test('PIN dihidupkan tapi keadaannya tak terbaca (tanpa sinyal): tetap minta PIN', async () => {
-  const api = createTestApi({ security: { pinEnabled: false } });
-  jest.spyOn(api.transport, 'security').mockRejectedValue(new Error('network'));
-  await show({ actions: rumah, api });
-  await fireEvent.press(screen.getByRole('switch', { name: /^Kamera ruang tamu, / }));
-  await act(async () => {});
-  expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'kamera-tamu' } });
-  expect(status('kamera-tamu')).toBe('Merekam');
-});
-
-test('menyalakan kembali kamera yang mati tidak minta PIN', async () => {
-  await show({ actions: [...rumah, { type: 'toggleDevice', id: 'kamera-tamu', on: false }] });
-  await fireEvent.press(screen.getByRole('switch', { name: /^Kamera ruang tamu, / }));
-  expect(router.push).not.toHaveBeenCalled();
-  expect(status('kamera-tamu')).toBe('Merekam');
-});
-
-test('mengetuk ubin AC membuka detailnya', async () => {
-  await show();
-  await fireEvent.press(screen.getByRole('tab', { name: 'Kamar' }));
-  await fireEvent.press(screen.getByRole('button', { name: 'AC kamar, Nyala · 24°' }));
-  expect(router.push).toHaveBeenCalledWith({ pathname: '/perangkat/[id]', params: { id: 'ac-kamar' } });
-});
-
-test('tombol tambah ke Tambah perangkat; avatar membuka Akun', async () => {
+test('tombol tambah ke Tambah perangkat; tempat kecil di kepala membuka pemilih tempat', async () => {
   await show();
   await fireEvent.press(screen.getByRole('button', { name: 'Tambah perangkat' }));
   expect(router.push).toHaveBeenCalledWith('/perangkat/tambah');
-  await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
-  expect(router.push).toHaveBeenCalledWith('/akun');
+  await fireEvent.press(screen.getByRole('button', { name: 'Tempat: Rumah' }));
+  expect(router.push).toHaveBeenCalledWith('/tempat');
+  // Akun hanya di Beranda.
+  expect(screen.queryByRole('button', { name: 'Akun' })).toBeNull();
 });
 
-test('rutinitas Saya pulang: lampu teras nyala, AC kamar 25°, riwayat, toast', async () => {
+test('rutinitas Saya pulang: satu ketukan, lampu teras nyala, AC kamar 25°, riwayat, toast', async () => {
   await show({ actions: [...rumah, { type: 'toggleDevice', id: 'lampu-teras', on: false }] });
   const before = latest.history.length;
   await fireEvent.press(screen.getByRole('button', { name: 'Jalankan Saya pulang' }));
@@ -197,29 +176,76 @@ test('rutinitas Tutup kedai di Semua: kedua kedai, rumah tidak', async () => {
   expect(toastNow()?.text).toBe('Rutinitas Tutup kedai dijalankan di semua kedai.');
 });
 
-test('Kedai Dago menampilkan perangkat kedai, tanpa kartu Kotak', async () => {
+test('Kedai Dago: ruangan kedai, tanpa Kotak', async () => {
   await show({ actions: [{ type: 'setPlace', place: 'Kedai Dago' }] });
-  expect(screen.getByRole('tab', { name: 'Dalam kedai' })).toBeSelected();
-  expect(screen.getByText('Lampu kedai')).toBeOnTheScreen();
-  expect(screen.getByText('AC kedai', { includeHiddenElements: true })).toBeOnTheScreen();
-  expect(screen.queryByText('Kotak Sekretaris AI')).toBeNull();
+  expect(screen.getByRole('tab', { name: 'Semua' })).toBeSelected();
+  expect(screen.getByRole('switch', { name: 'Lampu kedai' })).toBeOnTheScreen();
+  expect(screen.queryByRole('button', { name: /^Kotak Sekretaris AI/ })).toBeNull();
   await fireEvent.press(screen.getByRole('tab', { name: 'Kasir' }));
-  expect(screen.getByText('CCTV kasir')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: /^CCTV kasir, / })).toBeOnTheScreen();
+  expect(screen.queryByRole('switch', { name: 'Lampu kedai' })).toBeNull();
 });
 
-test('Semua: judul tempat sebagai pemisah dan tanpa tab ruangan', async () => {
+test('Semua tempat: segmen per tempat; di Semua, nama tempat sebagai pemisah', async () => {
   await show({ actions: [] });
-  expect(screen.queryByRole('tab')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Tempat: Semua' })).toBeOnTheScreen();
   for (const p of ['Rumah', 'Kedai Dago', 'Kedai Riau']) {
     expect(screen.getByRole('header', { name: p })).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: p })).toBeOnTheScreen();
   }
-  expect(screen.getByText('Lampu teras')).toBeOnTheScreen();
-  expect(screen.getByText('Lampu gudang')).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'Lampu teras' })).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('tab', { name: 'Kedai Riau' }));
+  expect(screen.getByRole('switch', { name: 'Lampu gudang' })).toBeOnTheScreen();
+  expect(screen.queryByRole('switch', { name: 'Lampu teras' })).toBeNull();
+  expect(screen.queryByRole('header', { name: 'Kedai Riau' })).toBeNull();
 });
 
-test('mode gelap: judul memakai warna teks palet gelap', async () => {
+test('mode gelap: judul dan ubin menyala memakai palet gelap (arang dengan cahaya hijau)', async () => {
   await show({ actions: rumah }, 'dark');
-  expect(screen.getByText('Perangkat')).toHaveStyle({ color: dark.text });
+  expect(screen.getByRole('header', { name: 'Perangkat' })).toHaveStyle({ color: dark.text });
+  expect(StyleSheet.flatten(screen.getByTestId('ubin-lampu-utama').props.style).backgroundColor).toBe(dark.surface);
+  expect(screen.getAllByTestId('cahaya-nyala').length).toBeGreaterThan(0);
+});
+
+test('kisi: AC menyala selebar layar di atas, Kotak di depan, tidak terjangkau paling akhir', () => {
+  const base = { place: 'Rumah', room: 'Kamar', icon: 'bulb', on: true, reachable: true, capabilities: [], state: {} };
+  const d = (o: Partial<Device>) => ({ ...base, id: 'x', name: 'X', kind: 'lamp', status: 'Nyala', ...o }) as Device;
+  const rows = gridRows(
+    [
+      d({ id: 'a' }),
+      d({ id: 'mati', reachable: false }),
+      d({ id: 'ac', kind: 'ac', state: { temp: 24 } }),
+      d({ id: 'b' }),
+      d({ id: 'c' }),
+    ],
+    { deviceId: 'k', online: true, micOn: true, speaker: 'S', roomTemp: 27, humidity: 60 },
+  );
+  const ids = rows.map((r) =>
+    r.type === 'wide'
+      ? `lebar:${r.item.type === 'device' ? r.item.device.id : 'kotak'}`
+      : r.items.map((i) => (i.type === 'device' ? i.device.id : 'kotak')).join('+'),
+  );
+  expect(ids).toEqual(['lebar:ac', 'kotak+a', 'b+c', 'mati']);
+});
+
+test('kata ubin dan siapa yang langsung bersakelar', () => {
+  const base = { place: 'Rumah', room: 'Kamar', icon: 'bulb', on: true, reachable: true, status: 'Nyala' };
+  const d = (o: Partial<Device>) =>
+    ({ ...base, id: 'x', name: 'X', kind: 'lamp', capabilities: [{ type: 'power' }], state: {}, ...o }) as Device;
+  expect(tileWord(d({ state: { brightness: 60 } }))).toBe('60%');
+  expect(tileWord(d({ kind: 'tv', state: { volume: 18 } }))).toBe('Vol 18');
+  expect(tileWord(d({ kind: 'tv', state: { volume: 18, muted: true } }))).toBe('Bisu');
+  expect(tileWord(d({ kind: 'speaker', state: { playing: false } }))).toBe('Jeda');
+  expect(tileWord(d({ kind: 'plug', state: { powerW: 12.5 } }))).toBe('12,5 W');
+  expect(tileWord(d({ kind: 'curtain', state: { position: 0 } }))).toBe('Tertutup');
+  expect(tileWord(d({ on: false }))).toBe('Mati');
+  expect(tileWord(d({ reachable: false }))).toBe('Terputus');
+  expect(tileToggles(d({}))).toBe(true);
+  expect(tileToggles(d({ sensitive: true }))).toBe(false);
+  expect(tileToggles(d({ kind: 'lock', capabilities: [{ type: 'lock' }] }))).toBe(false);
+  expect(tileToggles(d({ kind: 'camera' }))).toBe(false);
+  expect(tileToggles(d({ kind: 'curtain', capabilities: [{ type: 'position' }] }))).toBe(false);
+  expect(tileToggles(d({ reachable: false }))).toBe(false);
 });
 
 test('Tambah perangkat: kartu Kotak dan sembilan merek dengan toast', async () => {
@@ -254,24 +280,14 @@ test('Tambah perangkat di mode server: toast netral, tanpa menyebut fase', async
   await act(async () => {});
 });
 
-test('kendali gagal: sakelar dikembalikan dan toast ramah muncul', async () => {
+test('kendali gagal: ubin dikembalikan dan toast ramah muncul', async () => {
   const api = createTestApi({ sample: stateAfter(rumah) });
   await show({ actions: rumah, api });
   jest.spyOn(api.transport, 'controlDevice').mockRejectedValue(new ApiFailure('network'));
-  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu utama, Nyala · 80%' }));
+  await fireEvent.press(screen.getByRole('switch', { name: 'Lampu utama' }));
   await act(async () => {});
   expect(status('lampu-utama')).toBe('Nyala · 80%');
-  expect(screen.getByRole('switch', { name: 'Lampu utama, Nyala · 80%' })).toBeOnTheScreen();
-  expect(toastNow()?.text).toBe(ERROR_TEXT);
-});
-
-test('mic Kotak gagal: kembali seperti semula dan toast', async () => {
-  const api = createTestApi({ sample: stateAfter(rumah) });
-  await show({ actions: rumah, api });
-  jest.spyOn(api.transport, 'setBoxMic').mockRejectedValue(new ApiFailure('network'));
-  await fireEvent.press(screen.getByRole('button', { name: 'Matikan mic' }));
-  await act(async () => {});
-  expect(screen.getByText('Mic menyala')).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'Lampu utama' })).toBeChecked();
   expect(toastNow()?.text).toBe(ERROR_TEXT);
 });
 
@@ -285,16 +301,15 @@ test('rutinitas gagal: toast ramah, perangkat tidak berubah', async () => {
   expect(status('lampu-utama')).toBe('Nyala · 80%');
 });
 
-test('server menjawab pin_diperlukan walau aplikasi mengira tidak: lembar PIN dibuka dan kamera dikembalikan', async () => {
-  const api = createTestApi({ sample: stateAfter(rumah), security: { pinEnabled: false } });
+test('pengguna tanpa rutinitas: baris rutinitas tidak ada', async () => {
+  const api = createTestApi({ sample: stateAfter(rumah) });
+  jest.spyOn(api.transport, 'devices').mockImplementation(async (place) => {
+    const res = await (Object.getPrototypeOf(api.transport) as typeof api.transport).devices.call(api.transport, place);
+    return { ...res, routines: [] };
+  });
   await show({ actions: rumah, api });
-  jest
-    .spyOn(api.transport, 'controlDevice')
-    .mockRejectedValue(new ApiFailure('pin_required', { status: 428, error: 'pin_diperlukan' }));
-  await fireEvent.press(screen.getByRole('switch', { name: /^Kamera ruang tamu, / }));
-  await act(async () => {});
-  expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'kamera-tamu' } });
-  expect(status('kamera-tamu')).toBe('Merekam');
+  expect(screen.getByRole('switch', { name: 'Lampu utama' })).toBeOnTheScreen();
+  expect(screen.queryByRole('header', { name: 'Rutinitas' })).toBeNull();
 });
 
 test('sakelar AC Beranda dan kartu chat lewat controlDevice di mode contoh', async () => {
