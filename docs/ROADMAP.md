@@ -334,7 +334,7 @@ Dijalankan di perangkat Android sungguhan (mode contoh dan mode server) setelah 
 6. **Token.** Terkirim sekali per pembukaan aplikasi; pasang ulang aplikasi memberi token baru yang terkirim; keluar lalu masuk mengirim lagi; keluar saat mode pesawat lalu online: token dicabut dari server (periksa tabel token di server) dan tidak ada notifikasi lagi.
 7. **Layar kunci.** Isi notifikasi pesan disembunyikan (privat) saat HP terkunci.
 
-## Daftar uji di HP: alarm lokal dan Fase 2a-6a (tinjauan F1)
+## Daftar uji di HP: alarm lokal dan Fase 2a-6a (tinjauan F1 dan F2)
 
 Dijalankan di build EAS `preview` (bukan development client) di Android sungguhan; kode native belum pernah dikompilasi
 di Mac ini. Rincian cara dan perintah ada di `docs/alarm-lokal.md`.
@@ -358,6 +358,34 @@ di Mac ini. Rincian cara dan perintah ada di `docs/alarm-lokal.md`.
     benar tanpa menutup aplikasi.
 11. **Dokumen.** Buka di Drive dan WPS; tanpa aplikasi pembuka, lembar bagikan muncul; tombol tidak tertahan; keluar dari
     akun membuang berkas unduhan.
+
+Tambahan dari tinjauan F2 (Terhubung, perangkat dijaga, alarm di layar kunci):
+
+12. **Masuk layanan di Android yang sudah berjalan.** Sambungkan satu layanan lewat halaman masuk resminya: hanya satu
+    layar "Tersambung" yang terbuka (bukan dua), simpul masuk cincin sekali. Coba di Chrome, Samsung Internet, dan
+    Firefox sebagai peramban bawaan.
+13. **Proses dibunuh di Custom Tab.** Selagi halaman masuk terbuka, matikan aplikasi dari Recents, selesaikan masuk: tautan
+    `sekretarisai://` membuka aplikasi dingin langsung ke "Tersambung".
+14. **Akhir callback server.** 302 ke `sekretarisai://terhubung/tersambung?...` di semua peramban di atas; peramban yang
+    menolak skema khusus menampilkan halaman HTML dengan "Kembali ke aplikasi", bukan halaman kosong.
+15. **Perlu disambungkan ulang.** Layanan dengan `attention.action = reconnect` menampilkan banner dan "Sambungkan ulang";
+    selesai hanya setelah banner hilang. Perangkat tidak terjangkau (`none`) tidak menawarkan tombol itu.
+16. **Alarm di HP terkunci** di Pixel, Samsung, dan Xiaomi: layar menyala dan bunyi; "Tanya" dengan PIN, pola, dan sidik
+    jari meminta buka kunci dulu lalu membuka chat; Kembali mengembalikan layar kunci.
+17. **Tidak disentuh > 10 menit.** Getar berhenti, layar alarm menutup, layar kunci kembali (aplikasi pindah ke latar,
+    bukan Beranda di atas layar kunci).
+18. **Matikan di HP terkunci.** Tidak ada kilatan Beranda atau chat di atas layar kunci.
+19. **Keep-awake tetap hidup.** Mode Suara menyalakan layar terus; alarm berbunyi dan dimatikan, lalu kembali ke Mode Suara:
+    layar tetap menyala (penanda keep-awake tidak dihapus alarm); latar lalu depan juga tidak mematikannya.
+20. **PIN.** PIN di ubin kunci dan kamera; beberapa PIN salah berturut-turut (pesan ramah, bisa dicoba lagi, tidak macet);
+    "Lupa PIN?" mengirim kode ke WhatsApp dan PIN baru berlaku; PIN mati: membuka kunci bertanya "Buka kunci ...?".
+21. **Kartu Kotak.** Beri nama ruangan lain (bukan "Ruang tamu") di tempat selain Rumah: kartu ada di ruangan perangkat
+    Kotak, dan di bagian tempatnya di "Semua".
+22. **Lihat draf.** Draf lama (di luar 30 pesan terakhir) ketemu dan digulir; dengan soket putus (mode pesawat) ketemu atau
+    muncul "Drafnya tidak ketemu..." tanpa macet; tidak menyentak layar bila draf muncul belakangan.
+23. **Kartu perangkat di chat.** Kunci/kamera/alarm hanya menampilkan keadaan dengan "Buka di Perangkat"; AC tetap punya
+    sakelar dan suhu; jenis baru tanpa salju.
+24. **Mode gelap, lebar 360 dp, dan TalkBack** pada lembar baru (Buka kunci, Lupa PIN, banner perhatian) dan kartu baru.
 
 ### Build di cloud (EAS)
 

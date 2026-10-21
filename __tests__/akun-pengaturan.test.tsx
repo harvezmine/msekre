@@ -330,6 +330,17 @@ describe('Langganan di Akun', () => {
     expect(sampleState().toast?.text).toBe(WA_UNAVAILABLE_TEXT);
   });
 
+  test('Bantuan (mode server) membuka WhatsApp untuk melapor kendala; tanpa nomor: toast, tanpa menyebut fase', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockImplementation(async () => {});
+    await show('/akun', { api: createTestApi({ mode: 'server', token: 'tok' }) });
+    await fireEvent.press(screen.getByRole('button', { name: /^Bantuan/ }));
+    expect(open).toHaveBeenCalledWith(`https://wa.me/${WA}?text=Halo%2C%20saya%20mau%20lapor%20kendala.`);
+    delete config.extra;
+    await fireEvent.press(screen.getByRole('button', { name: /^Bantuan/ }));
+    expect(sampleState().toast?.text).toBe(WA_UNAVAILABLE_TEXT);
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
   test('nama asisten yang baru ikut ke baris Akun', async () => {
     const api = await show('/akun');
     await act(async () => {

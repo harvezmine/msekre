@@ -7,7 +7,15 @@ import type { Message } from './contract';
 /** Aksi chat yang identitasnya tetap selama pengendali yang sama (aman dioper ke baris daftar yang di-memo). */
 export type ChatActions = Pick<
   ChatController,
-  'send' | 'retry' | 'choose' | 'loadInitial' | 'loadOlder' | 'draftAction' | 'controlDevice' | 'mediaUrl'
+  | 'send'
+  | 'retry'
+  | 'choose'
+  | 'loadInitial'
+  | 'loadOlder'
+  | 'ensureDraft'
+  | 'draftAction'
+  | 'controlDevice'
+  | 'mediaUrl'
 >;
 
 export interface Chat extends ChatState {

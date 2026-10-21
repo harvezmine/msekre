@@ -46,7 +46,7 @@ const businessBody = {
   ],
   report: { mediaId: 'rep-1', name: 'Laporan.pdf', size: 2048, period: '14-20 Okt' },
   sources: [
-    { key: 'moka', label: 'Moka', connected: true },
+    { key: 'moka', label: 'Moka', connected: true, provides: ['sales', 'stock'] },
     { key: 'gojek', label: 'GoFood', connected: false },
   ],
   rev: 5,
@@ -120,7 +120,7 @@ test('mode server: Pesan lagi memanggil POST /business/reorder lalu membuka chat
   await act(async () => {});
   const post = fetch.mock.calls.find(([u]) => String(u).endsWith('/business/reorder'))!;
   expect(post[1].body).toBe('{"stockId":"s1"}');
-  expect(router.push).toHaveBeenCalledWith({ pathname: '/chat', params: { draf: 'd-1' } });
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/chat', params: { draf: 'd-1', pesan: 'm-1' } });
   expect(screen.getByRole('button', { name: 'Lihat draf Gula' })).toBeOnTheScreen();
   // draf dikirim: server menghapus tandanya lewat event
   await act(async () => {
@@ -189,4 +189,35 @@ test('mode server: GET /business gagal menampilkan kalimat ramah dan Coba lagi',
   fail = false;
   await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
   expect(await screen.findByText('Rp3.000.000')).toBeOnTheScreen();
+});
+
+test('mode server: jam uang masuk mengikuti zona waktu dari server (bukan zona HP); jam bawaan WIB', async () => {
+  const wit = serverApi((path) =>
+    path.startsWith('/business?') ? { body: { ...businessBody, tzOffsetMinutes: 540 } } : undefined,
+  );
+  const view = await renderWithProviders(<Usaha />, { api: wit.api });
+  // 03.00 UTC di WIT (UTC+9) = 12.00
+  expect(await screen.findByText('12.00 · tunai')).toBeOnTheScreen();
+  await view.unmount();
+
+  // Server lama tanpa tzOffsetMinutes: WIB (UTC+7) = 10.00
+  const old = serverApi(() => undefined);
+  await renderWithProviders(<Usaha />, { api: old.api });
+  expect(await screen.findByText('10.00 · tunai')).toBeOnTheScreen();
+});
+
+test('mode server: keterangan "dari {sumber}" memakai sumber tersambung yang menyebut bagiannya, tanpa nama sumber tertulis di aplikasi', async () => {
+  const body = {
+    ...businessBody,
+    sources: [
+      { key: 'kasir_x', label: 'Kasir Toko', connected: true, provides: ['sales', 'stock'] },
+      { key: 'bank_y', label: 'Bank Mandiri', connected: true, provides: ['moneyIn'] },
+    ],
+  };
+  const { api } = serverApi((path) => (path.startsWith('/business?') ? { body } : undefined));
+  await renderWithProviders(<Usaha />, { api });
+  await screen.findByText('Rp3.000.000');
+  expect(screen.getAllByText('dari Kasir Toko').length).toBeGreaterThanOrEqual(1);
+  expect(screen.getByText('dari Bank Mandiri')).toBeOnTheScreen();
+  expect(screen.queryByText('dari Moka')).toBeNull();
 });

@@ -9,7 +9,7 @@ import { sourceCaption } from './sources';
 export function MoneyInCard({ data }: { data: Business }) {
   const { c } = useTheme();
   const rows = data.moneyIn;
-  const caption = sourceCaption(data.sources, 'moota');
+  const caption = sourceCaption(data.sources, 'moneyIn');
   return (
     <Card style={{ paddingBottom: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -34,7 +34,7 @@ export function MoneyInCard({ data }: { data: Business }) {
           <View style={{ flex: 1 }}>
             <Txt>{r.source}</Txt>
             <Txt v="caption" color={c.muted} tabular>
-              {formatJam(r.at)}
+              {formatJam(r.at, data.tzOffsetMinutes)}
               {r.note ? ` · ${r.note}` : ''}
             </Txt>
           </View>

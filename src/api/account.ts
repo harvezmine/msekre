@@ -73,4 +73,6 @@ export async function openWhatsApp(text: string): Promise<boolean> {
 export const WA_UNAVAILABLE_TEXT =
   'WhatsApp belum bisa dibuka dari sini. Kirim pesan langsung ke nomor Sekretaris AI ya.';
 export const RENEW_TEXT = 'Halo, saya mau perpanjang langganan Sekretaris AI.';
+/** Pesan awal "Bantuan" di Akun: melapor kendala lewat WhatsApp. */
+export const HELP_TEXT = 'Halo, saya mau lapor kendala.';
 export const ERASE_TEXT = 'Halo, saya mau menghapus akun Sekretaris AI saya.';

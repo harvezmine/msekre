@@ -45,6 +45,9 @@ import { useLive } from '@/ui/useLive';
 
 /** Jarak (dp) dari dasar utas yang masih dianggap "di dasar". */
 const NEAR_BOTTOM = 80;
+/** Lama sesudah chat dibuka (atau draf ketemu) kartu draf boleh digulir otomatis. */
+export const DRAFT_SCROLL_WINDOW_MS = 3000;
+export const DRAFT_MISSING_TEXT = 'Drafnya tidak ketemu, mungkin sudah dikirim atau dibuang.';
 
 const SUGGESTIONS: { icon: IconName; text: string }[] = [
   { icon: 'mail', text: 'Ringkas email hari ini' },
@@ -60,7 +63,7 @@ export default function Chat() {
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const live = useLive();
-  const { kosong, draf } = useLocalSearchParams<{ kosong?: string; draf?: string }>();
+  const { kosong, draf, pesan } = useLocalSearchParams<{ kosong?: string; draf?: string; pesan?: string }>();
   const { mode } = useApi();
   const dispatch = useSampleDispatch();
   const toast = (text: string) => dispatch({ type: 'showToast', text });
@@ -115,10 +118,32 @@ export default function Chat() {
   const showEmpty = kosong === '1' && rows.length === 0;
   // Daftar terbalik: yang terbaru dulu.
   const data = [...rows].reverse();
-  // `?draf=<id>` ("Lihat draf" di Usaha): gulir ke pesan yang memuat kartu draf itu, sekali.
+  // `?draf=<id>` ("Lihat draf" di Usaha, `&pesan=<id pesan>` bila diketahui): pesan yang memuat kartu draf itu dicari
+  // (dimuat bila belum ada: resync, lalu halaman lama paling banyak 5), lalu digulir ke sana sekali. Tidak ketemu: toast.
+  // Menggulir otomatis hanya dalam ~3 detik sejak chat dibuka atau drafnya ketemu, supaya tidak menyentak pengguna yang
+  // sudah membaca ke tempat lain.
   const scrolledToDraft = useRef<string | null>(null);
+  const [openedAt] = useState(() => Date.now());
+  const scrollUntil = useRef(openedAt + DRAFT_SCROLL_WINDOW_MS);
+  const draftId = typeof draf === 'string' ? draf : undefined;
+  const draftMessage = typeof pesan === 'string' ? pesan : undefined;
+  const ensureDraft = chat.actions.ensureDraft;
   useEffect(() => {
-    if (!draf || scrolledToDraft.current === draf) return;
+    if (!draftId) return;
+    let stale = false;
+    void ensureDraft(draftId, draftMessage).then((found) => {
+      if (stale) return;
+      if (found) scrollUntil.current = Date.now() + DRAFT_SCROLL_WINDOW_MS;
+      else toast(DRAFT_MISSING_TEXT);
+    });
+    return () => {
+      stale = true;
+    };
+    // `toast` berganti tiap render; cukup sekali per draf.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId, draftMessage, ensureDraft]);
+  useEffect(() => {
+    if (!draf || scrolledToDraft.current === draf || Date.now() > scrollUntil.current) return;
     const index = data.findIndex(
       (r) =>
         r.kind === 'part' && r.part.type === 'card' && r.part.card.kind === 'draft' && r.part.card.draft.id === draf,

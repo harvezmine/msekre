@@ -1,6 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
+import { WA_UNAVAILABLE_TEXT } from '@/api/account';
 import Akun from '../app/akun';
 import Beranda from '../app/(tabs)/index';
 import Usaha from '../app/(tabs)/usaha';
@@ -80,7 +81,7 @@ test('baris pengaturan membuka halamannya', async () => {
   expect(screen.getByRole('button', { name: 'HP yang terhubung. Pixel 8 (HP ini) dan 1 lainnya' })).toBeTruthy();
 });
 
-test('mode server: baris yang belum dibangun netral ("segera hadir"), tanpa menyebut fase atau isian contoh', async () => {
+test('mode server: Bantuan tanpa nomor WhatsApp memberi kalimat ramah, tanpa menyebut fase atau isian contoh', async () => {
   const api = createTestApi({ mode: 'server', token: 'tok' });
   await renderWithProviders(
     <>
@@ -90,7 +91,7 @@ test('mode server: baris yang belum dibangun netral ("segera hadir"), tanpa meny
     { api },
   );
   await fireEvent.press(screen.getByRole('button', { name: /^Bantuan/ }));
-  expect(latest.toast?.text).toBe('Bantuan segera hadir.');
+  expect(latest.toast?.text).toBe(WA_UNAVAILABLE_TEXT);
   expect(latest.toast?.text).not.toMatch(/Fase|dibangun/);
   // Tidak ada keterangan contoh milik akun lain.
   expect(screen.queryByText(/ramah dan singkat/)).toBeNull();

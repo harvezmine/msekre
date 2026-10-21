@@ -26,10 +26,11 @@ export default function Usaha() {
   const { data, hasData, status, error, retry, reorder, isReordering, mediaUrl } = useBusiness(place, 'hari');
   const toast = (text: string) => dispatch({ type: 'showToast', text });
 
-  const openDraft = (draftId: string) => router.push({ pathname: '/chat', params: { draf: draftId } });
+  const openDraft = (draftId: string, messageId?: string) =>
+    router.push({ pathname: '/chat', params: messageId ? { draf: draftId, pesan: messageId } : { draf: draftId } });
   const orderAgain = async (item: BusinessStock) => {
     const res = await reorder(item.id);
-    if (res.ok) openDraft(res.draftId);
+    if (res.ok) openDraft(res.draftId, res.messageId);
     else if (res.message) toast(res.message);
   };
 

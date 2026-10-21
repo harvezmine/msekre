@@ -17,7 +17,7 @@ interface Props {
 export function StockCard({ data, isBusy, onOrder, onSeeDraft }: Props) {
   const { c } = useTheme();
   const items = data.lowStock;
-  const caption = sourceCaption(data.sources, 'moka');
+  const caption = sourceCaption(data.sources, 'stock');
   return (
     <Card style={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>

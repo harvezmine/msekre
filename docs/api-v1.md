@@ -448,8 +448,9 @@ Stream: `{ "type": "device", "devices": [Device], "box": Box, "rev": 12 }` (`dev
   "orders": [{ "id": "tt-101", "channel": "tiktok_shop", "summary": "Biji kopi Gayo 250 g x 2", "amount": 178000,
               "status": "perlu_dikirim", "at": "2026-10-21T02:12:00Z" }],
   "report": { "mediaId": "rep-77", "name": "Laporan penjualan 14-20 Okt.xlsx", "size": 36864, "period": "14-20 Okt" },
-  "sources": [{ "key": "moka", "label": "Moka", "connected": true, "service": "moka" },
-              { "key": "shopee", "label": "Shopee", "connected": false, "service": "shopee" }],
+  "sources": [{ "key": "moka", "label": "Moka", "connected": true, "service": "moka", "provides": ["sales", "stock"] },
+              { "key": "shopee", "label": "Shopee", "connected": false, "service": "shopee", "provides": ["orders"] }],
+  "tzOffsetMinutes": 420,
   "rev": 8 }
 ```
 
@@ -480,7 +481,12 @@ Stream: `{ "type": "device", "devices": [Device], "box": Box, "rev": 12 }` (`dev
 - `sources`: dari mana data usaha berasal dan apakah sudah tersambung. `key` bebas (`moka`, `moota`, `tiktok_shop`,
   `shopee`, ...). Aplikasi menulis "Data dari Moka, rekening BCA dan TikTok Shop." untuk yang `connected`, dan menawarkan
   "Sambungkan <label>" untuk yang belum: membuka layar masuk layanan `service` di Terhubung (bagian 2.16), atau daftar
-  Terhubung bila `service` kosong.
+  Terhubung bila `service` kosong. `provides` (opsional): bagian Usaha yang bersumber dari sini (`sales`, `stock`,
+  `moneyIn`, `orders`); keterangan "dari {label}" di kartu Penjualan, Stok, dan Uang masuk memakai sumber **tersambung**
+  pertama yang menyebut bagiannya. Aplikasi tidak menulis nama sumber (Moka, Moota) di kodenya: tanpa `provides`, tidak
+  ada keterangan.
+- `tzOffsetMinutes`: zona waktu pengguna dalam menit dari UTC (WIB 420), seperti di `GET /agenda`. Jam uang masuk dan
+  pesanan (`at`, ISO 8601) ditulis menurut zona ini, bukan zona HP. Hilang atau rusak dibaca WIB.
 - **Pengguna tanpa data usaha** (tempat tanpa usaha, atau belum ada kasir/rekening tersambung) mendapat jawaban kosong,
   bukan 404: `sales.total` 0, semua daftar `[]`, `report` `null`. Aplikasi lalu menampilkan "Belum ada data usaha.
   Sambungkan kasir atau rekening di Terhubung." dengan tombol ke Terhubung.
@@ -491,7 +497,11 @@ Stream: `{ "type": "device", "devices": [Device], "box": Box, "rev": 12 }` (`dev
 
 - Membuat **draf pesanan ke pemasok** barang itu (`what: "pesanan"`, kanal WhatsApp) dan menaruhnya di chat sebagai pesan
   asisten berisi kartu `draft` (aturan draf bagian 2.7). `draftId` = id draf di kartu, `messageId` = pesan yang
-  memuatnya. Aplikasi membuka chat di draf itu.
+  memuatnya. Aplikasi membuka chat di draf itu (`/chat?draf=<draftId>&pesan=<messageId>`). Kalau pesan itu tidak
+  ada di utas yang dimuat (sudah lama, atau terlewat), aplikasi mengambil pesan yang berubah (resync), lalu memuat
+  halaman lama paling banyak 5 kali; tidak ketemu: "Drafnya tidak ketemu, mungkin sudah dikirim atau dibuang." Menggulir
+  otomatis ke kartu hanya dalam sekitar 3 detik sejak chat dibuka (atau drafnya ketemu). "Lihat draf" dari kartu Stok
+  (tanpa `messageId`) memakai `?draf=` saja.
 - **Tidak ada yang terkirim tanpa persetujuan.** Draf berstatus `draft`; pengiriman hanya lewat `POST /drafts/:id`
   `send` (tahan lima menit, bisa dibatalkan) atau persetujuan lewat WhatsApp. Tidak ada kirim otomatis, tidak ada
   tindak lanjut otomatis.

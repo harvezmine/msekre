@@ -25,7 +25,7 @@ export function SalesCard({ data }: { data: Business }) {
   const { sales, series, branches } = data;
   const values = series.map((p) => p.value);
   const { min, span } = sparkRange(values);
-  const caption = sourceCaption(data.sources, 'moka');
+  const caption = sourceCaption(data.sources, 'sales');
   return (
     <Card style={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>

@@ -804,6 +804,11 @@ export const businessSourceSchema = z.object({
   label: z.string().min(1),
   connected: z.boolean(),
   service: z.string().min(1).optional(),
+  /**
+   * Bagian Usaha yang bersumber dari sini: `sales` (penjualan), `stock` (stok), `moneyIn` (uang masuk), `orders`
+   * (pesanan). Keterangan "dari {label}" pada kartu memakai sumber tersambung yang menyebut bagiannya; kuncinya bebas.
+   */
+  provides: z.array(z.string().min(1)).optional(),
 });
 
 /**
@@ -822,6 +827,8 @@ export const businessSchema = z.object({
   orders: z.array(businessOrderSchema),
   report: businessReportSchema.nullable(),
   sources: z.array(businessSourceSchema),
+  /** Zona waktu pengguna (menit dari UTC, WIB 420) untuk jam uang masuk dan pesanan, seperti `AgendaRes.tzOffsetMinutes`. */
+  tzOffsetMinutes: z.number().int().min(-720).max(840),
   rev: z.number().int().positive(),
 });
 export const businessQuerySchema = z.object({

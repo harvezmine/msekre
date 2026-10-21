@@ -1,7 +1,7 @@
 import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
-import { openWhatsApp, planText, RENEW_TEXT, STYLES, WA_UNAVAILABLE_TEXT } from '@/api/account';
+import { HELP_TEXT, openWhatsApp, planText, RENEW_TEXT, STYLES, WA_UNAVAILABLE_TEXT } from '@/api/account';
 import type { AccountPlan } from '@/api/contract';
 import { formatPhoneDisplay } from '@/api/format';
 import { useAccount } from '@/api/useAccount';
@@ -24,7 +24,7 @@ interface Row {
   title: string;
   subtitle?: string;
   /** Rute yang dibuka, atau teks toast bila layarnya belum dibangun. */
-  go: { route: Href } | { toast: string };
+  go: { route: Href } | { toast: string } | { run: () => void };
 }
 
 /** Isi kepala Akun. Mode contoh memakai isian desain; mode server hanya data akun asli, tanpa nama contoh. */
@@ -69,6 +69,9 @@ export default function Akun() {
   const demo = mode === 'contoh';
   /** Toast layar yang belum ada: teks contoh bernama fase, atau teks netral di mode server. */
   const later = (contoh: string, server: string) => (demo ? contoh : server);
+  const help = async () => {
+    if (!(await openWhatsApp(HELP_TEXT))) toast(WA_UNAVAILABLE_TEXT);
+  };
 
   const sections: Row[][] = [
     [
@@ -141,7 +144,10 @@ export default function Akun() {
         icon: 'help',
         title: 'Bantuan',
         subtitle: 'Tanya jawab dan hubungi tim',
-        go: { toast: later('Bantuan dibangun di Fase 5.', 'Bantuan segera hadir.') },
+        // Mode server: lapor kendala lewat WhatsApp Sekretaris AI; nomor belum diatur: toast ramah.
+        go: demo
+          ? { toast: later('Bantuan dibangun di Fase 5.', 'Bantuan segera hadir.') }
+          : { run: () => void help() },
       },
       {
         icon: 'history',
@@ -152,7 +158,11 @@ export default function Akun() {
     ],
     [{ icon: 'logout', title: 'Keluar', go: { route: '/keluar' } }],
   ];
-  const open = (r: Row) => ('route' in r.go ? router.push(r.go.route) : toast(r.go.toast));
+  const open = (r: Row) => {
+    if ('route' in r.go) router.push(r.go.route);
+    else if ('run' in r.go) r.go.run();
+    else toast(r.go.toast);
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: c.paper }}>

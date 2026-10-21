@@ -7,7 +7,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
 import Chat from '../app/chat';
 import { createTestApi, renderWithProviders } from './helpers';
-import { ChatController, THINKING_MAX_MS } from '@/api/chatController';
+import { ChatController, FIND_DRAFT_MAX_PAGES, THINKING_MAX_MS } from '@/api/chatController';
 import { isChatThinking } from '@/api/chatState';
 import { useChatController } from '@/api/ChatProvider';
 import { useAuth } from '@/api/useAuth';
@@ -726,6 +726,81 @@ describe('bagian dan kartu', () => {
     await mount({ scheme: 'dark', history: [say(1, 'Halo gelap', { from: 'user' })] });
     expect(screen.getByText('Halo gelap').parent).toHaveStyle({ backgroundColor: dark.green });
     expect(within(screen.getByTestId('utas')).getByText('Halo gelap')).toBeOnTheScreen();
+  });
+});
+
+describe('"Lihat draf" (?draf=)', () => {
+  const draftPart = (id: string, text = 'Pesan 10 karton susu'): Part => ({
+    type: 'card',
+    card: {
+      kind: 'draft',
+      draft: { id, to: 'PT Sumber Susu', channel: 'whatsapp', what: 'pesanan', text, status: 'draft' },
+    },
+  });
+  /** Draf di pesan paling lama, diikuti 44 pesan biasa: halaman pertama (30 pesan) tidak memuatnya. */
+  const oldDraft = () => [
+    message(1, [draftPart('d9')]),
+    ...Array.from({ length: 44 }, (_, i) => say(i + 2, `Pesan ${i + 2}`)),
+  ];
+
+  test('draf di halaman lama: dicari dengan memuat halaman lama, lalu digulir sekali', async () => {
+    jest.mocked(useLocalSearchParams).mockReturnValue({ draf: 'd9' });
+    const scroll = jest.spyOn(FlatList.prototype, 'scrollToIndex').mockImplementation(() => {});
+    const pages = jest.spyOn(FakeTransport.prototype, 'messages');
+    try {
+      const { fake } = await mount({ history: oldDraft() });
+      await settle();
+      await settle();
+      expect(latest.toast).toBeNull();
+      // Halaman lama (dengan penanda `before`) dimuat untuk menemukan draf.
+      expect(pages.mock.calls.some((call) => call[0] !== undefined)).toBe(true);
+      // Daftar terbalik: pesan paling lama (berisi draf) ada di ujung data.
+      expect(scroll).toHaveBeenCalledTimes(1);
+      const index = (scroll.mock.calls[0]![0] as { index: number }).index;
+      expect(index).toBeGreaterThanOrEqual(40);
+      // Pesan baru masuk: tidak menggulir lagi.
+      await act(async () => {
+        fake.sample.dispatch({ type: 'setAc', deviceId: 'ac-kamar', on: false });
+      });
+      await settle();
+      expect(scroll).toHaveBeenCalledTimes(1);
+    } finally {
+      scroll.mockRestore();
+      pages.mockRestore();
+    }
+  });
+
+  test('pesan dikenal (dari "Pesan lagi"): draf ditemukan lewat id pesannya', async () => {
+    jest.mocked(useLocalSearchParams).mockReturnValue({ draf: 'tidak-cocok', pesan: 'x1' });
+    const scroll = jest.spyOn(FlatList.prototype, 'scrollToIndex').mockImplementation(() => {});
+    try {
+      await mount({ history: oldDraft() });
+      await settle();
+      await settle();
+      // Id draf tidak cocok, tapi pesan x1 ada di halaman lama: ketemu, tanpa toast.
+      expect(latest.toast).toBeNull();
+    } finally {
+      scroll.mockRestore();
+    }
+  });
+
+  test('draf yang tidak ada di mana pun: toast ramah, tanpa menggulir', async () => {
+    jest.mocked(useLocalSearchParams).mockReturnValue({ draf: 'hilang' });
+    const scroll = jest.spyOn(FlatList.prototype, 'scrollToIndex').mockImplementation(() => {});
+    const pages = jest.spyOn(FakeTransport.prototype, 'messages');
+    try {
+      await mount({ history: oldDraft() });
+      await settle();
+      await settle();
+      await settle();
+      expect(latest.toast?.text).toBe('Drafnya tidak ketemu, mungkin sudah dikirim atau dibuang.');
+      // Halaman pertama + halaman lama yang ada (45 pesan = dua halaman), lalu berhenti.
+      expect(pages.mock.calls.length).toBeLessThanOrEqual(1 + FIND_DRAFT_MAX_PAGES);
+      expect(scroll).not.toHaveBeenCalled();
+    } finally {
+      scroll.mockRestore();
+      pages.mockRestore();
+    }
   });
 });
 

@@ -441,6 +441,7 @@ export function parseBusinessLenient(raw: unknown): Business | null {
     orders: keep(businessOrderSchema, raw.orders),
     report: report.success ? report.data : null,
     sources: keep(businessSourceSchema, raw.sources),
+    tzOffsetMinutes: z.number().int().min(-720).max(840).safeParse(raw.tzOffsetMinutes).data ?? DEFAULT_TZ_MINUTES,
     rev: rev.data,
   });
   return coerced.success ? coerced.data : null;

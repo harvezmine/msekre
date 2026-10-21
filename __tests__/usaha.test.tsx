@@ -92,7 +92,10 @@ describe('Pesan lagi', () => {
     const [draft, ...rest] = await supplierDrafts(api);
     expect(rest).toHaveLength(0);
     expect(draft).toMatchObject({ status: 'draft', what: 'pesanan' });
-    expect(router.push).toHaveBeenCalledWith({ pathname: '/chat', params: { draf: draft!.id } });
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/chat',
+      params: { draf: draft!.id, pesan: expect.any(String) },
+    });
     expect(api.transport.sample.getState().outgoing[draft!.id]).toMatchObject({
       to: 'PT Sumber Susu',
       status: 'draft',

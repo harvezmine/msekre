@@ -6,6 +6,9 @@ import { isApiFailure, type MediaSource, type Transport } from './transport';
 
 export type DraftActionName = DraftActionReq['action'];
 
+/** Paling banyak halaman lama yang dimuat mencari draf untuk "Lihat draf". */
+export const FIND_DRAFT_MAX_PAGES = 5;
+
 /** Tanda "berpikir" yang tidak pernah dimatikan (event `off` hilang) padam sendiri setelah selama ini. */
 export const THINKING_MAX_MS = 3 * 60_000;
 
@@ -27,6 +30,7 @@ export class ChatController {
   private flushing = false;
   private reconnectedWhileLoading = false;
   private readonly thinkTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private olderJob: Promise<void> | null = null;
   private counter = 0;
   private readonly salt = Math.random().toString(36).slice(2, 8);
 
@@ -141,17 +145,48 @@ export class ChatController {
     return this.initial;
   };
 
-  /** Halaman yang lebih lama, saat menggulir ke ujung atas. */
-  loadOlder = async (): Promise<void> => {
+  /** Halaman yang lebih lama, saat menggulir ke ujung atas. Dipanggil lagi selagi berjalan: menunggu yang berjalan. */
+  loadOlder = (): Promise<void> => {
+    if (this.olderJob) return this.olderJob;
     const { hasOlder, loadingOlder, olderCursor } = this.state;
-    if (!hasOlder || loadingOlder || olderCursor === null) return;
+    if (!hasOlder || loadingOlder || olderCursor === null) return Promise.resolve();
     this.dispatch({ type: 'olderStart' });
-    try {
-      const page = await this.transport.messages(olderCursor);
-      this.dispatch({ type: 'olderLoaded', items: page.items, before: page.before });
-    } catch {
-      this.dispatch({ type: 'olderFailed' });
+    const job = (async () => {
+      try {
+        const page = await this.transport.messages(olderCursor);
+        this.dispatch({ type: 'olderLoaded', items: page.items, before: page.before });
+      } catch {
+        this.dispatch({ type: 'olderFailed' });
+      } finally {
+        this.olderJob = null;
+      }
+    })();
+    this.olderJob = job;
+    return job;
+  };
+
+  /**
+   * Pastikan pesan yang memuat kartu draf `draftId` (atau pesan `messageId`) ada di utas, untuk "Lihat draf": dimuat bila
+   * belum ada, lalu pesan yang berubah diambil (resync), lalu halaman yang lebih lama paling banyak
+   * {@link FIND_DRAFT_MAX_PAGES} kali. `false` kalau tetap tidak ketemu (sudah dikirim dan terlalu lama, atau dibuang).
+   */
+  ensureDraft = async (draftId: string, messageId?: string): Promise<boolean> => {
+    const has = () =>
+      this.state.messages.some(
+        (m) =>
+          (messageId !== undefined && m.id === messageId) ||
+          m.parts.some((p) => p.type === 'card' && p.card.kind === 'draft' && p.card.draft.id === draftId),
+      );
+    if (has()) return true;
+    if (!this.state.loaded) await this.loadInitial();
+    if (has()) return true;
+    await this.queueCatchUp(this.maxRev());
+    if (has()) return true;
+    for (let page = 0; page < FIND_DRAFT_MAX_PAGES && this.state.hasOlder; page++) {
+      await this.loadOlder();
+      if (has()) return true;
     }
+    return has();
   };
 
   /** Koneksi baru terbuka: ambil pesan yang terlewat. */

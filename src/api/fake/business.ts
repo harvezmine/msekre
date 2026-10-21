@@ -1,5 +1,6 @@
 import { businessData, BUSINESS_PLACES, REPORT, SPARK_DAYS, STOCK } from '@/sample/business';
 import type { Business, BusinessPeriod, BusinessPoint } from '../contract';
+import { FAKE_TZ_MINUTES } from './agenda';
 import { wibIso } from './clock';
 import { SAMPLE_FILE_MEDIA_ID } from './history';
 
@@ -9,10 +10,10 @@ const COMPARE: Record<BusinessPeriod, string> = { hari: 'Senin lalu', minggu: 'p
 
 /** Asal data di contoh: kasir, rekening, marketplace yang tersambung, dan satu yang belum. */
 export const SAMPLE_SOURCES = [
-  { key: 'moka', label: 'Moka', connected: true, service: 'moka' },
-  { key: 'moota', label: 'rekening BCA', connected: true, service: 'bca' },
-  { key: 'tiktok_shop', label: 'TikTok Shop', connected: true, service: 'tiktok' },
-  { key: 'shopee', label: 'Shopee', connected: false, service: 'shopee' },
+  { key: 'moka', label: 'Moka', connected: true, service: 'moka', provides: ['sales', 'stock'] },
+  { key: 'moota', label: 'rekening BCA', connected: true, service: 'bca', provides: ['moneyIn'] },
+  { key: 'tiktok_shop', label: 'TikTok Shop', connected: true, service: 'tiktok', provides: ['orders'] },
+  { key: 'shopee', label: 'Shopee', connected: false, service: 'shopee', provides: ['orders'] },
 ];
 
 /**
@@ -58,7 +59,8 @@ export function businessFrom(
       lowStock: [],
       orders: [],
       report: null,
-      sources: SAMPLE_SOURCES.map((s) => ({ ...s, connected: false })),
+      sources: SAMPLE_SOURCES.map((s) => ({ ...s, provides: [...s.provides], connected: false })),
+      tzOffsetMinutes: FAKE_TZ_MINUTES,
     };
   }
   const view = periodView(data.daily, period);
@@ -110,6 +112,7 @@ export function businessFrom(
       at: wibIso(10, 20, o.time),
     })),
     report: { mediaId: SAMPLE_FILE_MEDIA_ID, name: REPORT.name, size: REPORT.size, period: REPORT.period },
-    sources: SAMPLE_SOURCES.map((s) => ({ ...s })),
+    sources: SAMPLE_SOURCES.map((s) => ({ ...s, provides: [...s.provides] })),
+    tzOffsetMinutes: FAKE_TZ_MINUTES,
   };
 }
