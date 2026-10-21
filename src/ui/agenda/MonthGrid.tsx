@@ -1,22 +1,25 @@
-import { Pressable, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DAY_SHORT, daysInMonth, isoDate, MONTH_NAMES, parts, weekdayIndex } from '@/api/dates';
 import { useTheme } from '@/theme/ThemeProvider';
+import { haptic } from '../kit/haptics';
+import { Sheet, useSheet } from '../Sheet';
 import { Txt } from '../Txt';
 
 interface Props {
-  /** "Hari ini" menurut server; bulan yang tampil adalah bulannya. */
+  /** "Hari ini" menurut server. */
   today: string;
+  /** Tanggal terpilih; bulan yang tampil adalah bulannya. */
   selected: string;
   /** Tanggal yang punya agenda. */
   marked: ReadonlySet<string>;
   onSelect: (date: string) => void;
 }
 
-/** Kisi bulan ini, mulai Senin. Titik biru = ada agenda, lingkaran hijau = hari ini. */
+/** Kisi satu bulan, mulai Senin. Terpilih = lingkaran hijau, hari ini = tanggal hijau, titik biru = ada agenda. */
 export function MonthGrid({ today, selected, marked, onSelect }: Props) {
-  const { c, marker, shadow } = useTheme();
-  const a = marker.agenda;
-  const { y: YEAR, m: MONTH } = parts(today);
+  const { c, marker } = useTheme();
+  const { y: YEAR, m: MONTH } = parts(selected);
   const MONTH_NAME = MONTH_NAMES[MONTH - 1];
   const total = daysInMonth(YEAR, MONTH);
   const offset = weekdayIndex(isoDate(YEAR, MONTH, 1));
@@ -28,23 +31,14 @@ export function MonthGrid({ today, selected, marked, onSelect }: Props) {
   const rows = Array.from({ length: cells.length / 7 }, (_, r) => cells.slice(r * 7, r * 7 + 7));
 
   return (
-    <View
-      style={{
-        marginHorizontal: 16,
-        marginTop: 16,
-        padding: 8,
-        borderRadius: 24,
-        boxShadow: shadow.e1,
-        backgroundColor: c.surface,
-      }}
-    >
-      <Txt v="subtitle" style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 }} accessibilityRole="header">
+    <View>
+      <Txt v="section" style={{ paddingBottom: 8 }} accessibilityRole="header">
         {MONTH_NAME} {YEAR}
       </Txt>
       <View style={{ flexDirection: 'row' }}>
         {DAY_SHORT.map((d) => (
           <View key={d} style={{ flex: 1, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-            <Txt v="caption" color={c.muted}>
+            <Txt v="caption" color={c.muted} maxFontSizeMultiplier={1.2}>
               {d}
             </Txt>
           </View>
@@ -53,7 +47,7 @@ export function MonthGrid({ today, selected, marked, onSelect }: Props) {
       {rows.map((row, r) => (
         <View key={r} style={{ flexDirection: 'row' }}>
           {row.map((day, i) => {
-            if (day === null) return <View key={i} style={{ flex: 1, height: 48 }} />;
+            if (day === null) return <View key={i} style={{ flex: 1, height: 52 }} />;
             const date = isoDate(YEAR, MONTH, day);
             const isToday = date === today;
             const isSel = date === selected;
@@ -64,35 +58,41 @@ export function MonthGrid({ today, selected, marked, onSelect }: Props) {
                 accessibilityRole="button"
                 accessibilityLabel={`${day} ${MONTH_NAME}${isToday ? ', hari ini' : ''}${has ? ', ada agenda' : ''}`}
                 accessibilityState={{ selected: isSel }}
-                onPress={() => onSelect(date)}
+                onPress={() => {
+                  haptic('selection');
+                  onSelect(date);
+                }}
                 android_ripple={{ color: c.ripple, borderless: true, radius: 24 }}
-                style={{ flex: 1, height: 48, alignItems: 'center', justifyContent: 'center' }}
+                style={{ flex: 1, height: 52, alignItems: 'center', justifyContent: 'center' }}
               >
                 <View
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: isToday ? c.brand : 'transparent',
-                    borderWidth: isSel ? 1.5 : 0,
-                    borderColor: c.brand,
+                    backgroundColor: isSel ? c.brand : 'transparent',
                   }}
                 >
-                  <Txt weight={isToday || isSel ? 600 : 500} tabular color={isToday ? c.onBrand : c.text}>
+                  <Txt
+                    weight={isToday || isSel ? 600 : 500}
+                    tabular
+                    maxFontSizeMultiplier={1.2}
+                    color={isSel ? c.onBrand : isToday ? c.brandInk : c.text}
+                  >
                     {day}
                   </Txt>
-                  {has ? (
+                  {has && !isSel ? (
                     <View
                       testID={`titik-${day}`}
                       style={{
                         position: 'absolute',
-                        bottom: 3,
+                        bottom: 4,
                         width: 5,
                         height: 5,
                         borderRadius: 3,
-                        backgroundColor: a.base,
+                        backgroundColor: marker.agenda.base,
                       }}
                     />
                   ) : null}
@@ -104,4 +104,24 @@ export function MonthGrid({ today, selected, marked, onSelect }: Props) {
       ))}
     </View>
   );
+}
+
+/** Kalender sebulan di lembar bawah: memilih tanggal menutup lembar lalu menampilkan hari itu. */
+export function MonthSheet({ visible, onClose, onSelect, ...grid }: Props & { visible: boolean; onClose: () => void }) {
+  return (
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        {visible ? (
+          <Sheet onClose={onClose} testID="lembar-kalender">
+            <PickDay {...grid} onSelect={onSelect} />
+          </Sheet>
+        ) : null}
+      </GestureHandlerRootView>
+    </Modal>
+  );
+}
+
+function PickDay({ onSelect, ...grid }: Props) {
+  const { close } = useSheet();
+  return <MonthGrid {...grid} onSelect={(date) => close(() => onSelect(date))} />;
 }

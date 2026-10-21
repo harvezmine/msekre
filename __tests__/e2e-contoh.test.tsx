@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { PREVIEW_DEBOUNCE_MS } from '../app/agenda/tambah';
 import { audio, stream } from './audioMock';
@@ -71,7 +71,7 @@ test('Beranda: persetujuan Kirim, sakelar favorit AC, agenda berikutnya ke Agend
   // Agenda berikutnya membuka Agenda.
   await fireEvent.press(screen.getByRole('button', { name: /^Agenda berikutnya, 13\.00/ }));
   expect(currentRoute()).toBe('/agenda');
-  expect(screen.getByText('Senin, 20 Okt')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: /^Senin, 20 Okt, hari ini/ })).toBeSelected();
 
   // Tab Perangkat (ada perangkat) membuka Perangkat.
   await fireEvent.press(screen.getByRole('tab', { name: 'Perangkat' }));
@@ -148,10 +148,10 @@ test('Agenda: Tambah dengan teks yang dirapikan server, tugas dicentang, penging
   // Tugas dicentang dan dilepas lagi.
   await fireEvent.press(row('15.00'));
   await settle();
-  expect(within(row('15.00')).getByTestId('ikon-taskDone')).toBeOnTheScreen();
+  expect(row('15.00')).toBeChecked();
   await fireEvent.press(row('15.00'));
   await settle();
-  expect(within(row('15.00')).getByTestId('ikon-task')).toBeOnTheScreen();
+  expect(row('15.00')).not.toBeChecked();
 
   // Tahan pengingat beralarm: layar alarm untuk dilihat saja.
   await fireEvent(row('16.00'), 'longPress');

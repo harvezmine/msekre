@@ -102,7 +102,7 @@ test('Tunda 10 menit kembali ke Agenda, yang menulis "Ditunda sampai 07.10"', as
     expect(latest.agenda.find((a) => a.id === 'a10')!.snoozedUntil).toBe('2025-10-21T00:10:00.000Z');
 
     await renderWithProviders(<Agenda />, { state: latest });
-    await fireEvent.press(screen.getByRole('tab', { name: 'Minggu ini' }));
+    await fireEvent.press(screen.getByRole('button', { name: /^Selasa, 21 Okt/ }));
     expect(screen.getByText('Ditunda sampai 07.10')).toBeOnTheScreen();
   });
 });

@@ -1,113 +1,159 @@
+// Niat layar: melihat satu hari sebagai rel waktu dan tahu apa yang berikutnya. Tindakan tersering: Tambah, menempel di
+// zona jempol tepat di atas bilah tab (ketuk untuk menulis, mic untuk bicara).
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { AgendaItem as Item } from '@/api/contract';
 import { alarmBlocked, useAlarmStatus } from '@/alarm/useAlarmStatus';
+import { daysInMonth, isoDate, MONTH_NAMES, parts } from '@/api/dates';
 import { useAgenda } from '@/api/useAgenda';
-import { daysInMonth, dayLabel, isoDate, parts } from '@/api/dates';
 import { useTheme } from '@/theme/ThemeProvider';
-import { AgendaItem, isPast } from '@/ui/agenda/AgendaItem';
-import { MonthGrid } from '@/ui/agenda/MonthGrid';
-import { NowLine } from '@/ui/agenda/NowLine';
-import { WeekList } from '@/ui/agenda/WeekList';
-import { Card } from '@/ui/Card';
+import { isPast, railItem } from '@/ui/agenda/AgendaItem';
+import { MonthSheet } from '@/ui/agenda/MonthGrid';
+import { weekDays, WeekStrip } from '@/ui/agenda/WeekStrip';
 import { Icon } from '@/ui/Icon';
-import { Segmented } from '@/ui/Segmented';
-import { Initials } from '@/ui/Initials';
+import { PressableScale, TimeRail, useLayoutClass } from '@/ui/kit';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
-
-const SEGMENTS = ['Hari ini', 'Minggu ini', 'Kalender'] as const;
-type Segment = (typeof SEGMENTS)[number];
+import { useOpenVoice } from '@/voice/available';
 
 export default function Agenda() {
-  const { c, marker, shadow } = useTheme();
+  const { c, marker } = useTheme();
   const insets = useSafeAreaInsets();
+  const compact = useLayoutClass() === 'compact';
   const toast = useToast();
   const alarm = useAlarmStatus();
   const agenda = useAgenda();
-  const { itemsOn, marked, leftover, ensureRange } = agenda;
-  const [segment, setSegment] = useState<Segment>('Hari ini');
-  const [picked, setSelected] = useState<string | null>(null);
+  const { itemsOn, marked, ensureRange } = agenda;
+  const [picked, setPicked] = useState<string | null>(null);
+  const [opened, setOpened] = useState<string | null>(null);
+  const [calendar, setCalendar] = useState(false);
   const TODAY = agenda.today;
   const NOW = agenda.now;
+  const selected = picked ?? TODAY;
 
-  // Kalender menampilkan satu bulan penuh: pastikan agenda bulan itu sudah dimuat.
+  // Pekan yang tampil (dan bulan di lembar kalender) dimuat bila di luar rentang bawaan.
   useEffect(() => {
-    if (segment !== 'Kalender' || !TODAY) return;
-    const { y, m } = parts(TODAY);
+    if (!selected) return;
+    const days = weekDays(selected);
+    void ensureRange(days[0]!, days[6]!);
+  }, [selected, ensureRange]);
+  useEffect(() => {
+    if (!calendar || !selected) return;
+    const { y, m } = parts(selected);
     void ensureRange(isoDate(y, m, 1), isoDate(y, m, daysInMonth(y, m)));
-  }, [segment, TODAY, ensureRange]);
+  }, [calendar, selected, ensureRange]);
 
   const say = (error: string | null) => {
     if (error) toast(error);
   };
 
-  if (!TODAY || !NOW) {
-    return (
-      <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top, paddingHorizontal: 20 }}>
-        <Txt v="title" accessibilityRole="header" style={{ paddingTop: 8 }}>
-          Agenda
-        </Txt>
-        {agenda.status === 'error' ? (
-          <View style={{ paddingTop: 24, gap: 12 }}>
-            <Txt color={c.muted}>{agenda.error}</Txt>
-            <PillButton label="Coba lagi" green onPress={() => void agenda.retry()} />
-          </View>
-        ) : (
-          <Txt color={c.muted} style={{ paddingTop: 24 }}>
-            Sebentar, agenda sedang dimuat…
+  const header = (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingLeft: 20,
+        paddingRight: 8,
+        paddingTop: compact ? 8 : 24,
+        paddingBottom: compact ? 12 : 20,
+      }}
+    >
+      <Txt v="title" accessibilityRole="header">
+        Agenda
+      </Txt>
+      {selected ? (
+        // Bulan lain satu ketukan lagi: kalender sebulan di lembar bawah.
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Kalender, ${MONTH_NAMES[parts(selected).m - 1]}`}
+          onPress={() => setCalendar(true)}
+          android_ripple={{ color: c.ripple, borderless: true }}
+          style={{ minHeight: 48, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+        >
+          <Txt v="row" weight={600}>
+            {MONTH_NAMES[parts(selected).m - 1]}
           </Txt>
-        )}
+          <Icon name="chevD" size={20} color={c.text} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+
+  if (!TODAY || !NOW || !selected) {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
+        {header}
+        <View style={{ paddingHorizontal: 20, gap: 16, alignItems: 'flex-start' }}>
+          {agenda.status === 'error' ? (
+            <>
+              <Txt color={c.muted}>{agenda.error}</Txt>
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel="Coba lagi"
+                onPress={() => void agenda.retry()}
+                style={{
+                  minHeight: 56,
+                  paddingHorizontal: 28,
+                  borderRadius: 28,
+                  backgroundColor: c.brand,
+                  justifyContent: 'center',
+                }}
+              >
+                <Txt weight={600} color={c.onBrand}>
+                  Coba lagi
+                </Txt>
+              </PressableScale>
+            </>
+          ) : (
+            <Txt color={c.muted}>Sebentar, agenda sedang dimuat…</Txt>
+          )}
+        </View>
       </View>
     );
   }
 
-  const selected = picked ?? TODAY;
   // Hanya diingatkan kalau memang ada pengingat yang dibunyikan HP.
   const blocked =
     alarmBlocked(alarm.status) && agenda.items.some((i) => i.way === 'alarm' && !i.done && i.kind !== 'task');
-  const onToggle = (id: string) => void agenda.toggle(id).then(say);
-  // Tahan sebuah pengingat: pratinjau layar alarm. `preview` menjaga alarm yang sebenarnya tidak ikut dimatikan atau ditunda.
-  const onLongPress = (id: string) => router.push({ pathname: '/alarm', params: { id, preview: '1' } });
   const tz = agenda.tzOffsetMinutes;
-
-  const today = itemsOn(TODAY);
-  const remaining = today.filter((a) => !isPast(a, TODAY, NOW) && !a.done).length;
+  const isToday = selected === TODAY;
+  const items = itemsOn(selected);
+  const pasts = items.map((i) => isToday && isPast(i, TODAY, NOW));
+  // Garis "sekarang" duduk sebelum butir pertama yang belum lewat (hari ini saja); butir itu "berikutnya".
+  const firstUpcoming = pasts.indexOf(false);
+  const nextIndex = isToday ? items.findIndex((it, i) => !pasts[i] && !it.done) : -1;
+  const rail = items.map((it, i) =>
+    railItem(
+      it,
+      {
+        past: pasts[i]!,
+        next: i === nextIndex,
+        open: opened === it.id,
+        tz,
+        onToggle: (id) => void agenda.toggle(id).then(say),
+        onOpen: (id) => setOpened((o) => (o === id ? null : id)),
+        // Pratinjau layar alarm; `preview` menjaga alarm yang sebenarnya tidak ikut dimatikan atau ditunda.
+        onLongPress: (id) => router.push({ pathname: '/alarm', params: { id, preview: '1' } }),
+      },
+      c,
+    ),
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
-      <ScrollView contentContainerStyle={{ paddingTop: 8, paddingBottom: 96 }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingLeft: 20,
-            paddingRight: 16,
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+        {header}
+        <WeekStrip
+          selected={selected}
+          today={TODAY}
+          marked={marked}
+          onSelect={(date) => {
+            setOpened(null);
+            setPicked(date);
           }}
-        >
-          <Txt v="title" accessibilityRole="header">
-            Agenda
-          </Txt>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Akun"
-            onPress={() => router.push('/akun')}
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              backgroundColor: c.surface,
-              boxShadow: shadow.e1,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Initials />
-          </Pressable>
-        </View>
+        />
         {blocked ? (
           <Pressable
             accessibilityRole="button"
@@ -116,223 +162,109 @@ export default function Agenda() {
             android_ripple={{ color: c.ripple }}
             style={{
               marginHorizontal: 16,
-              marginTop: 12,
+              marginTop: 8,
+              minHeight: 56,
               borderRadius: 20,
               backgroundColor: c.sunken,
-              padding: 16,
+              paddingHorizontal: 16,
               flexDirection: 'row',
               alignItems: 'center',
               gap: 12,
             }}
           >
             <Icon name="bell" size={22} color={marker.warn.ink} />
-            <View style={{ flex: 1 }}>
-              <Txt weight={600} color={marker.warn.ink}>
-                Alarm belum bisa bunyi tepat waktu
-              </Txt>
-              <Txt v="caption" color={c.muted}>
-                Ada izin yang perlu dinyalakan. Ketuk untuk mengaturnya.
-              </Txt>
-            </View>
+            <Txt weight={600} color={marker.warn.ink} style={{ flex: 1 }}>
+              Alarm perlu izin
+            </Txt>
             <Icon name="chevR" size={20} color={c.muted} />
           </Pressable>
         ) : null}
-        <View style={{ marginHorizontal: 16, marginTop: 12 }}>
-          <Segmented options={SEGMENTS} value={segment} onChange={setSegment} label="Tampilan agenda" />
+        <View style={{ paddingTop: compact ? 8 : 16, paddingLeft: 20, paddingRight: 16 }}>
+          {items.length === 0 ? (
+            <Txt color={c.muted} style={{ paddingVertical: 24 }}>
+              {isToday ? 'Hari ini longgar.' : 'Hari itu longgar.'}
+            </Txt>
+          ) : (
+            <TimeRail
+              items={rail}
+              now={isToday ? { label: NOW, before: firstUpcoming < 0 ? items.length : firstUpcoming } : undefined}
+            />
+          )}
         </View>
-
-        {segment === 'Hari ini' ? (
-          <>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'baseline',
-                justifyContent: 'space-between',
-                paddingTop: 24,
-                paddingHorizontal: 20,
-                paddingBottom: 8,
-              }}
-            >
-              <Txt v="subtitle" accessibilityRole="header">
-                {dayLabel(TODAY)}
-              </Txt>
-              {remaining > 0 ? (
-                <Txt v="caption" color={c.muted}>
-                  {remaining} lagi hari ini
-                </Txt>
-              ) : null}
-            </View>
-            {leftover ? (
-              <Card style={{ marginHorizontal: 16, marginTop: 8, paddingTop: 16, paddingBottom: 20, gap: 12 }}>
-                <Txt v="caption" color={c.muted}>
-                  Kemarin belum selesai
-                </Txt>
-                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-                  <Icon name="task" size={24} color={c.muted} />
-                  <Txt style={{ flex: 1 }}>{leftover.title}</Txt>
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <PillButton
-                    label="Kerjakan hari ini"
-                    green
-                    onPress={() => void agenda.resolveLeftover('today').then(say)}
-                  />
-                  <PillButton label="Lepaskan" onPress={() => void agenda.resolveLeftover('drop').then(say)} />
-                </View>
-              </Card>
-            ) : null}
-            <View style={{ paddingTop: 16, paddingHorizontal: 16 }}>
-              {today.length === 0 ? (
-                <EmptyDay text="Hari ini longgar. Mau saya ingatkan sesuatu?" />
-              ) : (
-                <DayList
-                  items={today}
-                  today={TODAY}
-                  now={NOW}
-                  tz={tz}
-                  showNow
-                  onToggle={onToggle}
-                  onLongPress={onLongPress}
-                />
-              )}
-            </View>
-          </>
-        ) : null}
-
-        {segment === 'Minggu ini' ? (
-          <WeekList
-            today={TODAY}
-            now={NOW}
-            tzOffsetMinutes={tz}
-            itemsOn={itemsOn}
-            onToggle={onToggle}
-            onLongPress={onLongPress}
-          />
-        ) : null}
-
-        {segment === 'Kalender' ? (
-          <>
-            <MonthGrid today={TODAY} selected={selected} marked={marked} onSelect={setSelected} />
-            <View style={{ paddingTop: 20, paddingHorizontal: 20, paddingBottom: 4 }}>
-              <Txt v="subtitle" accessibilityRole="header">
-                {dayLabel(selected)}
-              </Txt>
-            </View>
-            <View style={{ paddingHorizontal: 16 }}>
-              {itemsOn(selected).length === 0 ? (
-                <EmptyDay
-                  text={
-                    selected === TODAY
-                      ? 'Hari ini longgar. Mau saya ingatkan sesuatu?'
-                      : 'Hari itu masih longgar. Mau saya ingatkan sesuatu?'
-                  }
-                />
-              ) : (
-                <DayList
-                  items={itemsOn(selected)}
-                  today={TODAY}
-                  now={NOW}
-                  tz={tz}
-                  onToggle={onToggle}
-                  onLongPress={onLongPress}
-                />
-              )}
-            </View>
-          </>
-        ) : null}
       </ScrollView>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Tambah"
-        onPress={() => router.push('/agenda/tambah')}
-        android_ripple={{ color: c.ripple }}
-        style={{
-          position: 'absolute',
-          right: 20,
-          bottom: 16,
-          height: 56,
-          paddingLeft: 18,
-          paddingRight: 24,
-          borderRadius: 28,
-          backgroundColor: c.brand,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-          boxShadow: shadow.e2,
+      <AddBar onAdd={() => router.push('/agenda/tambah')} />
+      <MonthSheet
+        visible={calendar}
+        today={TODAY}
+        selected={selected}
+        marked={marked}
+        onClose={() => setCalendar(false)}
+        onSelect={(date) => {
+          setOpened(null);
+          setPicked(date);
         }}
-      >
-        <Icon name="plus" size={22} color={c.onBrand} />
-        <Txt weight={600} color={c.onBrand}>
-          Tambah
-        </Txt>
-      </Pressable>
+      />
     </View>
   );
 }
 
-function PillButton({ label, green = false, onPress }: { label: string; green?: boolean; onPress: () => void }) {
-  const { c } = useTheme();
+/**
+ * "Tambah…" menempel di atas bilah tab (papan 17), di zona jempol: ketuk membuka lembar Tambah (server merapikan
+ * kalimatnya), mic hijau membuka Mode Suara.
+ */
+function AddBar({ onAdd }: { onAdd: () => void }) {
+  const { c, scheme } = useTheme();
+  const openVoice = useOpenVoice();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      android_ripple={{ color: c.ripple }}
+    <View
+      testID="tambah-agenda"
       style={{
-        flex: 1,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: c.sunken,
-        alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: c.tabbar,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        paddingHorizontal: 16,
+        paddingTop: 14,
+        paddingBottom: 8,
+        boxShadow: scheme === 'dark' ? undefined : '0 -10px 24px -18px rgba(21,24,27,0.22)',
       }}
     >
-      <Txt weight={600} color={green ? c.brandInk : c.text} style={{ fontSize: 15 }}>
-        {label}
-      </Txt>
-    </Pressable>
-  );
-}
-
-function EmptyDay({ text }: { text: string }) {
-  const { c } = useTheme();
-  return (
-    <Txt color={c.muted} style={{ paddingHorizontal: 4, paddingVertical: 12 }}>
-      {text}
-    </Txt>
-  );
-}
-
-function DayList({
-  items,
-  today,
-  now,
-  tz,
-  showNow = false,
-  onToggle,
-  onLongPress,
-}: {
-  items: Item[];
-  today: string;
-  now: string;
-  tz?: number | null;
-  showNow?: boolean;
-  onToggle: (id: string) => void;
-  onLongPress: (id: string) => void;
-}) {
-  const pasts = items.map((item) => isPast(item, today, now));
-  // Garis "sekarang" duduk sebelum item pertama yang belum lewat, atau di akhir bila semua sudah lewat.
-  const firstUpcoming = showNow ? pasts.indexOf(false) : -2;
-  return (
-    <View>
-      {items.map((item, i) => (
-        <View key={item.id}>
-          {i === firstUpcoming ? <NowLine now={now} /> : null}
-          <AgendaItem item={item} past={pasts[i]} tzOffsetMinutes={tz} onToggle={onToggle} onLongPress={onLongPress} />
-        </View>
-      ))}
-      {firstUpcoming === -1 ? <NowLine now={now} /> : null}
+      <View
+        style={{
+          minHeight: 56,
+          borderRadius: 28,
+          backgroundColor: c.sunken,
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingRight: 4,
+        }}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Tambah"
+          onPress={onAdd}
+          style={{ flex: 1, minHeight: 56, justifyContent: 'center', paddingLeft: 20 }}
+        >
+          <Txt v="row" color={c.muted} numberOfLines={1}>
+            Tambah…
+          </Txt>
+        </Pressable>
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel="Bicara"
+          haptic="light"
+          onPress={() => openVoice('push')}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 24,
+            backgroundColor: c.brand,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="mic" size={24} color={c.onBrand} />
+        </PressableScale>
+      </View>
     </View>
   );
 }

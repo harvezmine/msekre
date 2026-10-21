@@ -5,9 +5,10 @@ import { formatJam } from '@/api/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
 import type { IconName } from '../icons';
+import type { TimeItem } from '../kit/TimeRail';
 import { Txt } from '../Txt';
 
-/** Ikon tiap jenis item (juga dipakai pratinjau di lembar Tambah). */
+/** Ikon tiap jenis item (pratinjau di lembar Tambah). */
 export const KIND_ICON: Record<Item['kind'], IconName> = {
   reminder: 'bell',
   task: 'task',
@@ -20,127 +21,122 @@ export function isPast(item: Item, today: string, now: string): boolean {
   return !item.allDay && item.date === today && item.time < now;
 }
 
-interface Props {
-  item: Item;
-  past?: boolean;
-  /** Zona waktu pengguna (menit dari UTC, dari server) untuk jam yang berasal dari waktu ISO, seperti "Ditunda sampai". */
-  tzOffsetMinutes?: number | null;
-  onToggle?: (id: string) => void;
-  /** Tahan sebuah pengingat untuk melihat pratinjau layar alarm-nya (alarm aslinya tidak berubah). */
-  onLongPress?: (id: string) => void;
+/** Ikon kanan di rel waktu (papan 17): telepon, alarm/notifikasi, rapat, atau notulen yang sudah siap. */
+export function railIcon(item: Item): IconName {
+  if (item.kind === 'meeting') return item.notesMessageId !== undefined ? 'note' : 'camera';
+  if (item.way === 'call') return 'call';
+  return 'bell';
 }
 
-/** Satu baris agenda seperti desain 2a: jam, tile ikon 40, judul, keterangan. */
-export function AgendaItem({ item, past = false, tzOffsetMinutes, onToggle, onLongPress }: Props) {
-  const { c, marker } = useTheme();
-  const a = marker.agenda;
-  const isTask = item.kind === 'task';
-  const hasAlarm = item.kind === 'reminder' || item.kind === 'recurring';
-  const icon: IconName = isTask && item.done ? 'taskDone' : KIND_ICON[item.kind];
-  const dim = past || item.done === true;
-  const notulen = item.kind === 'meeting' && item.notesMessageId !== undefined;
-  const time = item.allDay ? 'Seharian' : item.time;
+/** "Ditunda sampai 16.10" memakai zona waktu pengguna dari server, bukan zona HP. */
+export function snoozedText(item: Item, tz?: number | null): string | null {
+  return item.snoozedUntil ? `Ditunda sampai ${formatJam(item.snoozedUntil, tz)}` : null;
+}
 
-  const sub = subtitle(item, tzOffsetMinutes);
-  const label = [time, item.title, sub.text, item.repeat].filter(Boolean).join('. ');
+/**
+ * Keterangan butir: cara diingatkan, tempat rapat, ulangan. Tidak tampil di rel (sedikit tulisan); dibacakan pembaca
+ * layar dan muncul satu baris saat butirnya diketuk.
+ */
+export function detailWords(item: Item): string[] {
+  const out: string[] = [];
+  switch (item.kind) {
+    case 'task':
+      out.push(item.done ? 'Selesai' : 'Tugas');
+      break;
+    case 'meeting':
+      out.push(item.note ?? 'Rapat');
+      if (item.notesMessageId !== undefined) out.push('Notulen siap');
+      break;
+    default:
+      // Tanpa `way`, pengingat dibaca notifikasi biasa (kontrak): hanya yang `alarm` yang membunyikan alarm di HP.
+      out.push(
+        item.way === 'call' ? 'Telepon saya' : item.way === 'alarm' ? 'Bunyi sebagai alarm' : 'Lewat notifikasi',
+      );
+  }
+  if (item.repeat) out.push(item.repeat);
+  return [...new Set(out)];
+}
 
+/** Kotak centang besar (28, area sentuh seluruh baris): kosong bergaris, selesai = isian hijau dengan centang. */
+export function TaskCheck({ checked }: { checked: boolean }) {
+  const { c } = useTheme();
   return (
-    <Pressable
-      accessibilityRole={isTask ? 'checkbox' : 'button'}
-      accessibilityLabel={label}
-      accessibilityState={isTask ? { checked: item.done === true } : undefined}
-      onPress={isTask ? () => onToggle?.(item.id) : undefined}
-      onLongPress={hasAlarm && onLongPress ? () => onLongPress(item.id) : undefined}
-      android_ripple={{ color: c.ripple }}
+    <View
+      testID={checked ? 'centang-selesai' : 'centang-kosong'}
       style={{
-        flexDirection: 'row',
-        gap: 12,
-        paddingVertical: 12,
-        paddingHorizontal: 4,
-        minHeight: 64,
-        alignItems: 'flex-start',
-        opacity: past ? 0.75 : 1,
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        borderWidth: checked ? 0 : 2,
+        borderColor: c.muted,
+        backgroundColor: checked ? c.brand : 'transparent',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
-      <Txt
-        weight={600}
-        tabular
-        color={past ? c.muted : c.text}
-        style={item.allDay ? { width: 48, lineHeight: 40, fontSize: 12 } : { width: 48, lineHeight: 40 }}
-      >
-        {time}
-      </Txt>
-      <View
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: c.sunken,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon name={icon} size={22} color={past ? c.muted : a.ink} />
-      </View>
-      <View style={{ flex: 1, minWidth: 0, gap: 2, paddingTop: 8 }}>
-        <Txt
-          weight={500}
-          color={dim && !past ? c.muted : c.text}
-          style={item.done ? { textDecorationLine: 'line-through' } : undefined}
-        >
-          {item.title}
-        </Txt>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 6 }}>
-          {notulen ? (
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel="Notulen siap"
-              onPress={() => router.navigate('/chat')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 16 }}
-            >
-              <Txt v="caption" weight={600} color={c.brandInk}>
-                Notulen siap
-              </Txt>
-            </Pressable>
-          ) : (
-            <>
-              {sub.icon ? <Icon name={sub.icon} size={14} color={c.muted} /> : null}
-              {sub.text ? (
-                <Txt v="caption" color={sub.warn ? c.brandInk : c.muted}>
-                  {sub.text}
-                </Txt>
-              ) : null}
-            </>
-          )}
-          {item.repeat ? (
-            <>
-              {sub.text || notulen ? (
-                <Txt v="caption" color={c.muted}>
-                  ·
-                </Txt>
-              ) : null}
-              <Icon name="repeat" size={14} color={c.muted} />
-              <Txt v="caption" color={c.muted}>
-                {item.repeat}
-              </Txt>
-            </>
-          ) : null}
-        </View>
-      </View>
+      {checked ? <Icon name="check" size={20} color={c.onBrand} strokeWidth={2.5} /> : null}
+    </View>
+  );
+}
+
+/** Ikon notulen yang sudah siap: tautan ke chat (notulennya dikirim di sana). */
+function NotesLink() {
+  const { c } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel="Notulen siap"
+      onPress={() => router.navigate('/chat')}
+      hitSlop={8}
+      style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginRight: -8 }}
+    >
+      <Icon name="note" size={24} color={c.brandInk} />
     </Pressable>
   );
 }
 
-function subtitle(item: Item, tz?: number | null): { text: string; icon?: IconName; warn?: boolean } {
-  if (item.snoozedUntil) return { text: `Ditunda sampai ${formatJam(item.snoozedUntil, tz)}`, warn: true };
-  switch (item.kind) {
-    case 'task':
-      return { text: item.done ? 'Selesai' : 'Tugas' };
-    case 'meeting':
-      return { text: item.note ?? 'Rapat' };
-    default:
-      if (item.way === 'call') return { text: 'Telepon saya', icon: 'call' };
-      // Tanpa `way`, pengingat dibaca notifikasi biasa (kontrak): hanya yang `alarm` yang membunyikan alarm di HP.
-      return item.way === 'alarm' ? { text: 'Bunyi sebagai alarm' } : { text: 'Lewat notifikasi' };
-  }
+interface RailOptions {
+  past: boolean;
+  next: boolean;
+  /** Butir yang sedang dibuka (keterangannya tampil). */
+  open: boolean;
+  tz?: number | null;
+  onToggle: (id: string) => void;
+  onOpen: (id: string) => void;
+  /** Tahan sebuah pengingat untuk melihat pratinjau layar alarm-nya (alarm aslinya tidak berubah). */
+  onLongPress: (id: string) => void;
+}
+
+/** Satu butir agenda sebagai butir rel waktu: jam, judul 2–3 kata, dan satu ikon (tugas: kotak centang besar). */
+export function railItem(item: Item, o: RailOptions, color: { muted: string; brandInk: string }): TimeItem {
+  const isTask = item.kind === 'task';
+  const hasAlarm = item.kind === 'reminder' || item.kind === 'recurring';
+  const time = item.allDay ? 'Seharian' : item.time;
+  const snoozed = snoozedText(item, o.tz);
+  const words = detailWords(item);
+  const shown = o.open && !isTask ? words.filter((w) => w !== 'Notulen siap').join(' · ') : '';
+  const detail = snoozed ?? (shown || null);
+  return {
+    id: item.id,
+    time,
+    timeWord: item.allDay === true,
+    title: item.title,
+    state: o.past ? 'past' : o.next ? 'next' : 'upcoming',
+    accessibilityLabel: [time, item.title, snoozed, ...words].filter(Boolean).join('. '),
+    checked: isTask ? item.done === true : undefined,
+    done: isTask && item.done === true,
+    icon: railIcon(item),
+    trailing: isTask ? (
+      <TaskCheck checked={item.done === true} />
+    ) : item.kind === 'meeting' && item.notesMessageId !== undefined ? (
+      <NotesLink />
+    ) : undefined,
+    detail: detail ? (
+      <Txt v="caption" color={snoozed ? color.brandInk : color.muted} numberOfLines={2}>
+        {detail}
+      </Txt>
+    ) : undefined,
+    onPress: isTask ? () => o.onToggle(item.id) : () => o.onOpen(item.id),
+    onLongPress: hasAlarm ? () => o.onLongPress(item.id) : undefined,
+  };
 }

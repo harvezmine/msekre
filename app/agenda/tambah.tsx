@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import type { AgendaNew } from '@/api/contract';
 import { useAgenda } from '@/api/useAgenda';
 import { dayLabel } from '@/api/dates';
@@ -8,7 +8,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { FONT } from '@/theme/tokens';
 import { KIND_ICON } from '@/ui/agenda/AgendaItem';
 import { Icon } from '@/ui/Icon';
-import { IconButton } from '@/ui/IconButton';
+import { AccentIcon, PressableScale } from '@/ui/kit';
 import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
@@ -32,8 +32,9 @@ interface Preview {
   guessedTime: boolean;
 }
 
-// Lembar Tambah (desain 2b). Server yang membaca kalimatnya (`POST /agenda/parse`); layar menunggu sebentar setelah
-// berhenti mengetik, lalu menampilkan pratinjau.
+// Niat lembar: menulis satu hal untuk agenda seperti bicara biasa, lalu melihat dulu bagaimana saya menyimpannya. Tindakan
+// tersering: Simpan, tombol besar paling bawah (zona jempol). Server yang membaca kalimatnya (`POST /agenda/parse`); lembar
+// menunggu sebentar setelah berhenti mengetik, lalu menampilkan pratinjau.
 export default function Tambah() {
   return (
     <Sheet onClose={() => router.back()}>
@@ -91,21 +92,16 @@ function Isi() {
 
   return (
     <View style={{ gap: 16 }}>
-      <View style={{ gap: 4 }}>
-        <Txt v="title" accessibilityRole="header">
-          Tambah ke agenda
-        </Txt>
-        <Txt color={c.muted}>Tulis seperti biasa, nanti saya rapikan.</Txt>
-      </View>
+      <Txt v="section" accessibilityRole="header">
+        Tambah ke agenda
+      </Txt>
       <View
         style={{
           minHeight: 104,
-          borderWidth: 1.5,
-          borderColor: c.brand,
-          borderRadius: 20,
-          backgroundColor: c.bg,
+          borderRadius: 24,
+          backgroundColor: c.sunken,
           paddingVertical: 8,
-          paddingLeft: 16,
+          paddingLeft: 18,
           paddingRight: 8,
           flexDirection: 'row',
           gap: 8,
@@ -136,7 +132,22 @@ function Isi() {
             color: c.text,
           }}
         />
-        <IconButton icon="mic" label="Bicara" tinted onPress={() => openSuara('push')} />
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel="Bicara"
+          haptic="light"
+          onPress={() => openSuara('push')}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 24,
+            backgroundColor: c.brand,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="mic" size={24} color={c.onBrand} />
+        </PressableScale>
       </View>
 
       {preparing ? (
@@ -155,22 +166,13 @@ function Isi() {
           <Txt v="caption" weight={600} color={c.muted}>
             Akan saya simpan sebagai
           </Txt>
-          <View style={{ backgroundColor: c.sunken, borderRadius: 20, padding: 16, gap: 12 }}>
+          <View style={{ backgroundColor: c.bg, borderRadius: 24, padding: 16, gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 14,
-                  backgroundColor: c.surface,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Icon name={KIND_ICON[parsed.item.kind]} size={22} color={marker.agenda.ink} />
-              </View>
+              <AccentIcon icon={KIND_ICON[parsed.item.kind]} tone="agenda" size={44} />
               <View style={{ flex: 1 }}>
-                <Txt weight={600}>{parsed.item.title}</Txt>
+                <Txt v="row" weight={600}>
+                  {parsed.item.title}
+                </Txt>
                 <Txt v="caption" color={c.brandInk}>
                   {KIND_LABEL[parsed.item.kind]}
                 </Txt>
@@ -190,13 +192,13 @@ function Isi() {
         </View>
       ) : null}
 
-      <Pressable
+      <PressableScale
         accessibilityRole="button"
         accessibilityLabel="Simpan"
         accessibilityState={{ disabled: !parsed || saving }}
         disabled={!parsed || saving}
+        haptic="success"
         onPress={() => void save()}
-        android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
         style={{
           height: 56,
           borderRadius: 28,
@@ -208,7 +210,7 @@ function Isi() {
         <Txt weight={600} color={parsed ? c.onBrand : c.muted} style={{ fontSize: 17 }}>
           Simpan
         </Txt>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }

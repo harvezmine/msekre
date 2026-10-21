@@ -140,7 +140,7 @@ test('alur 3: alarm Tunda 10 menit, kembali ke Agenda, item ditunda sampai 07.10
     await fireEvent.press(screen.getByRole('button', { name: 'Tunda 10 menit' }));
     expect(currentRoute()).toBe('/agenda');
     await advance(0);
-    await fireEvent.press(screen.getByRole('tab', { name: 'Minggu ini' }));
+    await fireEvent.press(screen.getByRole('button', { name: /^Selasa, 21 Okt/ }));
     expect(screen.getByText('Berangkat ke bandara')).toBeOnTheScreen();
     expect(screen.getByText('Ditunda sampai 07.10')).toBeOnTheScreen();
   } finally {

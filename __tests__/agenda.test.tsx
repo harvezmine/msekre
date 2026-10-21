@@ -1,11 +1,13 @@
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
 import Agenda from '../app/(tabs)/agenda';
 import Tambah, { PREVIEW_DEBOUNCE_MS } from '../app/agenda/tambah';
 import { ERROR_TEXT } from '@/api/errors';
 import { createTestApi, renderWithProviders, toastNow, useSample } from './helpers';
-import { AgendaItem } from '@/ui/agenda/AgendaItem';
+import { detailWords, snoozedText } from '@/ui/agenda/AgendaItem';
+import { light } from '@/theme/tokens';
 import { type SampleState } from '@/sample/store';
 
 beforeEach(() => jest.clearAllMocks());
@@ -26,11 +28,12 @@ async function advance(ms: number) {
 }
 
 const row = (time: string) => screen.getByRole(/button|checkbox/, { name: new RegExp(`^${time}`) });
+const day = (label: RegExp) => screen.getByRole('button', { name: label });
+const color = (n: ReturnType<typeof screen.getByText>) => StyleSheet.flatten(n.props.style).color;
 
-test('Hari ini: judul, sisa, urutan dengan garis sekarang, dan ikon per jenis', async () => {
+test('Hari ini: rel waktu urut dengan garis sekarang, satu ikon per jenis, rincian hanya dibacakan', async () => {
   await renderWithProviders(<Agenda />);
-  expect(screen.getByText('Senin, 20 Okt')).toBeOnTheScreen();
-  expect(screen.getByText('4 lagi hari ini')).toBeOnTheScreen();
+  expect(day(/^Senin, 20 Okt, hari ini/)).toBeSelected();
   expect(screen.getAllByText(/^\d\d\.\d\d$/).map((t) => t.props.children)).toEqual([
     '09.00',
     '09.41',
@@ -40,103 +43,97 @@ test('Hari ini: judul, sisa, urutan dengan garis sekarang, dan ikon per jenis', 
     '19.00',
   ]);
   expect(screen.getByTestId('garis-sekarang')).toBeOnTheScreen();
-  expect(within(row('09.00')).getByTestId('ikon-camera')).toBeOnTheScreen();
-  expect(within(row('13.00')).getByTestId('ikon-bell')).toBeOnTheScreen();
+  expect(within(row('09.00')).getByRole('link', { name: 'Notulen siap' })).toBeOnTheScreen();
   expect(within(row('13.00')).getByTestId('ikon-call')).toBeOnTheScreen();
-  expect(within(row('13.00')).getByText('Telepon saya')).toBeOnTheScreen();
-  expect(within(row('15.00')).getByTestId('ikon-task')).toBeOnTheScreen();
+  expect(row('13.00')).toHaveAccessibleName(/Telepon saya/);
+  expect(row('15.00')).not.toBeChecked();
   expect(within(row('16.00')).getByTestId('ikon-bell')).toBeOnTheScreen();
-  expect(within(row('16.00')).getByText('Bunyi sebagai alarm')).toBeOnTheScreen();
-  expect(within(row('16.00')).getByTestId('ikon-repeat')).toBeOnTheScreen();
-  expect(within(row('16.00')).getByText('Tiap Senin')).toBeOnTheScreen();
+  expect(row('16.00')).toHaveAccessibleName(/Bunyi sebagai alarm\. Tiap Senin/);
   expect(within(row('19.00')).getByTestId('ikon-camera')).toBeOnTheScreen();
-  expect(within(row('19.00')).getByText('Google Meet')).toBeOnTheScreen();
-});
-
-test('item yang sudah lewat tampil redup', async () => {
-  await renderWithProviders(<Agenda />);
-  expect(row('09.00').props.style.opacity ?? row('09.00').props.style[0]?.opacity).toBe(0.75);
-  expect(row('13.00').props.style.opacity ?? row('13.00').props.style[0]?.opacity).toBe(1);
-});
-
-test('mengetuk tugas menandainya selesai dan kembali', async () => {
-  await renderWithProviders(<Agenda />);
-  await fireEvent.press(row('15.00'));
-  expect(within(row('15.00')).getByTestId('ikon-taskDone')).toBeOnTheScreen();
-  expect(screen.getByText('3 lagi hari ini')).toBeOnTheScreen();
-  await fireEvent.press(row('15.00'));
-  expect(within(row('15.00')).getByTestId('ikon-task')).toBeOnTheScreen();
-});
-
-test('Kerjakan hari ini memindahkan tugas ke hari ini dan kartu hilang', async () => {
-  await renderWithProviders(<Agenda />);
-  expect(screen.getByText('Kemarin belum selesai')).toBeOnTheScreen();
-  await fireEvent.press(screen.getByRole('button', { name: 'Kerjakan hari ini' }));
-  expect(screen.queryByText('Kemarin belum selesai')).toBeNull();
-  expect(within(row('17.00')).getByText('Kirim penawaran katering ke Bu Sari')).toBeOnTheScreen();
-  expect(screen.getByText('5 lagi hari ini')).toBeOnTheScreen();
-});
-
-test('Lepaskan menghapus tugas kemarin dan kartu hilang', async () => {
-  await renderWithProviders(<Agenda />);
-  await fireEvent.press(screen.getByRole('button', { name: 'Lepaskan' }));
-  expect(screen.queryByText('Kemarin belum selesai')).toBeNull();
+  expect(row('19.00')).toHaveAccessibleName(/Google Meet/);
+  // Sedikit tulisan: tanpa keterangan di bawah judul, tanpa hitungan, tanpa tanggal panjang.
+  for (const t of ['Telepon saya', 'Bunyi sebagai alarm', 'Tiap Senin', 'Google Meet', 'Senin, 20 Okt']) {
+    expect(screen.queryByText(t)).toBeNull();
+  }
+  // Sisa tugas kemarin ditanyakan asisten di chat, tidak di layar ini.
   expect(screen.queryByText('Kirim penawaran katering ke Bu Sari')).toBeNull();
-  expect(screen.getByText('4 lagi hari ini')).toBeOnTheScreen();
+  expect(screen.queryByRole('button', { name: 'Kerjakan hari ini' })).toBeNull();
 });
 
-test('Notulen siap membuka chat; Tambah membuka lembar; tahan pengingat membuka alarm', async () => {
+test('yang sudah lewat redup; yang berikutnya di kartu putih', async () => {
+  await renderWithProviders(<Agenda />);
+  expect(color(screen.getByText('Rapat dengan supplier susu'))).toBe(light.muted);
+  expect(color(screen.getByText('Bayar listrik Kedai Dago'))).toBe(light.text);
+  expect(StyleSheet.flatten(row('13.00').props.style).backgroundColor).toBe(light.surface);
+  expect(StyleSheet.flatten(row('15.00').props.style).backgroundColor).toBe('transparent');
+});
+
+test('ketuk butir membuka satu baris rinciannya, ketuk lagi menutup', async () => {
+  await renderWithProviders(<Agenda />);
+  await fireEvent.press(row('16.00'));
+  expect(screen.getByText('Bunyi sebagai alarm · Tiap Senin')).toBeOnTheScreen();
+  await fireEvent.press(row('13.00'));
+  expect(screen.queryByText('Bunyi sebagai alarm · Tiap Senin')).toBeNull();
+  expect(screen.getByText('Telepon saya')).toBeOnTheScreen();
+  await fireEvent.press(row('13.00'));
+  expect(screen.queryByText('Telepon saya')).toBeNull();
+});
+
+test('mengetuk tugas mencentangnya (kotak besar) dan mengetuk lagi melepasnya', async () => {
+  await renderWithProviders(<Agenda />);
+  await fireEvent.press(row('15.00'));
+  expect(row('15.00')).toBeChecked();
+  expect(within(row('15.00')).getByTestId('centang-selesai')).toBeOnTheScreen();
+  await fireEvent.press(row('15.00'));
+  expect(row('15.00')).not.toBeChecked();
+});
+
+test('Notulen siap membuka chat; Tambah membuka lembar; mic membuka Mode Suara; tahan pengingat membuka alarm', async () => {
   await renderWithProviders(<Agenda />);
   await fireEvent.press(screen.getByRole('link', { name: 'Notulen siap' }));
   expect(router.navigate).toHaveBeenCalledWith('/chat');
   await fireEvent.press(screen.getByRole('button', { name: 'Tambah' }));
   expect(router.push).toHaveBeenCalledWith('/agenda/tambah');
+  await fireEvent.press(within(screen.getByTestId('tambah-agenda')).getByRole('button', { name: 'Bicara' }));
+  expect(router.push).toHaveBeenCalledWith('/suara');
   await fireEvent(row('16.00'), 'longPress');
   expect(router.push).toHaveBeenCalledWith({ pathname: '/alarm', params: { id: 'jemput:2025-10-20', preview: '1' } });
 });
 
-test('item yang ditunda menulis jam barunya', async () => {
+test('item yang ditunda menulis jam barunya (keadaan penting, tetap tertulis)', async () => {
   await renderWithProviders(<Agenda />, { actions: [{ type: 'snooze', id: 'jemput:2025-10-20', until: '16.10' }] });
   expect(screen.getByText('Ditunda sampai 16.10')).toBeOnTheScreen();
 });
 
-test('Minggu ini: tujuh hari Senin sampai Minggu, hari longgar punya kalimat ramah', async () => {
+test('pekan: tujuh hari Sen–Min, titik di hari beragenda, ketuk hari menampilkan harinya', async () => {
   await renderWithProviders(<Agenda />);
-  await fireEvent.press(screen.getByRole('tab', { name: 'Minggu ini' }));
-  const heads = screen.getAllByRole('header').map((h) => h.props.children);
-  expect(heads).toEqual(expect.arrayContaining(['Agenda']));
-  for (const d of [
-    'Senin, 20 Okt',
-    'Selasa, 21 Okt',
-    'Rabu, 22 Okt',
-    'Kamis, 23 Okt',
-    'Jumat, 24 Okt',
-    'Sabtu, 25 Okt',
-    'Minggu, 26 Okt',
-  ]) {
-    expect(screen.getByText(d)).toBeOnTheScreen();
-  }
+  for (const d of ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']) expect(screen.getByText(d)).toBeOnTheScreen();
+  for (const d of [21, 22, 23, 24, 26]) expect(screen.getByTestId(`titik-hari-${d}`)).toBeOnTheScreen();
+  expect(screen.queryByTestId('titik-hari-25')).toBeNull();
+  await fireEvent.press(day(/^Selasa, 21 Okt/));
+  expect(day(/^Selasa, 21 Okt/)).toBeSelected();
   expect(screen.getByText('Telepon Pak Budi soal harga sewa')).toBeOnTheScreen();
-  expect(screen.getByText('Makan malam keluarga')).toBeOnTheScreen();
-  expect(screen.getAllByText('Longgar, belum ada rencana.')).toHaveLength(1);
+  expect(screen.getByText('Berangkat ke bandara')).toBeOnTheScreen();
+  // Bukan hari ini: tanpa garis sekarang dan tanpa yang redup.
+  expect(screen.queryByTestId('garis-sekarang')).toBeNull();
+  await fireEvent.press(day(/^Sabtu, 25 Okt/));
+  expect(screen.getByText('Hari itu longgar.')).toBeOnTheScreen();
 });
 
-test('Kalender: kisi Oktober mulai Senin, titik di hari beragenda, ketuk tanggal menampilkan itemnya', async () => {
+test('Kalender: lembar sebulan, titik di hari beragenda, memilih tanggal menampilkan harinya', async () => {
   await renderWithProviders(<Agenda />);
-  await fireEvent.press(screen.getByRole('tab', { name: 'Kalender' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Kalender, Oktober' }));
   expect(screen.getByText('Oktober 2025')).toBeOnTheScreen();
   for (const d of ['Sn', 'Sl', 'Rb', 'Km', 'Jm', 'Sb', 'Mg']) expect(screen.getByText(d)).toBeOnTheScreen();
   expect(screen.getByTestId('titik-22')).toBeOnTheScreen();
   expect(screen.queryByTestId('titik-25')).toBeNull();
-  expect(screen.getByRole('button', { name: /^20 Oktober, hari ini/ })).toBeOnTheScreen();
-  // pilihan awal = hari ini
-  expect(screen.getByText('Rapat manajer kedai')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: /^20 Oktober, hari ini/ })).toBeSelected();
   await fireEvent.press(screen.getByRole('button', { name: /^22 Oktober/ }));
-  expect(screen.getByText('Rabu, 22 Okt')).toBeOnTheScreen();
+  await advance(250);
+  expect(screen.queryByText('Oktober 2025')).toBeNull();
+  expect(day(/^Rabu, 22 Okt/)).toBeSelected();
   expect(screen.getByText('Belanja bahan kedai')).toBeOnTheScreen();
   expect(screen.queryByText('Rapat manajer kedai')).toBeNull();
-  await fireEvent.press(screen.getByRole('button', { name: /^25 Oktober/ }));
-  expect(screen.getByText('Hari itu masih longgar. Mau saya ingatkan sesuatu?')).toBeOnTheScreen();
 });
 
 test('Tambah: Simpan nonaktif sampai ada teks, pratinjau dari teks, Simpan menambah item dan toast', async () => {
@@ -147,7 +144,7 @@ test('Tambah: Simpan nonaktif sampai ada teks, pratinjau dari teks, Simpan menam
     </>,
   );
   expect(screen.getByText('Tambah ke agenda')).toBeOnTheScreen();
-  expect(screen.getByText('Tulis seperti biasa, nanti saya rapikan.')).toBeOnTheScreen();
+  expect(screen.queryByText('Tulis seperti biasa, nanti saya rapikan.')).toBeNull();
   expect(screen.getByRole('button', { name: 'Simpan' })).toBeDisabled();
   expect(screen.queryByText('Akan saya simpan sebagai')).toBeNull();
   await fireEvent.changeText(
@@ -222,7 +219,9 @@ test('Tambah: pratinjau menyebut jenisnya (Pengingat, Tugas, Rapat, Rutin) denga
     await advance(PREVIEW_DEBOUNCE_MS);
     expect(screen.getByText(labels[i]!)).toBeOnTheScreen();
     expect(
-      screen.getByTestId(`ikon-${{ reminder: 'bell', task: 'task', meeting: 'camera', recurring: 'bell' }[kind]}`),
+      screen.getByTestId(`aksen-${{ reminder: 'bell', task: 'task', meeting: 'camera', recurring: 'bell' }[kind]}`, {
+        includeHiddenElements: true,
+      }),
     ).toBeOnTheScreen();
     await view.unmount();
   }
@@ -298,20 +297,20 @@ test('Agenda di mode server tanpa jawaban: pesan ramah dan Coba lagi memuat ulan
   await renderWithProviders(<Agenda />, { api });
   expect(screen.getByText(ERROR_TEXT)).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
-  expect(screen.getByText('Senin, 20 Okt')).toBeOnTheScreen();
+  expect(day(/^Senin, 20 Okt, hari ini/)).toBeOnTheScreen();
 });
 
 test('agenda berubah dari luar (stream) langsung tampil: tugas dicentang di perangkat lain', async () => {
   const api = createTestApi();
   await renderWithProviders(<Agenda />, { api });
-  expect(within(row('15.00')).getByTestId('ikon-task')).toBeOnTheScreen();
+  expect(row('15.00')).not.toBeChecked();
   await act(async () => {
     api.transport.sample.dispatch({ type: 'setDone', id: 'a3', done: true });
   });
-  expect(within(row('15.00')).getByTestId('ikon-taskDone')).toBeOnTheScreen();
+  expect(row('15.00')).toBeChecked();
 });
 
-describe('baris agenda', () => {
+describe('rincian butir agenda', () => {
   const base = {
     id: 'x',
     date: '2025-10-20',
@@ -321,30 +320,21 @@ describe('baris agenda', () => {
     kind: 'reminder' as const,
   };
 
-  test('pengingat tanpa cara dibaca notifikasi biasa; hanya cara alarm yang ditulis "Bunyi sebagai alarm"', async () => {
-    await renderWithProviders(
-      <>
-        <AgendaItem item={{ ...base, id: 'a' }} />
-        <AgendaItem item={{ ...base, id: 'b', title: 'Alarm', way: 'alarm' }} />
-        <AgendaItem item={{ ...base, id: 'c', title: 'Notif', way: 'notif' }} />
-      </>,
-    );
-    expect(screen.getAllByText('Lewat notifikasi')).toHaveLength(2);
-    expect(screen.getAllByText('Bunyi sebagai alarm')).toHaveLength(1);
+  test('pengingat tanpa cara dibaca notifikasi biasa; hanya cara alarm yang "Bunyi sebagai alarm"', () => {
+    expect(detailWords(base)).toEqual(['Lewat notifikasi']);
+    expect(detailWords({ ...base, way: 'notif' })).toEqual(['Lewat notifikasi']);
+    expect(detailWords({ ...base, way: 'alarm', repeat: 'Tiap Senin' })).toEqual(['Bunyi sebagai alarm', 'Tiap Senin']);
+    expect(detailWords({ ...base, way: 'call' })).toEqual(['Telepon saya']);
   });
 
-  test('"Ditunda sampai" memakai zona waktu pengguna dari server, bukan zona HP', async () => {
+  test('"Ditunda sampai" memakai zona waktu pengguna dari server, bukan zona HP', () => {
     const snoozed = { ...base, snoozedUntil: '2025-10-20T17:10:00.000Z' };
-    const view = await renderWithProviders(<AgendaItem item={snoozed} tzOffsetMinutes={420} />);
-    expect(screen.getByText('Ditunda sampai 00.10')).toBeOnTheScreen();
-    await view.unmount();
-    await renderWithProviders(<AgendaItem item={snoozed} tzOffsetMinutes={480} />);
-    expect(screen.getByText('Ditunda sampai 01.10')).toBeOnTheScreen();
+    expect(snoozedText(snoozed, 420)).toBe('Ditunda sampai 00.10');
+    expect(snoozedText(snoozed, 480)).toBe('Ditunda sampai 01.10');
   });
 });
 
-test('tombol Akun di Agenda membuka Akun', async () => {
+test('Agenda tanpa avatar Akun (Akun hanya dari Beranda)', async () => {
   await renderWithProviders(<Agenda />);
-  await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
-  expect(router.push).toHaveBeenCalledWith('/akun');
+  expect(screen.queryByRole('button', { name: 'Akun' })).toBeNull();
 });

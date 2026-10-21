@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { Pressable, ScrollView, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
@@ -14,11 +14,24 @@ export interface TimeItem {
   title: string;
   /** Ikon jenis di kanan (telepon, tugas, alarm, video). */
   icon?: IconName;
+  /** Pengganti ikon kanan (contoh kotak centang besar, tautan notulen). */
+  trailing?: ReactNode;
   /** `past` diredupkan, `next` di kartu putih dengan titik biru, sisanya biasa. */
   state?: 'past' | 'next' | 'upcoming';
   /** Bacaan tambahan untuk pembaca layar saja (contoh "ditelepon"). */
   accessibilityHint?: string;
+  /** Nama lengkap untuk pembaca layar; bawaan "jam, judul". */
+  accessibilityLabel?: string;
+  /** Tugas: baris berperan kotak centang dengan keadaan ini. */
+  checked?: boolean;
+  /** Judul dicoret dan redup (tugas selesai). */
+  done?: boolean;
+  /** Jam berupa kata ("Seharian"): tulisan kecil supaya muat di kolom jam. */
+  timeWord?: boolean;
+  /** Satu baris kecil di bawah judul, hanya untuk keadaan penting (contoh "Ditunda sampai 16.10"). */
+  detail?: ReactNode;
   onPress?: () => void;
+  onLongPress?: () => void;
 }
 
 /** Penanda "sekarang": jam tampil dan sebelum butir ke berapa (0 = sebelum butir pertama). */
@@ -27,24 +40,38 @@ export interface NowMark {
   before: number;
 }
 
-const labelOf = (it: TimeItem) => [it.time, it.title].join(', ');
+const labelOf = (it: TimeItem) => it.accessibilityLabel ?? [it.time, it.title].join(', ');
+
+/** Lebar kolom jam dan rel (dp); judul mulai sesudahnya. */
+export const RAIL_TIME_W = 56;
+export const RAIL_DOT_W = 24;
 
 /**
  * Rel waktu tegak (Agenda, §7/§8): kolom jam 56, rel 2 dp, garis "sekarang" hijau selebar layar, butir berikutnya di
- * kartu putih dengan titik biru (penanda Agenda), butir yang lewat redup. Tiap butir: jam + judul + satu ikon.
+ * kartu putih dengan titik biru (penanda Agenda), butir yang lewat redup. Tiap butir: jam + judul + satu ikon. Tinggi
+ * minimum, bukan tinggi tetap: judul dua baris dan skala huruf 1,3 tetap rapi.
  */
 export function TimeRail({ items, now, style }: { items: TimeItem[]; now?: NowMark; style?: StyleProp<ViewStyle> }) {
   const { c, marker, shadow } = useTheme();
   const nowLine = now ? (
     <View
+      testID="garis-sekarang"
       accessible
       accessibilityLabel={`Sekarang ${now.label}`}
-      style={{ height: 32, flexDirection: 'row', alignItems: 'center' }}
+      style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center' }}
     >
-      <Txt v="micro" weight={700} tabular color={c.brandInk} style={{ width: 56, fontSize: 13 }}>
+      <Txt
+        v="caption"
+        weight={700}
+        tabular
+        color={c.brandInk}
+        maxFontSizeMultiplier={1.2}
+        style={{ width: RAIL_TIME_W }}
+      >
         {now.label}
       </Txt>
-      <View style={{ width: 24, alignItems: 'center' }}>
+      <View style={{ width: RAIL_DOT_W, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ position: 'absolute', top: 0, bottom: 0, width: 2, backgroundColor: c.line }} />
         <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.brand }} />
       </View>
       <View style={{ flex: 1, height: 2, borderRadius: 1, backgroundColor: c.brand, marginLeft: 4 }} />
@@ -56,18 +83,29 @@ export function TimeRail({ items, now, style }: { items: TimeItem[]; now?: NowMa
         const next = it.state === 'next';
         const past = it.state === 'past';
         const tone = past ? c.muted : c.text;
+        const first = i === 0 && !(now && now.before === 0);
+        const last = i === items.length - 1 && !(now && now.before >= items.length);
         const body = (
           <>
-            <Txt v="row" color={tone} style={{ flex: 1 }} numberOfLines={2}>
-              {it.title}
-            </Txt>
-            {it.icon ? <Icon name={it.icon} size={22} color={past ? c.faint : c.muted} /> : null}
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <Txt
+                v="row"
+                color={past || it.done ? c.muted : c.text}
+                numberOfLines={2}
+                style={[{ fontSize: 18, lineHeight: 24 }, it.done ? { textDecorationLine: 'line-through' } : null]}
+              >
+                {it.title}
+              </Txt>
+              {it.detail ?? null}
+            </View>
+            {it.trailing ?? (it.icon ? <Icon name={it.icon} size={24} color={past ? c.faint : c.muted} /> : null)}
           </>
         );
         const bodyStyle: ViewStyle = {
           flex: 1,
-          minHeight: 60,
+          minHeight: 64,
           marginLeft: 8,
+          paddingVertical: 10,
           paddingHorizontal: 16,
           flexDirection: 'row',
           alignItems: 'center',
@@ -76,15 +114,34 @@ export function TimeRail({ items, now, style }: { items: TimeItem[]; now?: NowMa
           backgroundColor: next ? c.surface : 'transparent',
           boxShadow: next ? shadow.e1 : undefined,
         };
+        const role = it.checked !== undefined ? 'checkbox' : 'button';
         return (
           <Fragment key={it.id}>
             {now && now.before === i ? nowLine : null}
             <View style={{ flexDirection: 'row', minHeight: 76, alignItems: 'center' }}>
-              <Txt v="row" weight={600} tabular color={tone} style={{ width: 56 }}>
+              <Txt
+                v="row"
+                weight={600}
+                tabular
+                color={tone}
+                maxFontSizeMultiplier={1.2}
+                style={[
+                  { width: RAIL_TIME_W, fontSize: 18, lineHeight: 24 },
+                  it.timeWord ? { fontSize: 13, lineHeight: 18 } : null,
+                ]}
+              >
                 {it.time}
               </Txt>
-              <View style={{ width: 24, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' }}>
-                <View style={{ position: 'absolute', top: 0, bottom: 0, width: 2, backgroundColor: c.line }} />
+              <View style={{ width: RAIL_DOT_W, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' }}>
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: first ? '50%' : 0,
+                    bottom: last ? '50%' : 0,
+                    width: 2,
+                    backgroundColor: c.line,
+                  }}
+                />
                 <View
                   style={{
                     width: 14,
@@ -96,13 +153,16 @@ export function TimeRail({ items, now, style }: { items: TimeItem[]; now?: NowMa
                   }}
                 />
               </View>
-              {it.onPress ? (
+              {it.onPress || it.onLongPress ? (
                 <Pressable
-                  accessibilityRole="button"
+                  accessibilityRole={role}
                   accessibilityLabel={labelOf(it)}
                   accessibilityHint={it.accessibilityHint}
+                  accessibilityState={it.checked !== undefined ? { checked: it.checked } : undefined}
                   onPress={it.onPress}
-                  android_ripple={{ color: c.ripple }}
+                  onLongPress={it.onLongPress}
+                  delayLongPress={300}
+                  android_ripple={{ color: c.ripple, foreground: true }}
                   style={bodyStyle}
                 >
                   {body}

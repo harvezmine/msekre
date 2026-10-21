@@ -188,12 +188,12 @@ describe('pintu masuk ke panduan', () => {
     install();
     const first = await renderWithProviders(<Agenda />);
     await advance(0);
-    expect(screen.queryByText('Alarm belum bisa bunyi tepat waktu')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Alarm belum bisa bunyi tepat waktu/ })).toBeNull();
     await first.unmount();
     install({ exact: 'denied' }, false);
     await renderWithProviders(<Agenda />);
     await advance(0);
-    expect(screen.queryByText('Alarm belum bisa bunyi tepat waktu')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Alarm belum bisa bunyi tepat waktu/ })).toBeNull();
   });
 
   test('Pemberitahuan: baris Alarm hanya di HP dengan alarm native, nilainya mengikuti izin; Akun ikut menyebutnya', async () => {

@@ -123,7 +123,8 @@ export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarPr
         paddingBottom: insets.bottom,
         flexDirection: 'row',
         backgroundColor: c.tabbar,
-        borderTopWidth: StyleSheet.hairlineWidth,
+        // Agenda: kolom Tambah menempel di atas bilah (satu permukaan), jadi tanpa garis pemisah.
+        borderTopWidth: activeName === 'agenda' ? 0 : StyleSheet.hairlineWidth,
         borderTopColor: c.line,
         overflow: 'visible',
       }}
