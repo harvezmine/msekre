@@ -37,7 +37,8 @@ test('profil, langganan, dan catatan PIN tanpa pembayaran', async () => {
   expect(screen.getByText('Aktif sampai 12 Jan 2027')).toBeTruthy();
   // PIN opsional, bawaan mati.
   expect(await screen.findByRole('button', { name: 'PIN. Mati' })).toBeTruthy();
-  expect(screen.getByText('Versi 1.0')).toBeTruthy();
+  // Versi dan nomor build dari aplikasi terpasang (expo-application, tiruan di jest.setup.ts).
+  expect(screen.getByText('Versi 1.0.0 (7)')).toBeTruthy();
 });
 
 test('Terhubung dan Riwayat membuka layarnya; jumlah layanan dari penyimpanan', async () => {

@@ -50,6 +50,8 @@ jest.mock('expo-notifications', () => ({
   useLastNotificationResponse: jest.fn(() => null),
   clearLastNotificationResponse: jest.fn(),
 }));
+// Versi aplikasi terpasang (Akun menampilkan "Versi 1.0.0 (7)").
+jest.mock('expo-application', () => ({ nativeApplicationVersion: '1.0.0', nativeBuildVersion: '7' }));
 // Berkas, pembuka, dan lembar bagikan tanpa modul native: tiruan di memori (tes dokumen mengatur hasilnya sendiri).
 jest.mock('expo-file-system', () => {
   class Directory {

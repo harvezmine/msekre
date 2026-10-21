@@ -12,6 +12,7 @@ import { FakeTransport } from '@/api/fake/FakeTransport';
 import { ERROR_TEXT, friendlyError, INVALID_NAME_TEXT } from '@/api/errors';
 import { parseAccountLenient, parseEventLenient } from '@/api/lenient';
 import { createMemorySession } from '@/api/session';
+import { appVersion, versionText } from '@/api/version';
 import { ApiFailure } from '@/api/transport';
 
 const flush = async () => {
@@ -93,6 +94,36 @@ describe('skema dan pembacaan longgar', () => {
     expect(parseEventLenient({ type: 'account', account: 3 })).toBeNull();
   });
 
+  test('kalimat paket: hari kalender WIB di sekitar tengah malam', () => {
+    // 21 Okt 2026 23.30 WIB dan 22 Okt 2026 00.10 WIB: 40 menit berselang, tetapi hari kalendernya berganti.
+    const lateEvening = Date.parse('2026-10-21T16:30:00Z');
+    const justAfterMidnight = Date.parse('2026-10-21T17:10:00Z');
+    // Berakhir tengah malam 25 Okt WIB (eksklusif): hari terakhirnya 24 Okt.
+    const until = '2026-10-24T17:00:00Z';
+    const trial = { name: 'Coba', status: 'trial', until } as const;
+    expect(planText(trial, lateEvening)).toBe('Coba gratis, tersisa 3 hari');
+    expect(planText(trial, justAfterMidnight)).toBe('Coba gratis, tersisa 2 hari');
+    // Sehari sebelum hari terakhir, jam berapa pun: tersisa 1 hari.
+    expect(planText(trial, Date.parse('2026-10-22T17:01:00Z'))).toBe('Coba gratis, tersisa 1 hari');
+    expect(planText(trial, Date.parse('2026-10-23T16:59:00Z'))).toBe('Coba gratis, tersisa 1 hari');
+    // Hari terakhir: dari 00.00 WIB sampai sedetik sebelum akhir.
+    expect(planText(trial, Date.parse('2026-10-24T17:00:00Z') - 1)).toBe('Coba gratis, berakhir hari ini');
+    expect(planText(trial, Date.parse('2026-10-24T01:00:00Z'))).toBe('Coba gratis, berakhir hari ini');
+    // Sudah lewat hari terakhirnya.
+    expect(planText(trial, Date.parse('2026-10-24T17:00:00Z'))).toBe('Sudah berakhir');
+    // Hari terakhir langganan: dari until - 1 ms, di WIB.
+    expect(planText({ name: 'Bisnis', status: 'aktif', until: '2026-11-21T17:00:00Z' })).toBe(
+      'Aktif sampai 21 Nov 2026',
+    );
+    expect(planText({ name: 'Bisnis', status: 'aktif', until: '2026-11-21T17:00:00.001Z' })).toBe(
+      'Aktif sampai 22 Nov 2026',
+    );
+    // Zona lain (mis. WITA, 480 menit): batas harinya ikut bergeser.
+    expect(planText({ name: 'Bisnis', status: 'aktif', until: '2026-11-21T16:00:00Z' }, 0, 480)).toBe(
+      'Aktif sampai 21 Nov 2026',
+    );
+  });
+
   test('kalimat paket', () => {
     const now = Date.parse('2026-10-21T03:00:00Z');
     const day = 86_400_000;
@@ -107,6 +138,13 @@ describe('skema dan pembacaan longgar', () => {
     expect(planText({ name: 'Bisnis', status: 'aktif' }, now)).toBe('Aktif');
     expect(planText({ name: 'Bisnis', status: 'berakhir', until: until(-3) }, now)).toBe('Sudah berakhir');
     expect(STYLES.map((s) => s.title)).toEqual(['Singkat', 'Ramah', 'Formal']);
+  });
+
+  test('versi di Akun: versi dan nomor build aplikasi terpasang, atau versi app.config bila tidak ada', () => {
+    expect(versionText()).toBe('Versi 1.0.0 (7)');
+    expect(versionText('1.2.0', '15')).toBe('Versi 1.2.0 (15)');
+    expect(versionText('1.2.0', null)).toBe('Versi 1.2.0');
+    expect(versionText(null, null)).toBe(`Versi ${appVersion()}`);
   });
 });
 

@@ -1015,7 +1015,11 @@ export const planStatusSchema = z.enum(['trial', 'aktif', 'berakhir']);
 export const accountPlanSchema = z.object({
   name: z.string().min(1),
   status: planStatusSchema.catch('aktif'),
-  /** `trial`: akhir masa coba; `aktif`: akhir langganan. */
+  /**
+   * `trial`: akhir masa coba; `aktif`: akhir langganan. Saat akhir (EKSKLUSIF): paket masih berlaku sampai `until - 1 ms`.
+   * Aplikasi menampilkan hari terakhir sebagai hari kalender dari `until - 1 ms` di zona waktu pengguna, bawaan WIB (mis.
+   * `2026-11-21T17:00:00Z` = berakhir tengah malam 22 Nov WIB, hari terakhirnya 21 Nov).
+   */
   until: isoDateTimeSchema.optional(),
   /** Harga per bulan dalam Rupiah. */
   price: z.number().int().nonnegative().optional(),

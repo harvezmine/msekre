@@ -697,6 +697,11 @@ Usaha membuka layar masuk layanan yang tepat.
 - `plan.status`: `trial` (masa coba 7 hari, sekali seumur akun; `until` = akhir masa coba), `aktif` (`until` = akhir
   langganan), `berakhir`. Status yang belum dikenal dibaca `aktif`. Aplikasi menulis "Coba gratis, tersisa 5 hari", "Aktif
   sampai 21 Nov 2026", "Sudah berakhir".
+- **`until` adalah saat akhir (eksklusif)**: paket masih berlaku sampai `until - 1 ms`. Aplikasi menampilkan hari
+  terakhir sebagai hari kalender dari `until - 1 ms` di zona waktu pengguna (`tzOffsetMinutes` dari `GET /agenda` bila
+  sudah dimuat, bawaan WIB), dan sisa hari dihitung dalam hari kalender zona itu: sehari sebelum hari terakhir "tersisa 1
+  hari", di hari terakhir "Coba gratis, berakhir hari ini". Contoh: `until` `2026-11-21T17:00:00Z` (tengah malam 22 Nov
+  WIB) menampilkan "Aktif sampai 21 Nov 2026".
 - **Pembayaran dan hapus akun hanya lewat WhatsApp.** Tombol "Perpanjang" dan "Buka WhatsApp" (hapus akun) membuka
   `https://wa.me/<waNumber>?text=...` memakai `EXPO_PUBLIC_WA_NUMBER`; QRIS dan penghapusan akun tetap alur WhatsApp yang sudah
   ada (tidak ada `POST /account/forget-all` dan tidak ada jalur bayar di API ini).

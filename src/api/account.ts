@@ -1,23 +1,40 @@
 import { Linking } from 'react-native';
 import type { AccountNotifications, AccountPlan, AssistantStyle } from './contract';
 import { assistantNameSchema } from './contract';
-import { formatTanggal } from './format';
 import { readWaNumber, waUrl } from './waNumber';
 
 const DAY_MS = 86_400_000;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+/** Zona waktu akun bila server tidak menyebut yang lain: WIB, 420 menit dari UTC. */
+export const ACCOUNT_TZ_MINUTES = 420;
 
-/** Kalimat keadaan paket: "Coba gratis, tersisa 5 hari", "Aktif sampai 21 Nov 2026", "Sudah berakhir". */
-export function planText(plan: AccountPlan, now: number = Date.now()): string {
+/** Nomor hari kalender (sejak 1970) dari waktu `ms` di zona `tz` (menit dari UTC). */
+const calendarDay = (ms: number, tz: number) => Math.floor((ms + tz * 60_000) / DAY_MS);
+
+/** "21 Nov 2026" untuk waktu `ms` di zona `tz`. */
+function dateIn(ms: number, tz: number): string {
+  const d = new Date(ms + tz * 60_000);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/**
+ * Kalimat keadaan paket: "Coba gratis, tersisa 5 hari", "Aktif sampai 21 Nov 2026", "Sudah berakhir".
+ *
+ * `plan.until` adalah saat akhir paket (eksklusif: paket masih berlaku sampai sedetik sebelumnya). Hari terakhir paket
+ * adalah hari kalender dari `until - 1 ms` di zona waktu akun (bawaan WIB), dan sisa hari dihitung dalam hari kalender:
+ * di hari terakhir "berakhir hari ini", sehari sebelumnya "tersisa 1 hari", bukan dibulatkan dari jam.
+ */
+export function planText(plan: AccountPlan, now: number = Date.now(), tz: number = ACCOUNT_TZ_MINUTES): string {
   if (plan.status === 'berakhir') return 'Sudah berakhir';
   const until = plan.until ? new Date(plan.until).getTime() : NaN;
   if (plan.status === 'trial') {
     if (Number.isNaN(until)) return 'Coba gratis';
-    const days = Math.ceil((until - now) / DAY_MS);
-    if (days <= 0) return 'Coba gratis, berakhir hari ini';
+    const days = calendarDay(until - 1, tz) - calendarDay(now, tz);
+    if (days < 0) return 'Sudah berakhir';
+    if (days === 0) return 'Coba gratis, berakhir hari ini';
     return `Coba gratis, tersisa ${days} hari`;
   }
-  const date = plan.until ? formatTanggal(plan.until) : null;
-  return date ? `Aktif sampai ${date}` : 'Aktif';
+  return Number.isNaN(until) ? 'Aktif' : `Aktif sampai ${dateIn(until - 1, tz)}`;
 }
 
 /** Gaya asisten dengan satu kalimat contoh. `{nama}` diganti nama asisten. */

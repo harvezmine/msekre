@@ -1,15 +1,25 @@
 import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
-import { HELP_TEXT, openWhatsApp, planText, RENEW_TEXT, STYLES, WA_UNAVAILABLE_TEXT } from '@/api/account';
+import {
+  ACCOUNT_TZ_MINUTES,
+  HELP_TEXT,
+  openWhatsApp,
+  planText,
+  RENEW_TEXT,
+  STYLES,
+  WA_UNAVAILABLE_TEXT,
+} from '@/api/account';
 import type { AccountPlan } from '@/api/contract';
 import { formatPhoneDisplay } from '@/api/format';
 import { useAccount } from '@/api/useAccount';
+import { useAgenda } from '@/api/useAgenda';
 import { useConnections } from '@/api/useConnections';
 import { getAlarmScheduler } from '@/alarm';
 import { alarmBlocked, useAlarmStatus } from '@/alarm/useAlarmStatus';
 import { usePush, type PushPermission } from '@/api/usePush';
 import { useSecurity } from '@/api/useSecurity';
+import { versionText } from '@/api/version';
 import { useProfile, type Profile } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
@@ -58,6 +68,8 @@ export default function Akun() {
   const { permission, canAskAgain } = usePush();
   const security = useSecurity();
   const alarm = useAlarmStatus();
+  // Hari terakhir paket dihitung di zona waktu pengguna (dari agenda bila sudah dimuat, bawaan WIB).
+  const { tzOffsetMinutes } = useAgenda();
   const account = accountOf(profile);
   const plan: AccountPlan | null = data?.plan ?? null;
   const assistant = data?.assistant.name ?? profile.assistantName;
@@ -207,7 +219,7 @@ export default function Akun() {
               </Txt>
               <Txt v="subtitle">{`Paket ${plan.name}`}</Txt>
               <Txt v="caption" color={plan.status === 'berakhir' ? c.clay : c.muted}>
-                {planText(plan)}
+                {planText(plan, undefined, tzOffsetMinutes ?? ACCOUNT_TZ_MINUTES)}
               </Txt>
             </View>
             <Pressable
@@ -270,7 +282,7 @@ export default function Akun() {
         <View style={{ alignItems: 'center', gap: 8, paddingTop: 16 }}>
           <Wordmark size={16} />
           <Txt v="caption" color={c.muted}>
-            Versi 1.0
+            {versionText()}
           </Txt>
         </View>
       </ScrollView>
