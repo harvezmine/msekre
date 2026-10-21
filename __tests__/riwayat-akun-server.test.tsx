@@ -29,6 +29,13 @@ const homeBody = {
   rev: 1,
 };
 const soon = (min: number) => new Date(Date.now() + min * 60_000).toISOString();
+// Masa coba berakhir tengah hari WIB, lima hari kalender dari hari ini: "tersisa 5 hari" tidak bergantung jam tes
+// dijalankan (sebelumnya gagal antara 00.00 dan 01.00).
+const trialEnd = () => {
+  const wib = new Date(Date.now() + 7 * 3_600_000);
+  const noonWib = Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate(), 12) - 7 * 3_600_000;
+  return new Date(noonWib + 5 * 86_400_000).toISOString();
+};
 const entry = (id: string, minAgo: number, over: object = {}) => ({
   id,
   at: soon(-minAgo),
@@ -39,7 +46,7 @@ const entry = (id: string, minAgo: number, over: object = {}) => ({
 });
 const account = (over: object = {}) => ({
   me,
-  plan: { name: 'Coba', status: 'trial', until: soon(5 * 1440 - 60), price: 99000 },
+  plan: { name: 'Coba', status: 'trial', until: trialEnd(), price: 99000 },
   assistant: { name: 'Nadia', style: 'ramah' },
   greeting: { daily: true, time: '07.00' },
   notifications: { pesan: true, pengingat: true, ringkasanHarian: true, rumah: true, usaha: true },
