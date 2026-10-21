@@ -57,6 +57,17 @@ Aturan ini mengalahkan aturan lain di dokumen ini:
   - perangkat menyala ditandai hijau;
   - biru, oranye, ungu, dan biru langit hanya penanda kecil kategori.
 - **Ujiannya:** pemilik warung berusia 45 tahun yang sibuk harus langsung tenang dan tahu apa yang perlu diketuk.
+- **Mulai sederhana, tumbuh pelan-pelan.**
+  - Pengguna baru melihat Beranda yang hampir kosong: sapaan, Inti, dan satu ajakan contoh.
+  - Blok dan tab muncul hanya bila relevan: perangkat sudah tersambung, ada data usaha, atau ada yang perlu disetujui.
+  - Petunjuk satu per satu, pada saatnya.
+  - Semua muncul dengan gerak yang halus.
+- **Niat per fitur.** Sebelum membangun sebuah layar, tulis di kepala berkasnya dalam satu kalimat:
+  - untuk apa layar itu;
+  - satu tindakan yang paling sering dilakukan di sana.
+  
+  Tindakan itu yang paling besar dan paling dekat dengan jempol. Kenyamanan pengguna di atas keinginan menampilkan
+  semua fitur.
 
 ## Arah desain: "hangat dan hidup"
 
