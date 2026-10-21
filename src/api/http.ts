@@ -33,6 +33,10 @@ import {
   type DeviceControlReq,
   type DeviceControlRes,
   type DevicesRes,
+  type Business,
+  type BusinessPeriod,
+  type BusinessReorderRes,
+  businessReorderResSchema,
   type DraftActionReq,
   type DraftActionRes,
   type Home,
@@ -54,6 +58,7 @@ import {
   parseDraftResLenient,
   parseEventLenient,
   parseAgendaLenient,
+  parseBusinessLenient,
   parseDevicesLenient,
   parseHomeLenient,
   parseMessageLenient,
@@ -287,6 +292,18 @@ export class HttpTransport implements Transport {
 
   setBoxMic(micOn: boolean): Promise<BoxRes> {
     return this.request('PUT', '/box', boxResSchema, { body: { micOn } });
+  }
+
+  business(place?: string, period?: BusinessPeriod): Promise<Business> {
+    const params = [
+      ...(place === undefined ? [] : [`place=${encodeURIComponent(place)}`]),
+      ...(period === undefined ? [] : [`period=${period}`]),
+    ];
+    return this.request('GET', `/business${params.length ? `?${params.join('&')}` : ''}`, reader(parseBusinessLenient));
+  }
+
+  businessReorder(stockId: string): Promise<BusinessReorderRes> {
+    return this.request('POST', '/business/reorder', businessReorderResSchema, { body: { stockId } });
   }
 
   async mediaUrl(mediaId: string): Promise<MediaSource> {

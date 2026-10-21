@@ -24,3 +24,14 @@ export const supplierOrderDraft: NewDraft = {
   what: 'pesanan',
   text: 'Selamat siang, PT Sumber Susu. Kami mau pesan lagi Susu UHT 20 karton untuk kiriman Selasa. Terima kasih.',
 };
+
+/** Draf pesanan ke pemasok per barang (kunci: id barang di `STOCK`). */
+export const stockOrderDrafts: Record<string, NewDraft> = {
+  'stok-susu-uht': supplierOrderDraft,
+  'stok-kopi-gayo': {
+    to: 'CV Gayo Mountain',
+    channel: 'WhatsApp',
+    what: 'pesanan',
+    text: 'Selamat siang, CV Gayo Mountain. Kami mau pesan lagi biji kopi Gayo 10 kg untuk kiriman Rabu. Terima kasih.',
+  },
+};

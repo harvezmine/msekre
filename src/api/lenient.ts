@@ -3,6 +3,14 @@ import {
   agendaItemSchema,
   agendaResSchema,
   boxSchema,
+  businessBranchSchema,
+  businessMoneyInSchema,
+  businessOrderSchema,
+  businessReportSchema,
+  businessSchema,
+  businessSourceSchema,
+  businessStockSchema,
+  businessPointSchema,
   businessSummarySchema,
   HOME_AGENDA_MAX,
   isoDateTimeSchema,
@@ -21,6 +29,7 @@ import {
   UNKNOWN_PART_NOTE,
   type AgendaItem,
   type AgendaRes,
+  type Business,
   type Device,
   type DevicesRes,
   type DraftActionRes,
@@ -146,6 +155,10 @@ export function parseEventLenient(raw: unknown): StreamEvent | null {
       ...(box.success ? { box: box.data } : {}),
       rev: rev.data,
     };
+  }
+  if ((raw as { type?: unknown }).type === 'business') {
+    const business = parseBusinessLenient((raw as { business?: unknown }).business);
+    return business ? { type: 'business', business } : null;
   }
   if ((raw as { type?: unknown }).type === 'draft') {
     // `rev` hilang atau rusak (server lama): drafnya tetap berlaku, `rev` 0 = tidak diketahui.
@@ -280,6 +293,39 @@ export function parseDevicesLenient(raw: unknown): DevicesRes | null {
     devices: parseDevices(list(raw.devices)),
     box: box.success ? box.data : null,
     routines: keep(routineSchema, raw.routines),
+    rev: rev.data,
+  });
+  return coerced.success ? coerced.data : null;
+}
+
+/**
+ * Jawaban `GET /business`: baris yang rusak (uang masuk, stok, pesanan, cabang, titik grafik, sumber) dibuang satu per
+ * satu; laporan yang rusak menjadi `null`. Kunci sumber dan saluran yang belum dikenal diterima apa adanya. `null`
+ * kalau `place`, `period`, `rev`, atau `sales` tidak terbaca.
+ */
+export function parseBusinessLenient(raw: unknown): Business | null {
+  const strict = businessSchema.safeParse(raw);
+  if (strict.success) return strict.data;
+  if (!isRecord(raw) || !nonEmpty(raw.place)) return null;
+  const rev = positiveInt.safeParse(raw.rev);
+  if (!rev.success) return null;
+  const keep = <T>(schema: z.ZodType<T>, v: unknown): T[] =>
+    (Array.isArray(v) ? v : []).flatMap((item) => {
+      const parsed = schema.safeParse(item);
+      return parsed.success ? [parsed.data] : [];
+    });
+  const report = businessReportSchema.safeParse(raw.report);
+  const coerced = businessSchema.safeParse({
+    place: raw.place,
+    period: raw.period,
+    sales: raw.sales,
+    series: keep(businessPointSchema, raw.series),
+    branches: keep(businessBranchSchema, raw.branches),
+    moneyIn: keep(businessMoneyInSchema, raw.moneyIn),
+    lowStock: keep(businessStockSchema, raw.lowStock),
+    orders: keep(businessOrderSchema, raw.orders),
+    report: report.success ? report.data : null,
+    sources: keep(businessSourceSchema, raw.sources),
     rev: rev.data,
   });
   return coerced.success ? coerced.data : null;

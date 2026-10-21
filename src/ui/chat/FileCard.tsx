@@ -1,14 +1,10 @@
-import { useRef, useState } from 'react';
 import { View } from 'react-native';
-import { FILE_DOWNLOAD_TEXT, FILE_NO_APP_TEXT } from '@/api/errors';
 import type { MediaSource } from '@/api/transport';
-import { NoViewerError, openDocument, shareDocument, type LocalDocument } from '@/files/documents';
-import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 import { CardButton, ChatCard } from './ChatCard';
-import { useMediaDownload } from './useMedia';
+import { useDocumentActions } from './useDocumentActions';
 
 export interface FileInfo {
   mediaId: string;
@@ -24,23 +20,7 @@ export interface FileInfo {
  */
 export function FileCard({ file, mediaUrl }: { file: FileInfo; mediaUrl: (mediaId: string) => Promise<MediaSource> }) {
   const { c } = useTheme();
-  const dispatch = useSampleDispatch();
-  const download = useMediaDownload(mediaUrl);
-  const [busy, setBusy] = useState<'open' | 'share' | null>(null);
-  const running = useRef(false);
-  const run = async (kind: 'open' | 'share', action: (doc: LocalDocument) => Promise<void>) => {
-    if (running.current) return;
-    running.current = true;
-    setBusy(kind);
-    try {
-      await action(await download(file.mediaId, file.name, file.mime));
-    } catch (e) {
-      dispatch({ type: 'showToast', text: e instanceof NoViewerError ? FILE_NO_APP_TEXT : FILE_DOWNLOAD_TEXT });
-    } finally {
-      running.current = false;
-      setBusy(null);
-    }
-  };
+  const { busy, open, share } = useDocumentActions(file, mediaUrl);
   return (
     <ChatCard>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -64,16 +44,8 @@ export function FileCard({ file, mediaUrl }: { file: FileInfo; mediaUrl: (mediaI
         </View>
       </View>
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <CardButton
-          label={busy === 'open' ? 'Mengunduh…' : 'Buka'}
-          disabled={busy !== null}
-          onPress={() => void run('open', openDocument)}
-        />
-        <CardButton
-          label={busy === 'share' ? 'Mengunduh…' : 'Bagikan'}
-          disabled={busy !== null}
-          onPress={() => void run('share', shareDocument)}
-        />
+        <CardButton label={busy === 'open' ? 'Mengunduh…' : 'Buka'} disabled={busy !== null} onPress={open} />
+        <CardButton label={busy === 'share' ? 'Mengunduh…' : 'Bagikan'} disabled={busy !== null} onPress={share} />
       </View>
     </ChatCard>
   );

@@ -1,8 +1,8 @@
 import { screen } from '@testing-library/react-native';
 import { renderWithProviders } from './helpers';
-import { businessByPlace } from '@/sample/business';
+import { businessFrom } from '@/api/fake/business';
 import { Sparkline } from '@/ui/business/Sparkline';
-import { sparkPoints } from '@/ui/business/sparkMath';
+import { sparkPoints, sparkRange } from '@/ui/business/sparkMath';
 
 const SERIES = [3.1, 3.6, 2.9, 3.8, 4.4, 4.9, 4.25];
 
@@ -40,9 +40,21 @@ test('grafik menggambar 7 titik dan menandai titik hari ini', async () => {
 });
 
 test('semua tempat punya 7 hari dan jumlah cabang sama dengan Semua', () => {
-  const { Semua, 'Kedai Dago': dago, 'Kedai Riau': riau } = businessByPlace;
-  for (const d of [Semua, dago, riau]) expect(d!.series).toHaveLength(7);
-  Semua!.series.forEach((v, i) => expect(dago!.series[i]! + riau!.series[i]!).toBeCloseTo(v, 6));
+  const none = () => undefined;
+  const [semua, dago, riau] = ['Semua', 'Kedai Dago', 'Kedai Riau'].map((p) => businessFrom(p, 'hari', none));
+  for (const d of [semua, dago, riau]) expect(d!.series).toHaveLength(7);
+  semua!.series.forEach((p, i) => expect(dago!.series[i]!.value + riau!.series[i]!.value).toBe(p.value));
+});
+
+test('jumlah titik lain dibagi rata di lebar yang sama, dan rentang sumbu memuat semua nilai', () => {
+  const pts = sparkPoints([1, 2, 3, 4]);
+  expect(pts[0]!.x).toBe(8);
+  expect(pts[3]!.x).toBeCloseTo(8 + 50.7 * 6, 6);
+  const { min, span } = sparkRange([100, 300]);
+  expect(min).toBeLessThan(100);
+  expect(min + span).toBeGreaterThan(300);
+  expect(sparkRange([])).toEqual({ min: 0, span: 1 });
+  expect(sparkRange([5, 5]).span).toBeGreaterThan(0);
 });
 
 test('grafik terbaca sebagai gambar bagi pembaca layar', async () => {

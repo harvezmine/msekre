@@ -9,6 +9,9 @@ import type {
   AuthVerifyReq,
   AuthVerifyRes,
   BoxRes,
+  Business,
+  BusinessPeriod,
+  BusinessReorderRes,
   DeviceControlReq,
   DeviceControlRes,
   DevicesRes,
@@ -182,6 +185,17 @@ export interface Transport {
   runRoutine(routineId: string, place?: string): Promise<RoutineRunRes>;
   /** Nyalakan atau matikan mikrofon Kotak (`PUT /box`). */
   setBoxMic(micOn: boolean): Promise<BoxRes>;
+  /**
+   * Usaha satu tempat dan rentang (`GET /business?place=&period=`). Tanpa `place`: tempat terpilih; tanpa `period`:
+   * `hari`. Perubahan berikutnya datang lewat event stream `business`.
+   */
+  business(place?: string, period?: BusinessPeriod): Promise<Business>;
+  /**
+   * Buat draf pesanan ke pemasok barang `stockId` (`POST /business/reorder`). Drafnya muncul di chat sebagai pesan asisten
+   * dan tidak ada yang terkirim tanpa persetujuan. Selama drafnya masih menunggu, memanggil lagi mengembalikan draf yang
+   * sama. Barang tidak ada: `tidak_ditemukan`; barang tanpa pemasok: `tidak_valid`.
+   */
+  businessReorder(stockId: string): Promise<BusinessReorderRes>;
   /**
    * Agenda (`GET /agenda`). Tanpa `range`: Senin pekan ini sampai Minggu pekan depan. Perubahan berikutnya datang lewat
    * event stream `agenda`.

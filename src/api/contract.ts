@@ -36,6 +36,8 @@
  * | POST /home/devices/:id         | DeviceControlReq     | DeviceControlRes                  |
  * | POST /routines/:id/run         | RoutineRunReq        | RoutineRunRes                     |
  * | PUT  /box                      | BoxReq               | BoxRes                            |
+ * | GET  /business?place=&period=  | -                    | Business (Usaha)                  |
+ * | POST /business/reorder         | BusinessReorderReq   | BusinessReorderRes                |
  * | GET  /media/:id                | -                    | berkasnya (gambar QRIS, dokumen)  |
  * | WS   /stream                   | -                    | StreamEvent, satu JSON per pesan  |
  *
@@ -641,6 +643,110 @@ export const agendaLeftoverResSchema = z.object({ item: agendaItemSchema.nullabl
 /** HP sudah menjadwalkan alarm lokal untuk item itu pada `scheduledFor` (ISO 8601). */
 export const alarmAckReqSchema = z.strictObject({ scheduledFor: isoDateTimeSchema });
 
+// ---- Usaha ----
+
+/** Rentang Usaha: `hari` = hari ini, `minggu` = pekan ini, `bulan` = bulan ini. */
+export const businessPeriodSchema = z.enum(['hari', 'minggu', 'bulan']);
+
+/**
+ * Penjualan satu rentang, dalam Rupiah utuh. `change`: persen perubahan tanpa tanda (12 = 12%), `down`: turun
+ * (selain itu naik). `compareLabel`: pembandingnya dalam kata, misalnya "Senin lalu", "pekan lalu", "bulan lalu".
+ */
+export const businessSalesSchema = z.object({
+  total: z.number().int().nonnegative(),
+  change: z.number().nonnegative(),
+  down: z.boolean(),
+  compareLabel: z.string(),
+});
+
+/** Satu titik grafik: `label` sumbu (hari, pekan, bulan), `value` Rupiah. Titik terakhir = rentang sekarang. */
+export const businessPointSchema = z.object({ label: z.string().min(1), value: z.number().nonnegative() });
+
+/** Penjualan satu kedai (hanya pada tampilan `Semua`). `status`: keterangan bebas, misalnya "belum buka". */
+export const businessBranchSchema = z.object({
+  place: z.string().min(1),
+  name: z.string().min(1),
+  total: z.number().int().nonnegative(),
+  change: z.number().nonnegative(),
+  down: z.boolean(),
+  status: z.string().optional(),
+});
+
+/** Uang masuk (rekening, QRIS). `source`: dari mana/siapa, dalam kata yang siap tampil. */
+export const businessMoneyInSchema = z.object({
+  id: idSchema,
+  source: z.string().min(1),
+  amount: z.number().int().nonnegative(),
+  at: isoDateTimeSchema,
+  note: z.string().optional(),
+});
+
+/**
+ * Stok menipis. `left` dan `unit` ("6", "karton"). `supplier`: pemasok yang dikenal (tanpa itu tidak bisa dipesan
+ * lewat aplikasi). `reorderDraftId`: ada selama draf pesanan ke pemasok masih menunggu persetujuan.
+ */
+export const businessStockSchema = z.object({
+  id: idSchema,
+  name: z.string().min(1),
+  left: z.number().nonnegative(),
+  unit: z.string(),
+  supplier: z.object({ name: z.string().min(1), phone: z.string().min(1).optional() }).optional(),
+  reorderDraftId: idSchema.optional(),
+});
+
+/** Pesanan marketplace. `channel` dan `status` bebas: kunci yang belum dikenal aplikasi ditampilkan apa adanya. */
+export const businessOrderSchema = z.object({
+  id: idSchema,
+  channel: z.string().min(1),
+  summary: z.string().min(1),
+  amount: z.number().int().nonnegative(),
+  status: z.string().min(1),
+  at: isoDateTimeSchema,
+});
+
+/** Laporan terakhir (berkas di `GET /media/:id`). `size` byte. `period` siap tampil, misalnya "14-20 Okt". */
+export const businessReportSchema = z.object({
+  mediaId: idSchema,
+  name: z.string().min(1),
+  size: z.number().int().nonnegative(),
+  period: z.string(),
+});
+
+/** Asal data. `key` bebas (`moka`, `moota`, `tiktok_shop`, ...); `connected` false = belum tersambung. */
+export const businessSourceSchema = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  connected: z.boolean(),
+});
+
+/**
+ * `GET /business?place=&period=`. Tanpa `place`: tempat terpilih; tanpa `period`: `hari`. `branches` terisi hanya
+ * pada tampilan `Semua` kalau pengguna punya beberapa kedai. Pengguna tanpa data usaha mendapat jawaban kosong
+ * (total 0, daftar kosong, `report` null). `rev`: nomor perubahan Usaha per pengguna.
+ */
+export const businessSchema = z.object({
+  place: z.string().min(1),
+  period: businessPeriodSchema,
+  sales: businessSalesSchema,
+  series: z.array(businessPointSchema),
+  branches: z.array(businessBranchSchema),
+  moneyIn: z.array(businessMoneyInSchema),
+  lowStock: z.array(businessStockSchema),
+  orders: z.array(businessOrderSchema),
+  report: businessReportSchema.nullable(),
+  sources: z.array(businessSourceSchema),
+  rev: z.number().int().positive(),
+});
+export const businessQuerySchema = z.object({
+  place: z.string().min(1).optional(),
+  period: businessPeriodSchema.optional(),
+});
+
+/** `POST /business/reorder`: buat draf pesanan ke pemasok barang `stockId`. Tidak ada yang terkirim tanpa persetujuan. */
+export const businessReorderReqSchema = z.strictObject({ stockId: idSchema });
+/** `draftId`: draf di chat; `messageId`: pesan asisten yang memuat kartunya. */
+export const businessReorderResSchema = z.object({ draftId: idSchema, messageId: idSchema });
+
 // ---- Stream ----
 
 export const streamEventSchema = z.discriminatedUnion('type', [
@@ -672,6 +778,8 @@ export const streamEventSchema = z.discriminatedUnion('type', [
     box: boxSchema.optional(),
     rev: z.number().int().positive(),
   }),
+  /** Usaha berubah: menggantikan Usaha dengan `place` dan `period` yang sama, kecuali `business.rev` lebih lama (upsert). */
+  z.object({ type: z.literal('business'), business: businessSchema }),
   z.object({ type: z.literal('ping') }),
 ]);
 
@@ -766,6 +874,18 @@ export type BoxRes = z.infer<typeof boxResSchema>;
 export type DeviceCard = z.infer<typeof deviceCardSchema>;
 export type DeviceControlReq = z.infer<typeof deviceControlReqSchema>;
 export type DeviceControlRes = z.infer<typeof deviceControlResSchema>;
+export type BusinessPeriod = z.infer<typeof businessPeriodSchema>;
+export type BusinessSales = z.infer<typeof businessSalesSchema>;
+export type BusinessPoint = z.infer<typeof businessPointSchema>;
+export type BusinessBranch = z.infer<typeof businessBranchSchema>;
+export type BusinessMoneyIn = z.infer<typeof businessMoneyInSchema>;
+export type BusinessStock = z.infer<typeof businessStockSchema>;
+export type BusinessOrder = z.infer<typeof businessOrderSchema>;
+export type BusinessReport = z.infer<typeof businessReportSchema>;
+export type BusinessSource = z.infer<typeof businessSourceSchema>;
+export type Business = z.infer<typeof businessSchema>;
+export type BusinessReorderReq = z.infer<typeof businessReorderReqSchema>;
+export type BusinessReorderRes = z.infer<typeof businessReorderResSchema>;
 export type StreamEvent = z.infer<typeof streamEventSchema>;
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;

@@ -396,6 +396,79 @@ Stream: `{ "type": "device", "devices": [Device], "box": Box, "rev": 12 }` (`dev
 `id`; event dengan `rev` lebih kecil dari data di layar dibuang. Setelah koneksi terbuka, aplikasi memuat ulang
 `GET /devices` untuk tempat yang ia pegang.
 
+### 2.15 Usaha: `GET /business`, `POST /business/reorder`, dan event `business`
+
+`GET /business?place=&period=` → `Business`:
+
+```json
+{ "place": "Semua", "period": "hari",
+  "sales": { "total": 4250000, "change": 12, "down": false, "compareLabel": "Senin lalu" },
+  "series": [{ "label": "Sel", "value": 3100000 }, "...", { "label": "Sen", "value": 4250000 }],
+  "branches": [{ "place": "Kedai Dago", "name": "Kedai Dago", "total": 2610000, "change": 9, "down": false }],
+  "moneyIn": [{ "id": "mi-1", "source": "Transfer dari PT Sumber Susu", "amount": 2400000,
+                "at": "2026-10-21T03:12:00Z", "note": "BCA" }],
+  "lowStock": [{ "id": "stok-susu-uht", "name": "Susu UHT", "left": 6, "unit": "karton",
+                 "supplier": { "name": "PT Sumber Susu", "phone": "6281234500011" }, "reorderDraftId": "d-31" }],
+  "orders": [{ "id": "tt-101", "channel": "tiktok_shop", "summary": "Biji kopi Gayo 250 g x 2", "amount": 178000,
+              "status": "perlu_dikirim", "at": "2026-10-21T02:12:00Z" }],
+  "report": { "mediaId": "rep-77", "name": "Laporan penjualan 14-20 Okt.xlsx", "size": 36864, "period": "14-20 Okt" },
+  "sources": [{ "key": "moka", "label": "Moka", "connected": true },
+              { "key": "shopee", "label": "Shopee", "connected": false }],
+  "rev": 8 }
+```
+
+- `place` kosong = tempat terpilih; `Semua` atau satu tempat; tempat tak dikenal 400 `tidak_valid`. `period` kosong =
+  `hari`.
+- **Rentang (`period`)** menentukan `sales`, `series`, dan `branches`; `moneyIn`, `lowStock`, `orders`, dan `report`
+  selalu keadaan sekarang:
+  - `hari`: penjualan hari ini; `change` dibanding hari yang sama pekan lalu (`compareLabel` "Senin lalu"); `series`
+    tujuh hari terakhir per hari, titik terakhir = hari ini.
+  - `minggu`: penjualan pekan ini sampai sekarang; dibanding pekan lalu ("pekan lalu"); `series` empat pekan, titik
+    terakhir = pekan ini.
+  - `bulan`: penjualan bulan ini sampai sekarang; dibanding bulan lalu ("bulan lalu"); `series` enam bulan, titik
+    terakhir = bulan ini.
+  - `label` titik grafik dipasang apa adanya di sumbu (singkat: "Sen", "Mgg 2", "Okt"). Jumlah titik boleh berbeda.
+- Uang dalam Rupiah utuh (`total`, `value`, `amount`). `change` persen tanpa tanda (`12` = 12%, boleh pecahan), arahnya
+  di `down`. Aplikasi menulis "naik 12% dari Senin lalu".
+- `branches`: hanya pada `Semua` kalau pengguna punya beberapa kedai (sama `period`); selain itu `[]`. `status`
+  keterangan bebas per kedai (opsional).
+- `moneyIn`: uang masuk terbaru (rekening lewat Moota, QRIS kasir), yang terbaru dulu. `source` siap tampil.
+- `lowStock`: barang di bawah batas minimum. `supplier` ada kalau pemasoknya dikenal; tanpa itu aplikasi tidak
+  menawarkan "Pesan lagi". `reorderDraftId` terisi selama ada draf pesanan ke pemasok untuk barang itu yang masih
+  menunggu persetujuan (status `draft`), supaya tombol berubah menjadi "Lihat draf".
+- `orders`: pesanan marketplace yang masih berjalan, yang terbaru dulu. `channel` dan `status` bebas (`tiktok_shop`,
+  `shopee`; `perlu_dikirim`, `dikirim`, `selesai`, `dibatalkan`). Yang belum dikenal aplikasi ditampilkan sebagai kata
+  biasa ("toko_baru" menjadi "Toko baru"), jadi saluran baru tidak perlu rilis aplikasi.
+- `report`: laporan terakhir yang dibuat asisten, atau `null`. Berkasnya diunduh lewat `GET /media/:id` dan dibuka/
+  dibagikan dengan alur dokumen (bagian 2.10). Jenis berkas dibaca dari ekstensi `name`.
+- `sources`: dari mana data usaha berasal dan apakah sudah tersambung. `key` bebas (`moka`, `moota`, `tiktok_shop`,
+  `shopee`, ...). Aplikasi menulis "Data dari Moka, rekening BCA dan TikTok Shop." untuk yang `connected`, dan menawarkan
+  "Sambungkan <label>" (membuka Terhubung) untuk yang belum.
+- **Pengguna tanpa data usaha** (tempat tanpa usaha, atau belum ada kasir/rekening tersambung) mendapat jawaban kosong,
+  bukan 404: `sales.total` 0, semua daftar `[]`, `report` `null`. Aplikasi lalu menampilkan "Belum ada data usaha.
+  Sambungkan kasir atau rekening di Terhubung." dengan tombol ke Terhubung.
+- `rev`: nomor perubahan Usaha per pengguna (satu penghitung untuk semua tempat dan rentang). Naik setiap ada yang
+  berubah.
+
+`POST /business/reorder` dengan `{ "stockId": string }` → `{ "draftId": string, "messageId": string }`.
+
+- Membuat **draf pesanan ke pemasok** barang itu (`what: "pesanan"`, kanal WhatsApp) dan menaruhnya di chat sebagai pesan
+  asisten berisi kartu `draft` (aturan draf bagian 2.7). `draftId` = id draf di kartu, `messageId` = pesan yang
+  memuatnya. Aplikasi membuka chat di draf itu.
+- **Tidak ada yang terkirim tanpa persetujuan.** Draf berstatus `draft`; pengiriman hanya lewat `POST /drafts/:id`
+  `send` (tahan lima menit, bisa dibatalkan) atau persetujuan lewat WhatsApp. Tidak ada kirim otomatis, tidak ada
+  tindak lanjut otomatis.
+- **Idempoten per `stockId`** selama drafnya masih terbuka (`draft`): memanggil lagi mengembalikan `draftId` dan
+  `messageId` yang sama dan tidak membuat pesan baru. Draf lain yang masih terbuka ke pemasok yang sama juga dipakai.
+  Setelah drafnya dikirim atau dibuang, panggilan berikutnya membuat draf baru.
+- Barang tidak ada: 404 `tidak_ditemukan`. Barang tanpa pemasok: 400 `tidak_valid`.
+- Perubahan ini mengubah `reorderDraftId`, jadi server menyiarkan event `business` (di bawah).
+
+Stream: `{ "type": "business", "business": Business }` memuat Usaha lengkap untuk satu `place` dan `period` (upsert
+menurut keduanya; dibuang bila `business.rev` lebih lama dari yang dipegang aplikasi untuk pasangan itu). Cukup
+siarkan pasangan yang berubah; boleh juga hanya yang sedang dibuka aplikasi. Setelah koneksi terbuka, aplikasi memuat
+ulang `GET /business` untuk setiap pasangan yang ia pegang, dan juga saat aplikasi kembali ke depan.
+
 ### 2.10 `GET /media/:id`
 
 Mengirim berkasnya: gambar QRIS, gambar, dokumen, suara. Dirujuk dari `mediaId` di bagian `image`, `document`,
@@ -727,6 +800,7 @@ Event dari server:
 { "type": "home", "home": { "place": "Semua", "rev": 52, "...": "..." } }
 { "type": "agenda", "items": [{ "id": "a10", "snoozedUntil": "...", "...": "..." }], "rev": 13 }
 { "type": "device", "devices": [{ "id": "ac-kamar", "...": "..." }], "rev": 12 }
+{ "type": "business", "business": { "place": "Semua", "period": "hari", "rev": 8, "...": "..." } }
 { "type": "thinking", "runId": "r-91", "on": true }
 { "type": "ping" }
 ```
@@ -741,6 +815,8 @@ Event dari server:
   dipegang aplikasi (upsert menurut `rev`). Tidak perlu `message` yang menyertainya.
 - `agenda`: agenda berubah (bagian 2.13); upsert per item menurut `id`, dibuang bila `rev` lebih lama dari yang dipegang
   aplikasi.
+- `business`: Usaha satu `place` dan `period` berubah (bagian 2.15); menggantikan Usaha itu, dibuang bila `rev` lebih
+  lama dari yang dipegang aplikasi.
 - `thinking`: `runId` unik per proses agen; `on: true` saat mulai, `on: false` saat selesai. Dua proses
   bersamaan (aplikasi dan WhatsApp) tidak saling menimpa; aplikasi menyimpan himpunan `runId` aktif.
 - `ping`: setiap 25 detik (`STREAM_PING_SEC`). Aplikasi menganggap koneksi mati bila 60 detik tanpa pesan apa pun.

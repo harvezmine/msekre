@@ -59,7 +59,7 @@ export default function Chat() {
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const live = useLive();
-  const { kosong } = useLocalSearchParams<{ kosong?: string }>();
+  const { kosong, draf } = useLocalSearchParams<{ kosong?: string; draf?: string }>();
   const { mode } = useApi();
   const dispatch = useSampleDispatch();
   const toast = (text: string) => dispatch({ type: 'showToast', text });
@@ -111,6 +111,22 @@ export default function Chat() {
   const showEmpty = kosong === '1' && rows.length === 0;
   // Daftar terbalik: yang terbaru dulu.
   const data = [...rows].reverse();
+  // `?draf=<id>` ("Lihat draf" di Usaha): gulir ke pesan yang memuat kartu draf itu, sekali.
+  const scrolledToDraft = useRef<string | null>(null);
+  useEffect(() => {
+    if (!draf || scrolledToDraft.current === draf) return;
+    const index = data.findIndex(
+      (r) =>
+        r.kind === 'part' && r.part.type === 'card' && r.part.card.kind === 'draft' && r.part.card.draft.id === draf,
+    );
+    if (index < 0) return;
+    scrolledToDraft.current = draf;
+    try {
+      list.current?.scrollToIndex({ index, viewPosition: 0.5, animated: false });
+    } catch {
+      // Baris belum terukur: onScrollToIndexFailed menggulir mendekati.
+    }
+  }, [draf, data]);
 
   return (
     // Edge-to-edge (SDK 58): jendela tidak lagi mengecil saat keyboard muncul, jadi 'padding' menaikkan kolom ketik setinggi keyboard di Android dan iOS.
@@ -203,6 +219,9 @@ export default function Chat() {
           // Pesan baru di dasar tidak menggeser tampilan saat pengguna membaca yang lama; di dasar, tetap mengikuti.
           maintainVisibleContentPosition={{ minIndexForVisible: 1, autoscrollToTopThreshold: NEAR_BOTTOM }}
           scrollEventThrottle={64}
+          onScrollToIndexFailed={(info) =>
+            list.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false })
+          }
           onScroll={onScroll}
           onEndReached={() => void chat.loadOlder()}
           onEndReachedThreshold={0.4}

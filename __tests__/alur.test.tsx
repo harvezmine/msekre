@@ -90,7 +90,9 @@ test('alur 2b: Batalkan di chat juga membatalkan di Riwayat (sampai ke penyimpan
 
 test('alur Usaha: Pesan lagi membuka chat dengan kartu draf pesanan; Kirim tampil di Riwayat', async () => {
   await showRoute('/usaha');
-  await fireEvent.press(screen.getByRole('button', { name: 'Pesan lagi' }));
+  await settle();
+  await fireEvent.press(screen.getByRole('button', { name: 'Pesan lagi Susu UHT' }));
+  await settle();
   expect(currentRoute()).toBe('/chat');
   await settle();
   expect(screen.getByText('PT Sumber Susu')).toBeOnTheScreen();

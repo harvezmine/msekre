@@ -2,8 +2,18 @@ import Svg, { Circle, Polyline } from 'react-native-svg';
 import { useTheme } from '@/theme/ThemeProvider';
 import { SPARK_H, SPARK_W, sparkPoints } from './sparkMath';
 
-/** Garis penjualan 7 hari; titik terakhir (hari ini) ditandai. */
-export function Sparkline({ series, min, span }: { series: number[]; min?: number; span?: number }) {
+/** Garis penjualan; titik terakhir (sekarang) ditandai. */
+export function Sparkline({
+  series,
+  min,
+  span,
+  label = 'Grafik penjualan 7 hari terakhir',
+}: {
+  series: number[];
+  min?: number;
+  span?: number;
+  label?: string;
+}) {
   const { c } = useTheme();
   const pts = sparkPoints(series, min, span);
   const last = pts[pts.length - 1]!;
@@ -12,7 +22,7 @@ export function Sparkline({ series, min, span }: { series: number[]; min?: numbe
       testID="sparkline"
       accessible
       accessibilityRole="image"
-      accessibilityLabel="Grafik penjualan 7 hari terakhir"
+      accessibilityLabel={label}
       viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
       width="100%"
       style={{ aspectRatio: SPARK_W / SPARK_H }}

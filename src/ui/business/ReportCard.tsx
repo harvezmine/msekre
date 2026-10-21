@@ -1,30 +1,29 @@
-import { Pressable, View } from 'react-native';
-import { REPORT_FILE, REPORT_REQUEST } from '@/sample/business';
+import { View } from 'react-native';
+import { mimeOfName } from '@/api/business';
+import type { BusinessReport } from '@/api/contract';
+import { formatFileMeta } from '@/api/format';
+import type { MediaSource } from '@/api/transport';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '../Card';
+import { CardButton } from '../chat/ChatCard';
+import { useDocumentActions } from '../chat/useDocumentActions';
 import { Icon } from '../Icon';
 import { Txt } from '../Txt';
 
-export function ReportCard({ onOpen }: { onOpen: () => void }) {
+/** Laporan terakhir: Buka dan Bagikan memakai alur unduh dokumen yang sama dengan kartu berkas di chat. */
+export function ReportCard({
+  report,
+  mediaUrl,
+}: {
+  report: BusinessReport;
+  mediaUrl: (mediaId: string) => Promise<MediaSource>;
+}) {
   const { c } = useTheme();
+  const mime = mimeOfName(report.name);
+  const { busy, open, share } = useDocumentActions({ mediaId: report.mediaId, name: report.name, mime }, mediaUrl);
   return (
     <Card style={{ gap: 12 }}>
       <Txt v="subtitle">Laporan</Txt>
-      <View
-        style={{
-          alignSelf: 'flex-end',
-          maxWidth: '85%',
-          backgroundColor: c.green,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          borderBottomLeftRadius: 20,
-          borderBottomRightRadius: 6,
-          paddingVertical: 10,
-          paddingHorizontal: 16,
-        }}
-      >
-        <Txt color={c.onGreen}>{REPORT_REQUEST}</Txt>
-      </View>
       <View
         style={{
           flexDirection: 'row',
@@ -49,32 +48,17 @@ export function ReportCard({ onOpen }: { onOpen: () => void }) {
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Txt weight={600} style={{ lineHeight: 22 }}>
-            {REPORT_FILE.name}
+            {report.name}
           </Txt>
           <Txt v="caption" color={c.muted}>
-            {REPORT_FILE.meta}
+            {formatFileMeta(report.size, mime)}
+            {report.period ? ` · ${report.period}` : ''}
           </Txt>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Buka ${REPORT_FILE.name}`}
-          onPress={onOpen}
-          android_ripple={{ color: c.ripple }}
-          style={{
-            height: 48,
-            paddingHorizontal: 16,
-            borderRadius: 24,
-            borderWidth: 1,
-            borderColor: c.line,
-            backgroundColor: c.card,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Txt weight={600} style={{ fontSize: 15 }}>
-            Buka
-          </Txt>
-        </Pressable>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <CardButton label={busy === 'open' ? 'Mengunduh…' : 'Buka'} disabled={busy !== null} onPress={open} />
+        <CardButton label={busy === 'share' ? 'Mengunduh…' : 'Bagikan'} disabled={busy !== null} onPress={share} />
       </View>
     </Card>
   );

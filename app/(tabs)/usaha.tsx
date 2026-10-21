@@ -1,14 +1,16 @@
 import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { businessByPlace } from '@/sample/business';
-import { supplierOrderDraft } from '@/sample/outgoing';
-import { draftFor, useSampleDispatch, useSampleState } from '@/sample/store';
+import type { BusinessStock } from '@/api/contract';
+import { useBusiness } from '@/api/useBusiness';
+import { useHome } from '@/api/useHome';
+import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { MoneyInCard } from '@/ui/business/MoneyInCard';
-import { OrdersRow } from '@/ui/business/OrdersRow';
+import { OrdersCard } from '@/ui/business/OrdersCard';
 import { ReportCard } from '@/ui/business/ReportCard';
 import { SalesCard } from '@/ui/business/SalesCard';
+import { SourcesRow } from '@/ui/business/SourcesRow';
 import { StockCard } from '@/ui/business/StockCard';
 import { Card } from '@/ui/Card';
 import { PlaceButton } from '@/ui/PlaceButton';
@@ -18,15 +20,17 @@ import { Txt } from '@/ui/Txt';
 export default function Usaha() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const state = useSampleState();
   const dispatch = useSampleDispatch();
-  const data = businessByPlace[state.place];
+  const { home } = useHome();
+  const place = home?.place ?? null;
+  const { data, hasData, status, error, retry, reorder, isReordering, mediaUrl } = useBusiness(place, 'hari');
   const toast = (text: string) => dispatch({ type: 'showToast', text });
 
-  const orderAgain = () => {
-    // Sudah ada draf terbuka ke supplier ini: cukup buka chat, jangan membuat draf kembar.
-    if (!draftFor(state, supplierOrderDraft.to)) dispatch({ type: 'addDraft', draft: supplierOrderDraft });
-    router.push('/chat');
+  const openDraft = (draftId: string) => router.push({ pathname: '/chat', params: { draf: draftId } });
+  const orderAgain = async (item: BusinessStock) => {
+    const res = await reorder(item.id);
+    if (res.ok) openDraft(res.draftId);
+    else if (res.message) toast(res.message);
   };
 
   return (
@@ -42,7 +46,7 @@ export default function Usaha() {
             paddingRight: 16,
           }}
         >
-          <PlaceButton labelFor={(p) => businessByPlace[p]?.label ?? p} />
+          <PlaceButton labelFor={(p) => (p === 'Semua' ? 'Semua cabang' : p)} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Akun"
@@ -64,30 +68,40 @@ export default function Usaha() {
         </Txt>
 
         <View style={{ paddingTop: 16, paddingHorizontal: 16, gap: 12 }}>
-          {data ? (
+          {!data ? (
+            status === 'error' ? (
+              <Card style={{ gap: 16 }}>
+                <Txt>{error}</Txt>
+                <Action label="Coba lagi" onPress={() => void retry()} />
+              </Card>
+            ) : null
+          ) : hasData ? (
             <>
               <SalesCard data={data} />
-              <MoneyInCard rows={data.moneyIn} />
-              <StockCard items={data.lowStock} onOrder={orderAgain} />
-              <OrdersRow count={data.orders} onPress={() => toast('Daftar pesanan dibangun di Fase 4.')} />
-              <ReportCard onOpen={() => toast('Membuka berkas contoh.')} />
+              {data.moneyIn.length > 0 ? <MoneyInCard data={data} /> : null}
+              {data.lowStock.length > 0 ? (
+                <StockCard
+                  data={data}
+                  isBusy={isReordering}
+                  onOrder={(item) => void orderAgain(item)}
+                  onSeeDraft={(item) => item.reorderDraftId && openDraft(item.reorderDraftId)}
+                />
+              ) : null}
+              <OrdersCard orders={data.orders} />
+              {data.report ? <ReportCard report={data.report} mediaUrl={mediaUrl} /> : null}
+              <SourcesRow sources={data.sources} />
             </>
           ) : (
             <Card style={{ gap: 16 }}>
-              <Txt>Pilih tempat usaha untuk melihat penjualan.</Txt>
+              <Txt>Belum ada data usaha. Sambungkan kasir atau rekening di Terhubung.</Txt>
+              <Action label="Buka Terhubung" onPress={() => router.push('/terhubung')} />
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel="Pilih tempat"
                 onPress={() => router.push('/tempat')}
-                android_ripple={{ color: c.ripple }}
-                style={{
-                  height: 52,
-                  borderRadius: 26,
-                  backgroundColor: c.green,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
+                style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Txt weight={600} color={c.onGreen}>
+                <Txt weight={600} color={c.green}>
                   Pilih tempat
                 </Txt>
               </Pressable>
@@ -96,5 +110,28 @@ export default function Usaha() {
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+function Action({ label, onPress }: { label: string; onPress: () => void }) {
+  const { c } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      android_ripple={{ color: c.ripple }}
+      style={{
+        height: 52,
+        borderRadius: 26,
+        backgroundColor: c.green,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Txt weight={600} color={c.onGreen}>
+        {label}
+      </Txt>
+    </Pressable>
   );
 }

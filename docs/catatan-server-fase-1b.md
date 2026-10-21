@@ -147,3 +147,33 @@ Kontrak: `docs/api-v1.md` bagian 2.9 dan 2.14. Aplikasi sudah memakainya penuh l
   perintah IR.
 - `POST /routines/:id/run` mengembalikan hanya perangkat yang berubah; `PUT /box` mengatur mikrofon Kotak.
 
+
+## Usaha (Fase 2a, Tugas 4; server menyusul)
+
+Kontrak: `docs/api-v1.md` bagian 2.15. Aplikasi sudah memakainya penuh lewat server tiruan.
+
+Peta ke milo-ai (di sana belum ada satu "layanan Usaha"; `GET /business` adalah penyusun dari beberapa sumber):
+
+- **Uang masuk** (`moneyIn`, sumber `moota`): `src/moota/` (`client.ts`, `service.ts`; alat agen `bank_accounts`,
+  `bank_mutations`, `bank_alerts`). Mutasi kredit terbaru menjadi baris `moneyIn`; webhook Moota yang sudah ada bisa
+  menaikkan `rev` Usaha. Sumber `moota` `connected` = pengguna punya akun Moota tersambung.
+- **Stok menipis** (`lowStock`): `src/stock/store.ts` (alat `stock_item`, `stock_record`, `stock_status`, `stock_report`).
+  `isLow()` (qty <= minQty) memilih barangnya; `left` dan `unit` dari `StockItem`. `supplier` perlu kolom pemasok pada
+  barang (nama + nomor WhatsApp); tanpa itu barang tidak bisa dipesan lewat aplikasi, tetap tampil.
+- **Penjualan, grafik, cabang** (`sales`, `series`, `branches`): dari laporan penjualan stok (`stock_report`, penjualan
+  per hari) untuk pengguna warkop/toko, atau dari kasir (Moka, self-service OAuth, lihat riset ERP) bila tersambung.
+  Satu tempat = satu usaha; `Semua` = jumlahnya. Pembanding (`compareLabel`) dihitung server dari rentang yang sama.
+- **Pesanan** (`orders`): TikTok Shop ("Tokopedia & Shop", rencana sudah dipilih) bila tersambung; saluran lain
+  (Shopee, Lazada) menyusul dengan `channel` baru tanpa mengubah aplikasi. Tanpa integrasi: `orders: []`.
+- **Laporan** (`report`): berkas Excel dari `stock_report` (mode excel) lewat jalur dokumen yang ada (`src/files/`),
+  disimpan sebagai media pengguna; `mediaId` dipakai `GET /media/:id`.
+- **Sumber** (`sources`): daftar dari tabel koneksi yang sama dengan Terhubung. `connected: false` untuk yang tersedia
+  tapi belum disambung supaya aplikasi bisa menawarkannya.
+- **Pesan lagi** (`POST /business/reorder`): memakai jalur draf yang sudah ada (`pending_actions`/relay menjadi kartu
+  `draft`, bagian 9.5): buat draf pesan WhatsApp ke pemasok (isi: nama barang dan jumlah standar), simpan sebagai pesan
+  asisten, kembalikan id draf dan id pesan. Tidak ada pengiriman tanpa persetujuan; tidak ada tindak lanjut otomatis.
+  Idempoten: simpan keterkaitan `stockId` -> draf terbuka dan kembalikan yang sama selama statusnya `draft`.
+- `rev`: satu penghitung per pengguna; naik saat mutasi baru masuk, stok berubah, pesanan berubah, laporan baru, atau
+  `reorderDraftId` berubah (draf dibuat/dikirim/dibuang). Siarkan `business` untuk pasangan `place`+`period` yang
+  berubah; gabungkan perubahan yang berdekatan.
+- Pengguna tanpa sumber tersambung: jawab data kosong (bukan 404) dengan `sources` yang bisa disambung.

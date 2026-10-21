@@ -1,22 +1,28 @@
 import { View } from 'react-native';
-import type { MoneyIn } from '@/sample/business';
+import type { Business } from '@/api/contract';
+import { formatJam, formatRupiah } from '@/api/format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '../Card';
 import { Txt } from '../Txt';
+import { sourceCaption } from './sources';
 
-export function MoneyInCard({ rows }: { rows: MoneyIn[] }) {
+export function MoneyInCard({ data }: { data: Business }) {
   const { c } = useTheme();
+  const rows = data.moneyIn;
+  const caption = sourceCaption(data.sources, 'moota');
   return (
     <Card style={{ paddingBottom: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
         <Txt v="subtitle">Uang masuk</Txt>
-        <Txt v="caption" color={c.muted}>
-          dari BCA
-        </Txt>
+        {caption ? (
+          <Txt v="caption" color={c.muted}>
+            {caption}
+          </Txt>
+        ) : null}
       </View>
       {rows.map((r, i) => (
         <View
-          key={`${r.time}-${r.title}`}
+          key={r.id}
           style={{
             flexDirection: 'row',
             gap: 12,
@@ -26,13 +32,14 @@ export function MoneyInCard({ rows }: { rows: MoneyIn[] }) {
           }}
         >
           <View style={{ flex: 1 }}>
-            <Txt>{r.title}</Txt>
+            <Txt>{r.source}</Txt>
             <Txt v="caption" color={c.muted} tabular>
-              {r.time}
+              {formatJam(r.at)}
+              {r.note ? ` · ${r.note}` : ''}
             </Txt>
           </View>
           <Txt weight={600} tabular>
-            {r.amount}
+            {formatRupiah(r.amount)}
           </Txt>
         </View>
       ))}

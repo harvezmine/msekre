@@ -1,93 +1,149 @@
-import type { Place } from './types';
-import { initialBusiness } from './history';
+import type { BusinessPeriod } from '@/api/contract';
 
-export interface MoneyIn {
-  title: string;
+/**
+ * Data usaha contoh yang dipegang server tiruan (`FakeTransport`). Angka dalam Rupiah utuh; server tiruan menyusunnya
+ * menjadi jawaban `GET /business` per tempat dan rentang (lihat `src/api/fake/business.ts`).
+ */
+export interface SampleMoneyIn {
+  id: string;
+  source: string;
+  amount: number;
+  /** Jam "HH.MM" WIB hari ini. */
   time: string;
-  amount: string;
+  note?: string;
 }
-export interface LowStock {
-  item: string;
-  left: string;
+export interface SampleOrder {
+  id: string;
+  channel: string;
+  summary: string;
+  amount: number;
+  status: string;
+  time: string;
 }
-/** Hasil penjualan satu tempat. `series`: tujuh hari sampai hari ini, dalam juta rupiah. */
-export interface PlaceSales {
-  /** Nama di tombol tempat dan keterangan, misalnya "Semua cabang". */
-  label: string;
-  sales: string;
-  change: string;
-  /** Penjualan turun dari Senin lalu: keterangan memakai warna clay, bukan hijau. */
-  down?: boolean;
-  series: number[];
-  /** Batas bawah dan rentang sumbu grafik (juta), supaya garis tiap tempat memenuhi tinggi grafik. */
-  min: number;
-  span: number;
-  /** Penjualan per cabang; hanya untuk Semua cabang. */
-  split?: { name: string; sales: string }[];
-  moneyIn: MoneyIn[];
-  lowStock: LowStock[];
-  orders: number;
+/** Barang yang dipantau. `supplier` dipakai "Pesan lagi". */
+export interface StockDef {
+  id: string;
+  name: string;
+  unit: string;
+  supplier: { name: string; phone: string };
+}
+export interface PlaceBusiness {
+  /** Penjualan tujuh hari sampai hari ini (Rupiah). */
+  daily: number[];
+  /** Perubahan dari pembandingnya per rentang, persen. */
+  change: Record<BusinessPeriod, { pct: number; down: boolean }>;
+  moneyIn: SampleMoneyIn[];
+  lowStock: { stockId: string; left: number }[];
+  orders: SampleOrder[];
 }
 
-export const REPORT_FILE = { name: 'Laporan penjualan 14–20 Okt.xlsx', meta: '36 KB · baru saja' };
-export const REPORT_REQUEST = 'Buat laporan penjualan minggu ini';
-
-/** Hari pada sumbu grafik; hari ini (Senin 20 Okt) paling kanan. */
+/** Hari pada sumbu grafik harian; hari ini (Senin 20 Okt) paling kanan. */
 export const SPARK_DAYS = ['Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min', 'Sen'] as const;
 
-/** Penjualan per tempat. Semua cabang memakai angka yang sama dengan kartu Usaha di Beranda. */
-export const businessByPlace: Partial<Record<Place, PlaceSales>> = {
+/** Tempat yang punya usaha. Rumah tidak. */
+export const BUSINESS_PLACES = ['Kedai Dago', 'Kedai Riau'] as const;
+
+export const STOCK: Record<string, StockDef> = {
+  'stok-susu-uht': {
+    id: 'stok-susu-uht',
+    name: 'Susu UHT',
+    unit: 'karton',
+    supplier: { name: 'PT Sumber Susu', phone: '6281234500011' },
+  },
+  'stok-kopi-gayo': {
+    id: 'stok-kopi-gayo',
+    name: 'Biji kopi Gayo',
+    unit: 'kg',
+    supplier: { name: 'CV Gayo Mountain', phone: '6281234500022' },
+  },
+};
+
+export const REPORT = {
+  name: 'Laporan penjualan 14–20 Okt.xlsx',
+  size: 36 * 1024,
+  period: '14–20 Okt',
+} as const;
+
+const DAGO_DAILY = [1_800_000, 2_100_000, 1_700_000, 2_200_000, 2_600_000, 2_900_000, 2_610_000];
+const RIAU_DAILY = [1_300_000, 1_500_000, 1_200_000, 1_600_000, 1_800_000, 2_000_000, 1_640_000];
+
+const DAGO_ORDERS: SampleOrder[] = [
+  {
+    id: 'tt-101',
+    channel: 'tiktok_shop',
+    summary: 'Biji kopi Gayo 250 g × 2',
+    amount: 178_000,
+    status: 'perlu_dikirim',
+    time: '09.12',
+  },
+  {
+    id: 'tt-102',
+    channel: 'tiktok_shop',
+    summary: 'Paket kopi hitam 1 kg',
+    amount: 245_000,
+    status: 'perlu_dikirim',
+    time: '10.05',
+  },
+];
+const RIAU_ORDERS: SampleOrder[] = [
+  {
+    id: 'tt-103',
+    channel: 'tiktok_shop',
+    summary: 'Susu UHT 1 karton',
+    amount: 132_000,
+    status: 'perlu_dikirim',
+    time: '08.47',
+  },
+];
+
+/** Usaha per tempat. `Semua` = jumlah dua kedai (grafik, uang masuk, stok, dan pesanan digabung). */
+export const businessData: Record<'Semua' | (typeof BUSINESS_PLACES)[number], PlaceBusiness> = {
   Semua: {
-    label: 'Semua cabang',
-    sales: initialBusiness.sales,
-    change: initialBusiness.change,
-    series: [3.1, 3.6, 2.9, 3.8, 4.4, 4.9, 4.25],
-    min: 2.6,
-    span: 2.5,
-    split: [
-      { name: 'Kedai Dago', sales: 'Rp2.610.000' },
-      { name: 'Kedai Riau', sales: 'Rp1.640.000' },
-    ],
+    daily: DAGO_DAILY.map((v, i) => v + RIAU_DAILY[i]!),
+    change: {
+      hari: { pct: 12, down: false },
+      minggu: { pct: 8, down: false },
+      bulan: { pct: 5, down: false },
+    },
     moneyIn: [
-      { title: 'Transfer dari PT Sumber Susu', time: '10.12', amount: 'Rp2.400.000' },
-      { title: 'QRIS Kedai Dago', time: '09.58', amount: 'Rp1.185.000' },
+      { id: 'mi-1', source: 'Transfer dari PT Sumber Susu', amount: 2_400_000, time: '10.12' },
+      { id: 'mi-2', source: 'QRIS Kedai Dago', amount: 1_185_000, time: '09.58' },
     ],
     lowStock: [
-      { item: 'Susu UHT', left: '6 karton' },
-      { item: 'Biji kopi Gayo', left: '2 kg' },
+      { stockId: 'stok-susu-uht', left: 6 },
+      { stockId: 'stok-kopi-gayo', left: 2 },
     ],
-    orders: 3,
+    orders: [...DAGO_ORDERS, ...RIAU_ORDERS],
   },
   'Kedai Dago': {
-    label: 'Kedai Dago',
-    sales: 'Rp2.610.000',
-    change: 'naik 9% dari Senin lalu',
-    series: [1.8, 2.1, 1.7, 2.2, 2.6, 2.9, 2.61],
-    min: 1.5,
-    span: 1.6,
+    daily: DAGO_DAILY,
+    change: {
+      hari: { pct: 9, down: false },
+      minggu: { pct: 6, down: false },
+      bulan: { pct: 4, down: false },
+    },
     moneyIn: [
-      { title: 'QRIS Kedai Dago', time: '09.58', amount: 'Rp1.185.000' },
-      { title: 'QRIS Kedai Dago', time: '08.40', amount: 'Rp620.000' },
+      { id: 'mi-2', source: 'QRIS Kedai Dago', amount: 1_185_000, time: '09.58' },
+      { id: 'mi-3', source: 'QRIS Kedai Dago', amount: 620_000, time: '08.40' },
     ],
     lowStock: [
-      { item: 'Susu UHT', left: '4 karton' },
-      { item: 'Biji kopi Gayo', left: '2 kg' },
+      { stockId: 'stok-susu-uht', left: 4 },
+      { stockId: 'stok-kopi-gayo', left: 2 },
     ],
-    orders: 2,
+    orders: DAGO_ORDERS,
   },
   'Kedai Riau': {
-    label: 'Kedai Riau',
-    sales: 'Rp1.640.000',
-    change: 'turun 4% dari Senin lalu',
-    down: true,
-    series: [1.3, 1.5, 1.2, 1.6, 1.8, 2.0, 1.64],
-    min: 1.0,
-    span: 1.2,
+    daily: RIAU_DAILY,
+    change: {
+      hari: { pct: 4, down: true },
+      minggu: { pct: 2, down: true },
+      bulan: { pct: 1, down: false },
+    },
     moneyIn: [
-      { title: 'QRIS Kedai Riau', time: '09.31', amount: 'Rp860.000' },
-      { title: 'Transfer dari Bu Sari', time: '08.15', amount: 'Rp450.000' },
+      { id: 'mi-4', source: 'QRIS Kedai Riau', amount: 860_000, time: '09.31' },
+      { id: 'mi-5', source: 'Transfer dari Bu Sari', amount: 450_000, time: '08.15' },
     ],
-    lowStock: [{ item: 'Susu UHT', left: '2 karton' }],
-    orders: 1,
+    lowStock: [{ stockId: 'stok-susu-uht', left: 2 }],
+    orders: RIAU_ORDERS,
   },
 };

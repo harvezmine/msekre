@@ -1,16 +1,19 @@
 import type { z } from 'zod';
 import { draftIntro, THINK_MS } from '@/sample/chat';
 import { MAIN_AC_ID } from '@/sample/devices';
-import { initialOutgoing } from '@/sample/outgoing';
+import { STOCK } from '@/sample/business';
+import { initialOutgoing, stockOrderDrafts } from '@/sample/outgoing';
 import { user } from '@/sample/profile';
 import type { SampleState } from '@/sample/reducer';
 import { createSampleStore, type SampleStore } from '@/sample/sampleStore';
-import { deviceById } from '@/sample/selectors';
+import { deviceById, draftFor } from '@/sample/selectors';
 import { ROUTINES, routineActions, routineDone } from '@/sample/routines';
 import { PLACES, type AcFan, type AcMode } from '@/sample/types';
 import {
   agendaAddReqSchema,
   boxReqSchema,
+  businessQuerySchema,
+  businessReorderReqSchema,
   devicesQuerySchema,
   routineRunReqSchema,
   agendaLeftoverReqSchema,
@@ -42,6 +45,9 @@ import {
   type AuthVerifyReq,
   type AuthVerifyRes,
   type BoxRes,
+  type Business,
+  type BusinessPeriod,
+  type BusinessReorderRes,
   type DeviceControlReq,
   type DeviceControlRes,
   type DevicesRes,
@@ -85,6 +91,7 @@ import {
 } from './agenda';
 import { FakeClock } from './clock';
 import { cardFromDevice } from '../devices';
+import { businessFrom } from './business';
 import { boxFrom, devicesFrom, toDevice } from './devices';
 import { homeFrom } from './home';
 import { draftFromOutgoing, SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
@@ -220,6 +227,12 @@ export class FakeTransport implements Transport {
   private deviceSnap = new Map<string, string>();
   private boxSnap = '';
   private devicesRev = 1;
+  private businessTimer: Promise<void> | null = null;
+  /** Usaha yang pernah diminta (`place|period`) dan isinya yang terakhir dihitung (JSON), untuk menghitung perubahan. */
+  private readonly businessSeen = new Map<string, string>();
+  private businessRev = 1;
+  /** Barang → id kiriman pesanan yang dibuat "Pesan lagi" (dianggap terbuka selama masih `draft`). */
+  private readonly stockDrafts = new Map<string, string>();
   private agendaTimer: Promise<void> | null = null;
   /** Keadaan agenda yang terakhir disiarkan: item per id (JSON) dan sisa tugas, untuk menghitung perubahan. */
   private agendaSnap = new Map<string, string>();
@@ -666,6 +679,47 @@ export class FakeTransport implements Transport {
     });
   }
 
+  business(place?: string, period?: BusinessPeriod): Promise<Business> {
+    return this.call(true, () => {
+      const query = parse(businessQuerySchema, { place, period });
+      const target = query.place ?? this.sample.getState().place;
+      if (!(PLACES as readonly string[]).includes(target)) throw invalid();
+      const range = query.period ?? 'hari';
+      // Perubahan yang belum disiarkan dihitung dulu, jadi `rev` jawaban ini sudah memuatnya.
+      this.flushBusiness();
+      const base = businessFrom(target, range, this.reorderOf);
+      this.businessSeen.set(`${target}|${range}`, JSON.stringify(base));
+      return copy({ ...base, rev: this.businessRev });
+    });
+  }
+
+  /**
+   * Buat draf pesanan ke pemasok barang `stockId` di penyimpanan contoh; kartunya muncul di chat lewat
+   * {@link syncOutgoing}. Selama drafnya (atau draf lain ke pemasok yang sama) masih menunggu, jawabannya draf itu.
+   */
+  businessReorder(stockId: string): Promise<BusinessReorderRes> {
+    return this.call(true, (): BusinessReorderRes => {
+      const req = parse(businessReorderReqSchema, { stockId });
+      const stock = STOCK[req.stockId];
+      const template = stockOrderDrafts[req.stockId];
+      if (!stock || !template) throw notFound();
+      const open = this.reorderOf(stock.id) ?? draftFor(this.sample.getState(), template.to)?.id;
+      let draftId = open;
+      if (!draftId) {
+        const before = new Set(Object.keys(this.sample.getState().outgoing));
+        this.sample.dispatch({ type: 'addDraft', draft: template });
+        draftId = Object.keys(this.sample.getState().outgoing).find((id) => !before.has(id))!;
+      }
+      this.stockDrafts.set(stock.id, draftId);
+      const message = this.thread.find((m) =>
+        m.parts.some((p) => p.type === 'card' && p.card.kind === 'draft' && p.card.draft.id === draftId),
+      );
+      if (!message) throw new ApiFailure('server', { status: 500, error: 'server' });
+      this.scheduleBusiness();
+      return { draftId, messageId: message.id };
+    });
+  }
+
   async mediaUrl(mediaId: string): Promise<MediaSource> {
     await this.checkSession();
     if (mediaId === SAMPLE_QR_MEDIA_ID) return { kind: 'sampleQr' };
@@ -781,6 +835,7 @@ export class FakeTransport implements Transport {
     this.scheduleHome();
     this.scheduleAgenda();
     this.scheduleDevices();
+    this.scheduleBusiness();
   }
 
   /**
@@ -882,6 +937,42 @@ export class FakeTransport implements Transport {
     this.devicesTimer = Promise.resolve().then(() => {
       this.devicesTimer = null;
       this.flushDevices();
+    });
+  }
+
+  // ---- Usaha ----
+
+  /** Id kiriman pesanan untuk `stockId` yang masih menunggu persetujuan. */
+  private readonly reorderOf = (stockId: string): string | undefined => {
+    const id = this.stockDrafts.get(stockId);
+    return id !== undefined && this.sample.getState().outgoing[id]?.status === 'draft' ? id : undefined;
+  };
+
+  /** Hitung ulang Usaha yang pernah diminta; yang berubah disiarkan satu per satu dengan `rev` yang sama (naik sekali). */
+  private flushBusiness() {
+    const changed: { key: string; json: string }[] = [];
+    for (const [key, before] of this.businessSeen) {
+      const [place, period] = key.split('|') as [string, BusinessPeriod];
+      const json = JSON.stringify(businessFrom(place, period, this.reorderOf));
+      if (json !== before) changed.push({ key, json });
+    }
+    if (changed.length === 0) return;
+    this.businessRev += 1;
+    for (const { key, json } of changed) {
+      this.businessSeen.set(key, json);
+      this.emit({
+        type: 'business',
+        business: { ...(JSON.parse(json) as Omit<Business, 'rev'>), rev: this.businessRev },
+      });
+    }
+  }
+
+  /** Perubahan penyimpanan dalam satu giliran digabung menjadi satu putaran event `business`. */
+  private scheduleBusiness() {
+    if (this.businessTimer) return;
+    this.businessTimer = Promise.resolve().then(() => {
+      this.businessTimer = null;
+      this.flushBusiness();
     });
   }
 
