@@ -78,7 +78,7 @@ describe('Nama dan gaya asisten', () => {
 
   test('ganti nama dari Beranda: tersimpan, kembali, dan nama baru ada di mana-mana', async () => {
     const api = await show('/');
-    expect(screen.getByRole('button', { name: 'Bicara dengan Nadia' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Nadia' })).toBeOnTheScreen();
     await go('/akun/asisten');
     await settle();
     await fireEvent.changeText(screen.getByLabelText('Nama asisten'), ' Sari ');
@@ -87,8 +87,8 @@ describe('Nama dan gaya asisten', () => {
     expect(toastNow()?.text).toBe('Tersimpan. Sekarang saya Sari.');
     expect(router.back).toHaveBeenCalled();
     expect(currentRoute()).toBe('/');
-    expect(screen.getByRole('button', { name: 'Bicara dengan Sari' })).toBeOnTheScreen();
-    expect(screen.queryByRole('button', { name: 'Bicara dengan Nadia' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Sari' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Nadia' })).toBeNull();
     expect((await api.transport.me()).assistantName).toBe('Sari');
     // Chat memakai nama yang sama.
     await go('/chat');

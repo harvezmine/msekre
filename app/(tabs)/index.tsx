@@ -1,87 +1,113 @@
-import * as Haptics from 'expo-haptics';
+// Niat layar: menunjukkan sekilas yang perlu Anda sekarang (paling banyak tiga hal). Tindakan tersering: ketuk atau tahan
+// Inti di zona jempol (tepat di atas bilah tab) untuk chat atau bicara.
 import { router } from 'expo-router';
-import { useEffect, type ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Draft } from '@/api/contract';
-import { useApi } from '@/api/ApiProvider';
-import { greetingFor } from '@/api/format';
+import type { Device, Draft } from '@/api/contract';
 import { useAgenda } from '@/api/useAgenda';
+import { useChat } from '@/api/useChat';
 import { useDeviceControl } from '@/api/useDeviceControl';
 import { useHome } from '@/api/useHome';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Card } from '@/ui/Card';
-import { GradientField, Surface } from '@/ui/kit';
-import { Icon } from '@/ui/Icon';
-import { iconOr, type IconName } from '@/ui/icons';
-import { PlaceButton } from '@/ui/PlaceButton';
-import { Orbit } from '@/ui/orbit/Orbit';
-import { useLive } from '@/ui/useLive';
-import { ringLabel } from '@/ui/orbit/label';
-import { Toggle } from '@/ui/Toggle';
+import {
+  contactInitial,
+  deviceIcon,
+  greetingText,
+  nextAgenda,
+  oldestApproval,
+  pickFavorites,
+  stateWord,
+  suggestionFor,
+  type NextAgenda,
+} from '@/ui/beranda/blocks';
 import { Initials } from '@/ui/Initials';
+import {
+  ApprovalCard,
+  blockEntering,
+  blockExiting,
+  blockLayout,
+  CoachMark,
+  FavouriteToggle,
+  GradientField,
+  NextItemRow,
+  SuggestionCard,
+  useLayoutClass,
+} from '@/ui/kit';
+import { useBerandaIntiSize } from '@/ui/TabBar';
+import { TIP_TEXT, useTip } from '@/ui/tips';
+import { useToast } from '@/ui/toastStore';
 import { Txt } from '@/ui/Txt';
-import { useOpenVoice } from '@/voice/available';
 
-/** Kalimat kartu persetujuan: dari server (`ask`), atau disusun dari jenis dan penerimanya. */
-function approvalText(d: Draft): string {
-  return d.ask ?? `${d.what[0]!.toUpperCase()}${d.what.slice(1)} untuk ${d.to} sudah siap. Kirim?`;
-}
-
-/** Isi muncul memudar sekejap saat Beranda selesai dimuat (tanpa kerangka). */
-function FadeIn({ children }: { children: ReactNode }) {
-  const reduce = useReducedMotion();
-  const p = useSharedValue(reduce ? 1 : 0);
-  useEffect(() => {
-    if (!reduce) p.set(withTiming(1, { duration: 200, easing: Easing.out(Easing.cubic) }));
-  }, [reduce, p]);
-  const style = useAnimatedStyle(() => ({ opacity: p.get() }));
-  return <Animated.View style={style}>{children}</Animated.View>;
+const pad = (n: number) => String(n).padStart(2, '0');
+/** Jam HP "HH.MM" dan tanggal "YYYY-MM-DD", bila agenda (jam zona pengguna dari server) belum dimuat. */
+function deviceClock(): { now: string; today: string } {
+  const d = new Date();
+  return {
+    now: `${pad(d.getHours())}.${pad(d.getMinutes())}`,
+    today: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+  };
 }
 
 export default function Beranda() {
-  const { c, marker, shadow } = useTheme();
-  const live = useLive();
-  const openSuara = useOpenVoice();
+  const { c, shadow } = useTheme();
   const insets = useSafeAreaInsets();
-  const { mode } = useApi();
-  const { home, ring, status, error, retry } = useHome();
-  // Sapaan menurut jam di zona pengguna (dari agenda, yang jamnya dimajukan sendiri); belum ada: jam HP.
-  const { now } = useAgenda();
-  const hello = greetingFor(now ? Number(now.slice(0, 2)) : new Date().getHours());
-  const approval = home?.approvals[0] ?? null;
-  const alert = home?.business?.alert ?? null;
+  const compact = useLayoutClass() === 'compact';
+  const orb = useBerandaIntiSize();
+  const toast = useToast();
+  const { home, status, error, retry } = useHome();
+  const agenda = useAgenda();
+  const devices = useDeviceControl('Semua');
+  const chat = useChat({ onError: toast });
+  const tip = useTip('inti');
 
-  // Sakelar AC: lewat kendali perangkat di server (asli atau tiruan); Beranda ikut event `home`.
-  // Perintah yang butuh PIN membuka lembar PIN, gagal menjadi toast ramah (lewat `useDeviceControl`).
-  const { control } = useDeviceControl(home?.place);
-  const switchAc = async (deviceId: string, on: boolean) => {
-    const result = await control(deviceId, { on });
-    if (result.ok) void retry();
-  };
+  const clock = deviceClock();
+  const now = agenda.now ?? clock.now;
+  const today = agenda.today ?? clock.today;
+  const approval = home ? oldestApproval(home) : null;
+  const next = home ? nextAgenda({ items: agenda.items, today: agenda.today, homeToday: home.agendaToday }, now) : null;
+  const favorites = pickFavorites(devices.devices);
+  // Pengguna baru: tidak ada yang perlu disetujui, tidak ada agenda dekat, tidak ada perangkat. Menunggu perangkat
+  // dimuat dulu, supaya kartu contoh tidak berkedip lalu hilang.
+  const devicesKnown = devices.data !== null || devices.status === 'error';
+  const fresh = home !== null && devicesKnown && !approval && !next && favorites.length === 0;
+  const greeting = home ? greetingText(Number(now.slice(0, 2)), home.greetingName, fresh) : null;
+
+  // Urutan muncul blok yang tampil (jeda 80 ms per blok).
+  const nextIndex = approval ? 1 : 0;
+  const favIndex = nextIndex + (next ? 1 : 0);
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
-      {/* Latar gradasi lembut di belakang sapaan (resep `hero`), sampai ke bawah bilah status. */}
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      {/* Latar gradasi hijau lembut di belakang sapaan, sampai ke bawah bilah status. */}
       <GradientField recipe="hero" />
-      <ScrollView contentContainerStyle={{ paddingTop: 8, paddingBottom: 24 }}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: insets.top + (compact ? 14 : 44),
+          // Setengah Inti naik di atas bilah tab: isi terakhir tidak pernah tertutup.
+          paddingBottom: orb / 2 + 24,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingLeft: 12,
+            paddingLeft: 24,
             paddingRight: 16,
+            gap: 12,
           }}
         >
-          <PlaceButton />
+          <Txt
+            v="display"
+            accessibilityRole="header"
+            numberOfLines={2}
+            style={[{ flex: 1 }, compact ? { fontSize: 28, lineHeight: 34 } : null]}
+          >
+            {greeting ?? ''}
+          </Txt>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Akun"
@@ -101,234 +127,133 @@ export default function Beranda() {
           </Pressable>
         </View>
 
-        {!home ? (
-          status === 'error' ? (
-            <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 16, alignItems: 'flex-start' }}>
-              <Txt>{error}</Txt>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Coba lagi"
-                onPress={() => void retry()}
-                style={{
-                  height: 48,
-                  paddingHorizontal: 24,
-                  borderRadius: 24,
-                  backgroundColor: c.brand,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Txt weight={600} color={c.onBrand}>
-                  Coba lagi
-                </Txt>
-              </Pressable>
-            </View>
-          ) : null
-        ) : (
-          <FadeIn>
-            <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 8 }}>
-              <Txt v="display">{home.greetingName ? `${hello}, ${home.greetingName}` : hello}</Txt>
-              <Txt v="subtitle" weight={400} color={c.muted}>
-                {home.summary}
+        {!home && status === 'error' ? (
+          <View style={{ paddingHorizontal: 24, paddingTop: 32, gap: 16, alignItems: 'flex-start' }}>
+            <Txt>{error}</Txt>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Coba lagi"
+              onPress={() => void retry()}
+              style={{
+                minHeight: 56,
+                paddingHorizontal: 28,
+                borderRadius: 28,
+                backgroundColor: c.brand,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Txt weight={600} color={c.onBrand}>
+                Coba lagi
               </Txt>
-              {mode === 'contoh' ? (
-                <Txt v="caption" color={c.muted}>
-                  Data contoh
-                </Txt>
-              ) : null}
-            </View>
+            </Pressable>
+          </View>
+        ) : null}
 
-            <View style={{ paddingHorizontal: 20, paddingTop: 16, alignItems: 'center' }}>
-              <Orbit
-                nodes={ring}
-                paused={!live}
-                onPressRing={() => router.push('/terhubung')}
-                onPressInti={() => router.navigate('/chat')}
-                onLongPressInti={() => {
-                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  openSuara('navigate');
-                }}
+        <View style={{ gap: 20, paddingTop: compact ? 20 : 28 }}>
+          {approval ? (
+            <Animated.View
+              key={`persetujuan-${approval.id}`}
+              testID="blok-persetujuan"
+              entering={blockEntering(0)}
+              exiting={blockExiting}
+              layout={blockLayout}
+              style={{ paddingHorizontal: 16 }}
+            >
+              <Approval draft={approval} chat={chat} compact={compact} />
+            </Animated.View>
+          ) : null}
+          {next ? (
+            <Animated.View
+              key="agenda-berikutnya"
+              testID="blok-agenda"
+              entering={blockEntering(nextIndex)}
+              exiting={blockExiting}
+              layout={blockLayout}
+            >
+              <NextItemRow
+                time={nextTime(next)}
+                title={next.title}
+                compact={compact}
+                onPress={() => router.navigate('/agenda')}
               />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={ringLabel(ring)}
-                onPress={() => router.push('/terhubung')}
-                style={{ height: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}
-              >
-                <Txt v="caption" color={c.muted}>
-                  {ringLabel(ring)}
-                </Txt>
-                <Icon name="chevR" size={16} color={c.muted} />
-              </Pressable>
-            </View>
+            </Animated.View>
+          ) : null}
+          {favorites.length > 0 ? (
+            <Animated.View
+              key="favorit"
+              testID="blok-favorit"
+              entering={blockEntering(favIndex)}
+              exiting={blockExiting}
+              layout={blockLayout}
+              style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 16 }}
+            >
+              {favorites.map((d) => (
+                <Favourite key={d.id} device={d} compact={compact} control={devices.control} />
+              ))}
+            </Animated.View>
+          ) : null}
+        </View>
 
-            <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
-              {approval ? (
-                <Surface variant="raised" padding={16} style={{ gap: 14 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: 4,
-                        backgroundColor: c.brand,
-                        boxShadow: `0 0 0 4px ${c.brandSoft}`,
-                      }}
-                    />
-                    <Txt v="caption" weight={600} color={c.brandInk}>
-                      Butuh persetujuan Anda
-                    </Txt>
-                  </View>
-                  <Txt>{approvalText(approval)}</Txt>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Lihat"
-                    onPress={() => router.navigate('/chat')}
-                    style={{
-                      height: 48,
-                      borderRadius: 24,
-                      backgroundColor: c.brand,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Txt weight={600} color={c.onBrand}>
-                      Lihat
-                    </Txt>
-                  </Pressable>
-                </Surface>
-              ) : null}
-
-              {home.agendaToday.length > 0 ? (
-                <Card style={{ paddingBottom: 8 }}>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: 4,
-                    }}
-                  >
-                    <Txt v="subtitle">Agenda hari ini</Txt>
-                    <Pressable
-                      accessibilityRole="link"
-                      onPress={() => router.navigate('/agenda')}
-                      style={{ paddingVertical: 12, paddingLeft: 12 }}
-                    >
-                      <Txt weight={600} color={c.brandInk} style={{ fontSize: 15 }}>
-                        Lihat semua
-                      </Txt>
-                    </Pressable>
-                  </View>
-                  {home.agendaToday.map((a, i) => (
-                    <View
-                      key={a.id}
-                      style={{
-                        flexDirection: 'row',
-                        gap: 16,
-                        paddingVertical: 12,
-                        borderBottomWidth: i < home.agendaToday.length - 1 ? 1 : 0,
-                        borderBottomColor: c.line,
-                      }}
-                    >
-                      <Txt weight={600} tabular style={{ width: 52 }}>
-                        {a.time}
-                      </Txt>
-                      <Txt style={{ flex: 1 }}>{a.title}</Txt>
-                    </View>
-                  ))}
-                </Card>
-              ) : null}
-
-              {home.house.lines.length > 0 ? (
-                <Card style={{ gap: 4 }}>
-                  <Txt v="subtitle" style={{ marginBottom: 8 }}>
-                    Rumah
-                  </Txt>
-                  {home.house.lines.map((line) => {
-                    // Baris AC punya sakelar dan ikon berwarna; baris lain hanya keterangan.
-                    const ac = line.on !== undefined;
-                    return (
-                      <View
-                        key={line.deviceId}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 }}
-                      >
-                        <IconTile icon={iconOr(line.icon, 'home')} tinted={ac} />
-                        <Txt weight={ac ? 500 : undefined} style={{ flex: 1 }}>
-                          {line.text}
-                        </Txt>
-                        {ac && line.switchable && !line.sensitive ? (
-                          <Toggle
-                            value={line.on === true}
-                            onChange={(on) => void switchAc(line.deviceId, on)}
-                            label={line.label ?? line.text}
-                          />
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                </Card>
-              ) : null}
-
-              {home.business ? (
-                <Card style={{ gap: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                    <Txt v="subtitle">Usaha</Txt>
-                    <Txt v="caption" color={c.muted}>
-                      {home.business.source}
-                    </Txt>
-                  </View>
-                  <View style={{ gap: 2 }}>
-                    <Txt v="caption" color={c.muted}>
-                      Penjualan hari ini
-                    </Txt>
-                    <Txt weight={600} tabular style={{ fontSize: 28, lineHeight: 36, letterSpacing: -0.28 }}>
-                      {home.business.sales}
-                    </Txt>
-                    <Txt weight={500} color={home.business.down ? marker.warn.ink : c.brandInk}>
-                      {home.business.change}
-                    </Txt>
-                  </View>
-                  {alert ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <View
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: 4,
-                          backgroundColor: marker.warn.base,
-                          boxShadow: `0 0 0 4px ${c.sunken}`,
-                        }}
-                      />
-                      <Txt weight={500} style={{ flexShrink: 1 }}>
-                        {alert}
-                      </Txt>
-                    </View>
-                  ) : null}
-                </Card>
-              ) : null}
-            </View>
-          </FadeIn>
-        )}
+        {/* Ruang kosong itu disengaja: kartu contoh pengguna baru duduk di zona jempol, tepat di atas Inti. */}
+        <View style={{ flexGrow: 1, minHeight: 24 }} />
+        {fresh && !tip.visible ? (
+          <Animated.View
+            testID="blok-saran"
+            entering={blockEntering(0)}
+            exiting={blockExiting}
+            style={{ paddingHorizontal: 16, marginBottom: compact ? 16 : 42 }}
+          >
+            <SuggestionCard
+              text={suggestionFor(today)}
+              onPress={() => router.push({ pathname: '/chat', params: { isi: suggestionFor(today) } })}
+            />
+          </Animated.View>
+        ) : null}
       </ScrollView>
+      {tip.visible ? <CoachMark text={TIP_TEXT.inti} bottom={orb / 2 + 50} onDismiss={tip.dismiss} /> : null}
     </View>
   );
 }
 
-function IconTile({ icon, tinted = false }: { icon: IconName; tinted?: boolean }) {
-  const { c, marker } = useTheme();
+const nextTime = (n: NextAgenda) => (n.day === 1 ? `Besok ${n.time}` : n.time);
+
+/** Persetujuan tertua: Kirim menahan kiriman 5 menit (masih bisa dibatalkan di chat atau Riwayat), Ubah membuka chat di drafnya. */
+function Approval({ draft, chat, compact }: { draft: Draft; chat: ReturnType<typeof useChat>; compact: boolean }) {
   return (
-    <View
-      style={{
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: c.sunken,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Icon name={icon} size={22} color={tinted ? marker.rumah.ink : c.text} />
-    </View>
+    <ApprovalCard
+      name={draft.to}
+      initial={contactInitial(draft.to)}
+      preview={draft.text}
+      busy={chat.draftBusy(draft.id)}
+      compact={compact}
+      onEdit={() => router.push({ pathname: '/chat', params: { draf: draft.id } })}
+      onSend={() => void chat.draftAction(draft.id, 'send')}
+    />
+  );
+}
+
+/** Sakelar besar: ketuk nyala/mati lewat aturan perangkat yang sama (PIN, tanya dulu sebelum membuka kunci), tahan membuka remote. */
+function Favourite({
+  device,
+  compact,
+  control,
+}: {
+  device: Device;
+  compact: boolean;
+  control: ReturnType<typeof useDeviceControl>['control'];
+}) {
+  return (
+    <FavouriteToggle
+      testID={`favorit-${device.id}`}
+      icon={deviceIcon(device)}
+      name={device.short ?? device.name}
+      state={stateWord(device)}
+      on={device.on}
+      reachable={device.reachable}
+      compact={compact}
+      onToggle={() => void control(device.id, { on: !device.on })}
+      onOpen={() => router.push({ pathname: '/perangkat/[id]', params: { id: device.id } })}
+    />
   );
 }

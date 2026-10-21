@@ -36,6 +36,7 @@
  * | POST /agenda/:id/alarm-ack     | AlarmAckReq          | OkRes (milik sesi)                |
  * | GET  /devices?place=           | -                    | DevicesRes (Perangkat)            |
  * | POST /home/devices/:id         | DeviceControlReq     | DeviceControlRes                  |
+ * | PUT  /home/devices/:id/favorite | DeviceFavoriteReq   | DeviceFavoriteRes                 |
  * | POST /routines/:id/run         | RoutineRunReq        | RoutineRunRes                     |
  * | PUT  /box                      | BoxReq               | BoxRes                            |
  * | GET  /business?place=&period=  | -                    | Business (Usaha)                  |
@@ -666,6 +667,13 @@ export const deviceSchema = z.object({
   via: z.enum(['ir', 'cloud']).optional().catch(undefined),
   sensitive: z.boolean().optional(),
   status: z.string(),
+  /** Disematkan pengguna ke Beranda (`PUT /home/devices/:id/favorite`). Tidak ada = tidak. */
+  favorite: lenientOpt(z.boolean()),
+  /**
+   * Terakhir pengguna mengatur perangkat ini (dari aplikasi, chat, suara, atau WhatsApp), ISO 8601. Beranda memakainya
+   * untuk memilih sakelar bila belum ada favorit. Tidak ada = belum pernah atau tidak diketahui.
+   */
+  lastUsedAt: lenientOpt(isoDateTimeSchema),
 });
 
 /** Ruangan di satu tempat. */
@@ -754,6 +762,11 @@ export const deviceControlResSchema = z.object({
   card: deviceCardSchema,
   rev: z.number().int().nonnegative(),
 });
+
+/** `PUT /home/devices/:id/favorite`: sematkan (`true`) atau lepas (`false`) perangkat dari Beranda. */
+export const deviceFavoriteReqSchema = z.strictObject({ favorite: z.boolean() });
+/** Perangkat sesudahnya dan `rev` perangkat (sama dengan `rev` event `device` yang menyusul). */
+export const deviceFavoriteResSchema = z.object({ device: deviceSchema, rev: z.number().int().nonnegative() });
 
 /** `place` kosong = tempat terpilih pengguna. Tutup kedai menyentuh kedai itu; di Semua atau Rumah, semua kedai. */
 export const routineRunReqSchema = z.strictObject({ place: z.string().min(1).optional() });
@@ -1410,6 +1423,8 @@ export type BoxRes = z.infer<typeof boxResSchema>;
 export type DeviceCard = z.infer<typeof deviceCardSchema>;
 export type DeviceControlReq = z.infer<typeof deviceControlReqSchema>;
 export type DeviceControlRes = z.infer<typeof deviceControlResSchema>;
+export type DeviceFavoriteReq = z.infer<typeof deviceFavoriteReqSchema>;
+export type DeviceFavoriteRes = z.infer<typeof deviceFavoriteResSchema>;
 export type BusinessPeriod = z.infer<typeof businessPeriodSchema>;
 export type BusinessSales = z.infer<typeof businessSalesSchema>;
 export type BusinessPoint = z.infer<typeof businessPointSchema>;

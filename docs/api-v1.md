@@ -535,6 +535,10 @@ Aturan:
   berbahasa Indonesia sehari-hari; aplikasi tidak menyusunnya.
 - `greetingName`: nama untuk sapaan, atau `null` (aplikasi menyapa "Selamat pagi" tanpa nama). Server asli tidak pernah
   mengirim nama orang lain.
+- Beranda aplikasi (Fase R) memakai `greetingName`, `approvals` (hanya yang tertua), `agendaToday` (bersama `GET /agenda`
+  untuk butir berikutnya dalam 12 jam), dan `business` (hanya untuk memutuskan tab Usaha tampil). Sakelar perangkat
+  datang dari `GET /devices?place=Semua` (`favorite`, `lastUsedAt`, bagian 2.14). `summary`, `house`, dan `ring`
+  tetap dikirim untuk aplikasi lama.
 - `approvals`: draf berstatus `draft` (menunggu persetujuan), yang tertua dulu. Isinya `Draft` yang sama dengan kartu di
   chat, ditambah `ask` (opsional): kalimat kartu "Butuh persetujuan Anda". Tanpa `ask` aplikasi menyusun "{Jenis} untuk
   {penerima} sudah siap. Kirim?". Aplikasi menampilkan satu kartu (yang pertama) dan tombol Lihat membuka chat. Draf yang
@@ -684,7 +688,7 @@ tetap ikut di `items`.
   menggagalkan agenda. `Home.agendaToday` tetap dari `/home` (bagian 2.12) dan dihitung server dari agenda yang sama.
 - Perubahan ini aditif; `CONTRACT_VERSION` tetap 1.
 
-### 2.14 Perangkat: `GET /devices`, `POST /routines/:id/run`, `PUT /box`, dan event `device`
+### 2.14 Perangkat: `GET /devices`, `PUT /home/devices/:id/favorite`, `POST /routines/:id/run`, `PUT /box`, dan event `device`
 
 `Device`:
 
@@ -708,6 +712,16 @@ tetap ikut di `items`.
 - `sensitive`: butuh PIN saat dimatikan/dibuka kalau PIN dihidupkan. Beranda tidak menampilkan sakelar untuk baris
   rumah yang `sensitive`, walau `switchable` (lihat `house.lines[].sensitive`).
 - `reachable: false` + `unreachableSince` ("10.12"). `status` dibuat server, ditampilkan apa adanya.
+- `favorite` (opsional, `true` = disematkan pengguna ke Beranda) dan `lastUsedAt` (opsional, ISO 8601: terakhir
+  pengguna mengatur perangkat ini dari aplikasi, chat, suara, atau WhatsApp). Beranda menampilkan 2-3 sakelar besar:
+  yang `favorite` lebih dulu (urutan `devices`); belum ada favorit: yang `lastUsedAt`-nya paling baru, tanpa kunci,
+  kamera, atau perangkat `sensitive`. Kotak dan sensor tidak pernah menjadi sakelar. Nilai rusak dibaca tidak ada.
+
+`PUT /home/devices/:id/favorite` dengan `{ "favorite": true|false }` (objek ketat) → `{ "device": Device, "rev": 13 }`
+(perangkat sesudahnya; `rev` sama dengan event `device` yang menyusul, yang juga disiarkan). Perangkat tak ada: 404
+`tidak_ditemukan`. Idempoten: menyematkan yang sudah disematkan tidak mengubah apa pun. Aplikasi mengubah layar lebih
+dulu dan mengembalikannya bila gagal. Tombolnya nanti ada di menu tahan halaman perangkat; aplikasi sudah membaca
+`favorite` sekarang. Perubahan ini aditif; `CONTRACT_VERSION` tetap 1.
 
 #### Kemampuan dan keadaan (remote virtual)
 

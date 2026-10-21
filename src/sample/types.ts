@@ -79,6 +79,10 @@ export interface Device {
   needsPin?: boolean;
   /** Keadaan remote (volume, sumber, posisi tirai, ...). */
   extra?: DeviceExtra;
+  /** Disematkan ke Beranda. */
+  favorite?: boolean;
+  /** Terakhir diatur pengguna (ISO 8601), dari server tiruan. */
+  lastUsed?: string;
 }
 
 /**

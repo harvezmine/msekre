@@ -28,6 +28,7 @@ const SEMUA = [...LAYAR, ...TAMBAHAN] as {
   Layar: (typeof LAYAR)[number]['Layar'];
   params?: Record<string, string>;
   actions?: (typeof LAYAR)[number]['actions'];
+  state?: (typeof LAYAR)[number]['state'];
 }[];
 
 const TERLARANG = [/\bFase\b/, /\bundefined\b/, /\bNaN\b/, /\[object Object\]/, /\bnull\b/, /\bMilo\b/, /dibangun/i];
@@ -57,7 +58,7 @@ const skema: Scheme[] = ['light', 'dark'];
 describe.each(skema)('matriks layar, mode %s, 360 dp', (scheme) => {
   test.each(SEMUA.map((l) => [l.nama, l] as const))('%s: tampil, tanpa teks rusak', async (_nama, layar) => {
     jest.mocked(useLocalSearchParams).mockReturnValue(layar.params ?? {});
-    await renderWithProviders(<layar.Layar />, { actions: layar.actions, scheme });
+    await renderWithProviders(<layar.Layar />, { actions: layar.actions, state: layar.state, scheme });
     // Data dimuat lewat server tiruan; beri waktu sampai isinya tampil.
     for (let i = 0; i < 4; i++) {
       await act(async () => {

@@ -5,6 +5,8 @@ import type { Device } from './types';
 export const MAIN_AC_ID = 'ac-kamar';
 
 export { AC_MAX, AC_MIN, BRANDS, PIN_LENGTH };
+/** Disematkan ke Beranda di data contoh (papan desain v2): AC kamar, lampu teras, TV. */
+export const SAMPLE_FAVORITES = [MAIN_AC_ID, 'lampu-teras', 'tv-ruang-tamu'];
 /** Baris kartu Rumah di Beranda, berurutan (desain 1a). */
 export const HOME_CARD_DEVICES = [MAIN_AC_ID, 'pintu-depan', 'kamera-tamu'];
 
@@ -72,6 +74,7 @@ export const initialDevices: Device[] = [
     ac: { temp: 24, mode: 'Dingin', fan: 'Otomatis' },
     roomTemp: 27,
     ring: { key: 'ac', icon: 'snow', label: 'AC kamar' },
+    favorite: true,
     brand: 'LG',
     reachable: true,
     via: 'ir',
@@ -105,6 +108,8 @@ export const initialDevices: Device[] = [
     place: 'Rumah',
     room: 'Teras',
     name: 'Lampu teras',
+    short: 'Teras',
+    favorite: true,
     icon: 'bulb',
     kind: 'lampu',
     on: true,
@@ -118,6 +123,8 @@ export const initialDevices: Device[] = [
     place: 'Rumah',
     room: 'Ruang tamu',
     name: 'TV ruang tamu',
+    short: 'TV',
+    favorite: true,
     icon: 'box',
     kind: 'tv',
     on: true,

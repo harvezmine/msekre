@@ -6,24 +6,29 @@ import { ThemeProvider, useTheme, type Scheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import {
   AccentIcon,
+  ApprovalCard,
   AreaChart,
   BigNumber,
   Dial,
   Enter,
+  FavouriteToggle,
   GradientField,
   HScroller,
   ListRow,
   MoreSheet,
+  NextItemRow,
   RemoteKey,
   Rocker,
   SectionHeader,
   Segmented,
   Slider,
   Sparkline,
+  SuggestionCard,
   Surface,
   TimeRail,
   TimeStrip,
 } from '@/ui/kit';
+import { IntiOrb } from '@/ui/inti/IntiOrb';
 import { Toggle } from '@/ui/Toggle';
 import { Txt } from '@/ui/Txt';
 
@@ -70,6 +75,31 @@ function Catalog({ label, onLabel }: { label: SchemeLabel; onLabel: (l: SchemeLa
       <BackHeader title="Komponen" />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40, gap: 32 }}>
         <Segmented options={SCHEMES} value={label} onChange={onLabel} label="Tema" />
+
+        <Block title="Inti">
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', height: 140 }}>
+            <IntiOrb size={92} />
+            <IntiOrb size={76} halo />
+            <IntiOrb size={48} />
+          </View>
+        </Block>
+
+        <Block title="Blok Beranda">
+          <ApprovalCard
+            name="Pak Budi"
+            initial="B"
+            preview="Sewa tempatnya bisa Rp15 juta, Pak."
+            onEdit={() => {}}
+            onSend={() => {}}
+          />
+          <NextItemRow time="13.00" title="Bayar listrik" onPress={() => {}} />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <FavouriteToggle icon="snow" name="AC kamar" state="24°" on={power} onToggle={() => setPower(!power)} />
+            <FavouriteToggle icon="bulb" name="Teras" state="Nyala" on onToggle={() => {}} />
+            <FavouriteToggle icon="tv" name="TV" state="Mati" on={false} onToggle={() => {}} />
+          </View>
+          <SuggestionCard text="Ingatkan saya rapat besok jam 9" onPress={() => {}} />
+        </Block>
 
         <Enter index={0}>
           <Block title="Warna dan ikon">

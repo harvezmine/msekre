@@ -85,6 +85,12 @@ Teks memakai `<Txt v="row">`; angka jam/uang/suhu diberi `tabular`. `readout` da
 | `Enter`, `useEnterAnimation`, `blockLayout` | Blok muncul | Pudar + naik 12, 320 ms, jeda 80 ms (maks 3); `blockLayout` untuk blok yang bergeser |
 | `useLayoutClass`, `byLayout` | Ukuran layar | `compact` / `regular` / `tall` |
 | `ThumbZone` | Tata letak layar | Atas, spacer lentur, aksi utama menempel di bawah |
+| `ApprovalCard` | Persetujuan di Beranda | Inisial (langit), nama, cuplikan satu baris, Ubah (`sunken`) + Kirim (`brand`, 1,4×), 56 |
+| `NextItemRow` | Agenda berikutnya | Kalender biru, jam, judul (≤ 2 baris), chevron; tanpa permukaan |
+| `FavouriteToggle` | Sakelar besar perangkat | 132 tinggi (104 `compact`), ikon 46, nama pendek + satu kata keadaan; ketuk nyala/mati, tahan buka remote; peran `switch` |
+| `SuggestionCard` | "Coba bilang" | Hanya untuk pengguna baru; ketuk membuka chat dengan kalimatnya di kolom ketik |
+| `CoachMark` | Petunjuk sekali-lihat | Gelembung `tip`/`onTip` + panah; lapisan tembus pandang: ketukan di mana pun menutupnya |
+| `blockEntering`, `blockExiting` | Blok muncul/pergi | Prop `entering`/`exiting` Reanimated: pudar + naik 12, 320 ms, jeda 80; pergi 260 ms |
 
 Komponen lama (`Card`, `ListRow`/`ListGroup` di `src/ui`, `Segmented`, `Toggle`) sudah memakai token baru; layar akan
 dibangun ulang dengan kit di R2–R6.
@@ -106,6 +112,24 @@ dibangun ulang dengan kit di R2–R6.
 - Target: kontrol utama ≥ 56 dp, tombol remote 60–100, kontrol kedua ≥ 48.
 - Teks tetap rapi sampai skala huruf 1,3: tinggi minimum, bukan tinggi tetap.
 
+## Beranda, Inti, dan bilah tab (R2)
+
+- **Beranda tumbuh pelan-pelan** (`src/ui/beranda/blocks.ts`): sapaan pendek ("Pagi, Rina"; pengguna baru "Halo,
+  Rina") dan avatar (ke Akun). Paling banyak tiga blok, urutan tetap, masing-masing hanya bila ada isinya:
+  persetujuan tertua, agenda berikutnya (dalam 12 jam, tetap 15 menit setelah mulai), 2–3 sakelar favorit. Tanpa blok:
+  satu `SuggestionCard` di zona jempol. Usaha, ringkasan, cincin layanan, dan pemilih tempat tidak di Beranda.
+- **Favorit**: yang disematkan (`Device.favorite`), atau tiga yang terakhir diatur (`Device.lastUsedAt`) tanpa kunci,
+  kamera, dan perangkat yang dijaga. Ketuk lewat `useDeviceControl` (PIN dan "buka kunci?" tetap berlaku).
+- **Inti** (`src/ui/inti/IntiOrb.tsx`, `IntiButton.tsx`): bola gradasi brand (sapuan PNG `assets/brand/inti-sapuan.png`
+  dari `scripts/make-inti.mjs`, diputar 16 detik), cahaya bernapas 4,2 detik, S putih. 92 di Beranda (76 `compact`),
+  pusatnya di garis atas bilah; 48 di tab lain. Ketuk = chat; tahan = `/suara?hold=1` langsung mendengar, jari diangkat
+  mengirim (`src/voice/holdBridge.ts`). Label = nama asisten, petunjuk "Ketuk untuk chat, tahan untuk bicara".
+- **Bilah tab** (`src/ui/TabBar.tsx`, `src/ui/tabSet.ts`): dua paruh mengapit slot Inti 96. Beranda dan Agenda selalu;
+  Perangkat setelah ada perangkat (Kotak termasuk); Usaha setelah `Home.business` ada. Susunan terakhir disimpan di HP;
+  tab yang muncul selagi aplikasi terbuka masuk dengan gerak 360/240 ms dan titik hijau sampai dikunjungi.
+- **Petunjuk** (`src/ui/tips.ts`): "Ketuk untuk chat · Tahan untuk bicara" sekali seumur aplikasi di HP ini, dengan
+  halo di Inti; menutupi kartu contoh selama tampil; ketukan apa pun menutupnya.
+
 ## Gerak
 
 - Pelan dan halus: tekan pegas `{ damping 20, stiffness 260, mass 0,7 }`; blok 320 ms; angka 160 ms; segmen 200 ms.
@@ -117,14 +141,22 @@ dibangun ulang dengan kit di R2–R6.
 ## Skia
 
 `@shopify/react-native-skia` 2.14.0 (versi yang dipatok Expo SDK 58; mendukung New Architecture) dipasang untuk
-gelombang Mode Suara (R3) dan cahaya/sapuan Inti (R2). Di Jest, `jest.setup.ts` memakai tiruan ringan
+gelombang Mode Suara (R3). Inti (R2) tidak memakainya: sapuannya PNG yang diputar Reanimated dan cahayanya gradasi
+radial `react-native-svg`, jadi sama di HP, web, dan Jest. Di Jest, `jest.setup.ts` memakai tiruan ringan
 `__tests__/skiaMock.ts` (Canvas = View, komponen gambar lain kosong), jadi tes tidak memuat modul native atau CanvasKit.
 Dampak ukuran APK belum diukur: periksa di build EAS berikutnya.
 
 ## Tangkapan layar tanpa HP
 
-Belum tersedia. Pratinjau web (`expo export -p web` + Chromium tanpa layar) ditunda karena ruang disk mesin pengembang
-hampir habis saat R1. Rencana bila ruang cukup: ekspor web ke folder sementara, sajikan dengan server statis, lalu
-`chrome-headless-shell --window-size=393,873 --screenshot` (cache Playwright di `~/Library/Caches/ms-playwright`) untuk
-rute seperti `/dev/kit` di 393×873, 360×640, dan 412×915, terang dan gelap. Modul native (alarm, rekaman suara,
-notifikasi) perlu pelindung `.web.ts` lebih dulu.
+`node scripts/shots.mjs <rute...> --out <folder> --sizes 393x873 --themes light,dark` menyalakan `expo start --web`,
+membuka rute di Chromium tanpa layar (cache Playwright), lalu menyimpan PNG. Server yang sudah jalan: `--url
+http://localhost:8099` (Metro dengan `CI=1` tidak memantau berkas: nyalakan ulang setelah mengubah kode). Pilihan
+pratinjau di alamat, hanya saat pengembangan (`src/dev/query.web.ts`):
+
+| Alamat | Isi |
+|---|---|
+| `/?petunjuk=0` | Beranda pengguna contoh tanpa petunjuk |
+| `/?contoh=baru&petunjuk=0` | Pengguna baru: sapaan, kartu contoh, dua tab |
+| `/?contoh=baru&petunjuk=1` | Pembukaan pertama: petunjuk Inti dengan halo |
+
+Setelah selesai, hentikan server dan hapus `$TMPDIR/metro-*` (disk mesin pengembang sempit).

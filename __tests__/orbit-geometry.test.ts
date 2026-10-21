@@ -1,5 +1,4 @@
 import { orbitLayout } from '@/ui/orbit/geometry';
-import { ringLabel } from '@/ui/orbit/label';
 
 test('simpul pertama ada di puncak cincin, garisnya dari Inti ke tepi simpul', () => {
   const { cx, cy, nodes } = orbitLayout(7);
@@ -26,10 +25,4 @@ test('ukuran bisa diperkecil untuk layar 360', () => {
   const { cx, nodes } = orbitLayout(7, { W: 320, H: 270, r: 112, ri: 71 });
   expect(cx).toBe(160);
   expect(nodes[0]!.y).toBeCloseTo(135 - 112);
-});
-
-test('tulisan cincin menyebut yang tidak terjangkau', () => {
-  const nodes = [{ label: 'Gmail' }, { label: 'CCTV', offline: true }, { label: 'Bank' }];
-  expect(ringLabel(nodes)).toBe('3 terhubung · CCTV tidak terjangkau');
-  expect(ringLabel([{ label: 'Gmail' }])).toBe('1 terhubung');
 });

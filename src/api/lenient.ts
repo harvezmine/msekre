@@ -55,6 +55,7 @@ import {
   type BoxRes,
   type Device,
   type DeviceControlRes,
+  type DeviceFavoriteRes,
   type DevicesRes,
   type RoutineRunRes,
   type DraftActionRes,
@@ -368,6 +369,13 @@ export function parseDeviceControlResLenient(raw: unknown): DeviceControlRes | n
   if (!device.success) return null;
   const card = deviceCardSchema.safeParse(raw.card);
   return { device: device.data, card: card.success ? card.data : cardFromDevice(device.data), rev: revOrZero(raw.rev) };
+}
+
+/** Jawaban `PUT /home/devices/:id/favorite`: `null` kalau perangkatnya tidak terbaca; `rev` hilang = 0. */
+export function parseDeviceFavoriteResLenient(raw: unknown): DeviceFavoriteRes | null {
+  if (!isRecord(raw)) return null;
+  const device = deviceSchema.safeParse(raw.device);
+  return device.success ? { device: device.data, rev: revOrZero(raw.rev) } : null;
 }
 
 /** Jawaban `POST /routines/:id/run`: perangkat yang rusak dibuang, kalimat hasil bawaan bila hilang, `rev` hilang = 0. */

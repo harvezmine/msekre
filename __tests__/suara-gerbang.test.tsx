@@ -27,19 +27,17 @@ function tabBarProps() {
 }
 
 describe('akun tanpa Mode Suara di server: semua pintu masuk memberi catatan', () => {
-  test('Inti di tab bar (tahan)', async () => {
-    await renderWithProviders(<TabBar {...tabBarProps()} />, { api: server(false) });
+  test('Inti di bilah tab (tahan, juga di Beranda)', async () => {
+    await renderWithProviders(
+      <>
+        <Beranda />
+        <TabBar {...tabBarProps()} />
+      </>,
+      { api: server(false) },
+    );
     await flush();
-    await fireEvent(screen.getByRole('button', { name: 'Bicara dengan Nadia' }), 'longPress');
-    expect(router.navigate).not.toHaveBeenCalledWith('/suara');
-    expect(toastNow()?.text).toBe(SOON);
-  });
-
-  test('Inti di Beranda (tahan)', async () => {
-    await renderWithProviders(<Beranda />, { api: server(false) });
-    await flush();
-    await fireEvent(screen.getByRole('button', { name: 'Bicara dengan Nadia' }), 'longPress');
-    expect(router.navigate).not.toHaveBeenCalledWith('/suara');
+    await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress');
+    expect(router.navigate).not.toHaveBeenCalledWith(expect.objectContaining({ pathname: '/suara' }));
     expect(toastNow()?.text).toBe(SOON);
   });
 
@@ -66,9 +64,9 @@ describe('akun dengan Mode Suara', () => {
   test('Inti di tab bar membuka /suara', async () => {
     await renderWithProviders(<TabBar {...tabBarProps()} />, { api: server(true) });
     await flush();
-    await fireEvent(screen.getByRole('button', { name: 'Bicara dengan Nadia' }), 'longPress');
+    await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress');
     expect(Haptics.impactAsync).toHaveBeenCalled();
-    expect(router.navigate).toHaveBeenCalledWith('/suara');
+    expect(router.navigate).toHaveBeenCalledWith({ pathname: '/suara', params: { hold: '1' } });
     expect(toastNow()).toBeNull();
   });
 });

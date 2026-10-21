@@ -40,7 +40,10 @@ export interface SampleState {
   /** Id layanan yang pernah tersambung lalu diputus, yang terbaru di depan. */
   formerly: string[];
   history: HistoryEntry[];
-  business: Business;
+  /** Ringkasan usaha; `null` = pengguna belum punya data usaha (tab Usaha tidak tampil). */
+  business: Business | null;
+  /** Kotak Sekretaris AI terpasang di Rumah. Tidak ada = ya (data contoh lama). */
+  hasBox?: boolean;
   /** Pencacah untuk id baru, supaya reducer tetap murni. */
   seq: number;
 }
@@ -66,6 +69,10 @@ export type SampleAction =
    */
   | { type: 'remote'; id: string; on?: boolean; level?: number; extra?: DeviceExtra }
   | { type: 'setBoxMic'; on: boolean }
+  /** Sematkan atau lepas perangkat dari Beranda. Tidak masuk riwayat. */
+  | { type: 'setFavorite'; id: string; favorite: boolean }
+  /** Pengguna baru saja mengatur perangkat ini (jam dari server tiruan). Tidak masuk riwayat. */
+  | { type: 'used'; id: string; at: string }
   /** Draf baru (misalnya "Pesan lagi"). Kartunya di chat dibuat server tiruan (`FakeTransport`) saat melihat kiriman baru. */
   | { type: 'addDraft'; draft: NewDraft }
   | { type: 'editDraft'; id: string; text: string }
@@ -223,6 +230,18 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       return top && top.deviceId === d.id && top.title === entry.title && top.day === 'Hari ini'
         ? { ...next, history: [{ ...top, ...entry }, ...next.history.slice(1)] }
         : withHistory(next, entry).state;
+    }
+
+    case 'setFavorite': {
+      const d = state.devices.find((x) => x.id === action.id);
+      if (!d || !!d.favorite === action.favorite) return state;
+      return { ...state, devices: setDevice(state.devices, d.id, { favorite: action.favorite }) };
+    }
+
+    case 'used': {
+      const d = state.devices.find((x) => x.id === action.id);
+      if (!d || d.lastUsed === action.at) return state;
+      return { ...state, devices: setDevice(state.devices, d.id, { lastUsed: action.at }) };
     }
 
     case 'setBoxMic':

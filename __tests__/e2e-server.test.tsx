@@ -70,20 +70,21 @@ test('kode salah: kalimat ramah, tanpa token', async () => {
   expect(await server.api.session.get()).toBeNull();
 });
 
-test('Beranda dimuat dari GET /home dengan token; sakelar AC memanggil POST /home/devices/:id', async () => {
+test('Beranda dimuat dari GET /home dan GET /devices dengan token; sakelar favorit memanggil POST /home/devices/:id', async () => {
   await open('/');
   const homes = server.hits('GET', '/home');
   expect(homes.length).toBeGreaterThan(0);
   expect(homes[0]!.headers.Authorization).toBe(`Bearer ${server.token()}`);
-  expect(await screen.findByText('Selamat pagi, Rina')).toBeOnTheScreen();
-  expect(screen.getByText('AC kamar nyala · 24°')).toBeOnTheScreen();
+  expect(await screen.findByText('Pagi, Rina')).toBeOnTheScreen();
+  expect(server.hits('GET', '/devices').some((h) => h.query.get('place') === 'Semua')).toBe(true);
+  expect(await screen.findByRole('switch', { name: 'AC kamar' })).toBeChecked();
 
   await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
   await settle();
   const control = server.hits('POST', '/home/devices/ac-kamar');
   expect(control).toHaveLength(1);
   expect(control[0]!.body).toMatchObject({ on: false });
-  expect(await screen.findByText('AC kamar mati')).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'AC kamar' })).not.toBeChecked();
 });
 
 test('chat: pesan dikirim lewat POST /messages, balasan dan tanda berpikir datang lewat soket stream', async () => {
@@ -160,7 +161,7 @@ test('akun: ganti nama asisten lewat PUT /account/assistant, nama baru sampai ke
   expect(toastNow()?.text).toBe('Tersimpan. Sekarang saya Sari.');
   await go('/');
   await settle();
-  expect(screen.getByRole('button', { name: 'Bicara dengan Sari' })).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Sari' })).toBeOnTheScreen();
   await go('/chat');
   await settle();
   expect(screen.getByLabelText('Tulis pesan untuk Sari')).toBeOnTheScreen();
@@ -183,7 +184,7 @@ test('keluar: POST /auth/logout, sesi kosong, kembali ke /mulai', async () => {
 
 test('401 dari soket stream (4401): sesi dihapus dan pengguna dibawa ke /mulai', async () => {
   await open('/');
-  expect(await screen.findByText('Selamat pagi, Rina')).toBeOnTheScreen();
+  expect(await screen.findByText('Pagi, Rina')).toBeOnTheScreen();
   server.revoke();
   await advance(400);
   await settle();
@@ -193,7 +194,8 @@ test('401 dari soket stream (4401): sesi dihapus dan pengguna dibawa ke /mulai',
 
 test('401 dari permintaan HTTP di tengah sesi: sesi dihapus dan pengguna dibawa ke /mulai', async () => {
   await open('/');
-  expect(await screen.findByText('Selamat pagi, Rina')).toBeOnTheScreen();
+  expect(await screen.findByText('Pagi, Rina')).toBeOnTheScreen();
+  await screen.findByRole('switch', { name: 'AC kamar' });
   server.revoke({ sockets: false });
   await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
   await advance(400);

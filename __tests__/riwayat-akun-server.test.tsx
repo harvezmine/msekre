@@ -290,7 +290,7 @@ describe('Akun lewat HttpTransport', () => {
     });
     await showRoute('/', { api });
     await settle();
-    expect(screen.getByRole('button', { name: 'Bicara dengan Nadia' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Nadia' })).toBeOnTheScreen();
     await act(async () => {
       router.push('/akun/asisten');
     });
@@ -299,7 +299,7 @@ describe('Akun lewat HttpTransport', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Simpan' }));
     await settle();
     expect(JSON.parse(String(calls('PUT', '/account/assistant')[0]![1]!.body))).toEqual({ name: 'Sari' });
-    expect(screen.getByRole('button', { name: 'Bicara dengan Sari' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Sari' })).toBeOnTheScreen();
   });
 
   test('server menolak nama (400 nama_tidak_valid): teks ramah di bawah kolom', async () => {

@@ -61,7 +61,7 @@ test('Sambungkan layanan lain memunculkan toast "segera hadir"', async () => {
   expect(toastNow()?.text).toBe('Menyambungkan layanan lain segera hadir.');
 });
 
-test('alur 4: Sambungkan TikTok, Masuk (contoh), tersambung, Selesai, Beranda punya 8 simpul', async () => {
+test('alur 4: Sambungkan TikTok, Masuk (contoh), tersambung, Selesai, kembali ke Beranda', async () => {
   await show();
   await fireEvent.press(await screen.findByRole('button', { name: 'Sambungkan TikTok Shop & Tokopedia' }));
   expect(router.push).toHaveBeenCalledWith('/terhubung/masuk?id=tiktok');
@@ -85,9 +85,10 @@ test('alur 4: Sambungkan TikTok, Masuk (contoh), tersambung, Selesai, Beranda pu
   expect(screen.getByTestId('simpul-tiktok')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
   expect(router.dismissTo).toHaveBeenCalledWith('/');
-
-  expect(await screen.findByText('8 terhubung · CCTV tidak terjangkau')).toBeOnTheScreen();
-  expect(screen.getByTestId('simpul-tiktok')).toBeOnTheScreen();
+  expect(currentStack()).toEqual(['/']);
+  // Layanan baru terdaftar (cincin layanan tidak lagi di Beranda; daftarnya di Akun > Terhubung).
+  await go('/terhubung');
+  expect(await screen.findByRole('button', { name: /^TikTok Shop/ })).toBeOnTheScreen();
 });
 
 test('tersambung: simpul baru ada, izin tampil, Ubah membuka detail layanan', async () => {
@@ -229,13 +230,11 @@ test('Kotak Sekretaris AI di "Pernah tersambung" disambungkan lewat Tambah peran
   expect(router.push).toHaveBeenCalledWith('/perangkat/tambah');
 });
 
-test('Beranda: tulisan di bawah cincin dan cincinnya membuka Terhubung', async () => {
+test('Beranda tidak lagi memuat cincin layanan; Terhubung dibuka dari Akun', async () => {
   await renderWithProviders(<Beranda />);
-  await fireEvent.press(await screen.findByRole('button', { name: '7 terhubung · CCTV tidak terjangkau' }));
-  expect(router.push).toHaveBeenCalledWith('/terhubung');
-  jest.mocked(router.push).mockClear();
-  await fireEvent.press(screen.getByTestId('cincin'));
-  expect(router.push).toHaveBeenCalledWith('/terhubung');
+  await act(async () => {});
+  expect(screen.queryByTestId('cincin')).toBeNull();
+  expect(screen.queryByText(/terhubung/)).toBeNull();
 });
 
 test('mode gelap: daftar Terhubung tampil', async () => {

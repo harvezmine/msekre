@@ -297,7 +297,7 @@ describe('profil di mode server', () => {
 
   test('Beranda dengan nama dari server menyapa dengan nama itu', async () => {
     await renderWithProviders(<Beranda />, { api: await serverWithMe({ name: 'Budi Santoso' }) });
-    expect(await screen.findByText('Selamat pagi, Budi Santoso')).toBeTruthy();
+    expect(await screen.findByText('Pagi, Budi Santoso')).toBeTruthy();
     expect(screen.getByText('BS')).toBeTruthy();
   });
 
@@ -600,9 +600,9 @@ describe('nama dari server', () => {
       </>,
       { api },
     );
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Bicara dengan Dewi' })).toHaveLength(2));
-    expect(screen.getByText('Selamat pagi, Budi')).toBeTruthy();
-    expect(screen.getAllByText('Dewi').length).toBeGreaterThan(0);
+    // Inti hanya di bilah tab, berlabel nama asisten; Beranda menyapa pengguna dengan namanya.
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Dewi' })).toHaveLength(1));
+    expect(screen.getByText('Pagi, Budi')).toBeTruthy();
   });
 
   test('tanpa nama dari server: nama bawaan', async () => {

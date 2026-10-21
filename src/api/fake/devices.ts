@@ -48,6 +48,8 @@ export function toDevice(d: SampleDevice): Device {
     // Perangkat IR tidak memberi umpan balik: yang diketahui hanya perintah terakhir.
     ...(d.via === 'ir' ? { stateIsAssumed: true } : {}),
     status: deviceStatus(d),
+    ...(d.favorite ? { favorite: true } : {}),
+    ...(d.lastUsed ? { lastUsedAt: d.lastUsed } : {}),
   };
 }
 
@@ -113,7 +115,8 @@ export function devicesFrom(state: SampleState, place: string): Omit<DevicesRes,
   const all = place === 'Semua';
   const devices = state.devices.filter((d) => all || d.place === place).map(toDevice);
   // Kotak ikut sebagai perangkat berjenis `box` di ruangannya (kartunya digambar dari `box`, bukan ubin).
-  if (all || place === 'Rumah') devices.push(boxDevice());
+  const box = state.hasBox !== false && (all || place === 'Rumah');
+  if (box) devices.push(boxDevice());
   const rooms = (all ? real : real.filter((p) => p === place)).flatMap((p) => {
     const names = p === 'Rumah' ? HOME_ROOMS : [...new Set(devices.filter((d) => d.place === p).map((d) => d.room))];
     return names.map((name) => ({ place: p as string, name }));
@@ -123,7 +126,7 @@ export function devicesFrom(state: SampleState, place: string): Omit<DevicesRes,
     places: [...real],
     rooms,
     devices,
-    box: all || place === 'Rumah' ? boxFrom(state) : null,
+    box: box ? boxFrom(state) : null,
     routines: routinesFrom(),
   };
 }

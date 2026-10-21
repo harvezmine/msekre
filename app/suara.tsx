@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAssistantName } from '@/api/useProfile';
@@ -14,6 +14,7 @@ import { useLive } from '@/ui/useLive';
 import { ConfirmArea } from '@/voice/ConfirmArea';
 import { useVoiceAvailable } from '@/voice/available';
 import { HINT_HOLD, type VoicePhase } from '@/voice/controller';
+import { holdBridge } from '@/voice/holdBridge';
 import { VOICE_SOON_TEXT } from '@/voice/texts';
 import { useVoice } from '@/voice/useVoice';
 
@@ -80,6 +81,18 @@ function SuaraAktif() {
   const live = useLive();
   const voice = useVoice();
   const { phase, typing, muted } = voice;
+  // Dibuka dengan menahan Inti (`?hold=1`): jari masih menempel, jadi langsung mendengar; jari diangkat dari Inti yang
+  // sama mengirim ucapannya (src/voice/holdBridge.ts).
+  const { hold } = useLocalSearchParams<{ hold?: string }>();
+  const { holdStart, holdEnd } = voice;
+  useEffect(() => {
+    if (hold !== '1' || !holdBridge.isHeld()) return;
+    const off = holdBridge.onRelease(() => void holdEnd());
+    void holdStart();
+    return off;
+    // Sekali saat layar terbuka: tahanan berikutnya lewat Inti di layar ini.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const label =
     phase === 'listening'
       ? 'Mendengar'

@@ -315,6 +315,12 @@ export default function Akun() {
           <Txt v="caption" color={c.muted}>
             {versionText()}
           </Txt>
+          {/* APK pratinjau: penanda kecil bahwa isinya data contoh (tidak di Beranda, supaya Beranda tetap tenang). */}
+          {demo ? (
+            <Txt v="caption" color={c.muted}>
+              Data contoh
+            </Txt>
+          ) : null}
         </View>
       </ScrollView>
     </View>

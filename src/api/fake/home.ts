@@ -44,13 +44,15 @@ export function homeFrom(state: SampleState, greetingName: string | null): Omit<
         ...(d.needsPin ? { sensitive: true } : {}),
       })),
     },
-    business: {
-      source: state.business.source,
-      sales: formatRupiah(biz.sales.total),
-      change: changeText(biz.sales),
-      down: biz.sales.down,
-      alert: stock ? `${stock.name} tinggal ${stockLeft(stock)}` : null,
-    },
+    business: state.business
+      ? {
+          source: state.business.source,
+          sales: formatRupiah(biz.sales.total),
+          change: changeText(biz.sales),
+          down: biz.sales.down,
+          alert: stock ? `${stock.name} tinggal ${stockLeft(stock)}` : null,
+        }
+      : null,
     ring: { nodes: ringNodes(state).map((n) => ({ key: n.key, icon: n.icon, label: n.label, reachable: !n.offline })) },
   };
 }

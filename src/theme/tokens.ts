@@ -48,6 +48,10 @@ export const light = {
   ripple: 'rgba(21,24,27,0.10)',
   /** Tirai di belakang lembar bawah (38%). */
   scrim: 'rgba(14,16,18,0.38)',
+  /** Gelembung petunjuk sekali-lihat (CoachMark): tinta gelap di mode terang, terang di mode gelap. */
+  tip: '#15181B',
+  /** Teks di atas `tip`. */
+  onTip: '#FFFFFF',
 };
 
 export type Palette = Record<keyof typeof light, string>;
@@ -72,6 +76,8 @@ export const dark: Palette = {
   brandGlow: 'rgba(91,191,134,0.22)',
   ripple: 'rgba(242,243,245,0.14)',
   scrim: 'rgba(0,0,0,0.5)',
+  tip: '#F2F3F5',
+  onTip: '#0E1012',
 };
 
 // ---------------------------------------------------------------------------------------------------------------------

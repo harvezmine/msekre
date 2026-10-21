@@ -1,304 +1,253 @@
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
-import { StyleSheet } from 'react-native';
-import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { StyleSheet } from 'react-native';
+import Beranda from '../app/(tabs)/index';
 import { createTestApi, renderWithProviders, toastNow } from './helpers';
-import Tempat from '../app/tempat';
 import { ERROR_TEXT } from '@/api/errors';
 import { ApiFailure } from '@/api/transport';
-import Beranda from '../app/(tabs)/index';
-import { TODAY } from '@/sample/agenda';
 import { BUDI_DRAFT_ID, supplierOrderDraft } from '@/sample/outgoing';
+import { newUserSampleState } from '@/sample/fresh';
+import { deviceById, MAIN_AC_ID } from '@/sample/store';
+import { SUGGESTIONS } from '@/ui/beranda/blocks';
+import { TIP_TEXT } from '@/ui/tips';
 
 beforeEach(() => jest.clearAllMocks());
 
-test('Beranda menampilkan isi desain 1a', async () => {
-  await renderWithProviders(<Beranda />);
-  expect(screen.getByText('Selamat pagi, Rina')).toBeTruthy();
-  expect(screen.getByText('7 terhubung · CCTV tidak terjangkau')).toBeTruthy();
-  expect(screen.getByText('Butuh persetujuan Anda')).toBeTruthy();
-  expect(screen.getByText('Balasan untuk Pak Budi soal harga sewa sudah siap. Kirim?')).toBeTruthy();
-  expect(screen.getByText('Bayar listrik Kedai Dago')).toBeTruthy();
-  expect(screen.getByText('Rp4.250.000')).toBeTruthy();
-  expect(screen.getByText('Susu UHT tinggal 6 karton')).toBeTruthy();
-});
-
-test('sakelar AC mengubah tulisannya', async () => {
-  await renderWithProviders(<Beranda />);
-  await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
-  expect(screen.getByText('AC kamar mati')).toBeTruthy();
-});
-
-test('Lihat di kartu persetujuan membuka chat', async () => {
-  await renderWithProviders(<Beranda />);
-  await fireEvent.press(screen.getByRole('button', { name: 'Lihat' }));
-  expect(router.navigate).toHaveBeenCalledWith('/chat');
-});
-
-test('mode gelap tetap menampilkan isi yang sama', async () => {
-  await renderWithProviders(<Beranda />, { scheme: 'dark' });
-  expect(screen.getByText('Selamat pagi, Rina')).toBeTruthy();
-  expect(StyleSheet.flatten(screen.getByText('Selamat pagi, Rina').props.style).color).toBe('#F2F3F5');
-});
-
-test('ketuk Inti membuka chat, tahan Inti membuka Mode Suara dengan getar', async () => {
-  await renderWithProviders(<Beranda />);
-  const inti = screen.getByRole('button', { name: 'Bicara dengan Nadia' });
-  await fireEvent.press(inti);
-  expect(router.navigate).toHaveBeenCalledWith('/chat');
-  await fireEvent(inti, 'longPress');
-  expect(Haptics.impactAsync).toHaveBeenCalled();
-  expect(router.navigate).toHaveBeenCalledWith('/suara');
-});
-
-test('Lihat semua membuka Agenda', async () => {
-  await renderWithProviders(<Beranda />);
-  await fireEvent.press(screen.getByRole('link', { name: 'Lihat semua' }));
-  expect(router.navigate).toHaveBeenCalledWith('/agenda');
-});
-
-test('AC dimatikan di penyimpanan: Beranda menulis AC kamar mati', async () => {
-  await renderWithProviders(<Beranda />, { actions: [{ type: 'setAc', on: false }] });
-  expect(screen.getByText('AC kamar mati')).toBeOnTheScreen();
-  expect(screen.getByRole('switch', { name: 'AC kamar' })).toBeOnTheScreen();
-});
-
-test('suhu AC datang dari penyimpanan', async () => {
-  await renderWithProviders(<Beranda />, { actions: [{ type: 'setAc', temp: 22 }] });
-  expect(screen.getByText('AC kamar nyala · 22°')).toBeOnTheScreen();
-});
-
-test('kartu Rumah ikut keadaan perangkat yang diubah di layar lain', async () => {
-  await renderWithProviders(<Beranda />);
-  expect(screen.getByText('AC kamar nyala · 24°')).toBeOnTheScreen();
-  expect(screen.getByText('Pintu depan terkunci')).toBeOnTheScreen();
-  expect(screen.getByText('Kamera aktif')).toBeOnTheScreen();
-});
-
-test('pintu dibuka dan kamera dimatikan di Perangkat: Beranda ikut', async () => {
-  await renderWithProviders(<Beranda />, {
-    actions: [
-      { type: 'toggleDevice', id: 'pintu-depan', on: false },
-      { type: 'toggleDevice', id: 'kamera-tamu', on: false },
-      { type: 'toggleDevice', id: 'ac-kamar', on: false },
-    ],
+const settle = () =>
+  act(async () => {
+    for (let i = 0; i < 3; i++) await Promise.resolve();
   });
-  expect(screen.getByText('Pintu depan terbuka')).toBeOnTheScreen();
-  expect(screen.getByText('Kamera mati')).toBeOnTheScreen();
-  expect(screen.getByText('AC kamar mati')).toBeOnTheScreen();
-});
 
-test('kartu persetujuan hilang setelah kiriman disetujui', async () => {
-  await renderWithProviders(<Beranda />, { actions: [{ type: 'sendDraft', id: BUDI_DRAFT_ID }] });
-  expect(screen.queryByText('Butuh persetujuan Anda')).not.toBeOnTheScreen();
-});
+/** Urutan blok di layar (testID dari atas ke bawah). */
+function blockOrder(): string[] {
+  const ids: string[] = [];
+  const walk = (n: unknown) => {
+    if (!n || typeof n !== 'object') return;
+    const node = n as { props?: { testID?: string }; children?: unknown[] };
+    const id = node.props?.testID;
+    if (id && id.startsWith('blok-')) ids.push(id);
+    node.children?.forEach(walk);
+  };
+  [screen.toJSON()].flat().forEach(walk);
+  return ids;
+}
 
-test('kartu persetujuan menanyakan draf berikutnya yang belum disetujui', async () => {
-  await renderWithProviders(<Beranda />, {
-    actions: [
-      { type: 'addDraft', draft: supplierOrderDraft },
-      { type: 'sendDraft', id: BUDI_DRAFT_ID },
-    ],
+describe('pengguna yang sudah terbiasa (data contoh)', () => {
+  test('sapaan pendek, lalu tiga blok berurutan: persetujuan, agenda berikutnya, perangkat favorit', async () => {
+    await renderWithProviders(<Beranda />);
+    await settle();
+    expect(screen.getByText('Pagi, Rina')).toBeOnTheScreen();
+    expect(blockOrder()).toEqual(['blok-persetujuan', 'blok-agenda', 'blok-favorit']);
+
+    const approval = within(screen.getByTestId('blok-persetujuan'));
+    expect(approval.getByText('Pak Budi')).toBeOnTheScreen();
+    expect(approval.getByText('B', { includeHiddenElements: true })).toBeTruthy();
+    expect(approval.getByText(/^Selamat siang, Pak Budi\. Untuk sewa/)).toBeOnTheScreen();
+
+    const next = within(screen.getByTestId('blok-agenda'));
+    expect(next.getByText('13.00')).toBeOnTheScreen();
+    expect(next.getByText('Bayar listrik Kedai Dago')).toBeOnTheScreen();
+
+    const favs = within(screen.getByTestId('blok-favorit'));
+    expect(favs.getAllByRole('switch').map((s) => s.props.accessibilityLabel)).toEqual(['AC kamar', 'Teras', 'TV']);
+    expect(favs.getByText('24°')).toBeOnTheScreen();
+
+    // Tidak ada lagi ringkasan, cincin, tempat, kartu Usaha, Rumah, atau penanda contoh di tampilan pertama.
+    expect(screen.queryByText('Data contoh')).toBeNull();
+    expect(screen.queryByText(/terhubung/)).toBeNull();
+    expect(screen.queryByText('Rp4.250.000')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Tempat/ })).toBeNull();
+    expect(screen.queryByText('Coba bilang')).toBeNull();
+    // Kata di Beranda sedikit (≤ 15 kata di luar cuplikan pesan).
   });
-  expect(screen.getByText('Butuh persetujuan Anda')).toBeOnTheScreen();
-  expect(screen.getByText('Pesanan untuk PT Sumber Susu sudah siap. Kirim?')).toBeOnTheScreen();
-});
 
-test('cincin dan agenda membaca penyimpanan: layanan baru jadi simpul kedelapan', async () => {
-  await renderWithProviders(<Beranda />, { actions: [{ type: 'connect', id: 'tiktok' }] });
-  expect(screen.getByText('8 terhubung · CCTV tidak terjangkau')).toBeOnTheScreen();
-});
-
-test('cincin mengikuti layanan: memutus Imou menghapus simpul CCTV', async () => {
-  await renderWithProviders(<Beranda />, { actions: [{ type: 'disconnect', id: 'imou' }] });
-  expect(screen.getByText('6 terhubung')).toBeOnTheScreen();
-  expect(screen.queryByTestId('simpul-offline-cctv')).not.toBeOnTheScreen();
-});
-
-test('agenda hari ini yang ditambah tampil di Beranda', async () => {
-  await renderWithProviders(<Beranda />, {
-    actions: [
-      { type: 'addAgenda', item: { date: '2025-10-20', time: '08.00', title: 'Telepon Ibu', kind: 'reminder' } },
-    ],
+  test('blok hanya muncul bila ada isinya: tanpa persetujuan dan tanpa agenda dekat, hanya favorit', async () => {
+    await renderWithProviders(<Beranda />, {
+      actions: [
+        { type: 'sendDraft', id: BUDI_DRAFT_ID },
+        { type: 'setDone', id: 'a2', done: true },
+        { type: 'setDone', id: 'jemput:2025-10-20', done: true },
+        { type: 'setDone', id: 'rapat-manajer:2025-10-20', done: true },
+      ],
+    });
+    await settle();
+    expect(blockOrder()).toEqual(['blok-favorit']);
+    expect(screen.getByText('Pagi, Rina')).toBeOnTheScreen();
   });
-  expect(screen.getByText('Telepon Ibu')).toBeOnTheScreen();
-});
 
-test('Agenda hari ini memuat item hari ini urut jam, dan item jam yang sama tidak bertabrakan', async () => {
-  const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
-  await renderWithProviders(<Beranda />, {
-    actions: [
-      { type: 'addAgenda', item: { date: TODAY, time: '09.00', title: 'Sarapan dengan Ibu', kind: 'reminder' } },
-      { type: 'finishLeftover', choice: 'today' },
-    ],
-  });
-  for (const t of ['Rapat dengan supplier susu', 'Sarapan dengan Ibu', 'Bayar listrik Kedai Dago']) {
-    expect(screen.getByText(t)).toBeOnTheScreen();
-  }
-  // paling banyak tiga baris, tanpa tugas
-  expect(screen.queryByText('Jemput Kayla les')).toBeNull();
-  expect(screen.queryByText('Kirim penawaran katering ke Bu Sari')).toBeNull();
-  expect(screen.getAllByText('09.00')).toHaveLength(2);
-  expect(spy.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false);
-  spy.mockRestore();
-});
-
-test('tombol tempat membuka pemilih tempat', async () => {
-  await renderWithProviders(<Beranda />);
-  await fireEvent.press(screen.getByRole('button', { name: 'Tempat: Semua' }));
-  expect(router.push).toHaveBeenCalledWith('/tempat');
-});
-
-test('kartu Agenda hari ini persis tiga baris desain 1a, tanpa tugas', async () => {
-  await renderWithProviders(<Beranda />);
-  for (const t of ['Rapat dengan supplier susu', 'Bayar listrik Kedai Dago', 'Jemput Kayla les']) {
-    expect(screen.getByText(t)).toBeOnTheScreen();
-  }
-  expect(screen.queryByText('Cek stok Kedai Riau')).toBeNull();
-  expect(screen.queryByText('Rapat manajer kedai')).toBeNull();
-  expect(screen.getAllByText(/^\d\d\.\d\d$/).map((t) => t.props.children)).toEqual(['09.00', '13.00', '16.00']);
-});
-
-test('kartu Usaha mengikuti tempat: Kedai Dago dan Kedai Riau memakai angka kedai', async () => {
-  await renderWithProviders(<Beranda />, { actions: [{ type: 'setPlace', place: 'Kedai Dago' }] });
-  expect(screen.getByText('Rp2.610.000')).toBeTruthy();
-  expect(screen.getByText('naik 9% dari Senin lalu')).toBeTruthy();
-  expect(screen.getByText('Susu UHT tinggal 4 karton')).toBeTruthy();
-  expect(screen.queryByText('Rp4.250.000')).toBeNull();
-});
-
-test('kartu Usaha di Kedai Riau menyebut yang menipis di kedai itu', async () => {
-  await renderWithProviders(<Beranda />, { actions: [{ type: 'setPlace', place: 'Kedai Riau' }] });
-  expect(screen.getByText('Rp1.640.000')).toBeTruthy();
-  expect(screen.getByText('turun 4% dari Senin lalu')).toBeTruthy();
-  expect(screen.getByText('Susu UHT tinggal 2 karton')).toBeTruthy();
-});
-
-test('kartu Usaha di Rumah memakai angka Semua', async () => {
-  await renderWithProviders(<Beranda />, { actions: [{ type: 'setPlace', place: 'Rumah' }] });
-  expect(screen.getByText('Rp4.250.000')).toBeTruthy();
-  expect(screen.getByText('Susu UHT tinggal 6 karton')).toBeTruthy();
-});
-
-describe('Beranda lewat kontrak (server tiruan memegang data)', () => {
-  const store = (api: ReturnType<typeof createTestApi>) => api.transport.sample;
-
-  test('perubahan di data bersama (Perangkat, Agenda) sampai ke Beranda lewat event home', async () => {
+  test('persetujuan: Kirim menahan kiriman (5 menit), bloknya pergi, dan getar sukses', async () => {
     const api = createTestApi();
     await renderWithProviders(<Beranda />, { api });
-    expect(screen.getByText('AC kamar nyala · 24°')).toBeOnTheScreen();
-    await act(async () => {
-      store(api).dispatch({ type: 'toggleDevice', id: 'ac-kamar', on: false });
-      store(api).dispatch({
-        type: 'addAgenda',
-        item: { date: TODAY, time: '08.00', title: 'Telepon Ibu', kind: 'reminder' },
-      });
-    });
-    expect(screen.getByText('AC kamar mati')).toBeOnTheScreen();
-    expect(screen.getByText('Telepon Ibu')).toBeOnTheScreen();
-    // tiga baris saja: yang terakhir (16.00) tergeser keluar
-    expect(screen.queryByText('Jemput Kayla les')).toBeNull();
+    await settle();
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim ke Pak Budi' }));
+    await settle();
+    expect(Haptics.notificationAsync).toHaveBeenCalledWith(Haptics.NotificationFeedbackType.Success);
+    expect(api.transport.sample.getState().outgoing[BUDI_DRAFT_ID]!.status).toBe('held');
+    expect(screen.queryByTestId('blok-persetujuan')).toBeNull();
+    expect(blockOrder()).toEqual(['blok-agenda', 'blok-favorit']);
   });
 
-  test('ganti tempat lewat server mengubah kartu Usaha dan tombol tempat', async () => {
+  test('persetujuan berikutnya menggantikan yang sudah dikirim', async () => {
     const api = createTestApi();
     await renderWithProviders(<Beranda />, { api });
+    await settle();
     await act(async () => {
-      const h = await api.transport.setPlace('Kedai Riau');
-      expect(h.place).toBe('Kedai Riau');
+      api.transport.sample.dispatch({ type: 'addDraft', draft: supplierOrderDraft });
     });
-    expect(await screen.findByRole('button', { name: 'Tempat: Kedai Riau' })).toBeOnTheScreen();
-    expect(screen.getByText('Rp1.640.000')).toBeOnTheScreen();
-    expect(screen.getByText('turun 4% dari Senin lalu')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim ke Pak Budi' }));
+    await settle();
+    expect(within(screen.getByTestId('blok-persetujuan')).getByText('PT Sumber Susu')).toBeOnTheScreen();
+    expect(within(screen.getByTestId('blok-persetujuan')).getByText('S', { includeHiddenElements: true })).toBeTruthy();
   });
 
-  test('memilih tempat di /tempat mengganti Beranda', async () => {
-    const api = createTestApi();
-    await renderWithProviders(
-      <>
-        <Beranda />
-        <Tempat />
-      </>,
-      { api },
-    );
-    await fireEvent.press(screen.getByRole('radio', { name: 'Kedai Dago' }));
-    await act(async () => {
-      jest.advanceTimersByTime(250);
-    });
-    expect(screen.getByRole('button', { name: 'Tempat: Kedai Dago' })).toBeOnTheScreen();
-    expect(screen.getByText('Rp2.610.000')).toBeOnTheScreen();
-    expect((await api.transport.home()).place).toBe('Kedai Dago');
+  test('Ubah membuka chat di draf itu', async () => {
+    await renderWithProviders(<Beranda />);
+    await settle();
+    await fireEvent.press(screen.getByRole('button', { name: 'Ubah pesan untuk Pak Budi' }));
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/chat', params: { draf: BUDI_DRAFT_ID } });
   });
 
-  test('persetujuan muncul dan hilang mengikuti status draf', async () => {
+  test('Kirim yang gagal: toast ramah, kartunya tetap', async () => {
     const api = createTestApi();
     await renderWithProviders(<Beranda />, { api });
-    expect(screen.getByText('Butuh persetujuan Anda')).toBeOnTheScreen();
-    await act(async () => {
-      await api.transport.draftAction(BUDI_DRAFT_ID, { action: 'send' });
-    });
-    expect(screen.queryByText('Butuh persetujuan Anda')).not.toBeOnTheScreen();
-    await act(async () => {
-      store(api).dispatch({ type: 'addDraft', draft: supplierOrderDraft });
-    });
-    expect(screen.getByText('Pesanan untuk PT Sumber Susu sudah siap. Kirim?')).toBeOnTheScreen();
+    await settle();
+    api.transport.failNext('network');
+    await fireEvent.press(screen.getByRole('button', { name: 'Kirim ke Pak Budi' }));
+    await settle();
+    expect(toastNow()?.text).toBe(ERROR_TEXT);
+    expect(screen.getByTestId('blok-persetujuan')).toBeOnTheScreen();
   });
 
-  test('tanpa nama: sapaan netral', async () => {
+  test('agenda berikutnya membuka Agenda', async () => {
+    await renderWithProviders(<Beranda />);
+    await settle();
+    await fireEvent.press(screen.getByRole('button', { name: 'Agenda berikutnya, 13.00, Bayar listrik Kedai Dago' }));
+    expect(router.navigate).toHaveBeenCalledWith('/agenda');
+  });
+
+  test('sakelar favorit: ketuk mematikan lalu menyalakan lagi (hijau = nyala)', async () => {
+    const api = createTestApi();
+    await renderWithProviders(<Beranda />, { api });
+    await settle();
+    const ac = () => screen.getByRole('switch', { name: 'AC kamar' });
+    expect(ac()).toBeChecked();
+    await fireEvent.press(ac());
+    await settle();
+    expect(deviceById(api.transport.sample.getState(), MAIN_AC_ID)!.on).toBe(false);
+    expect(ac()).not.toBeChecked();
+    expect(within(screen.getByTestId(`favorit-${MAIN_AC_ID}`)).getByText('Mati')).toBeOnTheScreen();
+    expect(Haptics.selectionAsync).toHaveBeenCalled();
+    await fireEvent.press(ac());
+    await settle();
+    expect(deviceById(api.transport.sample.getState(), MAIN_AC_ID)!.on).toBe(true);
+    expect(within(screen.getByTestId(`favorit-${MAIN_AC_ID}`)).getByText('24°')).toBeOnTheScreen();
+  });
+
+  test('tahan sakelar favorit membuka halaman perangkatnya', async () => {
+    await renderWithProviders(<Beranda />);
+    await settle();
+    await fireEvent(screen.getByRole('switch', { name: 'Teras' }), 'longPress');
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/perangkat/[id]', params: { id: 'lampu-teras' } });
+  });
+
+  test('favorit yang dijaga memakai aturan yang sama: kamera dengan PIN membuka lembar PIN', async () => {
+    const api = createTestApi({ security: { pinEnabled: true, pin: '123456' } });
+    api.transport.sample.dispatch({ type: 'setFavorite', id: 'kamera-tamu', favorite: true });
+    await renderWithProviders(<Beranda />, { api });
+    await settle();
+    await fireEvent.press(screen.getByRole('switch', { name: 'Kamera' }));
+    await settle();
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'kamera-tamu' } });
+    expect(deviceById(api.transport.sample.getState(), 'kamera-tamu')!.on).toBe(true);
+  });
+
+  test('favorit kunci tanpa PIN bertanya dulu sebelum membuka', async () => {
+    const api = createTestApi();
+    api.transport.sample.dispatch({ type: 'setFavorite', id: 'pintu-depan', favorite: true });
+    await renderWithProviders(<Beranda />, { api });
+    await settle();
+    expect(within(screen.getByTestId('favorit-pintu-depan')).getByText('Terkunci')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('switch', { name: 'Pintu depan' }));
+    await settle();
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/buka-kunci', params: { id: 'pintu-depan' } });
+    expect(deviceById(api.transport.sample.getState(), 'pintu-depan')!.on).toBe(true);
+  });
+
+  test('perangkat dari layar lain sampai ke Beranda lewat event', async () => {
+    const api = createTestApi();
+    await renderWithProviders(<Beranda />, { api });
+    await settle();
+    await act(async () => {
+      api.transport.sample.dispatch({ type: 'toggleDevice', id: 'lampu-teras', on: false });
+    });
+    expect(screen.getByRole('switch', { name: 'Teras' })).not.toBeChecked();
+  });
+
+  test('mode gelap: isi sama, teks terang', async () => {
+    await renderWithProviders(<Beranda />, { scheme: 'dark' });
+    await settle();
+    expect(StyleSheet.flatten(screen.getByText('Pagi, Rina').props.style).color).toBe('#F2F3F5');
+    expect(blockOrder()).toEqual(['blok-persetujuan', 'blok-agenda', 'blok-favorit']);
+  });
+});
+
+describe('pengguna baru', () => {
+  test('hanya sapaan, satu kartu Coba bilang, dan Inti (di bilah tab)', async () => {
+    await renderWithProviders(<Beranda />, { state: newUserSampleState });
+    await settle();
+    expect(screen.getByText('Halo, Rina')).toBeOnTheScreen();
+    expect(blockOrder()).toEqual(['blok-saran']);
+    expect(screen.getByText('Coba bilang')).toBeOnTheScreen();
+    const quote = screen.getByText(/^“.+”$/);
+    expect(SUGGESTIONS.map((s) => `“${s}”`)).toContain(quote.props.children);
+    expect(screen.queryAllByRole('switch')).toHaveLength(0);
+  });
+
+  test('kartu Coba bilang membuka chat dengan kalimatnya di kolom ketik', async () => {
+    await renderWithProviders(<Beranda />, { state: newUserSampleState });
+    await settle();
+    await fireEvent.press(screen.getByRole('button', { name: /^Coba bilang: / }));
+    const call = jest.mocked(router.push).mock.calls[0]![0] as { pathname: string; params: { isi: string } };
+    expect(call.pathname).toBe('/chat');
+    expect(SUGGESTIONS).toContain(call.params.isi);
+  });
+
+  test('petunjuk pertama: tampil sekali di atas Inti, menyembunyikan kartu contoh, hilang saat disentuh', async () => {
+    await renderWithProviders(<Beranda />, { state: newUserSampleState, tips: 'fresh' });
+    await settle();
+    expect(screen.getByText(TIP_TEXT.inti)).toBeOnTheScreen();
+    expect(screen.queryByText('Coba bilang')).toBeNull();
+    await fireEvent.press(screen.getByTestId('petunjuk'));
+    expect(screen.queryByText(TIP_TEXT.inti)).toBeNull();
+    expect(screen.getByText('Coba bilang')).toBeOnTheScreen();
+  });
+});
+
+describe('gagal memuat', () => {
+  test('kalimat ramah dan Coba lagi, lalu isi muncul', async () => {
+    const api = createTestApi();
+    jest.spyOn(api.transport, 'home').mockRejectedValueOnce(new ApiFailure('network'));
+    await renderWithProviders(<Beranda />, { api });
+    expect(await screen.findByText(ERROR_TEXT)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
+    expect(await screen.findByText('Pagi, Rina')).toBeOnTheScreen();
+    expect(screen.queryByText(ERROR_TEXT)).toBeNull();
+  });
+
+  test('tanpa nama: sapaan lengkap tanpa nama', async () => {
     const api = createTestApi();
     jest.spyOn(api.transport, 'home').mockResolvedValue({ ...(await api.transport.home()), greetingName: null });
     await renderWithProviders(<Beranda />, { api });
     expect(await screen.findByText('Selamat pagi')).toBeOnTheScreen();
     expect(screen.queryByText(/Rina/)).toBeNull();
   });
-
-  test('gagal memuat: kalimat ramah dan Coba lagi, lalu isi muncul', async () => {
-    const api = createTestApi();
-    jest.spyOn(api.transport, 'home').mockRejectedValueOnce(new ApiFailure('network'));
-    await renderWithProviders(<Beranda />, { api });
-    expect(await screen.findByText(ERROR_TEXT)).toBeOnTheScreen();
-    expect(screen.queryByText('Agenda hari ini')).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
-    expect(await screen.findByText('Selamat pagi, Rina')).toBeOnTheScreen();
-    expect(screen.queryByText(ERROR_TEXT)).toBeNull();
-  });
-
-  test('tempat gagal diganti: toast ramah, tempat lama bertahan', async () => {
-    const api = createTestApi();
-    await renderWithProviders(<Tempat />, { api });
-    jest.spyOn(api.transport, 'setPlace').mockRejectedValue(new ApiFailure('network'));
-    await fireEvent.press(screen.getByRole('radio', { name: 'Rumah' }));
-    await act(async () => {
-      jest.advanceTimersByTime(250);
-    });
-    expect(toastNow()?.text).toBe(ERROR_TEXT);
-  });
-
-  test('mode gelap: kartu dari server tampil sama', async () => {
-    const api = createTestApi();
-    await renderWithProviders(<Beranda />, { api, scheme: 'dark' });
-    await act(async () => {
-      await api.transport.setPlace('Kedai Dago');
-    });
-    expect(StyleSheet.flatten(screen.getByText('Rp2.610.000').props.style).color).toBe('#F2F3F5');
-  });
 });
 
-test('memilih tempat yang gagal di server mengembalikan pilihan semula dan memberi tahu', async () => {
-  const api = createTestApi();
-  await renderWithProviders(
-    <>
-      <Beranda />
-      <Tempat />
-    </>,
-    { api },
-  );
-  api.transport.failNext('network');
-  await fireEvent.press(screen.getByRole('radio', { name: 'Rumah' }));
-  await act(async () => {
-    jest.advanceTimersByTime(250);
-  });
-  // Pilihan sementara (penyimpanan contoh) dikembalikan; Beranda tetap di Semua.
-  expect(api.transport.sample.getState().place).toBe('Semua');
-  expect(toastNow()?.text).toBe(ERROR_TEXT);
+test('avatar di kanan atas membuka Akun', async () => {
+  await renderWithProviders(<Beranda />);
+  await settle();
+  await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
+  expect(router.push).toHaveBeenCalledWith('/akun');
+  expect(screen.getByText('RW')).toBeOnTheScreen();
 });

@@ -9,13 +9,17 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeProvider';
+import { INTI_SIZE, TAB_BAR_HEIGHT } from './tabBarMetrics';
 import { useTabBarShown } from './tabBarShown';
 import { useToastState } from './toastStore';
 import { Txt } from './Txt';
 
 export const TOAST_MS = 2600;
-/** Tinggi tab bar tanpa bagian bawah layar; toast duduk 16 dp di atasnya bila tab bar terlihat. */
-const TAB_BAR = 88;
+/**
+ * Tinggi tab bar tanpa bagian bawah layar, ditambah setengah Inti Beranda yang naik di atasnya; toast duduk 16 dp di
+ * atasnya bila tab bar terlihat, jadi tidak pernah menutupi Inti.
+ */
+const TAB_BAR = TAB_BAR_HEIGHT + INTI_SIZE.beranda / 2;
 
 /** Bilah gelap di bawah, muncul memudar sambil naik 8 dp (sk-toast). Dibaca pembaca layar lewat pengumuman di ToastHost (satu kali). */
 export function Toast({ text }: { text: string }) {

@@ -4,7 +4,8 @@ import { wibIso } from '@/api/fake/clock';
 import { formatJam } from '@/api/format';
 import { THINK_MS } from '@/sample/chat';
 import { deviceById, MAIN_AC_ID } from '@/sample/store';
-import { audio } from './audioMock';
+import { holdBridge } from '@/voice/holdBridge';
+import { audio, stream } from './audioMock';
 import { advance, currentRoute, go, currentStack, mockParams, restoreParams, sampleState, showRoute } from './harness';
 
 // Alur prototipe dari rencana Fase 0b, masing-masing dalam satu penyimpanan contoh dan satu tumpukan navigasi.
@@ -24,19 +25,20 @@ afterAll(restoreParams);
 
 test('alur 1: tahan Inti, Mode Suara mematikan AC, Beranda dan Riwayat mencatatnya', async () => {
   await showRoute('/');
-  expect(screen.getByText('AC kamar nyala · 24°')).toBeOnTheScreen();
+  await settle();
+  expect(screen.getByRole('switch', { name: 'AC kamar' })).toBeChecked();
 
-  await fireEvent(screen.getByRole('button', { name: 'Bicara dengan Nadia' }), 'longPress');
-  expect(router.navigate).toHaveBeenCalledWith('/suara');
+  // Satu gerakan: Inti ditahan, Mode Suara terbuka dan langsung mendengar.
+  await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress');
+  expect(router.navigate).toHaveBeenCalledWith({ pathname: '/suara', params: { hold: '1' } });
   expect(currentRoute()).toBe('/suara');
+  await advance(1);
+  expect(stream.start).toHaveBeenCalledTimes(1);
   expect(deviceById(sampleState(), MAIN_AC_ID)!.on).toBe(true);
 
-  // Tahan Inti, bicara setengah detik, lepas: server tiruan mendengar "Matikan AC kamar" lalu menjawab.
-  const inti = screen.getByRole('button', { name: 'Tahan untuk bicara' });
-  await fireEvent(inti, 'pressIn');
-  await advance(1);
+  // Bicara setengah detik, jari diangkat: server tiruan mendengar "Matikan AC kamar" lalu menjawab.
   for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
-  await fireEvent(inti, 'pressOut');
+  await act(async () => holdBridge.release());
   await advance(1);
   expect(deviceById(sampleState(), MAIN_AC_ID)!.on).toBe(true);
   await advance(THINK_MS); // masuk keadaan berbicara
@@ -45,8 +47,9 @@ test('alur 1: tahan Inti, Mode Suara mematikan AC, Beranda dan Riwayat mencatatn
   await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
   expect(router.back).toHaveBeenCalled();
   expect(currentRoute()).toBe('/');
+  await settle();
 
-  expect(screen.getByText('AC kamar mati')).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'AC kamar' })).not.toBeChecked();
   await go('/riwayat');
   await settle();
   expect(currentRoute()).toBe('/riwayat');
@@ -55,11 +58,12 @@ test('alur 1: tahan Inti, Mode Suara mematikan AC, Beranda dan Riwayat mencatatn
   expect(screen.getByText(/lewat suara/)).toBeOnTheScreen();
 });
 
-test('alur 2: Lihat, Kirim, Dikirim 10.47, Batalkan di Riwayat dengan toast dan entri tercoret', async () => {
+test('alur 2: Ubah membuka chat di draf, Kirim, Dikirim 10.47, Batalkan di Riwayat dengan toast dan entri tercoret', async () => {
   await showRoute('/');
-  expect(screen.getByText('Butuh persetujuan Anda')).toBeOnTheScreen();
+  await settle();
+  expect(screen.getByTestId('blok-persetujuan')).toBeOnTheScreen();
 
-  await fireEvent.press(screen.getByRole('button', { name: 'Lihat' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Ubah pesan untuk Pak Budi' }));
   expect(currentRoute()).toBe('/chat');
   await settle();
   await fireEvent.press(screen.getByRole('button', { name: 'Kirim' }));
@@ -69,7 +73,8 @@ test('alur 2: Lihat, Kirim, Dikirim 10.47, Batalkan di Riwayat dengan toast dan 
 
   await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
   expect(currentRoute()).toBe('/');
-  expect(screen.queryByText('Butuh persetujuan Anda')).toBeNull();
+  await settle();
+  expect(screen.queryByTestId('blok-persetujuan')).toBeNull();
 
   await go('/riwayat');
   await settle();
@@ -143,9 +148,10 @@ test('alur 3: alarm Tunda 10 menit, kembali ke Agenda, item ditunda sampai 07.10
   }
 });
 
-test('alur 4: Terhubung, Sambungkan TikTok Shop, Masuk, Selesai, Beranda punya 8 simpul', async () => {
+test('alur 4: Akun, Terhubung, Sambungkan TikTok Shop, Masuk, Selesai, kembali ke Beranda', async () => {
   await showRoute('/');
-  await fireEvent.press(screen.getByRole('button', { name: '7 terhubung · CCTV tidak terjangkau' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
+  await fireEvent.press(await screen.findByRole('button', { name: /^Terhubung/ }));
   expect(currentRoute()).toBe('/terhubung');
   await fireEvent.press(await screen.findByRole('button', { name: 'Sambungkan TikTok Shop & Tokopedia' }));
   expect(currentRoute()).toBe('/terhubung/masuk');
@@ -154,8 +160,8 @@ test('alur 4: Terhubung, Sambungkan TikTok Shop, Masuk, Selesai, Beranda punya 8
   await advance(250);
   expect(currentRoute()).toBe('/terhubung/tersambung');
   expect(await screen.findByText('TikTok Shop sudah terhubung')).toBeOnTheScreen();
+  expect(screen.getByTestId('simpul-tiktok')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
   expect(currentStack()).toEqual(['/']);
-  expect(await screen.findByText('8 terhubung · CCTV tidak terjangkau')).toBeOnTheScreen();
-  expect(screen.getByTestId('simpul-tiktok')).toBeOnTheScreen();
+  expect(sampleState().services.some((x) => x.id === 'tiktok')).toBe(true);
 });

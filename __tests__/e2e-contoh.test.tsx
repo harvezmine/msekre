@@ -2,11 +2,12 @@ import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { TEMP_DEBOUNCE_MS } from '../app/perangkat/[id]';
 import { PREVIEW_DEBOUNCE_MS } from '../app/agenda/tambah';
-import { audio } from './audioMock';
+import { audio, stream } from './audioMock';
 import { advance, currentRoute, currentStack, go, mockParams, restoreParams, sampleState, showRoute } from './harness';
 import { createTestApi, toastNow } from './helpers';
 import { THINK_MS } from '@/sample/chat';
 import { deviceById, MAIN_AC_ID } from '@/sample/store';
+import { holdBridge } from '@/voice/holdBridge';
 
 // Perjalanan pengguna di mode contoh, dari layar pertama sampai keluar, lewat navigasi tiruan (harness) dan server tiruan.
 // Tiap tes memulai dari layar yang masuk akal dan berpindah dengan mengetuk, seperti pengguna.
@@ -48,31 +49,39 @@ test('onboarding: Mulai, masuk dengan nomor dan kode, pilih minat, tiba di Beran
   expect(toastNow()?.text).toBe('Google Kalender bisa disambungkan dari Terhubung.');
   await settle();
   expect(currentStack()).toEqual(['/']);
-  expect(screen.getByText('Selamat pagi, Rina')).toBeOnTheScreen();
+  expect(screen.getByText('Pagi, Rina')).toBeOnTheScreen();
 });
 
-test('Beranda: kartu persetujuan, sakelar AC, baris agenda, lalu Lihat semua ke Agenda', async () => {
+test('Beranda: persetujuan Kirim, sakelar favorit AC, agenda berikutnya ke Agenda, tab Perangkat', async () => {
   await showRoute('/');
   await settle();
-  expect(screen.getByText('Butuh persetujuan Anda')).toBeOnTheScreen();
-  expect(screen.getByText('AC kamar nyala · 24°')).toBeOnTheScreen();
+  // Persetujuan: Kirim menahan kiriman lima menit; bloknya pergi.
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim ke Pak Budi' }));
+  await settle();
+  expect(sampleState().outgoing['o-budi']!.status).toBe('held');
+  expect(screen.queryByTestId('blok-persetujuan')).toBeNull();
+
+  // Sakelar favorit: AC kamar mati.
+  expect(screen.getByRole('switch', { name: 'AC kamar' })).toBeChecked();
   await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
   await settle();
-  expect(screen.getByText('AC kamar mati')).toBeOnTheScreen();
   expect(deviceById(sampleState(), MAIN_AC_ID)!.on).toBe(false);
+  expect(screen.getByRole('switch', { name: 'AC kamar' })).not.toBeChecked();
 
-  for (const t of ['Rapat dengan supplier susu', 'Bayar listrik Kedai Dago', 'Jemput Kayla les']) {
-    expect(screen.getByText(t)).toBeOnTheScreen();
-  }
-  await fireEvent.press(screen.getByRole('link', { name: 'Lihat semua' }));
+  // Agenda berikutnya membuka Agenda.
+  await fireEvent.press(screen.getByRole('button', { name: /^Agenda berikutnya, 13\.00/ }));
   expect(currentRoute()).toBe('/agenda');
   expect(screen.getByText('Senin, 20 Okt')).toBeOnTheScreen();
+
+  // Tab Perangkat (ada perangkat) membuka Perangkat.
+  await fireEvent.press(screen.getByRole('tab', { name: 'Perangkat' }));
+  expect(currentRoute()).toBe('/perangkat');
 });
 
 test('chat: teks dijawab, permintaan AC, pilihan Ya benar, draf Kirim lalu Batalkan, kartu perangkat', async () => {
   await showRoute('/');
   await settle();
-  await fireEvent.press(screen.getByRole('button', { name: 'Bicara dengan Nadia' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Nadia' }));
   expect(currentRoute()).toBe('/chat');
   await settle();
   const box = () => screen.getByLabelText('Tulis pesan untuk Nadia');
@@ -223,10 +232,12 @@ test('Usaha: Pesan lagi membuat draf, Lihat draf membuka chat di kartu itu', asy
   expect(screen.getByText('PT Sumber Susu')).toBeOnTheScreen();
 });
 
-test('Terhubung: sambungkan TikTok, simpul baru di cincin, hapus yang diingat, putuskan', async () => {
+test('Terhubung: dari Akun, sambungkan TikTok, simpul baru di cincin, hapus yang diingat, putuskan', async () => {
   await showRoute('/');
   await settle();
-  await fireEvent.press(screen.getByRole('button', { name: '7 terhubung · CCTV tidak terjangkau' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
+  await settle();
+  await fireEvent.press(await screen.findByRole('button', { name: /^Terhubung/ }));
   expect(currentRoute()).toBe('/terhubung');
   await fireEvent.press(await screen.findByRole('button', { name: 'Sambungkan TikTok Shop & Tokopedia' }));
   await fireEvent.press(await screen.findByRole('button', { name: 'Masuk (contoh)' }));
@@ -234,10 +245,11 @@ test('Terhubung: sambungkan TikTok, simpul baru di cincin, hapus yang diingat, p
   await advance(250);
   await settle();
   expect(currentRoute()).toBe('/terhubung/tersambung');
+  expect(screen.getByTestId('simpul-tiktok')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
   await settle();
-  expect(await screen.findByText('8 terhubung · CCTV tidak terjangkau')).toBeOnTheScreen();
-  expect(screen.getByTestId('simpul-tiktok')).toBeOnTheScreen();
+  expect(currentRoute()).toBe('/');
+  expect(sampleState().services.some((x) => x.id === 'tiktok')).toBe(true);
 
   // Moka: lupakan yang diingat, lalu putuskan.
   await go('/terhubung');
@@ -310,10 +322,10 @@ test('Akun: ganti nama asisten mengubah Beranda dan chat; notifikasi, HP, privas
   expect(screen.getByRole('button', { name: 'Hapus yang Sari tahu dari Moka' })).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Kembali' }));
 
-  // Nama baru sampai ke Beranda dan chat.
+  // Nama baru sampai ke Inti (bilah tab) dan chat.
   await go('/');
   await settle();
-  expect(screen.getByRole('button', { name: 'Bicara dengan Sari' })).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Sari' })).toBeOnTheScreen();
   await go('/chat');
   await settle();
   expect(screen.getByLabelText('Tulis pesan untuk Sari')).toBeOnTheScreen();
@@ -322,13 +334,13 @@ test('Akun: ganti nama asisten mengubah Beranda dan chat; notifikasi, HP, privas
 test('Mode Suara: tahan Inti, ucapan menjadi teks, balasan, lalu Selesai; lalu Keluar kembali ke layar pertama', async () => {
   await showRoute('/');
   await settle();
-  await fireEvent(screen.getByRole('button', { name: 'Bicara dengan Nadia' }), 'longPress');
+  // Satu gerakan: tahan Inti, Mode Suara langsung mendengar, jari diangkat mengirim.
+  await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress');
   expect(currentRoute()).toBe('/suara');
-  const inti = screen.getByRole('button', { name: 'Tahan untuk bicara' });
-  await fireEvent(inti, 'pressIn');
   await advance(1);
+  expect(stream.start).toHaveBeenCalledTimes(1);
   for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
-  await fireEvent(inti, 'pressOut');
+  await act(async () => holdBridge.release());
   await advance(1);
   expect(screen.getByTestId('suara-ucapan')).toHaveTextContent('Matikan AC kamar.');
   await advance(THINK_MS);
@@ -336,7 +348,8 @@ test('Mode Suara: tahan Inti, ucapan menjadi teks, balasan, lalu Selesai; lalu K
   await advance(4500);
   await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
   expect(currentRoute()).toBe('/');
-  expect(screen.getByText('AC kamar mati')).toBeOnTheScreen();
+  await settle();
+  expect(screen.getByRole('switch', { name: 'AC kamar' })).not.toBeChecked();
 
   // Keluar: konfirmasi, lalu kembali ke layar pertama dengan tumpukan bersih.
   await go('/akun');

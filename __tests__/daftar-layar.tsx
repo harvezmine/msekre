@@ -1,12 +1,15 @@
 import type { ComponentType } from 'react';
 import { ROUTES } from './harness';
-import type { SampleAction } from '@/sample/store';
+import { newUserSampleState } from '@/sample/fresh';
+import type { SampleAction, SampleState } from '@/sample/store';
 
 export interface LayarKasus {
   nama: string;
   Layar: ComponentType;
   params?: Record<string, string>;
   actions?: SampleAction[];
+  /** Keadaan awal data contoh (bawaan: pengguna contoh yang sudah terbiasa). */
+  state?: SampleState;
   /** Layar yang selalu berlatar forest, di dua mode. */
   selaluForest?: boolean;
 }
@@ -14,6 +17,7 @@ export interface LayarKasus {
 /** Setiap layar di `app/` (variasi parameter dihitung terpisah), untuk tes mode gelap dan lebar 360. */
 export const LAYAR: LayarKasus[] = [
   { nama: 'Beranda', Layar: ROUTES['/']! },
+  { nama: 'Beranda (pengguna baru)', Layar: ROUTES['/']!, state: newUserSampleState },
   { nama: 'Agenda', Layar: ROUTES['/agenda']! },
   { nama: 'Perangkat', Layar: ROUTES['/perangkat']! },
   { nama: 'Usaha', Layar: ROUTES['/usaha']! },

@@ -63,7 +63,12 @@ export default function Chat() {
   const { c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const live = useLive();
-  const { kosong, draf, pesan } = useLocalSearchParams<{ kosong?: string; draf?: string; pesan?: string }>();
+  const { kosong, draf, pesan, isi } = useLocalSearchParams<{
+    kosong?: string;
+    draf?: string;
+    pesan?: string;
+    isi?: string;
+  }>();
   const toast = useToast();
   const openSuara = useOpenVoice();
   const chat = useChat({
@@ -76,7 +81,8 @@ export default function Chat() {
     setChatFocused(focused);
     return () => setChatFocused(false);
   }, [focused]);
-  const [text, setText] = useState('');
+  // `?isi=` (kartu "Coba bilang" di Beranda): kolom ketik sudah berisi kalimatnya; pengguna yang memutuskan mengirim.
+  const [text, setText] = useState(() => (typeof isi === 'string' ? isi : ''));
   const input = useRef<TextInputInstance>(null);
   const list = useRef<FlatList<Row>>(null);
   // Di dasar utas = offset 0 (daftar terbalik). Keyboard yang muncul menggulir ke dasar hanya bila pengguna memang di sana.

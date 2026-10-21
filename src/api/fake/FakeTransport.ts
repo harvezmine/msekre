@@ -31,6 +31,7 @@ import {
   authStartReqSchema,
   authVerifyReqSchema,
   deviceControlReqSchema,
+  deviceFavoriteReqSchema,
   draftActionReqSchema,
   HELD_MINUTES,
   MESSAGES_LIMIT,
@@ -68,6 +69,7 @@ import {
   type Service,
   type DeviceControlReq,
   type DeviceControlRes,
+  type DeviceFavoriteRes,
   type DevicesRes,
   type Draft,
   type DraftActionReq,
@@ -767,9 +769,23 @@ export class FakeTransport implements Transport {
           extra: plan.extra,
         });
       }
+      // Terakhir diatur (Beranda memilih sakelar dari sini bila belum ada favorit).
+      this.sample.dispatch({ type: 'used', id: deviceId, at: this.clock.iso() });
       const device = toDevice(deviceById(this.sample.getState(), deviceId)!);
       this.flushDevices();
       return copy({ device, card: cardFromDevice(device), rev: this.devicesRev });
+    });
+  }
+
+  /** Sematkan atau lepas perangkat dari Beranda. Perangkat tidak ada: 404. */
+  setDeviceFavorite(deviceId: string, favorite: boolean): Promise<DeviceFavoriteRes> {
+    return this.call(true, (): DeviceFavoriteRes => {
+      const r = parse(deviceFavoriteReqSchema, { favorite });
+      if (!deviceById(this.sample.getState(), deviceId)) throw notFound();
+      this.sample.dispatch({ type: 'setFavorite', id: deviceId, favorite: r.favorite });
+      const device = toDevice(deviceById(this.sample.getState(), deviceId)!);
+      this.flushDevices();
+      return copy({ device, rev: this.devicesRev });
     });
   }
 

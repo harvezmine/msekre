@@ -1,7 +1,6 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import Beranda from '../app/(tabs)/index';
 import Usaha from '../app/(tabs)/usaha';
 import { ERROR_TEXT, FILE_DOWNLOAD_TEXT } from '@/api/errors';
 import { ApiFailure } from '@/api/transport';
@@ -217,22 +216,22 @@ describe('rentang dan konsistensi', () => {
     await expect(transport.business('Bulan', 'hari')).rejects.toMatchObject({ error: 'tidak_valid' });
   });
 
-  test('Beranda dan Usaha memakai angka yang sama setelah data bersama berubah', async () => {
+  test('ringkasan usaha Beranda (kontrak) dan layar Usaha memakai angka yang sama setelah data bersama berubah', async () => {
     const api = createTestApi();
-    await renderWithProviders(
-      <>
-        <Beranda />
-        <Usaha />
-      </>,
-      { api },
-    );
-    expect(await screen.findAllByText('Rp4.250.000')).toHaveLength(2);
+    await renderWithProviders(<Usaha />, { api });
+    expect(await screen.findByText('Rp4.250.000')).toBeOnTheScreen();
+    expect((await api.transport.home()).business?.sales).toBe('Rp4.250.000');
     await act(async () => {
       api.transport.sample.dispatch({ type: 'setPlace', place: 'Kedai Dago' });
     });
-    expect(await screen.findAllByText('Rp2.610.000')).toHaveLength(2);
-    expect(screen.getAllByText('naik 9% dari Senin lalu')).toHaveLength(2);
-    expect(screen.getByText('Susu UHT tinggal 4 karton')).toBeOnTheScreen();
+    expect(await screen.findByText('Rp2.610.000')).toBeOnTheScreen();
+    expect(screen.getByText('naik 9% dari Senin lalu')).toBeOnTheScreen();
     expect(screen.getByText('4 karton')).toBeOnTheScreen();
+    const home = await api.transport.home();
+    expect(home.business).toMatchObject({
+      sales: 'Rp2.610.000',
+      change: 'naik 9% dari Senin lalu',
+      alert: 'Susu UHT tinggal 4 karton',
+    });
   });
 });

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import Beranda from '../app/(tabs)/index';
 import Tempat from '../app/tempat';
 import { DEVICE_UNAVAILABLE_TEXT, ERROR_TEXT } from '@/api/errors';
+import { SUGGESTIONS } from '@/ui/beranda/blocks';
 import { ToastHost } from '@/ui/Toast';
 import { HttpTransport, type SocketLike } from '@/api/http';
 import { createMemorySession } from '@/api/session';
@@ -76,6 +77,31 @@ const homeBody = {
   rev: 5,
 };
 
+const acDevice = {
+  id: 'ac/1',
+  place: 'Rumah',
+  room: 'Ruang kerja',
+  name: 'AC ruang kerja',
+  short: 'AC kerja',
+  icon: 'snow',
+  kind: 'ac',
+  on: true,
+  reachable: true,
+  capabilities: [{ type: 'power' }, { type: 'temperature', min: 16, max: 30, step: 1, unit: 'C' }],
+  state: { on: true, temp: 23 },
+  status: 'Nyala · 23°',
+  favorite: true,
+};
+const devicesBody = {
+  place: 'Semua',
+  places: ['Rumah'],
+  rooms: [{ place: 'Rumah', name: 'Ruang kerja' }],
+  devices: [acDevice],
+  box: null,
+  routines: [],
+  rev: 3,
+};
+
 class Socket implements SocketLike {
   onopen: ((ev: unknown) => void) | null = null;
   onmessage: ((ev: { data?: unknown }) => void) | null = null;
@@ -100,7 +126,9 @@ function serverApi(handler: Handler = () => undefined) {
           ? { body: { items: [], before: null } }
           : path === '/home' || path === '/places/current'
             ? { body: homeBody }
-            : { status: 404, body: { error: 'tidak_ditemukan' } });
+            : path.startsWith('/devices')
+              ? { body: devicesBody }
+              : { status: 404, body: { error: 'tidak_ditemukan' } });
     const status = r.status ?? 200;
     return { status, ok: status < 300, text: async () => JSON.stringify(r.body ?? {}) };
   });
@@ -118,31 +146,65 @@ function serverApi(handler: Handler = () => undefined) {
 
 const send = (s: Socket, event: unknown) => s.onmessage?.({ data: JSON.stringify(event) });
 
-test('mode server: Beranda dari GET /home, termasuk persetujuan, ikon baru, dan cincin', async () => {
+const settle = () =>
+  act(async () => {
+    for (let i = 0; i < 4; i++) await Promise.resolve();
+  });
+
+test('mode server: Beranda dari GET /home dan GET /devices: sapaan, persetujuan, agenda berikutnya, favorit', async () => {
   const { api } = serverApi();
   await renderWithProviders(<Beranda />, { api });
-  expect(await screen.findByText('Selamat pagi, Budi')).toBeOnTheScreen();
-  expect(screen.getByText('Ada 1 hal yang perlu Anda hari ini.')).toBeOnTheScreen();
-  expect(screen.getByText('Butuh persetujuan Anda')).toBeOnTheScreen();
-  expect(screen.getByText('Balasan untuk Bu Sari sudah siap. Kirim?')).toBeOnTheScreen();
+  expect(await screen.findByText('Pagi, Budi')).toBeOnTheScreen();
+  await settle();
+  expect(screen.getByText('Bu Sari')).toBeOnTheScreen();
+  expect(screen.getByText('Siap, Bu.')).toBeOnTheScreen();
+  expect(screen.getByText('09.30')).toBeOnTheScreen();
   expect(screen.getByText('Telepon vendor')).toBeOnTheScreen();
-  expect(screen.getByText('Pintu depan terkunci')).toBeOnTheScreen();
-  expect(screen.getByRole('switch', { name: 'AC ruang kerja' })).toBeOnTheScreen();
-  expect(screen.getByText('Rp9.900.000')).toBeOnTheScreen();
-  expect(screen.getByText('Gula tinggal 2 kg')).toBeOnTheScreen();
-  expect(screen.getByText('2 terhubung · CCTV tidak terjangkau')).toBeOnTheScreen();
-  // tidak ada data contoh yang bocor ke pengguna asli
+  expect(await screen.findByRole('switch', { name: 'AC kerja' })).toBeChecked();
+  expect(screen.getByText('23°')).toBeOnTheScreen();
+  // Usaha, ringkasan, dan cincin tidak di Beranda; tidak ada data contoh yang bocor ke pengguna asli.
+  expect(screen.queryByText('Rp9.900.000')).toBeNull();
+  expect(screen.queryByText('Ada 1 hal yang perlu Anda hari ini.')).toBeNull();
   expect(screen.queryByText(/Rina|Pak Budi|Susu UHT/)).toBeNull();
 });
 
-test('mode server: bisnis kosong menyembunyikan kartu Usaha; tanpa nama sapaan netral', async () => {
+test('mode server: Kirim memanggil POST /drafts/:id dengan send', async () => {
+  const { api, fetch } = serverApi((path) =>
+    path === '/drafts/d1'
+      ? { body: { draft: { ...draft, status: 'held', heldUntil: '2025-10-20T01:05:00.000Z' }, rev: 9 } }
+      : undefined,
+  );
+  await renderWithProviders(<Beranda />, { api });
+  await screen.findByText('Bu Sari');
+  await fireEvent.press(screen.getByRole('button', { name: 'Kirim ke Bu Sari' }));
+  await settle();
+  const call = fetch.mock.calls.find(([u]) => String(u).endsWith('/drafts/d1'))!;
+  expect(call[1].method).toBe('POST');
+  expect(call[1].body).toBe('{"action":"send"}');
+});
+
+test('mode server: pengguna baru (tanpa persetujuan, agenda, perangkat): Halo dan satu contoh kalimat', async () => {
   const { api } = serverApi((path) =>
-    path === '/home' ? { body: { ...homeBody, business: null, greetingName: null, approvals: [] } } : undefined,
+    path === '/home'
+      ? { body: { ...homeBody, business: null, approvals: [], agendaToday: [], house: { lines: [] } } }
+      : path.startsWith('/devices')
+        ? { body: { ...devicesBody, devices: [] } }
+        : undefined,
+  );
+  await renderWithProviders(<Beranda />, { api });
+  expect(await screen.findByText('Halo, Budi')).toBeOnTheScreen();
+  await settle();
+  expect(screen.getByText('Coba bilang')).toBeOnTheScreen();
+  expect(SUGGESTIONS.map((t) => `“${t}”`)).toContain(screen.getByText(/^“/).props.children);
+  expect(screen.queryAllByRole('switch')).toHaveLength(0);
+});
+
+test('mode server: tanpa nama, sapaan netral', async () => {
+  const { api } = serverApi((path) =>
+    path === '/home' ? { body: { ...homeBody, greetingName: null, approvals: [] } } : undefined,
   );
   await renderWithProviders(<Beranda />, { api });
   expect(await screen.findByText('Selamat pagi')).toBeOnTheScreen();
-  expect(screen.queryByText('Usaha')).toBeNull();
-  expect(screen.queryByText('Butuh persetujuan Anda')).toBeNull();
 });
 
 test('mode server: event home dari stream mengganti Beranda; yang lebih lama dibuang', async () => {
@@ -166,7 +228,7 @@ test('mode server: event home dari stream mengganti Beranda; yang lebih lama dib
   expect(screen.queryByText('Telepon vendor')).toBeNull();
 });
 
-test('mode server: sakelar AC memanggil kendali perangkat; gagal -> toast ramah', async () => {
+test('mode server: sakelar favorit memanggil kendali perangkat; gagal -> toast ramah', async () => {
   const { api, fetch } = serverApi((path) =>
     path === '/home/devices/ac%2F1' ? { status: 501, body: { error: 'belum_tersedia' } } : undefined,
   );
@@ -177,11 +239,23 @@ test('mode server: sakelar AC memanggil kendali perangkat; gagal -> toast ramah'
     </>,
     { api },
   );
-  await fireEvent.press(await screen.findByRole('switch', { name: 'AC ruang kerja' }));
+  await fireEvent.press(await screen.findByRole('switch', { name: 'AC kerja' }));
   expect(await screen.findByText(DEVICE_UNAVAILABLE_TEXT)).toBeOnTheScreen();
   const call = fetch.mock.calls.find(([u]) => String(u).endsWith('/home/devices/ac%2F1'))!;
   expect(call[1].method).toBe('POST');
   expect(call[1].body).toBe('{"on":false}');
+  // Dikembalikan.
+  expect(screen.getByRole('switch', { name: 'AC kerja' })).toBeChecked();
+});
+
+test('mode server: 428 pin_diperlukan dari sakelar favorit membuka lembar PIN', async () => {
+  const { api } = serverApi((path) =>
+    path === '/home/devices/ac%2F1' ? { status: 428, body: { error: 'pin_diperlukan' } } : undefined,
+  );
+  await renderWithProviders(<Beranda />, { api });
+  await fireEvent.press(await screen.findByRole('switch', { name: 'AC kerja' }));
+  await act(async () => {});
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'ac/1' } });
 });
 
 test('mode server: gagal memuat -> kalimat ramah dan Coba lagi', async () => {
@@ -193,47 +267,22 @@ test('mode server: gagal memuat -> kalimat ramah dan Coba lagi', async () => {
   expect(await screen.findByText(ERROR_TEXT)).toBeOnTheScreen();
   fail = false;
   await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
-  expect(await screen.findByText('Selamat pagi, Budi')).toBeOnTheScreen();
-});
-
-test('mode server: memilih tempat memanggil PUT /places/current dan memakai jawabannya', async () => {
-  const { api, fetch } = serverApi((path) =>
-    path === '/places/current'
-      ? { body: { ...homeBody, place: 'Kedai Dago', business: { ...homeBody.business, sales: 'Rp3.000.000' }, rev: 6 } }
-      : undefined,
-  );
-  await renderWithProviders(
-    <>
-      <Beranda />
-      <Tempat />
-    </>,
-    { api },
-  );
-  await screen.findByText('Rp9.900.000');
-  await fireEvent.press(screen.getByRole('radio', { name: 'Kedai Dago' }));
-  await act(async () => {
-    jest.advanceTimersByTime(250);
-  });
-  const put = fetch.mock.calls.find(([u]) => String(u).endsWith('/places/current'))!;
-  expect(put[1].method).toBe('PUT');
-  expect(put[1].body).toBe('{"place":"Kedai Dago"}');
-  expect(await screen.findByRole('button', { name: 'Tempat: Kedai Dago' })).toBeOnTheScreen();
-  expect(screen.getByText('Rp3.000.000')).toBeOnTheScreen();
+  expect(await screen.findByText('Pagi, Budi')).toBeOnTheScreen();
 });
 
 test('mode server: mode gelap', async () => {
   const { api } = serverApi();
   await renderWithProviders(<Beranda />, { api, scheme: 'dark' });
-  expect(await screen.findByText('Selamat pagi, Budi')).toBeOnTheScreen();
+  expect(await screen.findByText('Pagi, Budi')).toBeOnTheScreen();
 });
 
 test('mode server: sapaan mengikuti jam di zona pengguna (dari agenda): pagi, siang, sore, malam', async () => {
   for (const [now, hello] of [
-    ['06.30', 'Selamat pagi, Budi'],
-    ['12.05', 'Selamat siang, Budi'],
-    ['16.40', 'Selamat sore, Budi'],
-    ['20.10', 'Selamat malam, Budi'],
-    ['02.00', 'Selamat malam, Budi'],
+    ['06.30', 'Pagi, Budi'],
+    ['12.05', 'Siang, Budi'],
+    ['16.40', 'Sore, Budi'],
+    ['20.10', 'Malam, Budi'],
+    ['02.00', 'Malam, Budi'],
   ] as const) {
     const { api } = serverApi((path) => (path.startsWith('/agenda') ? { body: agendaAt(now) } : undefined));
     const view = await renderWithProviders(<Beranda />, { api });
@@ -242,89 +291,33 @@ test('mode server: sapaan mengikuti jam di zona pengguna (dari agenda): pagi, si
   }
 });
 
-test('mode server: kartu Agenda dan Rumah disembunyikan kalau kosong', async () => {
-  const { api } = serverApi((path) =>
-    path === '/home' ? { body: { ...homeBody, agendaToday: [], house: { lines: [] } } } : undefined,
-  );
+test('mode server: agenda berikutnya hanya bila dalam 12 jam; tidak ada: bloknya tidak tampil', async () => {
+  const { api } = serverApi((path) => (path === '/home' ? { body: { ...homeBody, agendaToday: [] } } : undefined));
   await renderWithProviders(<Beranda />, { api });
-  expect(await screen.findByText('Selamat pagi, Budi')).toBeOnTheScreen();
-  expect(screen.queryByText('Agenda hari ini')).toBeNull();
-  expect(screen.queryByText('Rumah')).toBeNull();
-  // Yang lain tetap ada.
-  expect(screen.getByText('Usaha')).toBeOnTheScreen();
+  expect(await screen.findByText('Pagi, Budi')).toBeOnTheScreen();
+  await settle();
+  expect(screen.queryByTestId('blok-agenda')).toBeNull();
+  expect(screen.getByTestId('blok-persetujuan')).toBeOnTheScreen();
+});
+
+test('mode server: memilih tempat memanggil PUT /places/current', async () => {
+  const { api, fetch } = serverApi((path) =>
+    path === '/places/current' ? { body: { ...homeBody, place: 'Kedai Dago', rev: 6 } } : undefined,
+  );
+  await renderWithProviders(<Tempat />, { api });
+  await fireEvent.press(await screen.findByRole('radio', { name: 'Kedai Dago' }));
+  await act(async () => {
+    jest.advanceTimersByTime(250);
+  });
+  const put = fetch.mock.calls.find(([u]) => String(u).endsWith('/places/current'))!;
+  expect(put[1].method).toBe('PUT');
+  expect(put[1].body).toBe('{"place":"Kedai Dago"}');
 });
 
 test('mode server: pemilih tempat memakai tempat dari server (Home.places), bukan tempat contoh', async () => {
   const { api } = serverApi();
-  await renderWithProviders(
-    <>
-      <Beranda />
-      <Tempat />
-    </>,
-    { api },
-  );
-  await screen.findByText('Rp9.900.000');
+  await renderWithProviders(<Tempat />, { api });
+  await screen.findByRole('radio', { name: 'Kedai Dago' });
   expect(screen.getAllByRole('radio').map((r) => r.props.accessibilityLabel)).toEqual(['Semua', 'Rumah', 'Kedai Dago']);
   expect(screen.queryByRole('radio', { name: 'Kedai Riau' })).toBeNull();
-});
-
-test('mode server: memilih tempat yang ditolak server memberi tahu dengan ramah dan tempat tidak berubah', async () => {
-  const { api } = serverApi((path) =>
-    path === '/places/current' ? { status: 500, body: { error: 'server' } } : undefined,
-  );
-  await renderWithProviders(
-    <>
-      <Beranda />
-      <Tempat />
-      <ToastHost />
-    </>,
-    { api },
-  );
-  await screen.findByText('Rp9.900.000');
-  await fireEvent.press(screen.getByRole('radio', { name: 'Kedai Dago' }));
-  await act(async () => {
-    jest.advanceTimersByTime(250);
-  });
-  expect(await screen.findByText(ERROR_TEXT)).toBeOnTheScreen();
-  expect(screen.getByRole('button', { name: 'Tempat: Semua' })).toBeOnTheScreen();
-});
-
-test('mode server: baris rumah yang dijaga tidak punya sakelar walau switchable; AC biasa tetap punya', async () => {
-  const { api } = serverApi((path) =>
-    path === '/home'
-      ? {
-          body: {
-            ...homeBody,
-            house: {
-              lines: [
-                ...homeBody.house.lines.slice(0, 1),
-                {
-                  deviceId: 'ac/2',
-                  icon: 'snow',
-                  text: 'AC kantor nyala',
-                  label: 'AC kantor',
-                  on: true,
-                  switchable: true,
-                  sensitive: true,
-                },
-              ],
-            },
-          },
-        }
-      : undefined,
-  );
-  await renderWithProviders(<Beranda />, { api });
-  expect(await screen.findByRole('switch', { name: 'AC ruang kerja' })).toBeOnTheScreen();
-  expect(screen.getByText('AC kantor nyala')).toBeOnTheScreen();
-  expect(screen.queryByRole('switch', { name: 'AC kantor' })).toBeNull();
-});
-
-test('mode server: 428 pin_diperlukan dari sakelar Beranda membuka lembar PIN', async () => {
-  const { api } = serverApi((path) =>
-    path === '/home/devices/ac%2F1' ? { status: 428, body: { error: 'pin_diperlukan' } } : undefined,
-  );
-  await renderWithProviders(<Beranda />, { api });
-  await fireEvent.press(await screen.findByRole('switch', { name: 'AC ruang kerja' }));
-  await act(async () => {});
-  expect(router.push).toHaveBeenCalledWith({ pathname: '/pin', params: { id: 'ac/1' } });
 });

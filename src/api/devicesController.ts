@@ -290,6 +290,25 @@ export class DevicesController {
     }
   };
 
+  /**
+   * Sematkan (`true`) atau lepas perangkat dari Beranda. Layar berubah lebih dulu dan dikembalikan bila gagal. `null`
+   * kalau berhasil, selain itu teks ramah.
+   */
+  setFavorite = async (id: string, favorite: boolean): Promise<string | null> => {
+    const before = this.find(id);
+    if (before) this.replace({ ...before, favorite });
+    try {
+      const { device, rev } = await this.transport.setDeviceFavorite(id, favorite);
+      this.replace(device);
+      this.repliedRev.set(id, Math.max(rev, this.repliedRev.get(id) ?? 0));
+      return null;
+    } catch (e) {
+      const now = this.find(id);
+      if (before && now?.favorite === favorite) this.replace({ ...now, favorite: before.favorite ?? false });
+      return deviceError(e);
+    }
+  };
+
   /** Nyalakan atau matikan mikrofon Kotak. `null` kalau berhasil, selain itu teks ramah. */
   setBoxMic = async (micOn: boolean): Promise<string | null> => {
     const before = this.boxOf();

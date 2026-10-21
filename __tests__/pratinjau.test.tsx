@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { createApi } from '@/api/ApiProvider';
 import { FAKE_WA_NUMBER } from '@/api/fake/FakeTransport';
 import { deviceInfo } from '@/api/deviceInfo';
+import Akun from '../app/akun';
 import Beranda from '../app/(tabs)/index';
 import Mode from '../app/mode';
 import NotFound from '../app/+not-found';
@@ -85,12 +86,16 @@ test('/mode tertutup di build rilis, terbuka di pengembangan', async () => {
   }
 });
 
-test('Beranda di mode contoh bilang "Data contoh"; mode server tidak', async () => {
+test('penanda "Data contoh" ada di Akun pada mode contoh, tidak di Beranda; mode server tidak sama sekali', async () => {
   await renderWithProviders(<Beranda />);
+  expect(await screen.findByText('Pagi, Rina')).toBeOnTheScreen();
+  expect(screen.queryByText('Data contoh')).toBeNull();
+  await screen.unmount();
+  await renderWithProviders(<Akun />);
   expect(await screen.findByText('Data contoh')).toBeOnTheScreen();
   await screen.unmount();
-  await renderWithProviders(<Beranda />, { api: createTestApi({ mode: 'server', token: 'token' }) });
-  expect(await screen.findByText(/^Selamat /)).toBeOnTheScreen();
+  await renderWithProviders(<Akun />, { api: createTestApi({ mode: 'server', token: 'token' }) });
+  await act(async () => {});
   expect(screen.queryByText('Data contoh')).toBeNull();
 });
 

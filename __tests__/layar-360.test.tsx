@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react-native';
+import { act, screen } from '@testing-library/react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { LAYAR } from './daftar-layar';
@@ -19,19 +19,22 @@ test('mock lebar 360 berlaku', () => {
   expect(useWindowDimensions().width).toBe(360);
 });
 
-describe.each(LAYAR)('lebar 360: $nama', ({ Layar, params, actions }) => {
+describe.each(LAYAR)('lebar 360: $nama', ({ Layar, params, actions, state }) => {
   test('tampil tanpa crash', async () => {
     jest.mocked(useLocalSearchParams).mockReturnValue(params ?? {});
-    await renderWithProviders(<Layar />, { actions });
+    await renderWithProviders(<Layar />, { actions, state });
     expect(screen.toJSON()).not.toBeNull();
   });
 });
 
-test('cincin Beranda mengecil di bawah 360 dan tetap muat di antara gutter 20 dp', async () => {
+test('Beranda di 360: tiga sakelar favorit berbagi lebar dalam satu baris, tepi 16 dp', async () => {
   await renderWithProviders(<Beranda />);
-  const w = StyleSheet.flatten(screen.getByTestId('cincin').props.style).width as number;
-  expect(w).toBeLessThan(360);
-  expect(w).toBeLessThanOrEqual(360 - 40);
+  await act(async () => {});
+  const row = screen.getByTestId('blok-favorit');
+  expect(StyleSheet.flatten(row.props.style)).toMatchObject({ flexDirection: 'row', paddingHorizontal: 16 });
+  for (const id of ['ac-kamar', 'lampu-teras', 'tv-ruang-tamu']) {
+    expect(StyleSheet.flatten(screen.getByTestId(`favorit-${id}`).props.style).flex).toBe(1);
+  }
 });
 
 test('putaran suhu muat di 360: 280 dp ditambah gutter 16 di kedua sisi tidak lebih dari 320', async () => {

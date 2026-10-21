@@ -160,6 +160,8 @@ export function createFakeHttpServer(options: FakeOptions = {}): FakeHttpServer 
         return { item: await backend.agendaPatch(id, body as never) };
       case key === 'GET /devices':
         return backend.devices(q.get('place') ?? undefined);
+      case method === 'PUT' && seg[0] === 'home' && seg[1] === 'devices' && seg[3] === 'favorite':
+        return backend.setDeviceFavorite(decodeURIComponent(seg[2] ?? ''), (body as { favorite: boolean }).favorite);
       case method === 'POST' && seg[0] === 'home' && seg[1] === 'devices':
         return backend.controlDevice(decodeURIComponent(seg[2] ?? ''), body as never);
       case method === 'POST' && seg[0] === 'routines':

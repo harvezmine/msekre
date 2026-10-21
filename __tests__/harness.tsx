@@ -1,5 +1,6 @@
 import { act } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { useEffect, useState, type ComponentType } from 'react';
 import Beranda from '../app/(tabs)/index';
 import Agenda from '../app/(tabs)/agenda';
@@ -45,6 +46,7 @@ import { canOpen, REDIRECT_APP, REDIRECT_ENTRY, routeKind } from '@/api/routeAcc
 import type { DataMode } from '@/api/mode';
 import { useAuth, type AuthStatus } from '@/api/useAuth';
 import { type SampleState } from '@/sample/store';
+import { TabBar } from '@/ui/TabBar';
 import { ToastHost } from '@/ui/Toast';
 
 /** Peta rute ke layar, sama dengan struktur `app/`. */
@@ -91,6 +93,24 @@ export const ROUTES: Record<string, ComponentType> = {
 interface Entry {
   path: string;
   params: Record<string, string>;
+}
+
+/** Rute tab (seperti app/(tabs)/_layout.tsx): di bawahnya ada bilah tab dengan Inti. */
+const TAB_PATH: Record<string, string> = { index: '/', agenda: '/agenda', perangkat: '/perangkat', usaha: '/usaha' };
+const TAB_ORDER = ['index', 'agenda', 'perangkat', 'usaha'];
+
+/** Bilah tab yang sama dengan aplikasi, dengan navigasi tab lewat router tiruan. */
+function HarnessTabBar({ path }: { path: string }) {
+  const routes = TAB_ORDER.map((name) => ({ key: `${name}-k`, name }));
+  const index = TAB_ORDER.findIndex((name) => TAB_PATH[name] === path);
+  const props = {
+    state: { index, routes },
+    descriptors: {},
+    emitter: { emit: () => ({ defaultPrevented: false }) },
+    navigateToTab: (key: string) => router.navigate(TAB_PATH[key.replace(/-k$/, '')] as never),
+    insets: { top: 0, right: 0, bottom: 0, left: 0 },
+  } as unknown as BottomTabBarProps;
+  return <TabBar {...props} />;
 }
 const STATIC_TERHUBUNG = ['masuk', 'tersambung', 'konfirmasi'];
 const STATIC_PERANGKAT = ['tambah'];
@@ -206,12 +226,14 @@ function Rute({ start }: { start: string }) {
       redraw();
     });
   }, []);
-  const Layar = ROUTES[stack[stack.length - 1]!.path] ?? Beranda;
+  const path = stack[stack.length - 1]!.path;
+  const Layar = ROUTES[path] ?? Beranda;
   void start;
   return (
     <>
       <AfterSignIn />
-      <Layar key={stack.length + stack[stack.length - 1]!.path} />
+      <Layar key={stack.length + path} />
+      {Object.values(TAB_PATH).includes(path) ? <HarnessTabBar path={path} /> : null}
     </>
   );
 }

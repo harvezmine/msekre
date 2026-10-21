@@ -47,14 +47,8 @@ export function useChat({
   onPinRequired,
 }: { onError?: (text: string) => void; onPinRequired?: (deviceId: string) => void } = {}): Chat {
   const controller = useChatController();
-  useEffect(() => {
-    controller.setErrorHandler(onError);
-    return () => controller.setErrorHandler(undefined);
-  }, [controller, onError]);
-  useEffect(() => {
-    controller.setPinHandler(onPinRequired);
-    return () => controller.setPinHandler(undefined);
-  }, [controller, onPinRequired]);
+  useEffect(() => (onError ? controller.addErrorHandler(onError) : undefined), [controller, onError]);
+  useEffect(() => (onPinRequired ? controller.addPinHandler(onPinRequired) : undefined), [controller, onPinRequired]);
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
   return {
     ...state,

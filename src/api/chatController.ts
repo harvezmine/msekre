@@ -19,8 +19,9 @@ export const THINKING_MAX_MS = 3 * 60_000;
  * lewat penerima galat.
  */
 export class ChatController {
-  private onError: ((text: string) => void) | undefined;
-  private onPinRequired: ((deviceId: string) => void) | undefined;
+  /** Penerima yang dipasang terakhir (layar paling atas: chat di atas Beranda) yang menerima; lihat `addErrorHandler`. */
+  private readonly errorHandlers: ((text: string) => void)[] = [];
+  private readonly pinHandlers: ((deviceId: string) => void)[] = [];
 
   private state: ChatState = initialChatState;
   private readonly listeners = new Set<() => void>();
@@ -36,14 +37,25 @@ export class ChatController {
 
   constructor(readonly transport: Transport) {}
 
-  /** Penerima teks ramah (tanpa kode error) saat aksi kartu gagal, misalnya untuk toast. */
-  setErrorHandler(handler: ((text: string) => void) | undefined) {
-    this.onError = handler;
+  /**
+   * Pasang penerima teks ramah (tanpa kode error) saat aksi kartu gagal, misalnya untuk toast. Beberapa layar boleh
+   * memasang sekaligus (Beranda dan chat); yang terakhir dipasang yang menerima. Hasilnya melepas penerima itu.
+   */
+  addErrorHandler(handler: (text: string) => void): () => void {
+    return addLast(this.errorHandlers, handler);
   }
 
-  /** Penerima "perangkat ini butuh PIN" (428 `pin_diperlukan`), misalnya untuk membuka lembar PIN. */
-  setPinHandler(handler: ((deviceId: string) => void) | undefined) {
-    this.onPinRequired = handler;
+  /** Pasang penerima "perangkat ini butuh PIN" (428 `pin_diperlukan`), misalnya untuk membuka lembar PIN. */
+  addPinHandler(handler: (deviceId: string) => void): () => void {
+    return addLast(this.pinHandlers, handler);
+  }
+
+  private onError(text: string) {
+    this.errorHandlers.at(-1)?.(text);
+  }
+
+  private get onPinRequired(): ((deviceId: string) => void) | undefined {
+    return this.pinHandlers.at(-1);
   }
 
   // ---- Untuk useSyncExternalStore ----
@@ -340,10 +352,10 @@ export class ChatController {
       this.dispatch({ type: 'draft', draft: res.draft, rev: res.rev });
     } catch (e) {
       if (isApiFailure(e) && e.error === 'status_draf') {
-        this.onError?.(action === 'cancel' ? DRAFT_SENT_TEXT : DRAFT_CHANGED_TEXT);
+        this.onError(action === 'cancel' ? DRAFT_SENT_TEXT : DRAFT_CHANGED_TEXT);
         await this.queueCatchUp(this.maxRev());
       } else {
-        this.onError?.(friendlyError(e));
+        this.onError(friendlyError(e));
       }
     } finally {
       this.dispatch({ type: 'draftBusy', id, on: false });
@@ -359,10 +371,19 @@ export class ChatController {
     } catch (e) {
       // Butuh PIN: lembar PIN yang bicara, bukan toast buntu.
       if (isApiFailure(e) && e.code === 'pin_required' && this.onPinRequired) this.onPinRequired(deviceId);
-      else this.onError?.(friendlyError(e));
+      else this.onError(friendlyError(e));
       return null;
     }
   };
 
   mediaUrl = (mediaId: string): Promise<MediaSource> => this.transport.mediaUrl(mediaId);
+}
+
+/** Tambahkan `item` di akhir `list`; hasilnya melepasnya lagi (yang terakhir dengan nilai sama). */
+function addLast<T>(list: T[], item: T): () => void {
+  list.push(item);
+  return () => {
+    const i = list.lastIndexOf(item);
+    if (i >= 0) list.splice(i, 1);
+  };
 }

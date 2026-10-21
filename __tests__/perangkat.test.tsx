@@ -301,7 +301,7 @@ test('sakelar AC Beranda dan kartu chat lewat controlDevice di mode contoh', asy
   const api = createTestApi();
   const spy = jest.spyOn(api.transport, 'controlDevice');
   await renderWithProviders(<Beranda />, { api });
-  await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));
+  await fireEvent.press(await screen.findByRole('switch', { name: 'AC kamar' }));
   expect(spy).toHaveBeenCalledWith('ac-kamar', { on: false });
-  expect(screen.getByText('AC kamar mati')).toBeOnTheScreen();
+  expect(screen.getByRole('switch', { name: 'AC kamar' })).not.toBeChecked();
 });

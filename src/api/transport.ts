@@ -21,6 +21,7 @@ import type {
   Connections,
   DeviceControlReq,
   DeviceControlRes,
+  DeviceFavoriteRes,
   DevicesRes,
   DraftActionReq,
   DraftActionRes,
@@ -232,6 +233,11 @@ export interface Transport {
    * kamera, buka kunci) saat PIN dihidupkan tanpa `pin`: `pin_required`; `pin` salah: `pin_wrong`.
    */
   controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceControlRes>;
+  /**
+   * Sematkan atau lepas perangkat dari Beranda (`PUT /home/devices/:id/favorite`). Perangkat tidak ada:
+   * `tidak_ditemukan`. Perubahan juga datang lewat event stream `device`.
+   */
+  setDeviceFavorite(deviceId: string, favorite: boolean): Promise<DeviceFavoriteRes>;
   /** Jalankan rutinitas (`POST /routines/:id/run`); `place` kosong = tempat terpilih. Tidak ada: `tidak_ditemukan`. */
   runRoutine(routineId: string, place?: string): Promise<RoutineRunRes>;
   /** Nyalakan atau matikan mikrofon Kotak (`PUT /box`). */

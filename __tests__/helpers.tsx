@@ -21,6 +21,9 @@ import {
   type SampleState,
 } from '@/sample/store';
 import { createToastStore, ToastProvider } from '@/ui/toastStore';
+import { resetTabSet } from '@/ui/tabSet';
+import { resetTips } from '@/ui/tips';
+import { holdBridge } from '@/voice/holdBridge';
 import { AppearanceProvider } from '@/theme/appearance';
 import { ThemeProvider, type Scheme } from '@/theme/ThemeProvider';
 
@@ -34,6 +37,11 @@ interface Options {
   api?: Api;
   /** Pasang pilihan Tampilan (dimuat dari penyimpanan) di luar tema, seperti di akar aplikasi. */
   appearance?: boolean;
+  /**
+   * Petunjuk sekali-lihat: `seen` (bawaan, tidak muncul), `fresh` (pembukaan pertama aplikasi), atau `unknown` (dibaca
+   * dari penyimpanan HP seperti di aplikasi).
+   */
+  tips?: 'seen' | 'fresh' | 'unknown';
 }
 
 /** Sumber data tiruan di memori untuk tes. `mode` menjadi label `Api.mode` dan `Transport.mode`; isinya selalu FakeTransport. */
@@ -67,8 +75,12 @@ export function useSample(): { state: SampleState } {
 /** Render dengan tema dan penyimpanan contoh, seperti di akar aplikasi. */
 export async function renderWithProviders(
   ui: ReactElement,
-  { state, actions = [], scheme, api, appearance = false }: Options = {},
+  { state, actions = [], scheme, api, appearance = false, tips = 'seen' }: Options = {},
 ) {
+  // Keadaan per HP yang hidup di modul (petunjuk, susunan tab, tahanan Inti) dimulai bersih tiap render.
+  resetTips(tips);
+  resetTabSet(null);
+  holdBridge.reset();
   // Mode contoh: keadaan awal dipasang di penyimpanan milik server tiruan (itu yang dilihat layar dan skenario).
   const seeded = stateAfter(actions, state);
   testToasts.hide();

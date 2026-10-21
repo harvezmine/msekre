@@ -52,10 +52,10 @@ function warna(): { bg: Set<string>; semua: Set<string> } {
 
 afterEach(() => jest.mocked(useLocalSearchParams).mockReturnValue({}));
 
-describe.each(LAYAR)('mode gelap: $nama', ({ nama, Layar, params, actions, selaluForest }) => {
+describe.each(LAYAR)('mode gelap: $nama', ({ nama, Layar, params, actions, state, selaluForest }) => {
   test('memakai palet gelap dan tanpa latar khusus terang', async () => {
     jest.mocked(useLocalSearchParams).mockReturnValue(params ?? {});
-    await renderWithProviders(<Layar />, { scheme: 'dark', actions });
+    await renderWithProviders(<Layar />, { scheme: 'dark', actions, state });
     const { bg, semua } = warna();
     const izin = new Set(IZIN[nama] ?? []);
     const terang = [...bg].filter((h) => HANYA_TERANG.has(h) && !izin.has(h));

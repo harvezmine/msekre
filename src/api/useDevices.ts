@@ -25,6 +25,8 @@ export interface DevicesApi {
   flushPending: DevicesController['flush'];
   runRoutine: DevicesController['runRoutine'];
   setBoxMic: DevicesController['setBoxMic'];
+  /** Sematkan atau lepas perangkat dari Beranda. `null` kalau berhasil, selain itu teks ramah. */
+  setFavorite: DevicesController['setFavorite'];
 }
 
 const EMPTY: DevicesState = { entries: {} };
@@ -61,5 +63,6 @@ export function useDevices(place: string | null | undefined): DevicesApi {
     flushPending: controller?.flush ?? (async () => {}),
     runRoutine: controller?.runRoutine ?? (async () => ({ ok: false, message: '' })),
     setBoxMic: controller?.setBoxMic ?? (async () => null),
+    setFavorite: controller?.setFavorite ?? (async () => null),
   };
 }

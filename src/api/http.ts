@@ -32,6 +32,7 @@ import {
   type BoxRes,
   type DeviceControlReq,
   type DeviceControlRes,
+  type DeviceFavoriteRes,
   type DevicesRes,
   type Business,
   type BusinessPeriod,
@@ -78,6 +79,7 @@ import {
   parseHistoryLenient,
   parseBoxResLenient,
   parseDeviceControlResLenient,
+  parseDeviceFavoriteResLenient,
   parseDevicesLenient,
   parseRoutineRunResLenient,
   parseHomeLenient,
@@ -322,6 +324,15 @@ export class HttpTransport implements Transport {
     return this.request('POST', `/home/devices/${encodeURIComponent(deviceId)}`, reader(parseDeviceControlResLenient), {
       body: req,
     });
+  }
+
+  setDeviceFavorite(deviceId: string, favorite: boolean): Promise<DeviceFavoriteRes> {
+    return this.request(
+      'PUT',
+      `/home/devices/${encodeURIComponent(deviceId)}/favorite`,
+      reader(parseDeviceFavoriteResLenient),
+      { body: { favorite } },
+    );
   }
 
   runRoutine(routineId: string, place?: string): Promise<RoutineRunRes> {
