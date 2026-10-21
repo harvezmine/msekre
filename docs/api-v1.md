@@ -46,7 +46,8 @@ Catatan reviu yang lebih pendek ada di `docs/catatan-server-fase-1b.md`.
 | 426 | `perlu_pembaruan` | Versi aplikasi atau kontrak terlalu lama |
 | 429 | `terlalu_sering` | Terlalu sering; bawa `retryInSec` |
 | 500 | `server` | Kendala lain |
-| 501 | `belum_tersedia` | Jalur ada di kontrak tapi belum diisi (kendali perangkat sebelum Fase 3) |
+| 428 | `pin_diperlukan` | Aksi perangkat yang dijaga butuh `pin` (PIN dihidupkan pemilik) |
+| 501 | `belum_tersedia` | Jalur ada di kontrak tapi belum diisi server |
 
 Urutan pemeriksaan yang disarankan di setiap jalur terlindungi: versi (426) → token (401) → akun diblokir (403) →
 validasi isi (400) → aturan jalur. Jalur `GET /me` harus membalas 401, 403, dan 426 dengan benar juga untuk akun
@@ -340,17 +341,60 @@ Response `{ "ok": true }`.
   `/terhubung`, atau `/perangkat`. Rute lain diabaikan, dan aplikasi membuka chat.
 - Isi notifikasi tampil di layar kunci sebagai privat (saluran `pesan`). Jangan menaruh isi sensitif di judul.
 
-### 2.9 `POST /home/devices/:id` (Fase 3)
+### 2.9 `POST /home/devices/:id` (sudah dipakai aplikasi; lihat juga bagian "Perangkat" di 2.14)
 
-Request (objek ketat, minimal satu kunci; kalau kosong 400):
+Request (objek ketat, minimal satu dari `on`, `temp`, `mode`, `fan`, `level`; `pin` saja tidak cukup):
 
 ```json
-{ "on": true, "temp": 24, "mode": "cool" }
+{ "on": false, "pin": "123456" }
+{ "temp": 24, "mode": "Dingin", "fan": "Pelan" }
+{ "on": true, "level": 40 }
 ```
 
-Response 200: `{ "card": { "kind": "device", "deviceId": "ac-1", "name": "AC Kamar", "on": true, "temp": 24 } }`.
-Di Fase 1b balas `501 { "error": "belum_tersedia" }` saja; aplikasi menampilkan "Kendali perangkat dari chat
-segera hadir". Pembuatan kartu `device` oleh server juga menunggu Fase 3.
+Response 200: `{ "device": Device, "card": { "kind": "device", "deviceId": "ac-1", "name": "AC kamar", "on": true, "temp": 24 } }`.
+`device` adalah keadaan sesudah perintah (layar Perangkat memakainya), `card` untuk kartu di chat. Perangkat tidak
+terjangkau tidak berubah; jawabannya keadaan sebenarnya. `temp`/`mode`/`fan` hanya untuk AC dan `level` hanya untuk
+lampu; selain itu 400 `tidak_valid`.
+
+PIN (bawaan mati): bila pemilik menghidupkannya dan perangkat `sensitive`, aksi **mematikan** (kamera, alarm rumah)
+atau **membuka** (kunci pintu), yaitu `on: false`, butuh `pin`:
+
+- tanpa `pin`: **428 `pin_diperlukan`**; aplikasi meminta PIN lalu mengulang dengan `pin`;
+- `pin` salah: **403 `pin_salah`**;
+- PIN mati, atau aksinya menyalakan/mengunci: langsung jalan.
+
+Pembayaran tidak pernah memakai PIN. Server tidak pernah membuka kunci lewat chat; kendali langsung dari aplikasi
+boleh.
+
+### 2.14 Perangkat: `GET /devices`, `POST /routines/:id/run`, `PUT /box`, dan event `device`
+
+`Device`:
+
+```json
+{ "id": "ac-kamar", "place": "Rumah", "room": "Kamar", "name": "AC kamar", "icon": "snow", "kind": "ac",
+  "on": true, "reachable": true, "ac": { "temp": 24, "mode": "Dingin", "fan": "Otomatis" }, "roomTemp": 27,
+  "brand": "LG", "via": "ir", "status": "Nyala · 24°" }
+```
+
+- `kind`: `lamp`, `ac`, `camera`, `lock`, `plug`, `tv`, `sensor`, `box`, `other` (yang belum dikenal dibaca `other`).
+- `on`: lampu/AC/colokan nyala, kunci terkunci, kamera merekam. `level` (lampu, persen), `ac` (AC), `roomTemp`, `brand`.
+- `via`: `ir` (lewat inframerah dari Kotak, hanya perintah terakhir yang diketahui) atau `cloud`.
+- `sensitive`: butuh PIN saat dimatikan/dibuka kalau PIN dihidupkan.
+- `reachable: false` + `unreachableSince` ("10.12"). `status` dibuat server, ditampilkan apa adanya.
+
+`GET /devices?place=` → `{ place, places, rooms, devices, box, routines, rev }`. `place` kosong = tempat terpilih;
+`Semua` atau satu tempat; tempat tak dikenal 400. `rooms`: `{ place, name }` (Rumah punya ruangan tetap walau
+kosong). `box`: `{ deviceId, online, micOn, speaker, roomTemp, humidity }` atau `null` (hanya Rumah/Semua).
+`routines`: `{ id, name, icon, summary, places }`. `rev` naik setiap perangkat/kotak pengguna berubah.
+
+`POST /routines/:id/run` dengan `{ "place"?: string }` → `{ devices, summary }` (perangkat yang berubah dan kalimat
+hasil). "Tutup kedai": kedai terpilih saja; di Semua atau Rumah, semua kedai. Rutinitas tak ada: 404.
+
+`PUT /box` dengan `{ "micOn": boolean }` → `{ "box": Box }`.
+
+Stream: `{ "type": "device", "devices": [Device], "box": Box, "rev": 12 }` (`devices`, `box` opsional). Upsert menurut
+`id`; event dengan `rev` lebih kecil dari data di layar dibuang. Setelah koneksi terbuka, aplikasi memuat ulang
+`GET /devices` untuk tempat yang ia pegang.
 
 ### 2.10 `GET /media/:id`
 
@@ -682,6 +726,7 @@ Event dari server:
 { "type": "draft", "draft": { "id": "d-17", "status": "sent", "...": "..." }, "rev": 1409 }
 { "type": "home", "home": { "place": "Semua", "rev": 52, "...": "..." } }
 { "type": "agenda", "items": [{ "id": "a10", "snoozedUntil": "...", "...": "..." }], "rev": 13 }
+{ "type": "device", "devices": [{ "id": "ac-kamar", "...": "..." }], "rev": 12 }
 { "type": "thinking", "runId": "r-91", "on": true }
 { "type": "ping" }
 ```

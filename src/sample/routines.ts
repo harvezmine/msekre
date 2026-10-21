@@ -6,23 +6,33 @@ export interface Routine {
   name: string;
   sub: string;
   icon: IconName;
+  /** Tempat yang disentuh rutinitas ini. */
+  places: string[];
 }
 
 /** Rutinitas di Perangkat (desain 2c). */
 export const ROUTINES: Routine[] = [
-  { id: 'pulang', name: 'Saya pulang', sub: 'Lampu teras nyala, AC kamar 25°', icon: 'home' },
-  { id: 'tutup-kedai', name: 'Tutup kedai', sub: 'Matikan semua, kunci, aktifkan kamera', icon: 'store' },
-  { id: 'tidur', name: 'Tidur', sub: 'Lampu mati, AC kamar 26°, pintu dikunci', icon: 'moon' },
+  { id: 'pulang', name: 'Saya pulang', sub: 'Lampu teras nyala, AC kamar 25°', icon: 'home', places: ['Rumah'] },
+  {
+    id: 'tutup-kedai',
+    name: 'Tutup kedai',
+    sub: 'Matikan semua, kunci, aktifkan kamera',
+    icon: 'store',
+    places: ['Kedai Dago', 'Kedai Riau'],
+  },
+  { id: 'tidur', name: 'Tidur', sub: 'Lampu mati, AC kamar 26°, pintu dikunci', icon: 'moon', places: ['Rumah'] },
 ];
 
-/** Tutup kedai hanya menyentuh kedai yang dipilih; di Semua atau Rumah, kedua kedai. */
-const kedaiTarget = (state: SampleState, d: SampleState['devices'][number]) =>
-  state.place === 'Kedai Dago' || state.place === 'Kedai Riau' ? d.place === state.place : d.place !== 'Rumah';
+const isKedai = (place: string) => place === 'Kedai Dago' || place === 'Kedai Riau';
 
-/** Teks toast setelah rutinitas dijalankan; Tutup kedai menyebut kedai yang terkena. */
-export function routineDone(routine: Routine, state: SampleState): string {
+/** Tutup kedai hanya menyentuh kedai yang dipilih; di Semua atau Rumah, kedua kedai. */
+const kedaiTarget = (place: string, d: SampleState['devices'][number]) =>
+  isKedai(place) ? d.place === place : d.place !== 'Rumah';
+
+/** Teks hasil setelah rutinitas dijalankan di `place`; Tutup kedai menyebut kedai yang terkena. */
+export function routineDone(routine: Routine, place: string): string {
   if (routine.id !== 'tutup-kedai') return `Rutinitas ${routine.name} dijalankan.`;
-  const where = state.place === 'Kedai Dago' || state.place === 'Kedai Riau' ? state.place : 'semua kedai';
+  const where = isKedai(place) ? place : 'semua kedai';
   return `Rutinitas ${routine.name} dijalankan di ${where}.`;
 }
 
@@ -30,7 +40,7 @@ export function routineDone(routine: Routine, state: SampleState): string {
  * Aksi penyimpanan untuk satu rutinitas, dari perangkat yang ada. Perangkat yang tidak terjangkau dilewati oleh
  * reducer sendiri, dan perangkat yang sudah pada keadaan itu tidak mencatat apa-apa.
  */
-export function routineActions(routine: Routine, state: SampleState): SampleAction[] {
+export function routineActions(routine: Routine, state: SampleState, place: string = state.place): SampleAction[] {
   const pick = (pred: (d: SampleState['devices'][number]) => boolean) => state.devices.filter(pred);
   const acts: SampleAction[] = [];
   switch (routine.id) {
@@ -40,7 +50,7 @@ export function routineActions(routine: Routine, state: SampleState): SampleActi
         acts.push({ type: 'setAc', deviceId: d.id, on: true, temp: 25 });
       break;
     case 'tutup-kedai':
-      for (const d of pick((x) => kedaiTarget(state, x))) {
+      for (const d of pick((x) => kedaiTarget(place, x))) {
         if (d.kind === 'lampu' || d.kind === 'ac') acts.push({ type: 'toggleDevice', id: d.id, on: false });
         else if (d.kind === 'kamera' || d.kind === 'kunci') acts.push({ type: 'toggleDevice', id: d.id, on: true });
       }

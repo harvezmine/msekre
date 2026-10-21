@@ -32,7 +32,10 @@
  * | PATCH /agenda/:id              | AgendaPatchReq       | AgendaItemRes                     |
  * | POST /agenda/leftover          | AgendaLeftoverReq    | AgendaLeftoverRes                 |
  * | POST /agenda/:id/alarm-ack     | AlarmAckReq          | OkRes                             |
- * | POST /home/devices/:id         | DeviceControlReq     | DeviceControlRes (Fase 3)         |
+ * | GET  /devices?place=           | -                    | DevicesRes (Perangkat)            |
+ * | POST /home/devices/:id         | DeviceControlReq     | DeviceControlRes                  |
+ * | POST /routines/:id/run         | RoutineRunReq        | RoutineRunRes                     |
+ * | PUT  /box                      | BoxReq               | BoxRes                            |
  * | GET  /media/:id                | -                    | berkasnya (gambar QRIS, dokumen)  |
  * | WS   /stream                   | -                    | StreamEvent, satu JSON per pesan  |
  *
@@ -46,6 +49,8 @@
  * - 401 `tidak_masuk`: token tidak ada, salah, atau sudah keluar. Aplikasi menghapus sesi dan kembali ke layar masuk;
  * - 403 `diblokir`: akun dinonaktifkan atau diblokir di admin. Sesi tidak dihapus;
  * - 403 `pin_salah`: PIN (atau PIN lama) tidak cocok. Berbeda dari `diblokir`: sesi tidak dihapus, akun tetap aktif;
+ * - 428 `pin_diperlukan`: aksi perangkat yang dijaga (matikan kamera/alarm, buka kunci) butuh `pin` di isi request,
+ *   karena pemilik menghidupkan PIN. Aplikasi lalu meminta PIN dan mengulang dengan `pin`;
  * - 404 `tidak_ditemukan`: id draf, pesan, atau media tidak ada (atau milik orang lain);
  * - 404 `belum_terdaftar`: dari `auth/start`, nomor itu belum punya akun. Aplikasi ini add-on: akun dan masa coba
  *   hanya dibuat lewat WhatsApp. Isinya membawa `waNumber` (nomor WhatsApp Sekretaris AI, E.164 tanpa "+") supaya
@@ -116,8 +121,8 @@
  * - Pembacaan longgar (aplikasi): bagian pesan, jenis kartu, atau nilai enum yang tidak dikenal (kontrak yang lebih
  *   baru) menjadi bagian `{ type: 'unknown', note }`, bukan menggagalkan seluruh halaman. Server tidak pernah
  *   mengirim bagian `unknown`.
- * - `POST /home/devices/:id` (Fase 3) mengatur perangkat dan menjawab kartu perangkat yang diperbarui. Di Fase 1b boleh
- *   dibalas 501 `belum_tersedia`.
+ * - `POST /home/devices/:id` mengatur perangkat dan menjawab perangkat serta kartu perangkat yang diperbarui. Di
+ *   Fase 1b boleh dibalas 501 `belum_tersedia`.
  */
 import { z } from 'zod';
 
@@ -390,7 +395,82 @@ export const pushTokenReqSchema = z.object({
 /** `DELETE /push-tokens`: dicabut lewat tokennya sendiri, tanpa token masuk (HP bisa sudah keluar dari akun). */
 export const pushTokenDeleteReqSchema = z.object({ pushToken: z.string().min(1) });
 
-// ---- Perangkat rumah (Fase 3; Fase 1b boleh 501 `belum_tersedia`) ----
+// ---- Perangkat ----
+
+export const deviceKindSchema = z.enum(['lamp', 'ac', 'camera', 'lock', 'plug', 'tv', 'sensor', 'box', 'other']);
+export const acSettingsSchema = z.object({ temp: z.number(), mode: z.string().min(1), fan: z.string().min(1) });
+
+/**
+ * Satu perangkat. `status` adalah tulisan keadaan yang sudah jadi dari server ("Nyala · 80%", "Terkunci", "Merekam",
+ * "Tidak terjangkau sejak 10.12"); aplikasi menampilkannya apa adanya. `on`: lampu, AC, colokan, TV nyala; kunci
+ * terkunci; kamera merekam. `sensitive`: mematikan (kamera, alarm) atau membuka (kunci) butuh PIN bila pemilik
+ * menghidupkannya. Jenis yang belum dikenal aplikasi dibaca `other`.
+ */
+export const deviceSchema = z.object({
+  id: idSchema,
+  /** Tempat nyata (bukan `Semua`). */
+  place: z.string().min(1),
+  room: z.string().min(1),
+  name: z.string().min(1),
+  /** Nama pendek untuk kartu Rumah, contoh "Kamera". */
+  short: z.string().min(1).optional(),
+  /** Nama ikon; yang tidak dikenal aplikasi diganti ikon bawaan. */
+  icon: z.string().min(1),
+  kind: deviceKindSchema.catch('other'),
+  on: z.boolean(),
+  reachable: z.boolean(),
+  /** Jam tampil ("10.12") saat perangkat berhenti terjangkau. */
+  unreachableSince: z.string().min(1).optional(),
+  /** Terang lampu, persen. */
+  level: z.number().int().min(0).max(100).optional(),
+  /** Hanya AC: perintah terakhir. */
+  ac: acSettingsSchema.optional(),
+  /** Suhu ruangan yang terbaca. */
+  roomTemp: z.number().optional(),
+  brand: z.string().min(1).optional(),
+  /** `ir`: lewat inframerah dari Kotak (hanya perintah terakhir yang diketahui); `cloud`: lewat aplikasi mereknya. */
+  via: z.enum(['ir', 'cloud']).optional().catch(undefined),
+  sensitive: z.boolean().optional(),
+  status: z.string(),
+});
+
+/** Ruangan di satu tempat. */
+export const roomSchema = z.object({ place: z.string().min(1), name: z.string().min(1) });
+
+/** Kotak Sekretaris AI di rumah. */
+export const boxSchema = z.object({
+  deviceId: idSchema,
+  online: z.boolean(),
+  micOn: z.boolean(),
+  speaker: z.string().min(1),
+  roomTemp: z.number(),
+  humidity: z.number(),
+});
+
+/** Rutinitas. `places`: tempat yang disentuhnya (kedai untuk "Tutup kedai"); layar mengirim tempat terpilih saat menjalankan. */
+export const routineSchema = z.object({
+  id: idSchema,
+  name: z.string().min(1),
+  icon: z.string().min(1),
+  summary: z.string().min(1),
+  places: z.array(z.string().min(1)),
+});
+
+/**
+ * `GET /devices?place=`. `place`: tempat yang dijawab (`Semua` atau salah satu tempat; tanpa `?place=`, tempat terpilih
+ * pengguna). `places`: semua tempat nyata. `rooms`: ruangan di `place` (Rumah punya ruangan tetap walau kosong).
+ * `box`: kotak di Rumah, atau `null`. `rev`: nomor perubahan perangkat per pengguna.
+ */
+export const devicesResSchema = z.object({
+  place: z.string().min(1),
+  places: z.array(z.string().min(1)),
+  rooms: z.array(roomSchema),
+  devices: z.array(deviceSchema),
+  box: boxSchema.nullable(),
+  routines: z.array(routineSchema),
+  rev: z.number().int().positive(),
+});
+export const devicesQuerySchema = z.object({ place: z.string().min(1).optional() });
 
 export const deviceControlReqSchema = z
   .strictObject({
@@ -398,11 +478,31 @@ export const deviceControlReqSchema = z
     /** Suhu AC, derajat Celsius. */
     temp: z.number().optional(),
     mode: z.string().min(1).optional(),
+    /** Kecepatan kipas AC. */
+    fan: z.string().min(1).optional(),
+    /** Terang lampu, persen. */
+    level: z.number().int().min(0).max(100).optional(),
+    /** PIN pemilik, untuk aksi yang dijaga bila PIN dihidupkan. */
+    pin: pinSchema.optional(),
   })
-  .refine((r) => r.on !== undefined || r.temp !== undefined || r.mode !== undefined, {
-    message: 'minimal satu pengaturan',
-  });
-export const deviceControlResSchema = z.object({ card: deviceCardSchema });
+  .refine(
+    (r) =>
+      r.on !== undefined ||
+      r.temp !== undefined ||
+      r.mode !== undefined ||
+      r.fan !== undefined ||
+      r.level !== undefined,
+    { message: 'minimal satu pengaturan' },
+  );
+export const deviceControlResSchema = z.object({ device: deviceSchema, card: deviceCardSchema });
+
+/** `place` kosong = tempat terpilih pengguna. Tutup kedai menyentuh kedai itu; di Semua atau Rumah, semua kedai. */
+export const routineRunReqSchema = z.strictObject({ place: z.string().min(1).optional() });
+/** `devices`: perangkat yang berubah; `summary`: kalimat hasil siap tampil. */
+export const routineRunResSchema = z.object({ devices: z.array(deviceSchema), summary: z.string().min(1) });
+
+export const boxReqSchema = z.strictObject({ micOn: z.boolean() });
+export const boxResSchema = z.object({ box: boxSchema });
 
 // ---- Beranda ----
 
@@ -565,6 +665,13 @@ export const streamEventSchema = z.discriminatedUnion('type', [
     leftover: agendaItemSchema.nullable().optional(),
     rev: z.number().int().positive(),
   }),
+  /** Perangkat berubah: `devices` menggantikan (atau menambah) perangkat dengan `id` yang sama, `box` menggantikan kotak. */
+  z.object({
+    type: z.literal('device'),
+    devices: z.array(deviceSchema).optional(),
+    box: boxSchema.optional(),
+    rev: z.number().int().positive(),
+  }),
   z.object({ type: z.literal('ping') }),
 ]);
 
@@ -579,6 +686,7 @@ export const apiErrorCodeSchema = z.enum([
   'sudah_dipilih',
   'diblokir',
   'pin_salah',
+  'pin_diperlukan',
   'belum_terdaftar',
   'perlu_pembaruan',
   'terlalu_sering',
@@ -642,6 +750,19 @@ export type AgendaPatchReq = z.infer<typeof agendaPatchReqSchema>;
 export type AgendaLeftoverReq = z.infer<typeof agendaLeftoverReqSchema>;
 export type AgendaLeftoverRes = z.infer<typeof agendaLeftoverResSchema>;
 export type AlarmAckReq = z.infer<typeof alarmAckReqSchema>;
+export type DeviceKind = z.infer<typeof deviceKindSchema>;
+export type AcSettings = z.infer<typeof acSettingsSchema>;
+export type Device = z.infer<typeof deviceSchema>;
+/** Nama tempat: `Semua` atau salah satu tempat pengguna. */
+export type Place = string;
+export type Room = z.infer<typeof roomSchema>;
+export type Box = z.infer<typeof boxSchema>;
+export type Routine = z.infer<typeof routineSchema>;
+export type DevicesRes = z.infer<typeof devicesResSchema>;
+export type RoutineRunReq = z.infer<typeof routineRunReqSchema>;
+export type RoutineRunRes = z.infer<typeof routineRunResSchema>;
+export type BoxReq = z.infer<typeof boxReqSchema>;
+export type BoxRes = z.infer<typeof boxResSchema>;
 export type DeviceCard = z.infer<typeof deviceCardSchema>;
 export type DeviceControlReq = z.infer<typeof deviceControlReqSchema>;
 export type DeviceControlRes = z.infer<typeof deviceControlResSchema>;

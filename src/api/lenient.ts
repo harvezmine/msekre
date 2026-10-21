@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   agendaItemSchema,
   agendaResSchema,
+  boxSchema,
   businessSummarySchema,
   HOME_AGENDA_MAX,
   isoDateTimeSchema,
@@ -9,13 +10,19 @@ import {
   messagesPageSchema,
   messagesChangedPageSchema,
   draftActionResSchema,
+  deviceSchema,
+  devicesResSchema,
   draftSchema,
   homeSchema,
   partSchema,
+  roomSchema,
+  routineSchema,
   streamEventSchema,
   UNKNOWN_PART_NOTE,
   type AgendaItem,
   type AgendaRes,
+  type Device,
+  type DevicesRes,
   type DraftActionRes,
   type Home,
   type Message,
@@ -128,6 +135,18 @@ export function parseEventLenient(raw: unknown): StreamEvent | null {
       rev: rev.data,
     };
   }
+  if ((raw as { type?: unknown }).type === 'device') {
+    const rev = positiveInt.safeParse((raw as { rev?: unknown }).rev);
+    if (!rev.success) return null;
+    const r = raw as { devices?: unknown; box?: unknown };
+    const box = boxSchema.safeParse(r.box);
+    return {
+      type: 'device',
+      ...(Array.isArray(r.devices) ? { devices: parseDevices(r.devices) } : {}),
+      ...(box.success ? { box: box.data } : {}),
+      rev: rev.data,
+    };
+  }
   if ((raw as { type?: unknown }).type === 'draft') {
     // `rev` hilang atau rusak (server lama): drafnya tetap berlaku, `rev` 0 = tidak diketahui.
     const draft = draftSchema.safeParse((raw as { draft?: unknown }).draft);
@@ -227,5 +246,41 @@ export function parseAgendaLenient(raw: unknown): AgendaRes | null {
   if (!isRecord(raw) || !Array.isArray(raw.items)) return null;
   const leftover = parseAgendaItemLenient(raw.leftover);
   const coerced = agendaResSchema.safeParse({ ...raw, items: parseAgendaItems(raw.items), leftover });
+  return coerced.success ? coerced.data : null;
+}
+
+function parseDevices(raw: unknown[]): Device[] {
+  return raw.flatMap((r) => {
+    const device = deviceSchema.safeParse(r);
+    return device.success ? [device.data] : [];
+  });
+}
+
+/**
+ * Jawaban `GET /devices`: perangkat, ruangan, dan rutinitas yang rusak dibuang satu per satu; kotak yang rusak menjadi
+ * `null`. Jenis perangkat yang belum dikenal dibaca `other` oleh skemanya. `null` kalau `place` atau `rev` tidak ada.
+ */
+export function parseDevicesLenient(raw: unknown): DevicesRes | null {
+  const strict = devicesResSchema.safeParse(raw);
+  if (strict.success) return strict.data;
+  if (!isRecord(raw) || !nonEmpty(raw.place)) return null;
+  const rev = positiveInt.safeParse(raw.rev);
+  if (!rev.success) return null;
+  const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+  const keep = <T>(schema: z.ZodType<T>, v: unknown): T[] =>
+    list(v).flatMap((item) => {
+      const parsed = schema.safeParse(item);
+      return parsed.success ? [parsed.data] : [];
+    });
+  const box = boxSchema.safeParse(raw.box);
+  const coerced = devicesResSchema.safeParse({
+    place: raw.place,
+    places: list(raw.places).filter(nonEmpty),
+    rooms: keep(roomSchema, raw.rooms),
+    devices: parseDevices(list(raw.devices)),
+    box: box.success ? box.data : null,
+    routines: keep(routineSchema, raw.routines),
+    rev: rev.data,
+  });
   return coerced.success ? coerced.data : null;
 }

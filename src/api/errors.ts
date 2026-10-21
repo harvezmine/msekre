@@ -7,6 +7,7 @@ export const BLOCKED_TEXT = 'Akun ini sedang tidak aktif. Hubungi tim Sekretaris
 export const UPGRADE_TEXT = 'Ada versi aplikasi yang lebih baru. Perbarui dulu ya.';
 export const UNAVAILABLE_TEXT = 'Kendali perangkat dari chat segera hadir.';
 export const NOT_REGISTERED_TEXT = 'Nomor ini belum memakai Sekretaris AI. Mulai dulu lewat WhatsApp ya.';
+export const PIN_NEEDED_TEXT = 'Aksi ini perlu PIN. Masukkan PIN dulu ya.';
 export const WRONG_PIN_TEXT = 'PIN belum cocok, coba lagi.';
 export const TOO_OFTEN_TEXT = 'Tunggu sebentar ya, lalu coba lagi.';
 
@@ -23,6 +24,8 @@ export function friendlyError(e: unknown): string {
       return BLOCKED_TEXT;
     case 'not_registered':
       return NOT_REGISTERED_TEXT;
+    case 'pin_required':
+      return PIN_NEEDED_TEXT;
     case 'pin_wrong':
       return WRONG_PIN_TEXT;
     case 'upgrade_required':

@@ -8,8 +8,10 @@ import type {
   AuthStartRes,
   AuthVerifyReq,
   AuthVerifyRes,
-  DeviceCard,
+  BoxRes,
   DeviceControlReq,
+  DeviceControlRes,
+  DevicesRes,
   DraftActionReq,
   DraftActionRes,
   Home,
@@ -18,6 +20,7 @@ import type {
   MessagesPage,
   MessagesChangedPage,
   PinSetReq,
+  RoutineRunRes,
   PushTokenDeleteReq,
   PushTokenReq,
   SecurityRes,
@@ -40,6 +43,7 @@ import type { DataMode } from './mode';
  * - `not_registered`: nomor belum punya akun (404 `belum_terdaftar` dari `auth/start`); `waNumber` kalau server
  *   menyebutnya. Aplikasi adalah add-on, akun hanya dibuat lewat WhatsApp;
  * - `pin_wrong`: PIN (atau PIN lama) tidak cocok (403 `pin_salah`); sesi dan akun tidak terpengaruh;
+ * - `pin_required`: aksi perangkat yang dijaga butuh PIN (428 `pin_diperlukan`); aplikasi meminta PIN lalu mengulang;
  * - `unavailable`: jalur belum diisi server (501 `belum_tersedia`);
  * - `server`: kendala lain, termasuk jawaban server yang bentuknya tidak sesuai kontrak.
  */
@@ -51,6 +55,7 @@ export type FailureCode =
   | 'blocked'
   | 'not_registered'
   | 'pin_wrong'
+  | 'pin_required'
   | 'rate_limited'
   | 'upgrade_required'
   | 'unavailable'
@@ -163,8 +168,20 @@ export interface Transport {
   home(): Promise<Home>;
   /** Pilih tempat (`PUT /places/current`); jawabannya Beranda untuk tempat itu. Tempat yang tidak dikenal: `tidak_valid`. */
   setPlace(place: string): Promise<Home>;
-  /** Atur perangkat rumah dari kartu (`POST /home/devices/:id`). Fase 3; sebelum itu `unavailable`. */
-  controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard>;
+  /**
+   * Perangkat satu tempat (`GET /devices?place=`): ruangan, perangkat, kotak, dan rutinitas. Tanpa `place`: tempat
+   * terpilih. Perubahan berikutnya datang lewat event stream `device`.
+   */
+  devices(place?: string): Promise<DevicesRes>;
+  /**
+   * Atur perangkat (`POST /home/devices/:id`): perangkat yang diperbarui dan kartunya. Aksi yang dijaga (matikan
+   * kamera, buka kunci) saat PIN dihidupkan tanpa `pin`: `pin_required`; `pin` salah: `pin_wrong`.
+   */
+  controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceControlRes>;
+  /** Jalankan rutinitas (`POST /routines/:id/run`); `place` kosong = tempat terpilih. Tidak ada: `tidak_ditemukan`. */
+  runRoutine(routineId: string, place?: string): Promise<RoutineRunRes>;
+  /** Nyalakan atau matikan mikrofon Kotak (`PUT /box`). */
+  setBoxMic(micOn: boolean): Promise<BoxRes>;
   /**
    * Agenda (`GET /agenda`). Tanpa `range`: Senin pekan ini sampai Minggu pekan depan. Perubahan berikutnya datang lewat
    * event stream `agenda`.

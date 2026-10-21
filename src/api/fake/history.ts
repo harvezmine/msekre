@@ -35,7 +35,7 @@ export function acCard(on: boolean, temp: number): Card {
     on,
     temp,
     mode: mainAc.ac?.mode,
-    note: mainAc.roomTemp ? `Suhu ruangan ${mainAc.roomTemp}°` : undefined,
+    note: mainAc.roomTemp ? `suhu ruangan sekarang ${mainAc.roomTemp}°` : undefined,
   };
 }
 

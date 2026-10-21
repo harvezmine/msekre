@@ -32,6 +32,18 @@ const message: Message = {
   parts: [{ type: 'text', text: 'Halo' }],
 };
 const acCard = { kind: 'device', deviceId: 'ac/1', name: 'AC kamar', on: true, temp: 22 };
+const acDevice = {
+  id: 'ac/1',
+  place: 'Rumah',
+  room: 'Kamar',
+  name: 'AC kamar',
+  icon: 'snow',
+  kind: 'ac',
+  on: true,
+  reachable: true,
+  ac: { temp: 22, mode: 'Dingin', fan: 'Otomatis' },
+  status: 'Nyala · 22°',
+};
 const draft = { id: 'd1', to: 'Pak Budi', channel: 'whatsapp', what: 'balasan', text: 'Halo', status: 'draft' };
 
 interface Reply {
@@ -137,7 +149,7 @@ describe('HTTP', () => {
         if (url.includes('/messages?') && url.includes('changedAfter='))
           return { body: { items: [message], more: false } };
         if (url.includes('/messages?')) return { body: { items: [message], before: null } };
-        if (url.includes('/home/devices/')) return { body: { card: acCard } };
+        if (url.includes('/home/devices/')) return { body: { device: acDevice, card: acCard } };
         if (url.endsWith('/messages')) return { body: { message } };
         if (url.includes('/drafts/')) return { body: { draft, rev: 9 } };
         return { body: { ok: true } };
@@ -197,7 +209,7 @@ describe('HTTP', () => {
     expect(await transport.messagesChanged(7)).toEqual({ items: [message], more: false });
     expect(call(fetch, 7).url).toBe(`${BASE}/app/v1/messages?limit=100&changedAfter=7`);
 
-    expect(await transport.controlDevice('ac/1', { on: true, temp: 22 })).toEqual(acCard);
+    expect(await transport.controlDevice('ac/1', { on: true, temp: 22 })).toEqual({ device: acDevice, card: acCard });
     expect(call(fetch, 8)).toMatchObject({
       url: `${BASE}/app/v1/home/devices/ac%2F1`,
       method: 'POST',

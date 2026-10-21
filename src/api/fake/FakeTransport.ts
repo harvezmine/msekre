@@ -6,9 +6,13 @@ import { user } from '@/sample/profile';
 import type { SampleState } from '@/sample/reducer';
 import { createSampleStore, type SampleStore } from '@/sample/sampleStore';
 import { deviceById } from '@/sample/selectors';
-import { PLACES } from '@/sample/types';
+import { ROUTINES, routineActions, routineDone } from '@/sample/routines';
+import { PLACES, type AcFan, type AcMode } from '@/sample/types';
 import {
   agendaAddReqSchema,
+  boxReqSchema,
+  devicesQuerySchema,
+  routineRunReqSchema,
   agendaLeftoverReqSchema,
   agendaQuerySchema,
   agendaParseReqSchema,
@@ -37,8 +41,10 @@ import {
   type AuthStartRes,
   type AuthVerifyReq,
   type AuthVerifyRes,
-  type DeviceCard,
+  type BoxRes,
   type DeviceControlReq,
+  type DeviceControlRes,
+  type DevicesRes,
   type Draft,
   type DraftActionReq,
   type DraftActionRes,
@@ -50,6 +56,7 @@ import {
   type PinSetReq,
   type PushTokenDeleteReq,
   type PushTokenReq,
+  type RoutineRunRes,
   type SecurityRes,
   type SecurityUpdateReq,
   type SendMessageReq,
@@ -77,6 +84,8 @@ import {
   toContractItem,
 } from './agenda';
 import { FakeClock } from './clock';
+import { cardFromDevice } from '../devices';
+import { boxFrom, devicesFrom, toDevice } from './devices';
 import { homeFrom } from './home';
 import { draftFromOutgoing, SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
 import { FakeScenario, sampleMe } from './scenario';
@@ -119,11 +128,15 @@ export interface FakeOptions {
 type Timer = ReturnType<typeof setTimeout>;
 type SimulatedFailure = Exclude<FailureCode, 'unauthorized' | 'kode_salah'>;
 
+const AC_MODES: readonly string[] = ['Dingin', 'Kering', 'Kipas', 'Otomatis'];
+const AC_FANS: readonly string[] = ['Pelan', 'Sedang', 'Kencang', 'Otomatis'];
+
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const invalid = (cause?: unknown) => new ApiFailure('server', { status: 400, error: 'tidak_valid', cause });
 const notFound = () => new ApiFailure('server', { status: 404, error: 'tidak_ditemukan' });
 const wrongStatus = () => new ApiFailure('server', { status: 409, error: 'status_draf' });
 const wrongPin = () => new ApiFailure('pin_wrong', { status: 403, error: 'pin_salah' });
+const pinNeeded = () => new ApiFailure('pin_required', { status: 428, error: 'pin_diperlukan' });
 const alreadyChosen = () => new ApiFailure('server', { status: 409, error: 'sudah_dipilih' });
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -202,6 +215,11 @@ export class FakeTransport implements Transport {
   private homeRev = 0;
   /** `rev` Beranda terakhir yang disiarkan lewat stream (jawaban GET tidak menghitung: ia hanya membaca). */
   private homeSent = 0;
+  private devicesTimer: Promise<void> | null = null;
+  /** Keadaan perangkat yang terakhir dihitung: perangkat per id (JSON) dan kotak, untuk menghitung perubahan. */
+  private deviceSnap = new Map<string, string>();
+  private boxSnap = '';
+  private devicesRev = 1;
   private agendaTimer: Promise<void> | null = null;
   /** Keadaan agenda yang terakhir disiarkan: item per id (JSON) dan sisa tugas, untuk menghitung perubahan. */
   private agendaSnap = new Map<string, string>();
@@ -252,6 +270,7 @@ export class FakeTransport implements Transport {
     this.currentHome();
     this.homeSent = this.homeRev;
     this.snapshotAgenda();
+    this.snapshotDevices();
   }
 
   // ---- Jalur kontrak ----
@@ -572,11 +591,78 @@ export class FakeTransport implements Transport {
     return { pinEnabled: this.pinEnabled, hasPin: this.pinValue !== null };
   }
 
-  /** Kendali perangkat dari kartu adalah Fase 3: server tiruan, seperti server Fase 1b, menjawab 501. */
-  controlDevice(_deviceId: string, req: DeviceControlReq): Promise<DeviceCard> {
-    return this.call(true, (): DeviceCard => {
-      parse(deviceControlReqSchema, req);
-      throw new ApiFailure('unavailable', { status: 501, error: 'belum_tersedia' });
+  devices(place?: string): Promise<DevicesRes> {
+    return this.call(true, () => {
+      const query = parse(devicesQuerySchema, { place });
+      const state = this.sample.getState();
+      const target = query.place ?? state.place;
+      if (!(PLACES as readonly string[]).includes(target)) throw invalid();
+      // Perubahan yang belum disiarkan dihitung dulu, jadi `rev` jawaban ini sudah memuatnya.
+      this.flushDevices();
+      return copy({ ...devicesFrom(state, target), rev: this.devicesRev });
+    });
+  }
+
+  /**
+   * Atur perangkat di penyimpanan contoh. Mematikan perangkat yang dijaga (kamera, kunci) saat PIN dihidupkan butuh
+   * `pin`: tanpa `pin` 428 `pin_diperlukan`, `pin` salah 403 `pin_salah`. Perangkat yang tidak terjangkau tidak berubah
+   * (jawabannya keadaan yang sebenarnya).
+   */
+  controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceControlRes> {
+    return this.call(true, (): DeviceControlRes => {
+      const r = parse(deviceControlReqSchema, req);
+      const found = deviceById(this.sample.getState(), deviceId);
+      if (!found) throw notFound();
+      const ac = found.kind === 'ac';
+      if (!ac && (r.temp !== undefined || r.mode !== undefined || r.fan !== undefined)) throw invalid();
+      if (r.level !== undefined && found.kind !== 'lampu') throw invalid();
+      if (r.mode !== undefined && !AC_MODES.includes(r.mode)) throw invalid();
+      if (r.fan !== undefined && !AC_FANS.includes(r.fan)) throw invalid();
+      if (found.needsPin && r.on === false && this.pinEnabled) {
+        if (r.pin === undefined) throw pinNeeded();
+        if (r.pin !== this.pinValue) throw wrongPin();
+      }
+      if (ac) {
+        this.sample.dispatch({
+          type: 'setAc',
+          deviceId,
+          on: r.on,
+          temp: r.temp,
+          mode: r.mode as AcMode | undefined,
+          fan: r.fan as AcFan | undefined,
+          source: 'aplikasi',
+        });
+      } else {
+        if (r.on !== undefined) this.sample.dispatch({ type: 'toggleDevice', id: deviceId, on: r.on });
+        if (r.level !== undefined) this.sample.dispatch({ type: 'setLevel', id: deviceId, level: r.level });
+      }
+      const device = toDevice(deviceById(this.sample.getState(), deviceId)!);
+      return copy({ device, card: cardFromDevice(device) });
+    });
+  }
+
+  runRoutine(routineId: string, place?: string): Promise<RoutineRunRes> {
+    return this.call(true, (): RoutineRunRes => {
+      const req = parse(routineRunReqSchema, place === undefined ? {} : { place });
+      const routine = ROUTINES.find((r) => r.id === routineId);
+      if (!routine) throw notFound();
+      const target = req.place ?? this.sample.getState().place;
+      if (!(PLACES as readonly string[]).includes(target)) throw invalid();
+      const before = new Map(this.sample.getState().devices.map((d) => [d.id, JSON.stringify(toDevice(d))]));
+      for (const action of routineActions(routine, this.sample.getState(), target)) this.sample.dispatch(action);
+      const devices = this.sample
+        .getState()
+        .devices.map(toDevice)
+        .filter((d) => before.get(d.id) !== JSON.stringify(d));
+      return copy({ devices, summary: routineDone(routine, target) });
+    });
+  }
+
+  setBoxMic(micOn: boolean): Promise<BoxRes> {
+    return this.call(true, (): BoxRes => {
+      const req = parse(boxReqSchema, { micOn });
+      this.sample.dispatch({ type: 'setBoxMic', on: req.micOn });
+      return copy({ box: boxFrom(this.sample.getState()) });
     });
   }
 
@@ -694,6 +780,7 @@ export class FakeTransport implements Transport {
     this.syncOutgoing();
     this.scheduleHome();
     this.scheduleAgenda();
+    this.scheduleDevices();
   }
 
   /**
@@ -749,6 +836,52 @@ export class FakeTransport implements Transport {
         this.homeSent = home.rev;
         this.emit({ type: 'home', home });
       }
+    });
+  }
+
+  // ---- Perangkat ----
+
+  private devicesSnapshot(): { devices: Map<string, string>; box: string } {
+    const state = this.sample.getState();
+    return {
+      devices: new Map(state.devices.map((d) => [d.id, JSON.stringify(toDevice(d))])),
+      box: JSON.stringify(boxFrom(state)),
+    };
+  }
+
+  private snapshotDevices() {
+    const snap = this.devicesSnapshot();
+    this.deviceSnap = snap.devices;
+    this.boxSnap = snap.box;
+  }
+
+  /** Hitung perubahan perangkat sejak hitungan terakhir; kalau ada, naikkan `rev` dan siarkan satu event `device`. */
+  private flushDevices() {
+    const before = this.deviceSnap;
+    const boxBefore = this.boxSnap;
+    const now = this.devicesSnapshot();
+    const devices = [...now.devices]
+      .filter(([id, json]) => before.get(id) !== json)
+      .map(([, json]) => JSON.parse(json));
+    const boxChanged = now.box !== boxBefore;
+    this.deviceSnap = now.devices;
+    this.boxSnap = now.box;
+    if (devices.length === 0 && !boxChanged) return;
+    this.devicesRev += 1;
+    this.emit({
+      type: 'device',
+      ...(devices.length ? { devices } : {}),
+      ...(boxChanged ? { box: JSON.parse(now.box) } : {}),
+      rev: this.devicesRev,
+    });
+  }
+
+  /** Perubahan penyimpanan dalam satu giliran digabung menjadi satu event `device` (hanya kalau ada yang berubah). */
+  private scheduleDevices() {
+    if (this.devicesTimer) return;
+    this.devicesTimer = Promise.resolve().then(() => {
+      this.devicesTimer = null;
+      this.flushDevices();
     });
   }
 

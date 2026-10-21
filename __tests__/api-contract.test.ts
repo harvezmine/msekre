@@ -253,8 +253,27 @@ test('kendali perangkat rumah', () => {
   bad(deviceControlReqSchema, {});
   bad(deviceControlReqSchema, { brightness: 3 });
   bad(deviceControlReqSchema, { mode: '' });
-  ok(deviceControlResSchema, { card: cards[2] });
-  bad(deviceControlResSchema, { card: cards[0] });
+  ok(deviceControlReqSchema, { fan: 'Pelan' });
+  ok(deviceControlReqSchema, { level: 40 });
+  ok(deviceControlReqSchema, { on: false, pin: '123456' });
+  bad(deviceControlReqSchema, { pin: '123456' });
+  bad(deviceControlReqSchema, { on: false, pin: '12' });
+  bad(deviceControlReqSchema, { level: 101 });
+  const device = {
+    id: 'ac-kamar',
+    place: 'Rumah',
+    room: 'Kamar',
+    name: 'AC kamar',
+    icon: 'snow',
+    kind: 'ac',
+    on: true,
+    reachable: true,
+    ac: { temp: 24, mode: 'Dingin', fan: 'Otomatis' },
+    status: 'Nyala · 24°',
+  };
+  ok(deviceControlResSchema, { device, card: cards[2] });
+  bad(deviceControlResSchema, { card: cards[2] });
+  bad(deviceControlResSchema, { device, card: cards[0] });
 });
 
 test('event stream', () => {
@@ -280,6 +299,7 @@ test('error', () => {
     'sudah_dipilih',
     'diblokir',
     'pin_salah',
+    'pin_diperlukan',
     'belum_terdaftar',
     'perlu_pembaruan',
     'terlalu_sering',

@@ -402,13 +402,14 @@ describe('paritas dengan server', () => {
     expect(SAMPLE_FILE_MEDIA_ID).toBe('contoh-laporan');
   });
 
-  test('kendali perangkat rumah: 501 belum_tersedia (Fase 3)', async () => {
+  test('kendali perangkat rumah: mengatur AC di data bersama, bentuk tidak sah ditolak', async () => {
     const { transport } = setup();
-    await expect(transport.controlDevice('ac-kamar', { on: false })).rejects.toMatchObject({
-      code: 'unavailable',
-      status: 501,
-      error: 'belum_tersedia',
-    });
+    const res = await transport.controlDevice('ac-kamar', { on: false });
+    expect(res.device).toMatchObject({ id: 'ac-kamar', on: false, status: 'Mati' });
+    expect(res.card).toMatchObject({ kind: 'device', deviceId: 'ac-kamar', on: false });
     await expect(transport.controlDevice('ac-kamar', {})).rejects.toMatchObject({ error: 'tidak_valid' });
+    await expect(transport.controlDevice('tidak-ada', { on: true })).rejects.toMatchObject({
+      error: 'tidak_ditemukan',
+    });
   });
 });

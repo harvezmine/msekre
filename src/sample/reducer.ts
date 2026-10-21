@@ -62,6 +62,8 @@ export type SampleAction =
       source?: ActionSource;
     }
   | { type: 'toggleDevice'; id: string; on: boolean }
+  /** Terang lampu 0–100. Tidak mengubah nyala atau matinya. */
+  | { type: 'setLevel'; id: string; level: number }
   | { type: 'setBoxMic'; on: boolean }
   /** Draf baru (misalnya "Pesan lagi"). Kartunya di chat dibuat server tiruan (`FakeTransport`) saat melihat kiriman baru. */
   | { type: 'addDraft'; draft: NewDraft }
@@ -183,6 +185,23 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
           icon: d.icon,
           title,
           sub: `${d.place} · lewat aplikasi · ${NOW_APP}`,
+          deviceId: d.id,
+        },
+      ).state;
+    }
+
+    case 'setLevel': {
+      const d = state.devices.find((x) => x.id === action.id);
+      const level = Math.min(100, Math.max(0, Math.round(action.level)));
+      if (!d || !d.reachable || d.kind !== 'lampu' || d.level === level) return state;
+      return withHistory(
+        { ...state, devices: setDevice(state.devices, d.id, { level }) },
+        {
+          time: NOW_APP,
+          kind: placeKind(d),
+          icon: d.icon,
+          title: `Mengatur terang ${lc(d.name)}`,
+          sub: `${d.place} · ${level}% · lewat aplikasi · ${NOW_APP}`,
           deviceId: d.id,
         },
       ).state;

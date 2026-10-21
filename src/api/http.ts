@@ -10,7 +10,9 @@ import {
   authVerifyResSchema,
   CONTRACT_VERSION,
   CONTRACT_VERSION_HEADER,
+  boxResSchema,
   deviceControlResSchema,
+  routineRunResSchema,
   meSchema,
   MESSAGES_LIMIT,
   MESSAGES_LIMIT_MAX,
@@ -27,8 +29,10 @@ import {
   type AuthStartRes,
   type AuthVerifyReq,
   type AuthVerifyRes,
-  type DeviceCard,
+  type BoxRes,
   type DeviceControlReq,
+  type DeviceControlRes,
+  type DevicesRes,
   type DraftActionReq,
   type DraftActionRes,
   type Home,
@@ -39,6 +43,7 @@ import {
   type PinSetReq,
   type PushTokenDeleteReq,
   type PushTokenReq,
+  type RoutineRunRes,
   type SecurityRes,
   type SecurityUpdateReq,
   type SendMessageReq,
@@ -49,6 +54,7 @@ import {
   parseDraftResLenient,
   parseEventLenient,
   parseAgendaLenient,
+  parseDevicesLenient,
   parseHomeLenient,
   parseMessageLenient,
   parsePageLenient,
@@ -262,11 +268,25 @@ export class HttpTransport implements Transport {
     await this.request('POST', `/agenda/${encodeURIComponent(id)}/alarm-ack`, okResSchema, { body: { scheduledFor } });
   }
 
-  async controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceCard> {
-    const res = await this.request('POST', `/home/devices/${encodeURIComponent(deviceId)}`, deviceControlResSchema, {
+  devices(place?: string): Promise<DevicesRes> {
+    const query = place === undefined ? '' : `?place=${encodeURIComponent(place)}`;
+    return this.request('GET', `/devices${query}`, reader(parseDevicesLenient));
+  }
+
+  controlDevice(deviceId: string, req: DeviceControlReq): Promise<DeviceControlRes> {
+    return this.request('POST', `/home/devices/${encodeURIComponent(deviceId)}`, deviceControlResSchema, {
       body: req,
     });
-    return res.card;
+  }
+
+  runRoutine(routineId: string, place?: string): Promise<RoutineRunRes> {
+    return this.request('POST', `/routines/${encodeURIComponent(routineId)}/run`, routineRunResSchema, {
+      body: place === undefined ? {} : { place },
+    });
+  }
+
+  setBoxMic(micOn: boolean): Promise<BoxRes> {
+    return this.request('PUT', '/box', boxResSchema, { body: { micOn } });
   }
 
   async mediaUrl(mediaId: string): Promise<MediaSource> {
@@ -574,6 +594,7 @@ function failureFor(status: number, data: unknown): ApiFailure {
   const details = { status, error };
   if (status === 403 && error === 'pin_salah') return new ApiFailure('pin_wrong', details);
   if (status === 403) return new ApiFailure('blocked', details);
+  if (status === 428 && error === 'pin_diperlukan') return new ApiFailure('pin_required', details);
   if (status === 404 && error === 'belum_terdaftar') {
     return new ApiFailure('not_registered', { ...details, waNumber: waNumber(data) });
   }

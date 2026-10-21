@@ -131,3 +131,19 @@ Kontrak ditambah (aditif, `CONTRACT_VERSION` tetap 1); uraian lengkap di `docs/a
     melepasnya. Tidak ada lagi: 404.
 - Server tiruan: `FakeTransport` memegang agenda di penyimpanan contoh bersama; pengurai contoh pindah ke
   `src/api/fake/parseAgenda.ts`. Tanda terima dicatat di `FakeTransport.alarmAcks`.
+
+## Perangkat (Fase 2a, Tugas 3; server Fase 3)
+
+Kontrak: `docs/api-v1.md` bagian 2.9 dan 2.14. Aplikasi sudah memakainya penuh lewat server tiruan.
+
+- Peta ke milo-ai: penyedia perangkat di `src/home/` (8 merek) menghasilkan `Device`; `kind` dan `status` dibuat server.
+  Perangkat IR (lewat Kotak) berisi `via: 'ir'` dan hanya perintah terakhir yang diketahui.
+- PIN memakai tabel `home_pins` yang ada. Perangkat `sensitive` = kamera, alarm rumah, kunci pintu. Bila `pinEnabled`
+  dan aksinya `on: false` tanpa `pin`: 428 `pin_diperlukan`; `pin` salah: 403 `pin_salah` (beri batas percobaan,
+  429 `terlalu_sering`). Chat/WhatsApp tidak pernah membuka kunci; hanya kendali langsung dari aplikasi.
+- Naikkan `rev` perangkat setiap perangkat atau Kotak berubah (juga karena chat atau WhatsApp) dan siarkan event
+  `device` berisi perangkat yang berubah. Gabungkan perubahan yang berdekatan.
+- Layar suhu AC mengirim satu perintah per derajat saat memutar; server boleh menggabungkan atau membatasi laju
+  perintah IR.
+- `POST /routines/:id/run` mengembalikan hanya perangkat yang berubah; `PUT /box` mengatur mikrofon Kotak.
+
