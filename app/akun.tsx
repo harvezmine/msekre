@@ -21,6 +21,7 @@ import { usePush, type PushPermission } from '@/api/usePush';
 import { useSecurity } from '@/api/useSecurity';
 import { versionText } from '@/api/version';
 import { useProfile, type Profile } from '@/api/useProfile';
+import { APPEARANCE_LABEL, useAppearance } from '@/theme/appearance';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { Initials } from '@/ui/Initials';
@@ -66,6 +67,7 @@ export default function Akun() {
   const profile = useProfile();
   const { account: data, status: accountStatus, retry } = useAccount();
   const { permission, canAskAgain } = usePush();
+  const appearance = useAppearance();
   const security = useSecurity();
   const alarm = useAlarmStatus();
   // Hari terakhir paket dihitung di zona waktu pengguna (dari agenda bila sudah dimuat, bawaan WIB).
@@ -118,6 +120,12 @@ export default function Akun() {
         title: 'Notifikasi',
         subtitle: NOTIF_STATUS[permission === 'denied' && canAskAgain ? 'undetermined' : permission],
         go: { route: '/akun/notifikasi' },
+      },
+      {
+        icon: 'moon',
+        title: 'Tampilan',
+        subtitle: APPEARANCE_LABEL[appearance.preference],
+        go: { route: '/akun/tampilan' },
       },
       // Hanya di HP yang punya alarm sendiri (build Android dengan modul alarm).
       ...(getAlarmScheduler().native

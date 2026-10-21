@@ -23,6 +23,7 @@ import { canOpen } from '@/api/routeAccess';
 import { PushProvider, PushTapHandler } from '@/api/usePush';
 import { AlarmSyncHost } from '@/alarm/useAlarmSync';
 import { AuthProvider, useAuth } from '@/api/useAuth';
+import { AppearanceProvider } from '@/theme/appearance';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { useLaunchSplash } from '@/ui/LaunchSplash';
 import { SplashShell } from '@/ui/SplashShell';
@@ -106,6 +107,7 @@ function Navigator() {
           <Stack.Screen name="akun/asisten" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="akun/sapaan" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="akun/notifikasi" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="akun/tampilan" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="akun/hp" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="akun/privasi" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen
@@ -200,33 +202,35 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <ToastProvider>
-          <ApiProvider>
-            <AuthProvider>
-              <ChatProvider>
-                <HomeProvider>
-                  <AgendaProvider>
-                    <DevicesProvider>
-                      <BusinessProvider>
-                        <ConnectionsProvider>
-                          <HistoryProvider>
-                            <AccountProvider>
-                              <PushProvider>
-                                <Navigator />
-                              </PushProvider>
-                            </AccountProvider>
-                          </HistoryProvider>
-                        </ConnectionsProvider>
-                      </BusinessProvider>
-                    </DevicesProvider>
-                  </AgendaProvider>
-                </HomeProvider>
-              </ChatProvider>
-            </AuthProvider>
-          </ApiProvider>
-        </ToastProvider>
-      </ThemeProvider>
+      <AppearanceProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <ApiProvider>
+              <AuthProvider>
+                <ChatProvider>
+                  <HomeProvider>
+                    <AgendaProvider>
+                      <DevicesProvider>
+                        <BusinessProvider>
+                          <ConnectionsProvider>
+                            <HistoryProvider>
+                              <AccountProvider>
+                                <PushProvider>
+                                  <Navigator />
+                                </PushProvider>
+                              </AccountProvider>
+                            </HistoryProvider>
+                          </ConnectionsProvider>
+                        </BusinessProvider>
+                      </DevicesProvider>
+                    </AgendaProvider>
+                  </HomeProvider>
+                </ChatProvider>
+              </AuthProvider>
+            </ApiProvider>
+          </ToastProvider>
+        </ThemeProvider>
+      </AppearanceProvider>
     </GestureHandlerRootView>
   );
 }

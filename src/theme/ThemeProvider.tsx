@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
+import { useAppearance } from './appearance';
 import { dark, light, type Palette } from './tokens';
 
 export type Scheme = 'light' | 'dark';
@@ -19,10 +19,10 @@ export function themeFor(scheme: Scheme): Theme {
 
 const ThemeContext = createContext<Theme>(themeFor('light'));
 
-/** `scheme` hanya untuk tes dan layar pratinjau. Biasanya mengikuti mode gelap HP. */
+/** `scheme` hanya untuk tes dan layar pratinjau. Biasanya pilihan Tampilan (bawaannya mengikuti mode gelap HP). */
 export function ThemeProvider({ scheme, children }: { scheme?: Scheme; children: ReactNode }) {
-  const system = useColorScheme();
-  const value = themeFor(scheme ?? (system === 'dark' ? 'dark' : 'light'));
+  const appearance = useAppearance();
+  const value = themeFor(scheme ?? appearance.scheme);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 

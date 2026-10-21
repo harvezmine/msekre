@@ -16,11 +16,14 @@ const CIRI_GELAP = [dark.paper, dark.ink, dark.card, dark.mint].map((h) => h.toL
  * Pengecualian yang disengaja (dicari lewat nama layar dan warna):
  * - Mode Suara: tombol "Selesai" memang terang (onForest.strong, #F6F6F0) di atas latar forest, di dua mode.
  * - Alarm: tombol geser "Matikan" juga terang (onForest.strong) di atas forest, di dua mode.
+ * - Tampilan: petak pratinjau "Terang" memakai warna terang di dua mode.
  * - QRIS di chat memakai kotak putih (#FFFFFF) supaya bisa dipindai; putih tidak termasuk daftar terang di atas.
  */
 const IZIN: Record<string, string[]> = {
   Suara: [light.paper.toLowerCase()],
   Alarm: [light.paper.toLowerCase()],
+  // Petak pratinjau pilihan Terang memang berwarna terang.
+  Tampilan: [light.paper.toLowerCase(), light.card.toLowerCase()],
 };
 
 interface Node {

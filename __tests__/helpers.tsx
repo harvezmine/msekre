@@ -21,6 +21,7 @@ import {
   type SampleState,
 } from '@/sample/store';
 import { createToastStore, ToastProvider } from '@/ui/toastStore';
+import { AppearanceProvider } from '@/theme/appearance';
 import { ThemeProvider, type Scheme } from '@/theme/ThemeProvider';
 
 interface Options {
@@ -31,6 +32,8 @@ interface Options {
   scheme?: Scheme;
   /** Sumber data; bawaannya server tiruan di memori (mode contoh) tanpa sesi. */
   api?: Api;
+  /** Pasang pilihan Tampilan (dimuat dari penyimpanan) di luar tema, seperti di akar aplikasi. */
+  appearance?: boolean;
 }
 
 /** Sumber data tiruan di memori untuk tes. `mode` menjadi label `Api.mode` dan `Transport.mode`; isinya selalu FakeTransport. */
@@ -62,11 +65,14 @@ export function useSample(): { state: SampleState } {
 }
 
 /** Render dengan tema dan penyimpanan contoh, seperti di akar aplikasi. */
-export async function renderWithProviders(ui: ReactElement, { state, actions = [], scheme, api }: Options = {}) {
+export async function renderWithProviders(
+  ui: ReactElement,
+  { state, actions = [], scheme, api, appearance = false }: Options = {},
+) {
   // Mode contoh: keadaan awal dipasang di penyimpanan milik server tiruan (itu yang dilihat layar dan skenario).
   const seeded = stateAfter(actions, state);
   testToasts.hide();
-  return render(
+  const tree = (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider scheme={scheme}>
         <ToastProvider store={testToasts}>
@@ -91,6 +97,7 @@ export async function renderWithProviders(ui: ReactElement, { state, actions = [
           </ApiProvider>
         </ToastProvider>
       </ThemeProvider>
-    </GestureHandlerRootView>,
+    </GestureHandlerRootView>
   );
+  return render(appearance ? <AppearanceProvider>{tree}</AppearanceProvider> : tree);
 }

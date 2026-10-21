@@ -47,6 +47,7 @@ export const LAYAR: LayarKasus[] = [
   { nama: 'Nama dan gaya asisten', Layar: ROUTES['/akun/asisten']! },
   { nama: 'Sapaan harian', Layar: ROUTES['/akun/sapaan']! },
   { nama: 'Notifikasi', Layar: ROUTES['/akun/notifikasi']! },
+  { nama: 'Tampilan', Layar: ROUTES['/akun/tampilan']! },
   { nama: 'HP yang terhubung', Layar: ROUTES['/akun/hp']! },
   { nama: 'Privasi', Layar: ROUTES['/akun/privasi']! },
   { nama: 'Keluarkan HP (konfirmasi)', Layar: ROUTES['/akun/konfirmasi']!, params: { aksi: 'hp', id: 'hp-lama' } },
