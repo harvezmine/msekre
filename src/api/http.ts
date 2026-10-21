@@ -27,6 +27,8 @@ import {
   type AuthStartReq,
   type AuthStartRes,
   type AuthVerifyReq,
+  type Account,
+  type AssistantUpdateReq,
   type AuthVerifyRes,
   type BoxRes,
   type DeviceControlReq,
@@ -45,10 +47,14 @@ import {
   type Connections,
   type DraftActionReq,
   type DraftActionRes,
+  type GreetingUpdateReq,
+  type HistoryPage,
+  type HistoryQuery,
   type Home,
   type Me,
   type Message,
   type MessagesPage,
+  type NotificationsUpdateReq,
   type MessagesChangedPage,
   type PinSetReq,
   type PushTokenDeleteReq,
@@ -66,8 +72,10 @@ import {
   parseAgendaItemResLenient,
   parseAgendaLenient,
   parseBusinessLenient,
+  parseAccountLenient,
   parseConnectionDetailLenient,
   parseConnectionsLenient,
+  parseHistoryLenient,
   parseDevicesLenient,
   parseHomeLenient,
   parseMessageLenient,
@@ -348,6 +356,35 @@ export class HttpTransport implements Transport {
 
   startConnection(id: string): Promise<ConnectionStartRes> {
     return this.request('POST', `/connections/${encodeURIComponent(id)}/start`, connectionStartResSchema, { body: {} });
+  }
+
+  history(query: Partial<Pick<HistoryQuery, 'kind' | 'before' | 'limit'>> = {}): Promise<HistoryPage> {
+    const params = [
+      ...(query.kind === undefined ? [] : [`kind=${query.kind}`]),
+      ...(query.before === undefined ? [] : [`before=${encodeURIComponent(query.before)}`]),
+      ...(query.limit === undefined ? [] : [`limit=${query.limit}`]),
+    ];
+    return this.request('GET', `/history${params.length ? `?${params.join('&')}` : ''}`, reader(parseHistoryLenient));
+  }
+
+  account(): Promise<Account> {
+    return this.request('GET', '/account', reader(parseAccountLenient));
+  }
+
+  setAssistant(req: AssistantUpdateReq): Promise<Account> {
+    return this.request('PUT', '/account/assistant', reader(parseAccountLenient), { body: req });
+  }
+
+  setGreeting(req: GreetingUpdateReq): Promise<Account> {
+    return this.request('PUT', '/account/greeting', reader(parseAccountLenient), { body: req });
+  }
+
+  setNotifications(req: NotificationsUpdateReq): Promise<Account> {
+    return this.request('PUT', '/account/notifications', reader(parseAccountLenient), { body: req });
+  }
+
+  removePhone(id: string): Promise<Account> {
+    return this.request('DELETE', `/account/phones/${encodeURIComponent(id)}`, reader(parseAccountLenient));
   }
 
   async mediaUrl(mediaId: string): Promise<MediaSource> {
@@ -659,6 +696,7 @@ function failureFor(status: number, data: unknown): ApiFailure {
   if (status === 404 && error === 'belum_terdaftar') {
     return new ApiFailure('not_registered', { ...details, waNumber: waNumber(data) });
   }
+  if (status === 400 && error === 'nama_tidak_valid') return new ApiFailure('invalid_name', details);
   if (status === 422 && error === 'tidak_paham') return new ApiFailure('not_understood', details);
   if (status === 426) return new ApiFailure('upgrade_required', details);
   if (status === 429) return new ApiFailure('rate_limited', { ...details, retryInSec: retryInSec(data) });

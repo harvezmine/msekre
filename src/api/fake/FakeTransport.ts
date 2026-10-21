@@ -22,6 +22,11 @@ import {
   agendaParseReqSchema,
   agendaPatchReqSchema,
   alarmAckReqSchema,
+  assistantNameSchema,
+  assistantUpdateReqSchema,
+  greetingUpdateReqSchema,
+  historyQuerySchema,
+  notificationsUpdateReqSchema,
   authStartReqSchema,
   authVerifyReqSchema,
   deviceControlReqSchema,
@@ -36,6 +41,10 @@ import {
   pushTokenReqSchema,
   securityUpdateReqSchema,
   sendMessageReqSchema,
+  type Account,
+  type AccountPhone,
+  type AccountPlan,
+  type AssistantUpdateReq,
   type AgendaItem,
   type AgendaNew,
   type AgendaParseRes,
@@ -61,11 +70,15 @@ import {
   type Draft,
   type DraftActionReq,
   type DraftActionRes,
+  type GreetingUpdateReq,
+  type HistoryPage,
+  type HistoryQuery,
   type Home,
   type Me,
   type Message,
   type MessagesPage,
   type MessagesChangedPage,
+  type NotificationsUpdateReq,
   type PinSetReq,
   type PushTokenDeleteReq,
   type PushTokenReq,
@@ -98,6 +111,8 @@ import {
 } from './agenda';
 import { FakeClock } from './clock';
 import { cardFromDevice } from '../devices';
+import { accountFrom, initialAccountState, type FakeAccountState } from './account';
+import { historyFrom, pageOf } from './activity';
 import { businessFrom } from './business';
 import { connectionsFrom, detailFrom, serviceFrom, startUrlOf, type FakeConnectionsContext } from './connections';
 import { boxFrom, devicesFrom, toDevice } from './devices';
@@ -140,6 +155,10 @@ export interface FakeOptions {
   afterLimit?: number;
   /** Jeda dari `startConnection` sampai layanan tersambung (pengguna selesai masuk di halaman resminya). Bawaan 300 ms. */
   connectMs?: number;
+  /** Paket di Akun (nama, status, batas, harga) yang menimpa bawaan: Bisnis, aktif sampai 12 Jan 2027. */
+  plan?: Partial<AccountPlan>;
+  /** HP yang terhubung di Akun. Bawaan: Pixel 8 (HP ini) dan Galaxy A54. */
+  phones?: AccountPhone[];
 }
 
 type Timer = ReturnType<typeof setTimeout>;
@@ -187,6 +206,8 @@ export class FakeTransport implements Transport {
   readonly registeredPushTokens: PushTokenReq[] = [];
   /** Token yang dicabut (`unregisterPushToken`), dari yang pertama. Hanya dicatat. */
   readonly unregisteredPushTokens: string[] = [];
+  /** Id HP yang dikeluarkan lewat `removePhone`, dari yang pertama. Hanya dicatat. */
+  readonly removedPhones: string[] = [];
   /** Setiap tanda terima alarm lokal (`agendaAlarmAck`), dari yang pertama. Server asli lalu tidak mengirim pengingatnya lewat WhatsApp. */
   readonly alarmAcks: { id: string; scheduledFor: string }[] = [];
   /**
@@ -253,6 +274,14 @@ export class FakeTransport implements Transport {
   private readonly connectedAt = new Map<string, string>();
   /** Kemampuan yang diubah pengguna: `id:key` -> aktif. */
   private readonly capabilityOverrides = new Map<string, boolean>();
+  private historyTimer: Promise<void> | null = null;
+  /** Entri Riwayat yang terakhir disiarkan: per id (JSON), untuk menghitung perubahan. */
+  private historySnap = new Map<string, string>();
+  private historyRev = 1;
+  private readonly accountState: FakeAccountState;
+  private accountTimer: Promise<void> | null = null;
+  private accountSnap = '';
+  private accountRev = 1;
   private agendaTimer: Promise<void> | null = null;
   /** Keadaan agenda yang terakhir disiarkan: item per id (JSON) dan sisa tugas, untuk menghitung perubahan. */
   private agendaSnap = new Map<string, string>();
@@ -283,6 +312,7 @@ export class FakeTransport implements Transport {
     this.afterLimit = options.afterLimit ?? MESSAGES_LIMIT_MAX;
     this.connectMs = options.connectMs ?? 300;
     this.meValue = sampleMe(this.clock);
+    this.accountState = initialAccountState(this.clock, options);
     this.waNumber = options.waNumber === undefined ? FAKE_WA_NUMBER : options.waNumber;
     this.pinValue = options.security?.pin ?? null;
     this.pinEnabled = (options.security?.pinEnabled ?? false) && this.pinValue !== null;
@@ -306,6 +336,8 @@ export class FakeTransport implements Transport {
     this.snapshotAgenda();
     this.snapshotDevices();
     this.snapshotConnections();
+    this.snapshotHistory();
+    this.accountSnap = JSON.stringify(this.accountBase());
   }
 
   // ---- Jalur kontrak ----
@@ -602,6 +634,7 @@ export class FakeTransport implements Transport {
       // Mematikan permintaan PIN butuh PIN yang sekarang: tanpa itu, token yang sah saja tidak cukup.
       if (!pinEnabled && this.pinValue !== null && pin !== this.pinValue) throw wrongPin();
       this.pinEnabled = pinEnabled;
+      this.scheduleAccount();
       return this.securityState();
     });
   }
@@ -616,6 +649,7 @@ export class FakeTransport implements Transport {
       // Atomik: PIN dan permintaan PIN berubah bersama, atau tidak sama sekali.
       this.pinValue = pin;
       if (enable) this.pinEnabled = true;
+      this.scheduleAccount();
       return this.securityState();
     });
   }
@@ -810,6 +844,62 @@ export class FakeTransport implements Transport {
     });
   }
 
+  history(query: Partial<Pick<HistoryQuery, 'kind' | 'before' | 'limit'>> = {}): Promise<HistoryPage> {
+    return this.call(true, (): HistoryPage => {
+      const q = parse(historyQuerySchema, query);
+      // Perubahan yang belum disiarkan dihitung dulu, jadi `rev` jawaban ini sudah memuatnya.
+      this.flushHistory();
+      const page = pageOf(this.historyAll(), q);
+      return copy({ ...page, rev: this.historyRev, now: this.clock.iso() });
+    });
+  }
+
+  account(): Promise<Account> {
+    return this.call(true, () => this.accountNow());
+  }
+
+  setAssistant(req: AssistantUpdateReq): Promise<Account> {
+    return this.call(true, () => {
+      const r = parse(assistantUpdateReqSchema, req);
+      if (r.name !== undefined) {
+        const name = assistantNameSchema.safeParse(r.name);
+        if (!name.success) throw new ApiFailure('invalid_name', { status: 400, error: 'nama_tidak_valid' });
+        this.meValue.assistantName = name.data;
+      }
+      if (r.style !== undefined) this.accountState.assistantStyle = r.style;
+      return this.accountNow();
+    });
+  }
+
+  setGreeting(req: GreetingUpdateReq): Promise<Account> {
+    return this.call(true, () => {
+      const r = parse(greetingUpdateReqSchema, req);
+      const time = r.time ?? this.accountState.greeting.time;
+      this.accountState.greeting = { daily: r.daily, ...(time ? { time } : {}) };
+      return this.accountNow();
+    });
+  }
+
+  setNotifications(req: NotificationsUpdateReq): Promise<Account> {
+    return this.call(true, () => {
+      const r = parse(notificationsUpdateReqSchema, req);
+      this.accountState.notifications = { ...this.accountState.notifications, ...r };
+      return this.accountNow();
+    });
+  }
+
+  removePhone(id: string): Promise<Account> {
+    return this.call(true, () => {
+      const phone = this.accountState.phones.find((p) => p.id === id);
+      if (!phone) throw notFound();
+      // HP ini keluar lewat Keluar (yang juga mencabut tokennya), bukan dari daftar.
+      if (phone.current) throw invalid();
+      this.accountState.phones = this.accountState.phones.filter((p) => p.id !== id);
+      this.removedPhones.push(id);
+      return this.accountNow();
+    });
+  }
+
   async mediaUrl(mediaId: string): Promise<MediaSource> {
     await this.checkSession();
     if (mediaId === SAMPLE_QR_MEDIA_ID) return { kind: 'sampleQr' };
@@ -927,6 +1017,8 @@ export class FakeTransport implements Transport {
     this.scheduleDevices();
     this.scheduleBusiness();
     this.scheduleConnections();
+    this.scheduleHistory();
+    this.scheduleAccount();
   }
 
   /**
@@ -1107,6 +1199,70 @@ export class FakeTransport implements Transport {
     });
   }
 
+  // ---- Riwayat ----
+
+  private historyAll() {
+    return historyFrom(this.sample.getState(), this.drafts);
+  }
+
+  private snapshotHistory() {
+    this.historySnap = new Map(this.historyAll().map((e) => [e.id, JSON.stringify(e)]));
+  }
+
+  /** Hitung entri yang baru atau berubah; kalau ada, naikkan `rev` sekali dan siarkan satu event `history` per entri. */
+  private flushHistory() {
+    const before = this.historySnap;
+    const changed = this.historyAll().filter((e) => before.get(e.id) !== JSON.stringify(e));
+    this.snapshotHistory();
+    if (changed.length === 0) return;
+    this.historyRev += 1;
+    // Dari yang tertua, supaya penerima yang menaruh entri baru di depan menyusunnya dengan benar.
+    for (const entry of changed.reverse()) this.emit({ type: 'history', entry, rev: this.historyRev });
+  }
+
+  private scheduleHistory() {
+    if (this.historyTimer) return;
+    this.historyTimer = Promise.resolve().then(() => {
+      this.historyTimer = null;
+      this.flushHistory();
+    });
+  }
+
+  // ---- Akun ----
+
+  private accountBase(): Omit<Account, 'rev'> {
+    return accountFrom(
+      copy(this.meValue),
+      this.accountState,
+      this.securityState(),
+      this.sample.getState(),
+      this.connectionsContext(),
+    );
+  }
+
+  /** Hitung perubahan Akun; kalau ada, naikkan `rev` dan siarkan satu event `account`. */
+  private flushAccount() {
+    const base = this.accountBase();
+    const json = JSON.stringify(base);
+    if (json === this.accountSnap) return;
+    this.accountSnap = json;
+    this.accountRev += 1;
+    this.emit({ type: 'account', account: { ...base, rev: this.accountRev } });
+  }
+
+  private accountNow(): Account {
+    this.flushAccount();
+    return copy({ ...this.accountBase(), rev: this.accountRev });
+  }
+
+  private scheduleAccount() {
+    if (this.accountTimer) return;
+    this.accountTimer = Promise.resolve().then(() => {
+      this.accountTimer = null;
+      this.flushAccount();
+    });
+  }
+
   // ---- Agenda ----
 
   private agendaSnapshot(): { items: Map<string, string>; leftover: string } {
@@ -1253,6 +1409,7 @@ export class FakeTransport implements Transport {
     this.drafts.set(next.id, next);
     const rev = this.touchDraft(next.id);
     this.mirrorDraft(next);
+    this.scheduleHistory();
     this.later(0, () => this.emit({ type: 'draft', draft: next, rev }));
     return rev;
   }
@@ -1270,6 +1427,7 @@ export class FakeTransport implements Transport {
         this.drafts.set(id, done);
         const rev = this.touchDraft(id);
         this.mirrorDraft(done);
+        this.scheduleHistory();
         this.emit({ type: 'draft', draft: done, rev });
       }),
     );

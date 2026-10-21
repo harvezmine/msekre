@@ -248,3 +248,55 @@ sudah ada, dan `start` membungkus `beginAuth`/`connectUrlFor` tiap modul:
 - `rev`: satu penghitung per pengguna; naik saat layanan tersambung, diputus, atau `needsAttention` berubah.
 - **Izin**: `baca`/`baca_tulis` disimpan per koneksi dan DIPAKSA di alat agen (alat tulis ditolak untuk koneksi `baca`;
   registri `WRITE_TOOLS` sudah ada). Mengubah izin menaikkan `rev` dan menyiarkan `connection`.
+
+## Riwayat (Fase 2a, Tugas 6; server menyusul)
+
+Kontrak: `docs/api-v1.md` bagian 2.17. Aplikasi sudah memakainya penuh lewat server tiruan.
+
+Peta ke milo-ai:
+
+- **`GET /history`** menyusun satu aliran dari yang sudah ada, bukan tabel baru: `activity_log` (`src/activity/log.ts`,
+  `recordActivity`: tulisan langsung ke layanan pengguna, kolom `tool`, `service`, `summary`, `created_at`) digabung dengan
+  yang dibaca `src/activity/` dari tabelnya sendiri (pesan ke orang lain/relay, tanya jasa, tagihan, kurir, aksi
+  menunggu `pending_actions`). `id` entri = awalan sumber + id baris (`log-123`, `pa-45`), supaya stabil dan unik.
+  Penanda halaman `before` = `(created_at, id)` yang dikodekan; urutan terbaru dulu.
+- **`kind`**: `kirim` (relay, `gmail_send`, `outlook_send`, `order_place`, undangan), `rumah` (`src/home/`), `agenda`
+  (pengingat, tugas), `usaha` (stok, pesanan, laporan), `bayar` (pembelian dan tagihan), `sambung` (menyambung atau memutus
+  layanan, ubah izin), `lainnya` (sisanya, termasuk `memory_forget`).
+- **`title` / `detail`**: kalimat dari `summary`/`what` yang sama dengan jawaban "kamu sudah ngapain aja?" di WhatsApp, tanpa
+  jam (jam dari `at`). `channel`: `app` untuk tindakan dari aplikasi, `whatsapp` untuk pesan dari WhatsApp, `chat` untuk
+  perintah di percakapan atau suara.
+- **`status` dan `undoable`** dari draf: `held` -> `menunggu` dengan `undoable { draftId, until: heldUntil }`, `sent` ->
+  `terkirim`, `cancelled` -> `dibatalkan`, `failed` -> `gagal`. `draftId` = id draf kartu yang sama dengan `POST /drafts/:id`
+  (Batalkan tidak punya jalur baru). Entri kiriman dibuat saat draf disetujui (`send`), bukan saat draf dibuat.
+- **`link`**: kiriman -> `{ route: '/chat' }`; perangkat -> `{ route: '/perangkat/[id]', params: { id } }`; layanan ->
+  `/terhubung/[id]`; selain itu kosong.
+- **Event `history`**: siarkan saat entri dibuat atau `status`-nya berubah (termasuk lewat tugas masa tahan yang sama dengan
+  event `draft`). `rev` = penghitung per pengguna (sequence), naik sekali per putaran perubahan.
+- `now` di jawaban: jam server, untuk hitung mundur Batalkan.
+
+## Akun (Fase 2a, Tugas 6; server menyusul)
+
+Kontrak: `docs/api-v1.md` bagian 2.18. Aplikasi sudah memakainya penuh lewat server tiruan.
+
+Peta ke milo-ai:
+
+| Bagian `Account` | Sumber di milo-ai | Catatan |
+|---|---|---|
+| `me`, `assistant.name` | `users.assistant_name` (lewat `src/profile/names.ts` untuk membersihkan nama) | `PUT /account/assistant` menulis kolom yang sama, jadi nama juga berubah di WhatsApp. 400 `nama_tidak_valid` bila bukan 2-20 huruf; jangan menebak seperti `names.ts` ("Ya boleh ibnu saja" bukan nama). |
+| `assistant.style` | `src/profile/style.ts` / `users.persona` (`src/persona/catalog.ts`) | `singkat`/`ramah`/`formal` dipetakan ke gaya jawaban di prompt (panjang jawaban dan sapaan); persona dan karakter foto tidak ikut berubah. |
+| `plan` | `users.plan`, `trial_ends_at`, `period_ends_at`, `trial_claims` (`src/onboarding/trial.ts`) | `trial` bila `trial_ends_at` belum lewat dan belum bayar (7 hari, sekali seumur nomor); `aktif` bila `period_ends_at` di depan; selain itu `berakhir`. `until` = `trial_ends_at` atau `period_ends_at`. `price` dari katalog paket. |
+| `greeting` | rutinitas pagi di `profile.routines` (`src/routines/routines.ts`), `profile.initiative` | `daily: false` mematikan rutinitas sapaan seperti jawaban "stop sapa saya" (tingkat `none` di `src/profile/initiative.ts` mematikan sapaan sekalian); pengingat buatan pengguna tidak disentuh. `time` = `routineTime` sapaan pagi. Bila `initiative.level` `none`, `daily` dibaca `false`. |
+| `notifications` | kolom baru di profil (`profile.push`) | Menyaring push saja; WhatsApp cadangan dan alarm lokal tidak terpengaruh. Pilihan `pengingat: false` hanya menekan push-nya, bukan pengingat itu sendiri. |
+| `security` | PIN akun (bagian 2.11) | Sama dengan `GET /account/security`. |
+| `phones` | `app_sessions` (+ `app_push_tokens`) | Satu baris per sesi hidup: `name` dari model HP yang dikirim saat `auth/verify`, `platform`, `lastSeen` = `last_seen_at`, `current` = sesi pemanggil. `DELETE /account/phones/:id` = `revoked_at` pada sesi itu, hapus token push-nya, tutup soket stream-nya dengan 4401. Sesi pemanggil: 400. |
+| `privacy.services` | `src/privacy/forget.ts` (`planForget`) per sumber `FORGET_SOURCES` | `memoryCount` = hitungan rencana lupakan layanan itu, sama dengan `memoryCount` di detail Terhubung. Hanya layanan tersambung yang punya ingatan. |
+
+- **Hapus akun dan pembayaran tetap di WhatsApp.** `src/privacy/erase.ts` (hapus akun) dan alur QRIS tidak punya jalur di
+  API ini; aplikasi hanya membuka WhatsApp dengan kalimat awal. Jangan menambah `forget-all`.
+- **Event `account`**: siarkan Akun lengkap setelah setiap perubahan di atas, juga yang berasal dari WhatsApp (ganti nama
+  lewat percakapan, langganan dibayar, masa coba habis, "stop sapa saya"). `rev` = penghitung per pengguna.
+- `PUT /account/*` dan `DELETE /account/phones/:id` membalas `Account` terbaru (bukan `OkRes`), supaya aplikasi tidak perlu
+  `GET` lagi.
+- Nama saluran notifikasi Android ("Pesan dari {nama}") mengikuti `me.assistantName`; aplikasi memperbaruinya sendiri begitu
+  nama diubah.

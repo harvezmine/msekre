@@ -44,6 +44,12 @@
  * | POST /connections/:id/forget   | -                    | ConnectionForgetRes               |
  * | DELETE /connections/:id        | -                    | OkRes (diputus, pindah ke `formerly`) |
  * | POST /connections/:id/start    | -                    | ConnectionStartRes (halaman masuk resmi) |
+ * | GET  /history?kind=&before=&limit= | HistoryQuery    | HistoryPage (Riwayat, terbaru dulu) |
+ * | GET  /account                  | -                    | Account                           |
+ * | PUT  /account/assistant        | AssistantUpdateReq   | Account                           |
+ * | PUT  /account/greeting         | GreetingUpdateReq    | Account                           |
+ * | PUT  /account/notifications    | NotificationsUpdateReq | Account                         |
+ * | DELETE /account/phones/:id     | -                    | Account (HP itu keluar; `current`: 400) |
  * | GET  /media/:id                | -                    | berkasnya (gambar QRIS, dokumen)  |
  * | WS   /stream                   | -                    | StreamEvent, satu JSON per pesan  |
  *
@@ -71,7 +77,8 @@
  * - 429 `terlalu_sering`: terlalu banyak permintaan, misalnya `auth/start` diulang sebelum `resendInSec` habis. Isinya
  *   membawa `retryInSec`;
  * - 500 `server`: kendala lain;
- * - 501 `belum_tersedia`: jalur ada di kontrak tapi belum diisi server (kendali perangkat sebelum Fase 3).
+ * - 501 `belum_tersedia`: jalur ada di kontrak tapi belum diisi server (kendali perangkat sebelum Fase 3);
+ * - 400 `nama_tidak_valid`: dari `PUT /account/assistant`, nama bukan 2 sampai 20 huruf. Aplikasi menampilkan teks ramah.
  *
  * Aturan perilaku server:
  * - Semua waktu memakai ISO 8601 dengan zona (`heldUntil`, `until` QRIS, `at`). Aplikasi yang memformatnya ke jam HP.
@@ -867,6 +874,132 @@ export const connectionForgetResSchema = z.object({ ok: z.literal(true), forgott
  */
 export const connectionStartResSchema = z.object({ url: z.string().min(1), callbackScheme: z.string().min(1) });
 
+// ---- Riwayat ----
+
+export const HISTORY_LIMIT = 20;
+export const HISTORY_LIMIT_MAX = 50;
+
+/** Jenis entri Riwayat (untuk saringan dan ikon). Yang belum dikenal aplikasi dibaca `lainnya`. */
+export const historyKindSchema = z.enum(['kirim', 'rumah', 'agenda', 'usaha', 'bayar', 'sambung', 'lainnya']);
+/** Dari mana tindakan itu diminta. Yang belum dikenal dibuang (entri tetap tampil). */
+export const historyChannelSchema = z.enum(['app', 'whatsapp', 'chat']);
+/** Keadaan kiriman: `menunggu` (ditahan, masih bisa dibatalkan), `terkirim`, `dibatalkan`, `gagal`. */
+export const historyStatusSchema = z.enum(['menunggu', 'terkirim', 'dibatalkan', 'gagal']);
+
+/**
+ * Layar yang boleh dibuka dari satu entri. `route` = jalur layar aplikasi (contoh `/chat`, `/perangkat/[id]`), `params`
+ * mengisi bagian dinamisnya. Hanya layar yang dikenal aplikasi yang dibuka; selain itu entri tidak bisa diketuk.
+ */
+export const historyLinkSchema = z.object({
+  route: z.string().min(1),
+  params: z.record(z.string(), z.string()).optional(),
+});
+
+/**
+ * Satu hal yang sudah dikerjakan asisten. `icon`: nama ikon (yang tak dikenal diganti ikon bawaan). `title` dan `detail`
+ * siap tampil (aplikasi menambahkan jam dari `at`, jadi `detail` tidak perlu memuat jam). `undoable`: kiriman yang masih
+ * ditahan; Batalkan = `POST /drafts/:draftId` `cancel`, boleh sampai `until`.
+ */
+export const historyEntrySchema = z.object({
+  id: idSchema,
+  at: isoDateTimeSchema,
+  kind: historyKindSchema.catch('lainnya'),
+  icon: z.string().min(1),
+  title: z.string().min(1),
+  detail: z.string().min(1).optional(),
+  channel: historyChannelSchema.optional(),
+  status: historyStatusSchema.optional(),
+  undoable: z.object({ draftId: idSchema, until: isoDateTimeSchema }).optional(),
+  link: historyLinkSchema.optional(),
+});
+
+export const historyQuerySchema = z.object({
+  kind: historyKindSchema.optional(),
+  /** Penanda halaman dari `before` jawaban sebelumnya (buram bagi aplikasi). */
+  before: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(HISTORY_LIMIT_MAX).default(HISTORY_LIMIT),
+});
+
+/**
+ * `GET /history`: dari yang terbaru. `before`: penanda halaman yang lebih lama, atau `null`. `rev`: nomor perubahan Riwayat
+ * per pengguna. `now`: jam server (ISO), supaya hitung mundur Batalkan tidak bergantung pada jam HP; tanpa itu aplikasi
+ * memakai jam HP.
+ */
+export const historyPageSchema = z.object({
+  items: z.array(historyEntrySchema),
+  before: z.string().min(1).nullable(),
+  rev: z.number().int().positive(),
+  now: isoDateTimeSchema.optional(),
+});
+
+// ---- Akun ----
+
+/** Nama asisten: 2 sampai 20 huruf (tanpa angka, spasi, atau tanda). Salah: 400 `nama_tidak_valid`. */
+export const ASSISTANT_NAME_MIN = 2;
+export const ASSISTANT_NAME_MAX = 20;
+export const assistantNameSchema = z
+  .string()
+  .trim()
+  .regex(new RegExp(`^\\p{L}{${ASSISTANT_NAME_MIN},${ASSISTANT_NAME_MAX}}$`, 'u'));
+export const assistantStyleSchema = z.enum(['singkat', 'ramah', 'formal']);
+export const planStatusSchema = z.enum(['trial', 'aktif', 'berakhir']);
+
+export const accountPlanSchema = z.object({
+  name: z.string().min(1),
+  status: planStatusSchema.catch('aktif'),
+  /** `trial`: akhir masa coba; `aktif`: akhir langganan. */
+  until: isoDateTimeSchema.optional(),
+  /** Harga per bulan dalam Rupiah. */
+  price: z.number().int().nonnegative().optional(),
+});
+
+export const accountPhoneSchema = z.object({
+  id: idSchema,
+  name: z.string().min(1),
+  platform: z.string().min(1),
+  lastSeen: isoDateTimeSchema,
+  /** HP yang sedang memakai aplikasi ini. Tidak bisa dikeluarkan dari sini (pakai Keluar). */
+  current: z.boolean(),
+});
+
+export const accountNotificationsSchema = z.object({
+  pesan: z.boolean(),
+  pengingat: z.boolean(),
+  ringkasanHarian: z.boolean(),
+  rumah: z.boolean(),
+  usaha: z.boolean(),
+});
+
+/**
+ * `GET /account`. `privacy.services`: layanan tersambung yang ada ingatannya (untuk "Hapus yang Nadia tahu"); jumlah 0
+ * boleh dihilangkan. `rev`: nomor perubahan akun per pengguna.
+ */
+export const accountSchema = z.object({
+  me: meSchema,
+  plan: accountPlanSchema,
+  assistant: z.object({ name: z.string().min(1), style: assistantStyleSchema.catch('ramah') }),
+  greeting: z.object({ daily: z.boolean(), time: clockSchema.optional() }),
+  notifications: accountNotificationsSchema,
+  security: securityResSchema,
+  phones: z.array(accountPhoneSchema),
+  privacy: z.object({
+    services: z.array(z.object({ id: idSchema, name: z.string().min(1), memoryCount: z.number().int().nonnegative() })),
+  }),
+  rev: z.number().int().positive(),
+});
+
+/** `PUT /account/assistant`: salah satu atau keduanya. Nama tidak sah: 400 `nama_tidak_valid`. */
+export const assistantUpdateReqSchema = z
+  .strictObject({ name: z.string().optional(), style: assistantStyleSchema.optional() })
+  .refine((r) => r.name !== undefined || r.style !== undefined, { message: 'name atau style wajib' });
+/** `PUT /account/greeting`: sapaan harian hidup atau mati, dan jamnya (hanya berarti saat hidup). */
+export const greetingUpdateReqSchema = z.strictObject({ daily: z.boolean(), time: clockSchema.optional() });
+/** `PUT /account/notifications`: hanya yang diubah. */
+export const notificationsUpdateReqSchema = accountNotificationsSchema
+  .partial()
+  .strict()
+  .refine((r) => Object.keys(r).length > 0, { message: 'minimal satu jenis' });
+
 // ---- Stream ----
 
 export const streamEventSchema = z.discriminatedUnion('type', [
@@ -911,6 +1044,10 @@ export const streamEventSchema = z.discriminatedUnion('type', [
     removed: z.boolean().optional(),
     rev: z.number().int().positive(),
   }),
+  /** Satu entri Riwayat baru atau berubah (misalnya kiriman yang ditahan menjadi terkirim): upsert menurut `entry.id`. */
+  z.object({ type: z.literal('history'), entry: historyEntrySchema, rev: z.number().int().positive() }),
+  /** Akun berubah (dari layar lain, WhatsApp, atau langganan): menggantikan Akun, kecuali `account.rev` lebih lama. */
+  z.object({ type: z.literal('account'), account: accountSchema }),
   z.object({ type: z.literal('ping') }),
 ]);
 
@@ -932,6 +1069,7 @@ export const apiErrorCodeSchema = z.enum([
   'terlalu_sering',
   'server',
   'belum_tersedia',
+  'nama_tidak_valid',
 ]);
 export const apiErrorSchema = z.object({
   error: apiErrorCodeSchema,
@@ -1028,6 +1166,22 @@ export type ConnectionDetail = z.infer<typeof connectionDetailSchema>;
 export type ConnectionPermissionReq = z.infer<typeof connectionPermissionReqSchema>;
 export type ConnectionForgetRes = z.infer<typeof connectionForgetResSchema>;
 export type ConnectionStartRes = z.infer<typeof connectionStartResSchema>;
+export type HistoryKind = z.infer<typeof historyKindSchema>;
+export type HistoryChannel = z.infer<typeof historyChannelSchema>;
+export type HistoryStatus = z.infer<typeof historyStatusSchema>;
+export type HistoryLink = z.infer<typeof historyLinkSchema>;
+export type HistoryEntry = z.infer<typeof historyEntrySchema>;
+export type HistoryQuery = z.infer<typeof historyQuerySchema>;
+export type HistoryPage = z.infer<typeof historyPageSchema>;
+export type AssistantStyle = z.infer<typeof assistantStyleSchema>;
+export type PlanStatus = z.infer<typeof planStatusSchema>;
+export type AccountPlan = z.infer<typeof accountPlanSchema>;
+export type AccountPhone = z.infer<typeof accountPhoneSchema>;
+export type AccountNotifications = z.infer<typeof accountNotificationsSchema>;
+export type Account = z.infer<typeof accountSchema>;
+export type AssistantUpdateReq = z.infer<typeof assistantUpdateReqSchema>;
+export type GreetingUpdateReq = z.infer<typeof greetingUpdateReqSchema>;
+export type NotificationsUpdateReq = z.infer<typeof notificationsUpdateReqSchema>;
 export type StreamEvent = z.infer<typeof streamEventSchema>;
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;

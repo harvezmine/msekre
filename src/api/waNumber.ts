@@ -16,3 +16,8 @@ export function readWaNumber(extra: Record<string, unknown> | undefined = Consta
 export function waStartUrl(waNumber: string): string {
   return `https://wa.me/${waNumber}?text=Halo%2C%20saya%20mau%20coba%20Sekretaris%20AI.`;
 }
+
+/** Tautan WhatsApp ke Sekretaris AI dengan pesan awal `text`. */
+export function waUrl(waNumber: string, text: string): string {
+  return `https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`;
+}

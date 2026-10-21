@@ -1,4 +1,5 @@
 import type {
+  Account,
   AgendaItem,
   AgendaNew,
   AgendaParseRes,
@@ -7,6 +8,7 @@ import type {
   AuthStartReq,
   AuthStartRes,
   AuthVerifyReq,
+  AssistantUpdateReq,
   AuthVerifyRes,
   BoxRes,
   Business,
@@ -22,11 +24,15 @@ import type {
   DevicesRes,
   DraftActionReq,
   DraftActionRes,
+  GreetingUpdateReq,
   Home,
+  HistoryPage,
+  HistoryQuery,
   Me,
   Message,
   MessagesPage,
   MessagesChangedPage,
+  NotificationsUpdateReq,
   PinSetReq,
   RoutineRunRes,
   PushTokenDeleteReq,
@@ -53,6 +59,7 @@ import type { DataMode } from './mode';
  * - `pin_wrong`: PIN (atau PIN lama) tidak cocok (403 `pin_salah`); sesi dan akun tidak terpengaruh;
  * - `pin_required`: aksi perangkat yang dijaga butuh PIN (428 `pin_diperlukan`); aplikasi meminta PIN lalu mengulang;
  * - `not_understood`: server tidak bisa membaca kalimat agenda (422 `tidak_paham`);
+ * - `invalid_name`: nama asisten tidak sah (400 `nama_tidak_valid`);
  * - `unavailable`: jalur belum diisi server (501 `belum_tersedia`);
  * - `server`: kendala lain, termasuk jawaban server yang bentuknya tidak sesuai kontrak.
  */
@@ -66,6 +73,7 @@ export type FailureCode =
   | 'pin_wrong'
   | 'pin_required'
   | 'not_understood'
+  | 'invalid_name'
   | 'rate_limited'
   | 'upgrade_required'
   | 'unavailable'
@@ -218,6 +226,24 @@ export interface Transport {
    * sudah tersambung: `tidak_valid`.
    */
   startConnection(id: string): Promise<ConnectionStartRes>;
+  /**
+   * Riwayat (`GET /history`), dari yang terbaru. Tanpa `kind`: semua jenis. `before` = penanda halaman dari jawaban
+   * sebelumnya. Perubahan berikutnya datang lewat event stream `history`. Batalkan kiriman memakai `draftAction`.
+   */
+  history(query?: Partial<Pick<HistoryQuery, 'kind' | 'before' | 'limit'>>): Promise<HistoryPage>;
+  /** Akun (`GET /account`): paket, asisten, sapaan, notifikasi, keamanan, HP, privasi. Perubahan datang lewat event `account`. */
+  account(): Promise<Account>;
+  /** Ubah nama dan/atau gaya asisten (`PUT /account/assistant`). Nama tidak sah: `invalid_name`. Mengembalikan Akun terbaru. */
+  setAssistant(req: AssistantUpdateReq): Promise<Account>;
+  /** Sapaan harian (`PUT /account/greeting`). Mengembalikan Akun terbaru. */
+  setGreeting(req: GreetingUpdateReq): Promise<Account>;
+  /** Jenis notifikasi (`PUT /account/notifications`), hanya yang diubah. Mengembalikan Akun terbaru. */
+  setNotifications(req: NotificationsUpdateReq): Promise<Account>;
+  /**
+   * Keluarkan satu HP (`DELETE /account/phones/:id`): sesi dan token notifikasinya dicabut. HP ini sendiri (`current`):
+   * `tidak_valid`. Tidak ada: `tidak_ditemukan`. Mengembalikan Akun terbaru.
+   */
+  removePhone(id: string): Promise<Account>;
   /**
    * Agenda (`GET /agenda`). Tanpa `range`: Senin pekan ini sampai Minggu pekan depan. Perubahan berikutnya datang lewat
    * event stream `agenda`.

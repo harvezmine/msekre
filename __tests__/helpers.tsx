@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
+import { AccountProvider } from '@/api/AccountProvider';
 import { AgendaProvider } from '@/api/AgendaProvider';
 import { ApiProvider, type Api } from '@/api/ApiProvider';
 import { ChatProvider } from '@/api/ChatProvider';
@@ -7,6 +8,7 @@ import { ApiSampleProvider } from '@/api/ApiSampleProvider';
 import { BusinessProvider } from '@/api/BusinessProvider';
 import { ConnectionsProvider } from '@/api/ConnectionsProvider';
 import { DevicesProvider } from '@/api/DevicesProvider';
+import { HistoryProvider } from '@/api/HistoryProvider';
 import { HomeProvider } from '@/api/HomeProvider';
 import { FakeTransport, type FakeOptions } from '@/api/fake/FakeTransport';
 import { createMemorySession } from '@/api/session';
@@ -52,7 +54,11 @@ export async function renderWithProviders(ui: ReactElement, { state, actions = [
                   <AgendaProvider>
                     <DevicesProvider>
                       <BusinessProvider>
-                        <ConnectionsProvider>{ui}</ConnectionsProvider>
+                        <ConnectionsProvider>
+                          <HistoryProvider>
+                            <AccountProvider>{ui}</AccountProvider>
+                          </HistoryProvider>
+                        </ConnectionsProvider>
                       </BusinessProvider>
                     </DevicesProvider>
                   </AgendaProvider>

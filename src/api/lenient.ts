@@ -13,6 +13,13 @@ import {
   connectionCapabilitySchema,
   connectionDetailSchema,
   connectionsSchema,
+  accountPhoneSchema,
+  accountSchema,
+  historyEntrySchema,
+  historyChannelSchema,
+  historyLinkSchema,
+  historyPageSchema,
+  historyStatusSchema,
   serviceSchema,
   businessPointSchema,
   businessSummarySchema,
@@ -36,6 +43,9 @@ import {
   type Business,
   type ConnectionDetail,
   type Connections,
+  type Account,
+  type HistoryEntry,
+  type HistoryPage,
   type Service,
   type Device,
   type DevicesRes,
@@ -173,6 +183,16 @@ export function parseEventLenient(raw: unknown): StreamEvent | null {
     const rev = positiveInt.safeParse(r.rev);
     if (!service || !rev.success) return null;
     return { type: 'connection', service, ...(r.removed === true ? { removed: true } : {}), rev: rev.data };
+  }
+  if ((raw as { type?: unknown }).type === 'history') {
+    const r = raw as { entry?: unknown; rev?: unknown };
+    const entry = parseHistoryEntryLenient(r.entry);
+    const rev = positiveInt.safeParse(r.rev);
+    return entry && rev.success ? { type: 'history', entry, rev: rev.data } : null;
+  }
+  if ((raw as { type?: unknown }).type === 'account') {
+    const account = parseAccountLenient((raw as { account?: unknown }).account);
+    return account ? { type: 'account', account } : null;
   }
   if ((raw as { type?: unknown }).type === 'draft') {
     // `rev` hilang atau rusak (server lama): drafnya tetap berlaku, `rev` 0 = tidak diketahui.
@@ -441,6 +461,74 @@ export function parseConnectionDetailLenient(raw: unknown): ConnectionDetail | n
     permission: raw.permission,
     what: (Array.isArray(raw.what) ? raw.what : []).filter(nonEmpty),
     ...(memory.success && memory.data !== undefined ? { memoryCount: memory.data } : {}),
+  });
+  return coerced.success ? coerced.data : null;
+}
+
+/**
+ * Satu entri Riwayat. Keterangan opsional yang rusak (saluran, keadaan, tautan, batas Batalkan) dibuang dan entrinya
+ * tetap tampil; jenis yang belum dikenal dibaca `lainnya`. `null` kalau `id`, `at`, `icon`, atau `title` rusak.
+ */
+export function parseHistoryEntryLenient(raw: unknown): HistoryEntry | null {
+  if (!isRecord(raw)) return null;
+  const strict = historyEntrySchema.safeParse(raw);
+  if (strict.success) return strict.data;
+  const channel = historyChannelSchema.safeParse(raw.channel);
+  const status = historyStatusSchema.safeParse(raw.status);
+  const link = historyLinkSchema.safeParse(raw.link);
+  const undoable = historyEntrySchema.shape.undoable.safeParse(raw.undoable);
+  const trimmed = historyEntrySchema.safeParse({
+    id: raw.id,
+    at: raw.at,
+    kind: raw.kind,
+    icon: raw.icon,
+    title: raw.title,
+    ...(nonEmpty(raw.detail) ? { detail: raw.detail } : {}),
+    ...(channel.success ? { channel: channel.data } : {}),
+    ...(status.success ? { status: status.data } : {}),
+    ...(link.success ? { link: link.data } : {}),
+    ...(undoable.success && undoable.data ? { undoable: undoable.data } : {}),
+  });
+  return trimmed.success ? trimmed.data : null;
+}
+
+/** Jawaban `GET /history`: entri yang rusak dibuang satu per satu. `null` kalau `before` atau `rev` tidak terbaca. */
+export function parseHistoryLenient(raw: unknown): HistoryPage | null {
+  if (!isRecord(raw)) return null;
+  const rest = historyPageSchema.omit({ items: true }).safeParse({
+    before: raw.before,
+    rev: raw.rev,
+    ...(historyPageSchema.shape.now.safeParse(raw.now).success && raw.now !== undefined ? { now: raw.now } : {}),
+  });
+  if (!rest.success || !Array.isArray(raw.items)) return null;
+  const items = raw.items.flatMap((item) => {
+    const entry = parseHistoryEntryLenient(item);
+    return entry ? [entry] : [];
+  });
+  return { items, ...rest.data };
+}
+
+/**
+ * Jawaban `GET /account`. HP yang rusak dibuang satu per satu, layanan privasi yang rusak juga; `phones` atau `privacy`
+ * yang hilang dibaca kosong. `null` kalau bagian yang wajib (`me`, paket, asisten, sapaan, notifikasi, keamanan, `rev`)
+ * rusak.
+ */
+export function parseAccountLenient(raw: unknown): Account | null {
+  if (!isRecord(raw)) return null;
+  const privacy = isRecord(raw.privacy) && Array.isArray(raw.privacy.services) ? raw.privacy.services : [];
+  const service = accountSchema.shape.privacy.shape.services.element;
+  const coerced = accountSchema.safeParse({
+    ...raw,
+    phones: (Array.isArray(raw.phones) ? raw.phones : []).flatMap((p) => {
+      const parsed = accountPhoneSchema.safeParse(p);
+      return parsed.success ? [parsed.data] : [];
+    }),
+    privacy: {
+      services: privacy.flatMap((s) => {
+        const parsed = service.safeParse(s);
+        return parsed.success ? [parsed.data] : [];
+      }),
+    },
   });
   return coerced.success ? coerced.data : null;
 }

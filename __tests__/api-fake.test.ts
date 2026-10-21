@@ -29,7 +29,8 @@ function setup(options: FakeOptions & { token?: string | null } = {}) {
   let resyncs = 0;
   const listen = () =>
     transport.subscribe(
-      (e) => (e.type === 'home' ? homeEvents : events).push(e),
+      // Event Beranda dan Riwayat punya tes sendiri (api-home, api-history); di sini hanya utas.
+      (e) => (e.type === 'home' ? homeEvents : e.type === 'history' || e.type === 'account' ? [] : events).push(e),
       (s) => statuses.push(s),
       () => (resyncs += 1),
     );

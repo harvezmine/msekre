@@ -10,6 +10,7 @@ export const NOT_UNDERSTOOD_TEXT = 'Saya belum paham waktunya. Coba tulis misaln
 export const NOT_REGISTERED_TEXT = 'Nomor ini belum memakai Sekretaris AI. Mulai dulu lewat WhatsApp ya.';
 export const PIN_NEEDED_TEXT = 'Aksi ini perlu PIN. Masukkan PIN dulu ya.';
 export const WRONG_PIN_TEXT = 'PIN belum cocok, coba lagi.';
+export const INVALID_NAME_TEXT = 'Nama asisten cukup huruf saja, 2 sampai 20 huruf.';
 export const TOO_OFTEN_TEXT = 'Tunggu sebentar ya, lalu coba lagi.';
 
 /** "Tunggu sebentar ya, coba lagi dalam {n} detik." */
@@ -33,6 +34,8 @@ export function friendlyError(e: unknown): string {
       return UPGRADE_TEXT;
     case 'not_understood':
       return NOT_UNDERSTOOD_TEXT;
+    case 'invalid_name':
+      return INVALID_NAME_TEXT;
     case 'unavailable':
       return UNAVAILABLE_TEXT;
     case 'rate_limited':

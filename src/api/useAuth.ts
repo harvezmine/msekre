@@ -23,6 +23,8 @@ export interface Auth {
   logout(): Promise<void>;
   /** Muat ulang `GET /me`. `null` kalau gagal (sesi yang ditolak otomatis membuat status `signedOut`). */
   refreshMe(): Promise<Me | null>;
+  /** Ganti `me` dengan yang sudah diketahui (misalnya nama asisten yang baru diubah di Akun), tanpa permintaan. Hanya saat masuk. */
+  setMe(me: Me): void;
 }
 
 interface State {
@@ -118,6 +120,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [transport, apply]);
 
+  const setMe = useCallback(
+    (me: Me) => apply(transport, (prev) => (prev.status === 'signedIn' ? { ...prev, me } : prev)),
+    [transport, apply],
+  );
+
   // `me` yang belum terbaca (sinyal hilang saat dimuat): coba lagi saat stream terbuka dan saat aplikasi kembali dibuka.
   const missingMe = current.status === 'signedIn' && current.me === null;
   useEffect(() => {
@@ -140,8 +147,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [missingMe, transport, refreshMe]);
 
   const value = useMemo<Auth>(
-    () => ({ status: current.status, me: current.me, start, verify, logout, refreshMe }),
-    [current.status, current.me, start, verify, logout, refreshMe],
+    () => ({ status: current.status, me: current.me, start, verify, logout, refreshMe, setMe }),
+    [current.status, current.me, start, verify, logout, refreshMe, setMe],
   );
   return createElement(AuthContext, { value }, children);
 }

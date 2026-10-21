@@ -35,6 +35,7 @@ Catatan reviu yang lebih pendek ada di `docs/catatan-server-fase-1b.md`.
 | Status | `error` | Arti |
 |---|---|---|
 | 400 | `tidak_valid` | Isi tidak sesuai skema, atau `choiceId` bukan pilihan di pesan itu |
+| 400 | `nama_tidak_valid` | Dari `PUT /account/assistant`: nama asisten bukan 2 sampai 20 huruf |
 | 400 | `kode_salah` | Kode masuk salah, kedaluwarsa, habis percobaan, atau belum diminta |
 | 401 | `tidak_masuk` | Token tidak ada, salah, kedaluwarsa, atau sudah keluar. Aplikasi menghapus sesi |
 | 403 | `diblokir` | Akun dinonaktifkan atau diblokir di admin. Sesi tidak dihapus |
@@ -575,6 +576,99 @@ kembali ke depan, aplikasi memuat ulang `GET /connections` (dan detail yang seda
 Sumber data Usaha (bagian 2.15) membawa `sources[].service` = `id` layanannya di sini, supaya "Sambungkan Moka" di
 Usaha membuka layar masuk layanan yang tepat.
 
+### 2.17 Riwayat: `GET /history` dan event `history`
+
+`GET /history?kind=&before=&limit=` → `HistoryPage`, dari yang terbaru:
+
+```json
+{ "items": [
+    { "id": "h91", "at": "2026-10-21T03:05:00Z", "kind": "kirim", "icon": "chat",
+      "title": "Mengirim balasan ke Pak Budi", "detail": "disetujui Anda", "channel": "whatsapp",
+      "status": "menunggu", "undoable": { "draftId": "d-17", "until": "2026-10-21T03:10:00Z" },
+      "link": { "route": "/chat" } },
+    { "id": "h90", "at": "2026-10-21T02:40:00Z", "kind": "rumah", "icon": "snow",
+      "title": "Mematikan AC kamar", "detail": "lewat suara", "channel": "chat",
+      "link": { "route": "/perangkat/[id]", "params": { "id": "ac-kamar" } } } ],
+  "before": "h90", "rev": 31, "now": "2026-10-21T03:06:12Z" }
+```
+
+- Query: `kind` (salah satu jenis di bawah; kosong = semua), `before` (penanda dari `before` jawaban sebelumnya, buram bagi
+  aplikasi; penanda yang tidak dikenal = halaman pertama), `limit` (1 sampai 50, bawaan 20 = `HISTORY_LIMIT`). `before` di
+  jawaban `null` = tidak ada halaman lebih lama. Penanda yang disarankan: `id` entri terakhir atau pasangan
+  `(at, id)`; urutan tetap terbaru dulu dan stabil walau ada entri baru di depan.
+- `HistoryEntry`: `id` (tetap), `at` (ISO), `kind` (`kirim`, `rumah`, `agenda`, `usaha`, `bayar`, `sambung`, `lainnya`; yang
+  belum dikenal aplikasi dibaca `lainnya`), `icon` (nama ikon; yang tak dikenal diganti ikon bawaan), `title` dan `detail`
+  siap tampil dan **tanpa jam** (aplikasi menulis jam dari `at`), `channel` (`app`, `whatsapp`, `chat`: dari mana tindakan
+  diminta; yang tak dikenal dibuang), `status`, `undoable`, `link`.
+- `status` (hanya untuk kiriman): `menunggu` (ditahan, masih bisa dibatalkan), `terkirim`, `dibatalkan`, `gagal`.
+  `undoable { draftId, until }` hanya ada selama `status` `menunggu` dan `until` belum lewat; **Batalkan memakai
+  `POST /drafts/:draftId` `{ "action": "cancel" }` yang sudah ada** (bagian 2.7), jadi 409 `status_draf` bila sudah
+  terkirim. `until` sama dengan `heldUntil` drafnya. Aplikasi mengunci tombol selama permintaan berjalan dan menghitung mundur
+  ke `until`; setelah lewat tombolnya hilang dan statusnya ditulis "Sedang dikirim" sampai event `history` datang.
+- `link { route, params? }`: layar yang dibuka bila entri diketuk. Aplikasi hanya membuka jalur yang dikenalnya (`/chat`,
+  `/agenda`, `/usaha`, `/perangkat`, `/perangkat/[id]`, `/terhubung`, `/terhubung/[id]`; `params` hanya huruf, angka, `-`,
+  `_`, `.`). Selain itu entri tampil biasa dan tidak bisa diketuk.
+- `rev`: nomor perubahan Riwayat per pengguna, naik setiap ada entri baru atau berubah. `now`: jam server (ISO); aplikasi
+  menghitung selisihnya dengan jam HP supaya hitung mundur Batalkan tidak salah di HP yang jamnya meleset. Boleh tidak ada.
+- Stream: `{ "type": "history", "entry": HistoryEntry, "rev": 32 }`. Upsert menurut `entry.id` di semua daftar yang
+  cocok; entri baru disisipkan menurut `at`; `rev` lebih lama dari yang sudah dilihat aplikasi dibuang. Siarkan saat
+  kiriman disetujui (`menunggu`), dibatalkan, terkirim, atau gagal, dan saat tindakan lain dicatat. Setelah koneksi
+  terbuka dan saat aplikasi kembali ke depan, aplikasi memuat ulang halaman pertama tiap saringan yang pernah dibuka.
+- Pembacaan longgar: entri yang rusak dibuang satu per satu; `channel`, `status`, `link`, `undoable` yang rusak dibuang
+  dan entrinya tetap tampil.
+
+### 2.18 Akun: `GET /account`, pengaturan, dan event `account`
+
+`GET /account` → `Account`:
+
+```json
+{ "me": { "id": "u1", "name": "Budi Santoso", "assistantName": "Nadia", "plan": { "name": "Bisnis", "activeUntil": null },
+          "phone": "6281220457781" },
+  "plan": { "name": "Coba", "status": "trial", "until": "2026-10-26T03:00:00Z", "price": 99000 },
+  "assistant": { "name": "Nadia", "style": "ramah" },
+  "greeting": { "daily": true, "time": "07.00" },
+  "notifications": { "pesan": true, "pengingat": true, "ringkasanHarian": true, "rumah": true, "usaha": true },
+  "security": { "pinEnabled": false, "hasPin": false },
+  "phones": [{ "id": "s-41", "name": "Pixel 8", "platform": "android", "lastSeen": "2026-10-21T03:00:00Z", "current": true },
+             { "id": "s-17", "name": "Galaxy A54", "platform": "android", "lastSeen": "2026-10-18T09:00:00Z", "current": false }],
+  "privacy": { "services": [{ "id": "gmail", "name": "Gmail", "memoryCount": 120 }] },
+  "rev": 9 }
+```
+
+- `plan.status`: `trial` (masa coba 7 hari, sekali seumur akun; `until` = akhir masa coba), `aktif` (`until` = akhir
+  langganan), `berakhir`. Status yang belum dikenal dibaca `aktif`. Aplikasi menulis "Coba gratis, tersisa 5 hari", "Aktif
+  sampai 21 Nov 2026", "Sudah berakhir".
+- **Pembayaran dan hapus akun hanya lewat WhatsApp.** Tombol "Perpanjang" dan "Buka WhatsApp" (hapus akun) membuka
+  `https://wa.me/<waNumber>?text=...` memakai `EXPO_PUBLIC_WA_NUMBER`; QRIS dan penghapusan akun tetap alur WhatsApp yang sudah
+  ada (tidak ada `POST /account/forget-all` dan tidak ada jalur bayar di API ini).
+- `assistant.name` dan `me.assistantName` selalu sama. `PUT /account/assistant` mengubahnya, jadi `GET /me` ikut berubah, dan
+  aplikasi memakai nama baru di mana-mana (header chat, tab bar, Inti, nama saluran notifikasi).
+- `greeting`: sapaan harian. `daily` bawaan `true` (satu sapaan pagi sehari). `time` "HH.MM" WIB, bawaan "07.00".
+  `daily: false` = sapaan mati untuk seterusnya; **pengingat yang pengguna minta tetap dikirim** (aturan yang sama dengan
+  tingkat inisiatif di milo-ai).
+- `notifications`: jenis kabar yang boleh dikirim sebagai push. Alarm yang sudah dijadwalkan di HP tidak terpengaruh.
+- `phones`: satu baris per sesi aplikasi yang masih berlaku. `current: true` = sesi yang memanggil.
+- `privacy.services`: layanan tersambung yang punya ingatan, dengan `memoryCount` (0 boleh tampil setelah dilupakan).
+  "Hapus yang {nama} tahu" memakai `POST /connections/:id/forget` (bagian 2.16); server lalu menyiarkan `account` baru.
+
+`PUT /account/assistant` `{ "name"?: string, "style"?: "singkat"|"ramah"|"formal" }` (objek ketat, minimal satu) → `Account`.
+`name` dipotong spasinya lalu harus 2 sampai 20 huruf (`\p{L}`, tanpa angka, spasi, atau tanda); selain itu **400
+`nama_tidak_valid`** (aplikasi memeriksa lebih dulu di HP, jadi ini jaring pengaman). Gaya mengubah nada jawaban di semua kanal.
+
+`PUT /account/greeting` `{ "daily": boolean, "time"?: "HH.MM" }` → `Account`. `time` yang tak dikirim mempertahankan jam yang ada.
+
+`PUT /account/notifications` dengan sebagian dari `{ pesan, pengingat, ringkasanHarian, rumah, usaha }` (ketat, minimal satu)
+→ `Account`. Aplikasi menampilkan perubahan lebih dulu dan mengembalikannya (dengan kalimat ramah) kalau server menolak.
+
+`DELETE /account/phones/:id` → `Account` tanpa HP itu. **Keluarkan:** cabut sesinya (token itu 401 di request berikutnya, dan
+stream-nya ditutup 4401) dan hapus token notifikasinya. `current: true` (sesi yang memanggil): 400 `tidak_valid`, karena HP ini
+keluar lewat `POST /auth/logout`. Sesi tidak ada atau milik orang lain: 404 `tidak_ditemukan`.
+
+Stream: `{ "type": "account", "account": Account }`. Menggantikan Akun di layar, dibuang bila `account.rev` lebih lama dari yang
+dipegang aplikasi (upsert). Siarkan saat paket berubah (masa coba habis, langganan dibayar lewat WhatsApp), nama atau gaya
+diubah (juga lewat percakapan), sapaan atau notifikasi diubah, HP masuk atau keluar, PIN berubah, dan ingatan dilupakan. Bagian
+yang sedang diubah di layar tidak ditimpa sampai permintaannya selesai.
+
 ### 2.10 `GET /media/:id`
 
 Mengirim berkasnya: gambar QRIS, gambar, dokumen, suara. Dirujuk dari `mediaId` di bagian `image`, `document`,
@@ -949,6 +1043,9 @@ Event dari server:
 { "type": "agenda", "items": [{ "id": "a10", "snoozedUntil": "...", "...": "..." }], "rev": 13 }
 { "type": "device", "devices": [{ "id": "ac-kamar", "...": "..." }], "rev": 12 }
 { "type": "business", "business": { "place": "Semua", "period": "hari", "rev": 8, "...": "..." } }
+{ "type": "connection", "service": { "id": "gmail", "status": "connected", "...": "..." }, "rev": 12 }
+{ "type": "history", "entry": { "id": "h91", "status": "terkirim", "...": "..." }, "rev": 32 }
+{ "type": "account", "account": { "assistant": { "name": "Sari", "style": "ramah" }, "rev": 10, "...": "..." } }
 { "type": "thinking", "runId": "r-91", "on": true }
 { "type": "ping" }
 ```
@@ -965,6 +1062,9 @@ Event dari server:
   aplikasi.
 - `business`: Usaha satu `place` dan `period` berubah (bagian 2.15); menggantikan Usaha itu, dibuang bila `rev` lebih
   lama dari yang dipegang aplikasi.
+- `connection`: satu layanan Terhubung berubah (bagian 2.16); upsert menurut `service.id`, dibuang bila `rev` lebih lama.
+- `history`: satu entri Riwayat baru atau berubah (bagian 2.17); upsert menurut `entry.id`, dibuang bila `rev` lebih lama.
+- `account`: Akun berubah (bagian 2.18); menggantikan Akun, dibuang bila `account.rev` lebih lama.
 - `thinking`: `runId` unik per proses agen; `on: true` saat mulai, `on: false` saat selesai. Dua proses
   bersamaan (aplikasi dan WhatsApp) tidak saling menimpa; aplikasi menyimpan himpunan `runId` aktif.
 - `ping`: setiap 25 detik (`STREAM_PING_SEC`). Aplikasi menganggap koneksi mati bila 60 detik tanpa pesan apa pun.

@@ -1,6 +1,7 @@
 import { use } from 'react';
 import { DEFAULT_ASSISTANT } from '@/brand';
 import { user } from '@/sample/profile';
+import { AssistantNameContext } from './AccountProvider';
 import { ApiContext } from './ApiProvider';
 import { AuthContext } from './useAuth';
 import type { Me } from './contract';
@@ -28,10 +29,11 @@ export interface Profile {
  */
 export function useProfile(): Profile {
   const me = use(AuthContext)?.me ?? null;
+  const accountName = use(AssistantNameContext);
   const sample = (use(ApiContext)?.mode ?? 'contoh') !== 'server';
   const name = me?.name ?? (sample ? user.name : null);
   return {
-    assistantName: me?.assistantName ?? DEFAULT_ASSISTANT,
+    assistantName: accountName ?? me?.assistantName ?? DEFAULT_ASSISTANT,
     name,
     initials: sample && name === user.name ? user.initials : initialsOf(name),
     phone: me?.phone ?? null,
