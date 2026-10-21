@@ -1,5 +1,13 @@
 import type { StreamEvent } from '@/api/contract';
-import { cleanPhone, formatJam, greetingFor, formatPhoneDisplay, formatTanggal, groupPhone } from '@/api/format';
+import {
+  cleanPhone,
+  formatJam,
+  formatPhoneDisplay,
+  formatRupiahRingkas,
+  formatTanggal,
+  greetingFor,
+  groupPhone,
+} from '@/api/format';
 import { applyThinking, isThinking, NO_RUNS } from '@/api/thinking';
 
 describe('formatJam', () => {
@@ -121,4 +129,15 @@ describe('nomor dan tanggal', () => {
     expect(formatTanggal('bukan tanggal')).toBeNull();
     jest.restoreAllMocks();
   });
+});
+
+test('rupiah ringkas: juta, ribu, miliar, tanpa nol di belakang', () => {
+  expect(formatRupiahRingkas(4_250_000)).toBe('Rp 4,25 jt');
+  expect(formatRupiahRingkas(2_610_000)).toBe('Rp 2,61 jt');
+  expect(formatRupiahRingkas(3_000_000)).toBe('Rp 3 jt');
+  expect(formatRupiahRingkas(1_205_000)).toBe('Rp 1,2 jt');
+  expect(formatRupiahRingkas(850_000)).toBe('Rp 850 rb');
+  expect(formatRupiahRingkas(1_250_000_000)).toBe('Rp 1,25 M');
+  expect(formatRupiahRingkas(500)).toBe('Rp 500');
+  expect(formatRupiahRingkas(-3)).toBe('Rp 0');
 });

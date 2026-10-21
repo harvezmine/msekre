@@ -6,8 +6,11 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from './Icon';
 import { Txt } from './Txt';
 
-/** Tombol tempat di kiri atas (Beranda, Perangkat, Usaha): menampilkan tempat terpilih, membuka pemilih tempat. */
-export function PlaceButton({ labelFor }: { labelFor?: (place: Place) => string }) {
+/**
+ * Tombol tempat: menampilkan tempat terpilih, membuka pemilih tempat. `quiet` (kepala Usaha, papan 18): hanya tulisan dan
+ * chevron tanpa permukaan.
+ */
+export function PlaceButton({ labelFor, quiet = false }: { labelFor?: (place: Place) => string; quiet?: boolean }) {
   const { c, shadow } = useTheme();
   // Tempat dari Beranda (`GET /home`); sebelum terisi, `Semua`.
   const { home } = useHome();
@@ -20,18 +23,21 @@ export function PlaceButton({ labelFor }: { labelFor?: (place: Place) => string 
       onPress={() => router.push('/tempat')}
       android_ripple={{ color: c.ripple }}
       style={{
-        height: 48,
-        paddingLeft: 16,
-        paddingRight: 12,
+        minHeight: 48,
+        maxWidth: 200,
+        paddingLeft: quiet ? 8 : 16,
+        paddingRight: quiet ? 4 : 12,
         borderRadius: 24,
-        boxShadow: shadow.e1,
-        backgroundColor: c.surface,
+        boxShadow: quiet ? undefined : shadow.e1,
+        backgroundColor: quiet ? 'transparent' : c.surface,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
       }}
     >
-      <Txt weight={600}>{label}</Txt>
+      <Txt v={quiet ? 'row' : 'body'} weight={600} numberOfLines={1} style={{ flexShrink: 1 }}>
+        {label}
+      </Txt>
       <Icon name="chevD" size={20} color={c.text} />
     </Pressable>
   );

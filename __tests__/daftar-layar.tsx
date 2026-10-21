@@ -21,6 +21,7 @@ export const LAYAR: LayarKasus[] = [
   { nama: 'Agenda', Layar: ROUTES['/agenda']! },
   { nama: 'Perangkat', Layar: ROUTES['/perangkat']! },
   { nama: 'Usaha', Layar: ROUTES['/usaha']! },
+  { nama: 'Usaha (lainnya)', Layar: ROUTES['/usaha/lainnya']! },
   { nama: 'Chat (percakapan)', Layar: ROUTES['/chat']! },
   { nama: 'Chat (kosong)', Layar: ROUTES['/chat']!, params: { kosong: '1' } },
   { nama: 'Suara', Layar: ROUTES['/suara']!, selaluForest: true },

@@ -2,9 +2,11 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import Usaha from '../app/(tabs)/usaha';
+import UsahaLainnya from '../app/usaha/lainnya';
 import { ERROR_TEXT, FILE_DOWNLOAD_TEXT } from '@/api/errors';
 import { ApiFailure } from '@/api/transport';
-import { dark } from '@/theme/tokens';
+import { StyleSheet } from 'react-native';
+import { dark, markerLight } from '@/theme/tokens';
 import { ToastHost } from '@/ui/Toast';
 import { createTestApi, renderWithProviders } from './helpers';
 import type { SampleState } from '@/sample/store';
@@ -13,56 +15,91 @@ beforeEach(() => jest.clearAllMocks());
 
 const at = (place: SampleState['place']) => ({ type: 'setPlace', place }) as const;
 const show = () => renderWithProviders(<Usaha />);
+const lainnya = (options?: Parameters<typeof renderWithProviders>[1]) => renderWithProviders(<UsahaLainnya />, options);
 
-test('Semua cabang: angka, cabang, uang masuk, stok, pesanan, laporan, sumber data', async () => {
+test('Semua: angka ringkas dan perubahan, grafik, dua cabang, satu stok menipis; sisanya tidak di layar utama', async () => {
   await show();
-  expect(await screen.findByText('Rp4.250.000')).toBeOnTheScreen();
-  expect(screen.getByText('naik 12% dari Senin lalu')).toBeOnTheScreen();
-  expect(screen.getByText('Rp2.610.000')).toBeOnTheScreen();
-  expect(screen.getByText('Rp1.640.000')).toBeOnTheScreen();
-  expect(screen.getAllByText('dari Moka')).toHaveLength(2);
-  expect(screen.getByText('dari rekening BCA')).toBeOnTheScreen();
-  expect(screen.getByText('Transfer dari PT Sumber Susu')).toBeOnTheScreen();
+  expect(await screen.findByText('Rp 4,25 jt')).toBeOnTheScreen();
+  expect(screen.getByText('12%')).toBeOnTheScreen();
+  expect(screen.getByLabelText('Penjualan hari ini Rp4.250.000, naik 12% dari Senin lalu')).toBeOnTheScreen();
+  expect(screen.getByRole('image', { name: 'Grafik penjualan 7 hari terakhir' })).toBeOnTheScreen();
+  expect(screen.getByText('Kedai Dago')).toBeOnTheScreen();
+  expect(screen.getByText('Rp 2,61 jt')).toBeOnTheScreen();
+  expect(screen.getByText('Rp 1,64 jt')).toBeOnTheScreen();
   expect(screen.getByText('Susu UHT')).toBeOnTheScreen();
-  expect(screen.getByText('6 karton')).toBeOnTheScreen();
+  expect(screen.getByText('Tinggal 6 karton')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Pesan lagi Susu UHT' })).toBeOnTheScreen();
+  // Tampilkan lebih sedikit: uang masuk, pesanan, laporan, sumber, dan stok lain ada di Lainnya.
+  for (const t of [
+    'Transfer dari PT Sumber Susu',
+    'TikTok Shop: 3 pesanan perlu dikirim',
+    'Laporan penjualan 14–20 Okt.xlsx',
+    'Biji kopi Gayo',
+    'Data dari Moka, rekening BCA dan TikTok Shop.',
+  ]) {
+    expect(screen.queryByText(t)).toBeNull();
+  }
+  expect(screen.queryByRole('button', { name: 'Akun' })).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Lainnya' }));
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/usaha/lainnya', params: { periode: 'hari' } });
+});
+
+test('Lainnya: semua stok menipis, uang masuk, pesanan, laporan, dan sumber data', async () => {
+  await lainnya();
+  expect(await screen.findByText('Transfer dari PT Sumber Susu')).toBeOnTheScreen();
+  expect(screen.getByText('dari rekening BCA')).toBeOnTheScreen();
+  expect(screen.getByText('dari Moka')).toBeOnTheScreen();
+  expect(screen.getByText('Tinggal 6 karton')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Pesan lagi Biji kopi Gayo' })).toBeOnTheScreen();
   expect(screen.getByText('TikTok Shop: 3 pesanan perlu dikirim')).toBeOnTheScreen();
   expect(screen.getByText('Biji kopi Gayo 250 g × 2')).toBeOnTheScreen();
   expect(screen.getByText('Laporan penjualan 14–20 Okt.xlsx')).toBeOnTheScreen();
-  expect(screen.getByText('Sen')).toBeOnTheScreen();
   expect(screen.getByText('Data dari Moka, rekening BCA dan TikTok Shop.')).toBeOnTheScreen();
 });
 
 test('sumber yang belum tersambung membuka layanannya di Terhubung', async () => {
-  await show();
+  await lainnya();
   await fireEvent.press(await screen.findByRole('button', { name: 'Sambungkan Shopee' }));
   expect(router.push).toHaveBeenCalledWith('/terhubung/masuk?id=shopee');
 });
 
-test('angka berganti sesuai tempat', async () => {
+test('angka berganti sesuai tempat; satu kedai tanpa daftar cabang', async () => {
   await renderWithProviders(<Usaha />, { actions: [at('Kedai Dago')] });
-  expect(await screen.findByText('naik 9% dari Senin lalu')).toBeOnTheScreen();
-  expect(screen.getByText('Rp2.610.000')).toBeOnTheScreen();
-  expect(screen.getByText('TikTok Shop: 2 pesanan perlu dikirim')).toBeOnTheScreen();
-  expect(screen.queryByText('Rp4.250.000')).toBeNull();
-  expect(screen.queryByText('Rp1.640.000')).toBeNull();
+  expect(await screen.findByText('9%')).toBeOnTheScreen();
+  expect(screen.getByText('Rp 2,61 jt')).toBeOnTheScreen();
+  expect(screen.queryByText('Rp 4,25 jt')).toBeNull();
+  expect(screen.queryByText('Rp 1,64 jt')).toBeNull();
+  expect(screen.queryByText('Kedai Riau')).toBeNull();
 });
 
-test('Kedai Riau: turun, satu barang menipis', async () => {
+test('Kedai Riau: turun ditulis koral, satu barang menipis', async () => {
   await renderWithProviders(<Usaha />, { actions: [at('Kedai Riau')] });
-  expect(await screen.findByText('turun 4% dari Senin lalu')).toBeOnTheScreen();
-  expect(screen.getByText('2 karton')).toBeOnTheScreen();
+  expect(await screen.findByLabelText(/turun 4% dari Senin lalu$/)).toBeOnTheScreen();
+  expect(StyleSheet.flatten(screen.getByText('4%').props.style).color).toBe(markerLight.warn.ink);
+  expect(screen.getByText('Tinggal 2 karton')).toBeOnTheScreen();
   expect(screen.queryByText('Biji kopi Gayo')).toBeNull();
 });
 
-test('Rumah tidak punya data usaha: keadaan kosong dengan jalan ke Terhubung dan ke pemilih tempat', async () => {
+test('rentang Minggu dan Bulan dari segmen, angka ikut berganti', async () => {
+  await show();
+  expect(await screen.findByText('Rp 4,25 jt')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('tab', { name: 'Minggu' }));
+  expect(await screen.findByLabelText(/^Penjualan minggu ini Rp/)).toBeOnTheScreen();
+  expect(screen.getByRole('image', { name: 'Grafik penjualan 4 minggu terakhir' })).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('tab', { name: 'Bulan' }));
+  expect(await screen.findByLabelText(/^Penjualan bulan ini Rp/)).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Lainnya' }));
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/usaha/lainnya', params: { periode: 'bulan' } });
+});
+
+test('Rumah tidak punya data usaha: satu kalimat tenang dan satu tindakan', async () => {
   await renderWithProviders(<Usaha />, { actions: [at('Rumah')] });
-  expect(
-    await screen.findByText('Belum ada data usaha. Sambungkan kasir atau rekening di Terhubung.'),
-  ).toBeOnTheScreen();
+  expect(await screen.findByText('Belum ada data usaha di sini.')).toBeOnTheScreen();
   expect(screen.queryByText('Penjualan hari ini')).toBeNull();
-  await fireEvent.press(screen.getByRole('button', { name: 'Buka Terhubung' }));
+  expect(screen.queryByRole('button', { name: 'Lainnya' })).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Sambungkan kasir' }));
   expect(router.push).toHaveBeenCalledWith('/terhubung');
-  await fireEvent.press(screen.getByRole('button', { name: 'Pilih tempat' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Tempat: Rumah' }));
   expect(router.push).toHaveBeenCalledWith('/tempat');
 });
 
@@ -71,7 +108,7 @@ test('gagal memuat: kalimat ramah dan Coba lagi', async () => {
   jest.spyOn(api.transport, 'business').mockRejectedValueOnce(new ApiFailure('network'));
   await renderWithProviders(<Usaha />, { api });
   await fireEvent.press(await screen.findByRole('button', { name: 'Coba lagi' }));
-  expect(await screen.findByText('Rp4.250.000')).toBeOnTheScreen();
+  expect(await screen.findByText('Rp 4,25 jt')).toBeOnTheScreen();
 });
 
 describe('Pesan lagi', () => {
@@ -104,7 +141,13 @@ describe('Pesan lagi', () => {
     expect(router.push).toHaveBeenCalledTimes(2);
     expect(router.push).toHaveBeenLastCalledWith({ pathname: '/chat', params: { draf: draft!.id } });
     expect(await supplierDrafts(api)).toHaveLength(1);
-    // barang lain tetap bisa dipesan
+  });
+
+  test('barang lain tetap bisa dipesan dari Lainnya selagi satu draf terbuka', async () => {
+    const api = createTestApi();
+    await renderWithProviders(<UsahaLainnya />, { api });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Pesan lagi Susu UHT' }));
+    expect(await screen.findByRole('button', { name: 'Lihat draf Susu UHT' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Pesan lagi Biji kopi Gayo' })).toBeOnTheScreen();
   });
 
@@ -150,8 +193,8 @@ describe('Pesan lagi', () => {
   });
 });
 
-test('Buka dan Bagikan laporan memakai alur unduh dokumen', async () => {
-  await show();
+test('Buka dan Bagikan laporan (di Lainnya) memakai alur unduh dokumen', async () => {
+  await lainnya();
   await fireEvent.press(await screen.findByRole('button', { name: 'Buka' }));
   for (let i = 0; i < 6; i++) await act(async () => void jest.advanceTimersByTime(300));
   // iOS (bawaan tes): berkas contoh dibuka lewat lembar bagikan.
@@ -165,7 +208,7 @@ test('laporan gagal diunduh: toast ramah', async () => {
   const api = createTestApi();
   await renderWithProviders(
     <>
-      <Usaha />
+      <UsahaLainnya />
       <ToastHost />
     </>,
     { api },
@@ -179,13 +222,13 @@ test('laporan gagal diunduh: toast ramah', async () => {
 test('mode gelap memakai warna palet gelap', async () => {
   await renderWithProviders(<Usaha />, { scheme: 'dark' });
   const flat = (n: ReturnType<typeof screen.getByText>) => Object.assign({}, ...[n.props.style].flat(5));
-  expect(flat(await screen.findByText('naik 12% dari Senin lalu')).color).toBe(dark.brandInk);
-  expect(flat(screen.getByText('Rp4.250.000')).color).toBe(dark.text);
+  expect(flat(await screen.findByText('12%')).color).toBe(dark.brandInk);
+  expect(flat(screen.getByText('Rp 4,25 jt')).color).toBe(dark.text);
 });
 
-test('tombol tempat menyebut Semua cabang, dan kedai tetap namanya', async () => {
+test('tombol tempat menyebut Semua, dan kedai tetap namanya', async () => {
   await renderWithProviders(<Usaha />);
-  expect(await screen.findByRole('button', { name: 'Tempat: Semua cabang' })).toBeOnTheScreen();
+  expect(await screen.findByRole('button', { name: 'Tempat: Semua' })).toBeOnTheScreen();
 });
 
 test('tombol tempat di Kedai Dago memakai nama kedai', async () => {
@@ -219,14 +262,13 @@ describe('rentang dan konsistensi', () => {
   test('ringkasan usaha Beranda (kontrak) dan layar Usaha memakai angka yang sama setelah data bersama berubah', async () => {
     const api = createTestApi();
     await renderWithProviders(<Usaha />, { api });
-    expect(await screen.findByText('Rp4.250.000')).toBeOnTheScreen();
+    expect(await screen.findByLabelText(/Rp4\.250\.000/)).toBeOnTheScreen();
     expect((await api.transport.home()).business?.sales).toBe('Rp4.250.000');
     await act(async () => {
       api.transport.sample.dispatch({ type: 'setPlace', place: 'Kedai Dago' });
     });
-    expect(await screen.findByText('Rp2.610.000')).toBeOnTheScreen();
-    expect(screen.getByText('naik 9% dari Senin lalu')).toBeOnTheScreen();
-    expect(screen.getByText('4 karton')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Penjualan hari ini Rp2.610.000, naik 9% dari Senin lalu')).toBeOnTheScreen();
+    expect(screen.getByText('Tinggal 4 karton')).toBeOnTheScreen();
     const home = await api.transport.home();
     expect(home.business).toMatchObject({
       sales: 'Rp2.610.000',

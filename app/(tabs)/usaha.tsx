@@ -1,138 +1,167 @@
+// Niat layar: tahu dalam dua detik bagaimana usaha berjalan (satu angka besar dan grafiknya). Tindakan tersering: Pesan
+// barang yang menipis, di zona jempol paling bawah. Uang masuk, pesanan, laporan, dan sumber data ada di Lainnya.
 import { router } from 'expo-router';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { BusinessStock } from '@/api/contract';
+import type { Business, BusinessPeriod, BusinessStock } from '@/api/contract';
 import { useBusiness } from '@/api/useBusiness';
 import { useHome } from '@/api/useHome';
 import { useTheme } from '@/theme/ThemeProvider';
-import { MoneyInCard } from '@/ui/business/MoneyInCard';
-import { OrdersCard } from '@/ui/business/OrdersCard';
-import { ReportCard } from '@/ui/business/ReportCard';
-import { SalesCard } from '@/ui/business/SalesCard';
-import { SourcesRow } from '@/ui/business/SourcesRow';
-import { StockCard } from '@/ui/business/StockCard';
-import { Card } from '@/ui/Card';
+import { BranchRows, firstLowStock, SalesHero, StockRow } from '@/ui/business/Hero';
+import { openDraft } from '@/ui/business/openDraft';
+import { Icon } from '@/ui/Icon';
+import { byLayout, PressableScale, Segmented, useLayoutClass } from '@/ui/kit';
 import { PlaceButton } from '@/ui/PlaceButton';
-import { Initials } from '@/ui/Initials';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 
+const PERIODS = ['hari', 'minggu', 'bulan'] as const satisfies readonly BusinessPeriod[];
+const PERIOD_LABEL: Record<BusinessPeriod, string> = { hari: 'Hari ini', minggu: 'Minggu', bulan: 'Bulan' };
+
 export default function Usaha() {
-  const { c, shadow } = useTheme();
+  const { c } = useTheme();
   const insets = useSafeAreaInsets();
+  const cls = useLayoutClass();
+  const toast = useToast();
   const { home } = useHome();
   const place = home?.place ?? null;
-  const { data, hasData, status, error, retry, reorder, isReordering, mediaUrl } = useBusiness(place, 'hari');
-  const toast = useToast();
+  const [period, setPeriod] = useState<BusinessPeriod>('hari');
+  const { data, hasData, status, error, retry, reorder, isReordering } = useBusiness(place, period);
+  // Selagi rentang lain dimuat, angka sebelumnya tetap tampil (tanpa kedip kosong).
+  const [last, setLast] = useState<Business | null>(data);
+  if (data && data !== last) setLast(data);
+  const shown = data ?? (status === 'loading' && last?.place === place ? last : null);
+  const showsData = data ? hasData : shown !== null;
 
-  const openDraft = (draftId: string, messageId?: string) =>
-    router.push({ pathname: '/chat', params: messageId ? { draf: draftId, pesan: messageId } : { draf: draftId } });
   const orderAgain = async (item: BusinessStock) => {
     const res = await reorder(item.id);
     if (res.ok) openDraft(res.draftId, res.messageId);
     else if (res.message) toast(res.message);
   };
+  const stock = shown ? firstLowStock(shown.lowStock) : null;
+
+  let body;
+  if (!shown) {
+    body =
+      status === 'error' ? (
+        <View style={{ paddingHorizontal: 20, paddingTop: 24, gap: 16, alignItems: 'flex-start' }}>
+          <Txt>{error}</Txt>
+          <MainButton label="Coba lagi" onPress={() => void retry()} />
+        </View>
+      ) : (
+        <Txt color={c.muted} style={{ paddingHorizontal: 20, paddingTop: 24 }}>
+          Sebentar ya, saya ambil dulu.
+        </Txt>
+      );
+  } else if (!showsData) {
+    // Kosong yang tenang: satu kalimat, satu tindakan.
+    body = (
+      <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 20, alignItems: 'flex-start' }}>
+        <Txt v="row" color={c.muted}>
+          Belum ada data usaha di sini.
+        </Txt>
+        <MainButton label="Sambungkan kasir" onPress={() => router.push('/terhubung')} />
+      </View>
+    );
+  } else {
+    body = (
+      <View style={{ flexGrow: 1 }}>
+        <SalesHero data={shown} chartHeight={byLayout(cls, { compact: 120, regular: 168, tall: 180 })} />
+        {shown.branches.length > 0 ? (
+          <View style={{ paddingTop: cls === 'compact' ? 8 : 16 }}>
+            <BranchRows branches={shown.branches} />
+          </View>
+        ) : null}
+        {/* Ruang lentur: stok menipis (aksi tersering) duduk di zona jempol, tepat di atas bilah tab. */}
+        <View style={{ flexGrow: 1, minHeight: 16 }} />
+        {stock ? (
+          <View style={{ borderTopWidth: 1, borderTopColor: c.line, paddingHorizontal: 20, paddingTop: 8 }}>
+            <StockRow
+              item={stock}
+              busy={isReordering(stock.id)}
+              onOrder={(item) => void orderAgain(item)}
+              onSeeDraft={(item) => item.reorderDraftId && openDraft(item.reorderDraftId)}
+            />
+          </View>
+        ) : null}
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 96 }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingTop: 8,
-            paddingLeft: 12,
+            gap: 8,
+            paddingLeft: 20,
             paddingRight: 16,
+            paddingTop: cls === 'compact' ? 8 : 24,
+            paddingBottom: 12,
           }}
         >
-          <PlaceButton labelFor={(p) => (p === 'Semua' ? 'Semua cabang' : p)} />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Akun"
-            onPress={() => router.push('/akun')}
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              backgroundColor: c.surface,
-              boxShadow: shadow.e1,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Initials />
-          </Pressable>
+          <Txt v="title" accessibilityRole="header" style={{ flex: 1 }}>
+            Usaha
+          </Txt>
+          <PlaceButton quiet />
+          {shown && showsData ? (
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel="Lainnya"
+              haptic="light"
+              onPress={() => router.push({ pathname: '/usaha/lainnya', params: { periode: period } })}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: c.sunken,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              hitSlop={2}
+            >
+              <Icon name="more" size={22} color={c.text} />
+            </PressableScale>
+          ) : null}
         </View>
-        <Txt v="title" accessibilityRole="header" style={{ paddingTop: 16, paddingHorizontal: 20 }}>
-          Usaha
-        </Txt>
-
-        <View style={{ paddingTop: 16, paddingHorizontal: 16, gap: 12 }}>
-          {!data ? (
-            status === 'error' ? (
-              <Card style={{ gap: 16 }}>
-                <Txt>{error}</Txt>
-                <Action label="Coba lagi" onPress={() => void retry()} />
-              </Card>
-            ) : null
-          ) : hasData ? (
-            <>
-              <SalesCard data={data} />
-              {data.moneyIn.length > 0 ? <MoneyInCard data={data} /> : null}
-              {data.lowStock.length > 0 ? (
-                <StockCard
-                  data={data}
-                  isBusy={isReordering}
-                  onOrder={(item) => void orderAgain(item)}
-                  onSeeDraft={(item) => item.reorderDraftId && openDraft(item.reorderDraftId)}
-                />
-              ) : null}
-              <OrdersCard orders={data.orders} />
-              {data.report ? <ReportCard report={data.report} mediaUrl={mediaUrl} /> : null}
-              <SourcesRow sources={data.sources} />
-            </>
-          ) : (
-            <Card style={{ gap: 16 }}>
-              <Txt>Belum ada data usaha. Sambungkan kasir atau rekening di Terhubung.</Txt>
-              <Action label="Buka Terhubung" onPress={() => router.push('/terhubung')} />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Pilih tempat"
-                onPress={() => router.push('/tempat')}
-                style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Txt weight={600} color={c.brandInk}>
-                  Pilih tempat
-                </Txt>
-              </Pressable>
-            </Card>
-          )}
-        </View>
+        {showsData || !shown ? (
+          <Segmented
+            options={PERIODS}
+            labels={PERIOD_LABEL}
+            value={period}
+            onChange={setPeriod}
+            label="Rentang"
+            style={{ marginHorizontal: 20, marginBottom: cls === 'compact' ? 16 : 28 }}
+          />
+        ) : null}
+        {body}
       </ScrollView>
     </View>
   );
 }
 
-function Action({ label, onPress }: { label: string; onPress: () => void }) {
+function MainButton({ label, onPress }: { label: string; onPress: () => void }) {
   const { c } = useTheme();
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      android_ripple={{ color: c.ripple }}
       style={{
-        height: 52,
-        borderRadius: 26,
+        minHeight: 56,
+        paddingHorizontal: 28,
+        borderRadius: 28,
         backgroundColor: c.brand,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Txt weight={600} color={c.onBrand}>
+      <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
         {label}
       </Txt>
-    </Pressable>
+    </PressableScale>
   );
 }

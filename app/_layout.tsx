@@ -116,6 +116,7 @@ function Navigator() {
             }}
           />
           <Stack.Screen name="riwayat" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="usaha/lainnya" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="mulai/pilih" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen
             name="keluar"

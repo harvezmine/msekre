@@ -172,10 +172,10 @@ test('avatar RW di Beranda membuka Akun', async () => {
   expect(router.push).toHaveBeenLastCalledWith('/akun');
 });
 
-test('avatar RW di Usaha membuka Akun', async () => {
+test('Usaha tanpa avatar Akun: Akun selalu di satu tempat, Beranda', async () => {
   await renderWithProviders(<Usaha />);
-  await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
-  expect(router.push).toHaveBeenLastCalledWith('/akun');
+  expect(await screen.findByText('Rp 4,25 jt')).toBeOnTheScreen();
+  expect(screen.queryByRole('button', { name: 'Akun' })).toBeNull();
 });
 
 test('mode gelap memakai warna gelap', async () => {

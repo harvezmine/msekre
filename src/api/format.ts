@@ -54,6 +54,30 @@ export function formatRupiah(amount: number): string {
   return `Rp${digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
 }
 
+/**
+ * Rupiah ringkas untuk angka besar di layar (papan 18): 4250000 -> "Rp 4,25 jt", 850000 -> "Rp 850 rb", 1200000000 ->
+ * "Rp 1,2 M". Paling banyak dua angka di belakang koma, nol di belakang dibuang. Di bawah seribu: rupiah penuh.
+ */
+export function formatRupiahRingkas(amount: number): string {
+  const v = Math.max(0, Math.round(amount));
+  const steps: [number, string][] = [
+    [1e9, 'M'],
+    [1e6, 'jt'],
+    [1e3, 'rb'],
+  ];
+  for (const [unit, word] of steps) {
+    if (v >= unit) {
+      const n = Math.floor((v / unit) * 100) / 100;
+      const text = n
+        .toFixed(2)
+        .replace(/\.?0+$/, '')
+        .replace('.', ',');
+      return `Rp ${text} ${word}`;
+    }
+  }
+  return `Rp ${v}`;
+}
+
 /** "48 KB · Excel" dari ukuran berkas dan jenis (mime). */
 export function formatFileMeta(sizeBytes: number, mime: string): string {
   let size: string;

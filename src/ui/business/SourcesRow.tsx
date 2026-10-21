@@ -17,7 +17,7 @@ export function SourcesRow({ sources }: { sources: BusinessSource[] }) {
   const off = sources.filter((s) => !s.connected);
   if (on.length === 0 && off.length === 0) return null;
   return (
-    <View style={{ gap: 4, paddingHorizontal: 4 }}>
+    <View style={{ gap: 4, paddingHorizontal: 20 }}>
       {on.length > 0 ? (
         <Txt v="caption" color={c.muted}>
           Data dari {joinWords(on)}.

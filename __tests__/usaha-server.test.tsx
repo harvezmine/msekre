@@ -1,6 +1,7 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import Usaha from '../app/(tabs)/usaha';
+import UsahaLainnya from '../app/usaha/lainnya';
 import { ERROR_TEXT } from '@/api/errors';
 import { HttpTransport, type SocketLike } from '@/api/http';
 import { createMemorySession } from '@/api/session';
@@ -92,12 +93,18 @@ beforeEach(() => jest.clearAllMocks());
 
 test('mode server: Usaha dari GET /business, saluran dan status baru tetap tampil, sumber belum tersambung', async () => {
   const { api, fetch } = serverApi(() => undefined);
-  await renderWithProviders(<Usaha />, { api });
-  expect(await screen.findByText('Rp3.000.000')).toBeOnTheScreen();
+  const main = await renderWithProviders(<Usaha />, { api });
+  expect(await screen.findByText('Rp 3 jt')).toBeOnTheScreen();
   expect(fetch.mock.calls.some(([u]) => String(u).endsWith('/business?place=Kedai%20Dago&period=hari'))).toBe(true);
-  expect(screen.getByText('turun 7% dari Senin lalu')).toBeOnTheScreen();
-  expect(screen.getByText('QRIS Dago')).toBeOnTheScreen();
-  expect(screen.getByText('3 kg')).toBeOnTheScreen();
+  expect(screen.getByLabelText('Penjualan hari ini Rp3.000.000, turun 7% dari Senin lalu')).toBeOnTheScreen();
+  // Layar utama: satu barang menipis, yang bisa dipesan lebih dulu.
+  expect(screen.getByText('Tinggal 3 kg')).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Pesan lagi Gula' })).toBeOnTheScreen();
+  await main.unmount();
+
+  await renderWithProviders(<UsahaLainnya />, { api });
+  expect(await screen.findByText('QRIS Dago')).toBeOnTheScreen();
+  expect(screen.getByText('Tinggal 3 kg')).toBeOnTheScreen();
   // saluran dan status yang belum dikenal aplikasi: kata biasa
   expect(screen.getByText('Toko baru: 1 pesanan')).toBeOnTheScreen();
   expect(screen.getByText('Sedang diproses')).toBeOnTheScreen();
@@ -134,7 +141,7 @@ test('mode server: Pesan lagi memanggil POST /business/reorder lalu membuka chat
       }),
     });
   });
-  expect(screen.getByText('Rp3.500.000')).toBeOnTheScreen();
+  expect(screen.getByText('Rp 3,5 jt')).toBeOnTheScreen();
   expect(screen.getByRole('button', { name: 'Pesan lagi Gula' })).toBeOnTheScreen();
   // event yang lebih lama dibuang
   await act(async () => {
@@ -142,7 +149,7 @@ test('mode server: Pesan lagi memanggil POST /business/reorder lalu membuka chat
       data: JSON.stringify({ type: 'business', business: { ...businessBody, rev: 2 } }),
     });
   });
-  expect(screen.getByText('Rp3.500.000')).toBeOnTheScreen();
+  expect(screen.getByText('Rp 3,5 jt')).toBeOnTheScreen();
 });
 
 test('mode server: reorder gagal menampilkan toast ramah dan tidak membuka chat', async () => {
@@ -174,9 +181,7 @@ test('mode server: jawaban kosong menampilkan keadaan kosong, jawaban gagal mena
   };
   const { api } = serverApi((path) => (path.startsWith('/business?') ? { body: empty } : undefined));
   await renderWithProviders(<Usaha />, { api });
-  expect(
-    await screen.findByText('Belum ada data usaha. Sambungkan kasir atau rekening di Terhubung.'),
-  ).toBeOnTheScreen();
+  expect(await screen.findByText('Belum ada data usaha di sini.')).toBeOnTheScreen();
 });
 
 test('mode server: GET /business gagal menampilkan kalimat ramah dan Coba lagi', async () => {
@@ -188,21 +193,21 @@ test('mode server: GET /business gagal menampilkan kalimat ramah dan Coba lagi',
   expect(await screen.findByText(ERROR_TEXT)).toBeOnTheScreen();
   fail = false;
   await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
-  expect(await screen.findByText('Rp3.000.000')).toBeOnTheScreen();
+  expect(await screen.findByText('Rp 3 jt')).toBeOnTheScreen();
 });
 
 test('mode server: jam uang masuk mengikuti zona waktu dari server (bukan zona HP); jam bawaan WIB', async () => {
   const wit = serverApi((path) =>
     path.startsWith('/business?') ? { body: { ...businessBody, tzOffsetMinutes: 540 } } : undefined,
   );
-  const view = await renderWithProviders(<Usaha />, { api: wit.api });
+  const view = await renderWithProviders(<UsahaLainnya />, { api: wit.api });
   // 03.00 UTC di WIT (UTC+9) = 12.00
   expect(await screen.findByText('12.00 · tunai')).toBeOnTheScreen();
   await view.unmount();
 
   // Server lama tanpa tzOffsetMinutes: WIB (UTC+7) = 10.00
   const old = serverApi(() => undefined);
-  await renderWithProviders(<Usaha />, { api: old.api });
+  await renderWithProviders(<UsahaLainnya />, { api: old.api });
   expect(await screen.findByText('10.00 · tunai')).toBeOnTheScreen();
 });
 
@@ -215,8 +220,8 @@ test('mode server: keterangan "dari {sumber}" memakai sumber tersambung yang men
     ],
   };
   const { api } = serverApi((path) => (path.startsWith('/business?') ? { body } : undefined));
-  await renderWithProviders(<Usaha />, { api });
-  await screen.findByText('Rp3.000.000');
+  await renderWithProviders(<UsahaLainnya />, { api });
+  await screen.findByText('QRIS Dago');
   expect(screen.getAllByText('dari Kasir Toko').length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText('dari Bank Mandiri')).toBeOnTheScreen();
   expect(screen.queryByText('dari Moka')).toBeNull();
