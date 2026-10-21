@@ -5,6 +5,7 @@ import { ApiProvider, type Api } from '@/api/ApiProvider';
 import { ChatProvider } from '@/api/ChatProvider';
 import { ApiSampleProvider } from '@/api/ApiSampleProvider';
 import { BusinessProvider } from '@/api/BusinessProvider';
+import { ConnectionsProvider } from '@/api/ConnectionsProvider';
 import { DevicesProvider } from '@/api/DevicesProvider';
 import { HomeProvider } from '@/api/HomeProvider';
 import { FakeTransport, type FakeOptions } from '@/api/fake/FakeTransport';
@@ -50,7 +51,9 @@ export async function renderWithProviders(ui: ReactElement, { state, actions = [
                 <HomeProvider>
                   <AgendaProvider>
                     <DevicesProvider>
-                      <BusinessProvider>{ui}</BusinessProvider>
+                      <BusinessProvider>
+                        <ConnectionsProvider>{ui}</ConnectionsProvider>
+                      </BusinessProvider>
                     </DevicesProvider>
                   </AgendaProvider>
                 </HomeProvider>

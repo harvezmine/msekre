@@ -1,42 +1,88 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { serviceInfo } from '@/sample/services';
-import { serviceStatus, useSample, type Permission } from '@/sample/store';
+import { PERMISSION_OPTIONS, serviceLine } from '@/api/connections';
+import type { ConnectionPermission } from '@/api/contract';
+import { useConnections } from '@/api/useConnections';
+import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Card } from '@/ui/Card';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
-import type { IconName } from '@/ui/icons';
+import { iconOr, type IconName } from '@/ui/icons';
 import { Txt } from '@/ui/Txt';
 
-// Detail satu layanan (desain 2i): apa yang bisa Nadia lakukan, izin, dan hapus data atau putuskan.
+const PERMISSION_TEXT: Record<ConnectionPermission, string> = {
+  baca: 'Nadia melihat data, tidak mengubah apa pun.',
+  baca_tulis: 'Nadia boleh bertindak di sini, selalu dengan persetujuan Anda.',
+};
+
+// Detail satu layanan (desain 2j): apa yang bisa Nadia lakukan, izin, dan hapus yang Nadia tahu atau putuskan.
 export default function DetailLayanan() {
   const { id } = useLocalSearchParams<{ id?: string }>();
+  const serviceId = typeof id === 'string' ? id : '';
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const { state, dispatch } = useSample();
-  const service = state.services.find((s) => s.id === id);
-  const info = id ? serviceInfo[id] : undefined;
+  const dispatch = useSampleDispatch();
+  const { detail, service: listed, setPermission, reloadDetail } = useConnections(serviceId);
   const back = (
     <View style={{ paddingTop: insets.top, height: 64 + insets.top, justifyContent: 'center', paddingHorizontal: 8 }}>
       <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
     </View>
   );
-  if (!service || !info) {
+  const data = detail?.data;
+  if (!data) {
+    const failed = detail?.status === 'error';
     return (
       <View style={{ flex: 1, backgroundColor: c.paper }}>
         {back}
-        <Txt style={{ padding: 24, textAlign: 'center' }}>Layanan ini tidak ditemukan.</Txt>
+        <Txt style={{ padding: 24, textAlign: 'center' }}>
+          {failed ? (detail?.error ?? '') : 'Sebentar ya, saya ambil dulu.'}
+        </Txt>
+        {failed ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Coba lagi" onPress={() => void reloadDetail()}>
+            <Txt weight={600} color={c.green} style={{ textAlign: 'center' }}>
+              Coba lagi
+            </Txt>
+          </Pressable>
+        ) : null}
       </View>
     );
   }
-  const warn = !service.reachable;
-  const forgotten = state.forgotten.includes(service.id);
-  const options: { value: Permission; title: string; text: string }[] = [
-    { value: 'read', title: 'Hanya membaca', text: 'Nadia melihat data, tidak mengubah apa pun.' },
-    { value: 'act', title: 'Boleh bertindak', text: info.act },
-  ];
+  const service = listed ?? data.service;
+  if (service.status !== 'connected') {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.paper }}>
+        {back}
+        <View style={{ padding: 24, gap: 16 }}>
+          <Txt style={{ textAlign: 'center' }}>{service.name} belum tersambung.</Txt>
+          {service.status !== 'soon' ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Sambungkan ${service.name}`}
+              onPress={() => router.replace(`/terhubung/masuk?id=${service.id}`)}
+            >
+              <Txt weight={600} color={c.green} style={{ textAlign: 'center' }}>
+                Sambungkan
+              </Txt>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+  const warn = !!service.needsAttention;
+  const change = async (permission: ConnectionPermission) => {
+    const res = await setPermission(service.id, permission);
+    if (!res.ok) dispatch({ type: 'showToast', text: res.message });
+  };
+  const memory = data.memoryCount;
+  const memoryNote =
+    memory === undefined
+      ? undefined
+      : memory === 0
+        ? 'Tidak ada yang Nadia ingat dari sini.'
+        : `${memory} hal diingat Nadia.`;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.paper }}>
@@ -53,7 +99,7 @@ export default function DetailLayanan() {
               justifyContent: 'center',
             }}
           >
-            <Icon name={service.icon} size={30} color={warn ? c.clay : c.green} />
+            <Icon name={iconOr(service.icon, 'link')} size={30} color={warn ? c.clay : c.green} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Txt v="title" accessibilityRole="header">
@@ -62,15 +108,36 @@ export default function DetailLayanan() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: warn ? c.clay : c.leaf }} />
               <Txt v="caption" color={warn ? c.clay : c.leafText} style={{ flexShrink: 1 }}>
-                {serviceStatus(service)}
+                {serviceLine(service)}
               </Txt>
             </View>
           </View>
         </View>
 
+        {warn ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Sambungkan ulang ${service.name}`}
+            onPress={() => router.push(`/terhubung/masuk?id=${service.id}`)}
+            style={{
+              backgroundColor: c.clayBg,
+              borderRadius: 20,
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <Icon name="info" size={22} color={c.clay} />
+            <Txt style={{ flex: 1 }} color={c.clay}>
+              {service.needsAttention}. Ketuk untuk menyambungkan ulang.
+            </Txt>
+          </Pressable>
+        ) : null}
+
         <Card style={{ gap: 12 }}>
           <Txt v="subtitle">Yang bisa Nadia lakukan</Txt>
-          {info.can.map((line) => (
+          {data.what.map((line) => (
             <View key={line} style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ marginTop: 2 }}>
                 <Icon name="check" size={20} color={c.green} />
@@ -84,16 +151,16 @@ export default function DetailLayanan() {
           <Txt weight={600} style={{ fontSize: 15, lineHeight: 20, paddingHorizontal: 4 }}>
             Izin
           </Txt>
-          {options.map((o) => {
-            const on = service.permission === o.value;
+          {PERMISSION_OPTIONS.map((o) => {
+            const on = data.permission === o.value;
             return (
               <Pressable
                 key={o.value}
                 accessibilityRole="radio"
                 accessibilityLabel={o.title}
-                accessibilityHint={o.text}
+                accessibilityHint={PERMISSION_TEXT[o.value]}
                 accessibilityState={{ checked: on }}
-                onPress={() => dispatch({ type: 'setPermission', id: service.id, permission: o.value })}
+                onPress={() => void change(o.value)}
                 style={{
                   flexDirection: 'row',
                   gap: 12,
@@ -120,7 +187,7 @@ export default function DetailLayanan() {
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Txt weight={600}>{o.title}</Txt>
-                  <Txt color={on ? c.ink : c.muted}>{o.text}</Txt>
+                  <Txt color={on ? c.ink : c.muted}>{PERMISSION_TEXT[o.value]}</Txt>
                 </View>
               </Pressable>
             );
@@ -139,11 +206,11 @@ export default function DetailLayanan() {
         >
           <Action
             icon="trash"
-            label="Hapus semua yang Nadia tahu dari layanan ini"
+            label="Hapus yang Nadia tahu dari layanan ini"
             color={c.clay}
             border
             onPress={() => router.push(`/terhubung/konfirmasi?id=${service.id}&aksi=lupa`)}
-            note={forgotten ? 'Sudah dihapus.' : undefined}
+            note={memoryNote}
           />
           <Action
             icon="x"

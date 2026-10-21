@@ -415,8 +415,8 @@ Stream: `{ "type": "device", "devices": [Device], "box": Box, "rev": 12 }` (`dev
   "orders": [{ "id": "tt-101", "channel": "tiktok_shop", "summary": "Biji kopi Gayo 250 g x 2", "amount": 178000,
               "status": "perlu_dikirim", "at": "2026-10-21T02:12:00Z" }],
   "report": { "mediaId": "rep-77", "name": "Laporan penjualan 14-20 Okt.xlsx", "size": 36864, "period": "14-20 Okt" },
-  "sources": [{ "key": "moka", "label": "Moka", "connected": true },
-              { "key": "shopee", "label": "Shopee", "connected": false }],
+  "sources": [{ "key": "moka", "label": "Moka", "connected": true, "service": "moka" },
+              { "key": "shopee", "label": "Shopee", "connected": false, "service": "shopee" }],
   "rev": 8 }
 ```
 
@@ -446,7 +446,8 @@ Stream: `{ "type": "device", "devices": [Device], "box": Box, "rev": 12 }` (`dev
   dibagikan dengan alur dokumen (bagian 2.10). Jenis berkas dibaca dari ekstensi `name`.
 - `sources`: dari mana data usaha berasal dan apakah sudah tersambung. `key` bebas (`moka`, `moota`, `tiktok_shop`,
   `shopee`, ...). Aplikasi menulis "Data dari Moka, rekening BCA dan TikTok Shop." untuk yang `connected`, dan menawarkan
-  "Sambungkan <label>" (membuka Terhubung) untuk yang belum.
+  "Sambungkan <label>" untuk yang belum: membuka layar masuk layanan `service` di Terhubung (bagian 2.16), atau daftar
+  Terhubung bila `service` kosong.
 - **Pengguna tanpa data usaha** (tempat tanpa usaha, atau belum ada kasir/rekening tersambung) mendapat jawaban kosong,
   bukan 404: `sales.total` 0, semua daftar `[]`, `report` `null`. Aplikasi lalu menampilkan "Belum ada data usaha.
   Sambungkan kasir atau rekening di Terhubung." dengan tombol ke Terhubung.
@@ -471,6 +472,108 @@ Stream: `{ "type": "business", "business": Business }` memuat Usaha lengkap untu
 menurut keduanya; dibuang bila `business.rev` lebih lama dari yang dipegang aplikasi untuk pasangan itu). Cukup
 siarkan pasangan yang berubah; boleh juga hanya yang sedang dibuka aplikasi. Setelah koneksi terbuka, aplikasi memuat
 ulang `GET /business` untuk setiap pasangan yang ia pegang, dan juga saat aplikasi kembali ke depan.
+
+### 2.16 Terhubung: `/connections`, halaman masuk resmi, dan event `connection`
+
+`GET /connections` → `Connections`:
+
+```json
+{ "connected": [{ "id": "gmail", "name": "Gmail", "icon": "mail", "category": "kerja", "status": "connected",
+                  "account": "rina@kopirindang.id", "since": "2026-09-11T03:00:00Z", "lastUsed": "2026-10-21T02:58:00Z",
+                  "ring": true },
+                { "id": "imou", "name": "Imou - CCTV", "icon": "camera", "category": "rumah", "status": "connected",
+                  "ring": true, "needsAttention": "Perlu disambungkan ulang" }],
+  "catalog":   [{ "id": "notion", "name": "Notion", "icon": "note", "category": "catatan", "status": "available", "ring": false },
+                { "id": "shopee", "name": "Shopee", "icon": "bag", "category": "usaha", "status": "soon", "ring": false }],
+  "formerly":  [{ "id": "moka", "name": "Moka", "icon": "receipt", "category": "usaha", "status": "formerly", "ring": false }],
+  "rev": 12 }
+```
+
+- `Service`: `id` (tetap, dipakai di jalur), `name` dan `account` siap tampil, `icon` (nama ikon; yang tak dikenal diganti
+  ikon bawaan), `category` (`kerja`, `usaha`, `rumah`, `catatan`, `lainnya`; yang belum dikenal dibaca `lainnya`),
+  `status` (`connected`, `available`, `formerly`, `soon`; yang belum dikenal dibaca `available`), `since` dan `lastUsed`
+  (ISO 8601; aplikasi menulis "Terakhir dipakai 5 menit lalu"), `ring`, `needsAttention`.
+- **Tiga daftar:** `connected` = tersambung (urutan sambung, yang terbaru terakhir); `catalog` = `available` (bisa
+  disambungkan) dan `soon` (tampil dengan lencana "Segera hadir", tanpa tombol sambung); `formerly` = pernah tersambung
+  lalu diputus (yang terbaru dulu), bisa disambungkan lagi. Layanan hanya ada di satu daftar. Aplikasi menaruh layanan
+  menurut daftar tempat ia datang dari server, bukan menurut `status`, kalau keduanya tak cocok.
+- `ring: true` = layanan ini punya simpul di cincin Beranda (`home.ring.nodes`). Cincin selalu datang dari `GET /home`
+  dan event `home`, bukan dari sini: begitu sambungan selesai server menaikkan `home.rev` dan menyiarkan `home` dengan
+  simpul baru di ujung cincin. Aplikasi menganimasikan simpul yang baru masuk di layar "Tersambung".
+- `needsAttention`: kalimat siap tampil untuk layanan yang `connected` tapi perlu tindakan ("Perlu disambungkan ulang",
+  "Tidak terjangkau sejak 10.12"). Aplikasi menampilkannya sebagai banner di atas daftar dan di detail, dengan jalan ke
+  menyambungkan ulang (alur yang sama dengan menyambung).
+
+`GET /connections/:id` → `ConnectionDetail` (berlaku juga untuk layanan yang belum tersambung, dipakai layar "Masuk"):
+
+```json
+{ "service": { "...": "Service" },
+  "capabilities": [{ "key": "baca_email", "label": "Membaca email masuk", "enabled": true }],
+  "permission": "baca",
+  "what": ["Membaca email masuk dan memberi tahu yang penting.", "Menyiapkan balasan untuk Anda setujui."],
+  "memoryCount": 120 }
+```
+
+- `what`: kalimat biasa tentang yang bisa Nadia lakukan, tanpa istilah teknis. `permission`: `baca` (hanya membaca) atau
+  `baca_tulis` (boleh bertindak; tindakan tetap selalu lewat persetujuan pengguna). `capabilities`: kemampuan yang
+  dapat dimatikan satu per satu (aplikasi saat ini belum menampilkannya; kuncinya bebas).
+- `memoryCount`: berapa hal yang Nadia ingat dari layanan ini (untuk "Hapus yang Nadia tahu"); hilang = tidak diketahui.
+  Layanan tak dikenal: 404 `tidak_ditemukan`.
+
+`PUT /connections/:id/permission` dengan `{ "permission": "baca" | "baca_tulis", "capabilities"?: [{ "key", "enabled" }] }`
+(objek ketat; `capabilities` hanya yang diubah) → `ConnectionDetail` terbaru. Layanan yang tidak tersambung: 404.
+Aplikasi menampilkan pilihan lebih dulu dan mengembalikannya (dengan kalimat ramah) kalau server menolak.
+
+`POST /connections/:id/forget` → `{ "ok": true, "forgotten": 48 }`. **Lupakan, bukan putuskan:** menghapus yang Nadia
+pelajari dari layanan itu (ingatan, catatan, ringkasan, dan pesan yang berasal darinya; di milo-ai `memory_forget` untuk
+sumber yang sama), **sambungannya tetap ada** dan Nadia akan mempelajari yang baru dari sini. `forgotten` = jumlah hal yang
+dihapus (0 bila tidak ada). Aman diulang. Layar konfirmasinya: "Hapus yang Nadia pelajari dari {layanan}? Sambungannya
+tetap ada."
+
+`DELETE /connections/:id` → `{ "ok": true }`. **Putuskan:** pencabutan akses (cabut dan hapus kredensial di sisi
+layanan bila ada jalannya), Nadia berhenti membaca dan bertindak di sana, layanan pindah ke `formerly`, simpulnya hilang
+dari cincin. **Tidak menghapus ingatan**: itu `forget` (pengguna bisa melakukan keduanya, urutan bebas). Layanan yang
+tidak tersambung: 404.
+
+**Menyambungkan lewat halaman masuk resmi.** Kata sandi tidak pernah lewat aplikasi ataupun Nadia.
+
+1. Aplikasi memanggil `POST /connections/:id/start` → `{ "url": "https://...", "callbackScheme": "sekretarisai" }`.
+   `url` = halaman masuk/izin resmi layanan (OAuth) yang server siapkan; layanan `soon`, yang sudah tersambung, atau
+   Kotak (disambungkan lewat Tambah perangkat): 400 `tidak_valid`.
+2. Aplikasi membuka `url` di dalam aplikasi dengan `WebBrowser.openAuthSessionAsync(url, "<callbackScheme>://terhubung/tersambung")`
+   (Chrome Custom Tab di Android).
+3. Layanan mengarahkan pengguna ke alamat callback **server** (`PUBLIC_BASE_URL/...`). Server menukar kode dengan token,
+   menyimpannya, lalu mengarahkan peramban ke `sekretarisai://terhubung/tersambung?id=<id>&ok=1`, atau `ok=0&reason=<kode>`
+   (`reason` bebas, `ditolak` dikenali: pengguna tidak memberi izin).
+4. Aplikasi menangkap alamat itu (hasil `openAuthSessionAsync`, atau, bila aplikasi dibuka/dibawa ke depan oleh alamat itu,
+   rute `app/terhubung/tersambung`). `ok=1`: aplikasi memuat ulang `GET /connections`; begitu layanan ada di `connected`
+   (atau event `connection` datang) layar "Tersambung" tampil dengan simpul baru di cincin. `ok=0`: kalimat ramah dan
+   "Coba lagi". Peramban ditutup tanpa alamat kembali: aplikasi memuat ulang sekali; bila ternyata sudah tersambung,
+   dianggap berhasil, selain itu "Halaman masuk ditutup sebelum selesai, jadi belum ada yang tersambung."
+
+Aturan server untuk langkah 1-3:
+
+- **`state`**: acak, sekali pakai, kedaluwarsa pendek (sekitar 10 menit), terikat ke pengguna dan `id` layanan; callback
+  tanpa `state` yang cocok ditolak (tanpa menyimpan apa pun) dan mengarah ke `ok=0&reason=kedaluwarsa`. Alamat `url`
+  yang dikembalikan sudah memuat `state`.
+- **PKCE** (S256) untuk layanan yang mendukungnya; `code_verifier` disimpan di sisi server bersama `state`, tidak pernah
+  dikirim ke aplikasi.
+- **Callback ke server, bukan ke aplikasi**: redirect URI terdaftar di layanan adalah alamat HTTPS server; aplikasi
+  hanya menerima akhirnya lewat skema `sekretarisai://`. Skema itu tidak membawa rahasia (hanya `id`, `ok`, `reason`);
+  kebenaran sambungan selalu dibaca dari `GET /connections`, jadi alamat kembali yang dipalsukan tidak menambah akses.
+- Setelah tersimpan: naikkan `connections.rev`, siarkan `connection` untuk layanan itu, dan, bila layanan punya simpul,
+  `home` (cincin).
+- Aplikasi tidak menjalankan `start` dua kali bersamaan untuk satu layanan; server boleh membatalkan `state` lama saat
+  `start` baru datang.
+
+Stream: `{ "type": "connection", "service": Service, "removed"?: true, "rev": number }`. Menggantikan layanan dengan `id`
+yang sama dan menaruhnya di daftar menurut `service.status` (`connected` di akhir, `formerly` di depan, selain itu
+katalog); `removed` = hilang dari semua daftar. Dibuang bila `rev` lebih lama dari `rev` daftar yang dipegang aplikasi.
+Siarkan saat layanan tersambung, diputus, atau `needsAttention` berubah. Setelah koneksi terbuka dan saat aplikasi
+kembali ke depan, aplikasi memuat ulang `GET /connections` (dan detail yang sedang dibuka).
+
+Sumber data Usaha (bagian 2.15) membawa `sources[].service` = `id` layanannya di sini, supaya "Sambungkan Moka" di
+Usaha membuka layar masuk layanan yang tepat.
 
 ### 2.10 `GET /media/:id`
 

@@ -36,6 +36,8 @@ export interface SampleState {
   services: Service[];
   /** Id layanan yang isi ingatannya sudah dihapus. */
   forgotten: string[];
+  /** Id layanan yang pernah tersambung lalu diputus, yang terbaru di depan. */
+  formerly: string[];
   history: HistoryEntry[];
   business: Business;
   /** Toast yang sedang tampil. `id` baru setiap kali, jadi teks yang sama dua kali tetap tampil dan dibacakan ulang. */
@@ -98,6 +100,7 @@ export const initialSampleState: SampleState = {
   leftover: initialLeftover,
   services: initialServices,
   forgotten: [],
+  formerly: [],
   history: initialHistory,
   business: initialBusiness,
   toast: null,
@@ -320,7 +323,11 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
         unreachableSince: undefined,
       };
       return withHistory(
-        { ...state, services: [...state.services, service] },
+        {
+          ...state,
+          services: [...state.services, service],
+          formerly: state.formerly.filter((id) => id !== service.id),
+        },
         {
           time: NOW_APP,
           kind: 'lainnya',
@@ -335,7 +342,7 @@ export function sampleReducer(state: SampleState, action: SampleAction): SampleS
       const s = state.services.find((x) => x.id === action.id);
       if (!s) return state;
       return withHistory(
-        { ...state, services: state.services.filter((x) => x.id !== s.id) },
+        { ...state, services: state.services.filter((x) => x.id !== s.id), formerly: [s.id, ...state.formerly] },
         { time: NOW_APP, kind: 'lainnya', icon: 'link', title: `Memutus ${s.name}`, sub: `diputus Anda · ${NOW_APP}` },
       ).state;
     }

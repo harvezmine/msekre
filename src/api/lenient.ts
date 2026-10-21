@@ -10,6 +10,10 @@ import {
   businessSchema,
   businessSourceSchema,
   businessStockSchema,
+  connectionCapabilitySchema,
+  connectionDetailSchema,
+  connectionsSchema,
+  serviceSchema,
   businessPointSchema,
   businessSummarySchema,
   HOME_AGENDA_MAX,
@@ -30,6 +34,9 @@ import {
   type AgendaItem,
   type AgendaRes,
   type Business,
+  type ConnectionDetail,
+  type Connections,
+  type Service,
   type Device,
   type DevicesRes,
   type DraftActionRes,
@@ -159,6 +166,13 @@ export function parseEventLenient(raw: unknown): StreamEvent | null {
   if ((raw as { type?: unknown }).type === 'business') {
     const business = parseBusinessLenient((raw as { business?: unknown }).business);
     return business ? { type: 'business', business } : null;
+  }
+  if ((raw as { type?: unknown }).type === 'connection') {
+    const r = raw as { service?: unknown; removed?: unknown; rev?: unknown };
+    const service = parseServiceLenient(r.service);
+    const rev = positiveInt.safeParse(r.rev);
+    if (!service || !rev.success) return null;
+    return { type: 'connection', service, ...(r.removed === true ? { removed: true } : {}), rev: rev.data };
   }
   if ((raw as { type?: unknown }).type === 'draft') {
     // `rev` hilang atau rusak (server lama): drafnya tetap berlaku, `rev` 0 = tidak diketahui.
@@ -367,6 +381,66 @@ export function parseBusinessLenient(raw: unknown): Business | null {
     report: report.success ? report.data : null,
     sources: keep(businessSourceSchema, raw.sources),
     rev: rev.data,
+  });
+  return coerced.success ? coerced.data : null;
+}
+
+/**
+ * Satu layanan: `ring` yang hilang dibaca `false`; kelompok dan status yang belum dikenal dibaca `lainnya` dan
+ * `available` (skema). `null` kalau `id`, `name`, atau `icon` tidak terbaca, atau waktunya rusak.
+ */
+export function parseServiceLenient(raw: unknown): Service | null {
+  if (!isRecord(raw)) return null;
+  const parsed = serviceSchema.safeParse({ ...raw, ring: raw.ring === true });
+  if (parsed.success) return parsed.data;
+  // Waktu atau keterangan opsional yang rusak dibuang; layanannya tetap tampil.
+  const { since, lastUsed, account, needsAttention, ...rest } = raw;
+  const trimmed = serviceSchema.safeParse({
+    ...rest,
+    ring: raw.ring === true,
+    ...(serviceSchema.shape.since.safeParse(since).success ? { since } : {}),
+    ...(serviceSchema.shape.lastUsed.safeParse(lastUsed).success ? { lastUsed } : {}),
+    ...(nonEmpty(account) ? { account } : {}),
+    ...(nonEmpty(needsAttention) ? { needsAttention } : {}),
+  });
+  return trimmed.success ? trimmed.data : null;
+}
+
+const keepServices = (v: unknown): Service[] =>
+  (Array.isArray(v) ? v : []).flatMap((item) => {
+    const service = parseServiceLenient(item);
+    return service ? [service] : [];
+  });
+
+/** Jawaban `GET /connections`: layanan yang rusak dibuang satu per satu. `null` kalau `rev` tidak terbaca. */
+export function parseConnectionsLenient(raw: unknown): Connections | null {
+  if (!isRecord(raw)) return null;
+  const rev = positiveInt.safeParse(raw.rev);
+  if (!rev.success) return null;
+  const coerced = connectionsSchema.safeParse({
+    connected: keepServices(raw.connected),
+    catalog: keepServices(raw.catalog),
+    formerly: keepServices(raw.formerly),
+    rev: rev.data,
+  });
+  return coerced.success ? coerced.data : null;
+}
+
+/** Jawaban `GET /connections/:id`: kemampuan yang rusak dibuang; izin yang belum dikenal dibaca `baca`. */
+export function parseConnectionDetailLenient(raw: unknown): ConnectionDetail | null {
+  if (!isRecord(raw)) return null;
+  const service = parseServiceLenient(raw.service);
+  if (!service) return null;
+  const memory = connectionDetailSchema.shape.memoryCount.safeParse(raw.memoryCount);
+  const coerced = connectionDetailSchema.safeParse({
+    service,
+    capabilities: (Array.isArray(raw.capabilities) ? raw.capabilities : []).flatMap((c) => {
+      const parsed = connectionCapabilitySchema.safeParse(c);
+      return parsed.success ? [parsed.data] : [];
+    }),
+    permission: raw.permission,
+    what: (Array.isArray(raw.what) ? raw.what : []).filter(nonEmpty),
+    ...(memory.success && memory.data !== undefined ? { memoryCount: memory.data } : {}),
   });
   return coerced.success ? coerced.data : null;
 }

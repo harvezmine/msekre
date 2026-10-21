@@ -124,6 +124,24 @@ export const serviceCatalog: Record<string, Service> = {
     icon: 'bank',
     ring: { key: 'accurate', icon: 'bank', label: 'Accurate' },
   }),
+  gdrive: fresh({
+    id: 'gdrive',
+    name: 'Google Drive',
+    icon: 'file',
+    ring: { key: 'gdrive', icon: 'file', label: 'Google Drive' },
+  }),
+  smartthings: fresh({
+    id: 'smartthings',
+    name: 'SmartThings',
+    icon: 'home',
+    ring: { key: 'smartthings', icon: 'home', label: 'SmartThings' },
+  }),
+  homeassistant: fresh({
+    id: 'homeassistant',
+    name: 'Home Assistant',
+    icon: 'bulb',
+    ring: { key: 'homeassistant', icon: 'bulb', label: 'Home Assistant' },
+  }),
 };
 
 /** Layanan menurut id, baik yang sedang tersambung maupun yang ada di katalog 2h. */
@@ -300,10 +318,37 @@ export const serviceInfo: Record<string, ServiceInfo> = {
     act: 'Nadia boleh menyiapkan faktur, selalu dengan persetujuan Anda.',
     joined: 'Mulai sekarang saya kabari tagihan yang jatuh tempo.',
   },
+  gdrive: {
+    mono: 'Dr',
+    domain: 'drive.google.com',
+    can: [
+      'Mencari berkas Anda kalau Anda tanya.',
+      'Meringkas dokumen yang Anda tunjuk.',
+      'Menyimpan notulen dan laporan ke folder Anda.',
+    ],
+    act: 'Nadia boleh menyimpan berkas ke Drive, selalu dengan persetujuan Anda.',
+    joined: 'Mulai sekarang berkas di Drive bisa saya cari dan ringkas.',
+  },
+  smartthings: {
+    mono: 'ST',
+    domain: 'account.smartthings.com',
+    can: [
+      'Melihat keadaan TV, kulkas, dan mesin cuci Samsung Anda.',
+      'Memberi tahu Anda kalau cucian sudah selesai.',
+      'Mengatur perangkat Samsung, kalau Anda minta.',
+    ],
+    act: 'Nadia boleh mengatur perangkat Samsung, kecuali yang dijaga PIN.',
+    joined: 'Mulai sekarang perangkat Samsung Anda ikut masuk ke Rumah.',
+  },
+  homeassistant: {
+    mono: 'HA',
+    domain: 'home-assistant.io',
+    can: [
+      'Melihat perangkat rumah yang Anda sambungkan di Home Assistant.',
+      'Memberi tahu Anda kalau ada yang tidak terjangkau.',
+      'Mengatur lampu dan colokan, kalau Anda minta.',
+    ],
+    act: 'Nadia boleh mengatur perangkat rumah, kecuali yang dijaga PIN.',
+    joined: 'Mulai sekarang perangkat di Home Assistant ikut masuk ke Rumah.',
+  },
 };
-
-/** Kelompok "Sambungkan" di daftar Terhubung (desain 2h). */
-export const serviceGroups: { title: string; ids: string[] }[] = [
-  { title: 'Kerja', ids: ['m365', 'notion', 'rapat', 'plaud', 'github'] },
-  { title: 'Usaha', ids: ['tiktok', 'accurate'] },
-];

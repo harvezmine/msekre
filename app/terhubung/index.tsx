@@ -2,30 +2,26 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '@/api/ApiProvider';
-import { initialServices, serviceDef, serviceGroups, serviceInfo } from '@/sample/services';
-import { serviceStatus, useSample } from '@/sample/store';
+import { groupByCategory, serviceLine } from '@/api/connections';
+import { useConnections } from '@/api/useConnections';
+import { useSampleDispatch } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
+import { CatalogGroup } from '@/ui/connect/CatalogRow';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
+import { iconOr } from '@/ui/icons';
 import { ListGroup, ListRow } from '@/ui/ListRow';
 import { Txt } from '@/ui/Txt';
 
-// Daftar Terhubung (desain 2h): yang sudah tersambung, yang bisa disambungkan, Rumah, dan Lainnya.
+// Daftar Terhubung (desain 2h, 2i): yang sudah tersambung, katalog menurut kelompok, Rumah, dan Lainnya.
 export default function Terhubung() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const { state, dispatch } = useSample();
+  const dispatch = useSampleDispatch();
   const { mode } = useApi();
-  const connected = new Set(state.services.map((s) => s.id));
-  const groups = [
-    ...serviceGroups,
-    // Layanan awal yang sudah diputus bisa disambungkan lagi dari sini.
-    { title: 'Pernah tersambung', ids: initialServices.map((s) => s.id) },
-  ].flatMap((g) => {
-    const items = g.ids.filter((id) => !connected.has(id));
-    return items.length ? [{ title: g.title, items }] : [];
-  });
-  const nameOf = (id: string) => serviceDef(id)?.name ?? id;
+  const { connected, catalog, formerly, status, error, retry } = useConnections();
+  const attention = connected.filter((s) => s.needsAttention);
+  const loaded = status === 'ready';
 
   return (
     <View style={{ flex: 1, backgroundColor: c.paper }}>
@@ -42,85 +38,94 @@ export default function Terhubung() {
           </Txt>
         </View>
 
-        <Section>Sudah terhubung</Section>
-        <ListGroup>
-          {state.services.map((s, i) => (
-            <ListRow
-              key={s.id}
-              icon={s.icon}
-              title={s.name}
-              subtitle={serviceStatus(s)}
-              warn={!s.reachable}
-              last={i === state.services.length - 1}
-              onPress={() => router.push(`/terhubung/${s.id}`)}
-            />
-          ))}
-        </ListGroup>
-
-        {groups.map((g) => (
-          <View key={g.title} style={{ gap: 12 }}>
-            <Section>{g.title}</Section>
-            <View
-              style={{
-                backgroundColor: c.card,
-                borderWidth: 1,
-                borderColor: c.line,
-                borderRadius: 24,
-                paddingVertical: 4,
-                paddingLeft: 16,
-                paddingRight: 4,
-              }}
-            >
-              {g.items.map((id, i) => {
-                const name = nameOf(id);
-                return (
-                  <View
-                    key={id}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 12,
-                      minHeight: 60,
-                      borderBottomWidth: i < g.items.length - 1 ? 1 : 0,
-                      borderBottomColor: c.line,
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 14,
-                        backgroundColor: c.paper,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Txt weight={700} style={{ fontSize: 13 }}>
-                        {serviceInfo[id]?.mono ?? name.slice(0, 2)}
-                      </Txt>
-                    </View>
-                    <Txt weight={500} style={{ flex: 1, minWidth: 0 }}>
-                      {name}
-                    </Txt>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Sambungkan ${name}`}
-                      onPress={() => router.push(id === 'kotak' ? '/perangkat/tambah' : `/terhubung/masuk?id=${id}`)}
-                      android_ripple={{ color: c.ripple }}
-                      style={{ height: 48, paddingHorizontal: 12, justifyContent: 'center' }}
-                    >
-                      <Txt weight={600} color={c.green} style={{ fontSize: 15 }}>
-                        Sambungkan
-                      </Txt>
-                    </Pressable>
-                  </View>
-                );
-              })}
+        {!loaded ? (
+          status === 'error' ? (
+            <View style={{ gap: 16, alignItems: 'flex-start', paddingHorizontal: 4 }}>
+              <Txt>{error}</Txt>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Coba lagi"
+                onPress={() => void retry()}
+                style={{
+                  height: 48,
+                  paddingHorizontal: 24,
+                  borderRadius: 24,
+                  backgroundColor: c.green,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Txt weight={600} color={c.onGreen}>
+                  Coba lagi
+                </Txt>
+              </Pressable>
             </View>
-          </View>
-        ))}
+          ) : (
+            <Txt color={c.muted} style={{ paddingHorizontal: 4 }}>
+              Sebentar ya, saya ambil dulu.
+            </Txt>
+          )
+        ) : (
+          <>
+            {attention.map((s) => (
+              <Pressable
+                key={s.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Perlu dilihat: ${s.name}. ${s.needsAttention}`}
+                onPress={() => router.push(`/terhubung/${s.id}`)}
+                android_ripple={{ color: c.ripple }}
+                style={{
+                  backgroundColor: c.clayBg,
+                  borderRadius: 20,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <Icon name="info" size={22} color={c.clay} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Txt weight={600} color={c.clay}>
+                    {s.name}
+                  </Txt>
+                  <Txt v="caption" color={c.clay}>
+                    {s.needsAttention}
+                  </Txt>
+                </View>
+                <Icon name="chevR" size={20} color={c.clay} />
+              </Pressable>
+            ))}
 
-        <Section>Rumah</Section>
+            <Section>Sudah terhubung</Section>
+            {connected.length ? (
+              <ListGroup>
+                {connected.map((s, i) => (
+                  <ListRow
+                    key={s.id}
+                    icon={iconOr(s.icon, 'link')}
+                    title={s.name}
+                    subtitle={serviceLine(s)}
+                    warn={!!s.needsAttention}
+                    last={i === connected.length - 1}
+                    onPress={() => router.push(`/terhubung/${s.id}`)}
+                  />
+                ))}
+              </ListGroup>
+            ) : (
+              <Txt color={c.muted} style={{ paddingHorizontal: 4 }}>
+                Belum ada yang tersambung. Pilih dari daftar di bawah.
+              </Txt>
+            )}
+
+            {groupByCategory(catalog).map((g) => (
+              <CatalogGroup key={g.key} title={g.title} items={g.items} />
+            ))}
+            {formerly.length ? <CatalogGroup title="Pernah tersambung" items={formerly} /> : null}
+          </>
+        )}
+
+        <Section>Perangkat rumah</Section>
         <ListGroup>
           <ListRow
             icon="bulb"

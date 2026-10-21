@@ -9,10 +9,10 @@ const COMPARE: Record<BusinessPeriod, string> = { hari: 'Senin lalu', minggu: 'p
 
 /** Asal data di contoh: kasir, rekening, marketplace yang tersambung, dan satu yang belum. */
 export const SAMPLE_SOURCES = [
-  { key: 'moka', label: 'Moka', connected: true },
-  { key: 'moota', label: 'rekening BCA', connected: true },
-  { key: 'tiktok_shop', label: 'TikTok Shop', connected: true },
-  { key: 'shopee', label: 'Shopee', connected: false },
+  { key: 'moka', label: 'Moka', connected: true, service: 'moka' },
+  { key: 'moota', label: 'rekening BCA', connected: true, service: 'bca' },
+  { key: 'tiktok_shop', label: 'TikTok Shop', connected: true, service: 'tiktok' },
+  { key: 'shopee', label: 'Shopee', connected: false, service: 'shopee' },
 ];
 
 /**

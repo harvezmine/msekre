@@ -202,3 +202,49 @@ Semua aditif atau memperketat aturan yang belum pernah dipakai server asli; `CON
   salah). `POST /account/pin` menerima `enable: true` (PIN tersimpan dan permintaan PIN hidup dalam satu transaksi).
 - **`rev` tidak pernah turun di aplikasi.** Server tidak boleh menurunkan `rev` per pengguna (termasuk setelah restart).
   Aplikasi membuang jawaban muat yang `rev`-nya lebih kecil dari yang dipegang.
+
+
+## Terhubung (Fase 2a, Tugas 5; server menyusul)
+
+Kontrak: `docs/api-v1.md` bagian 2.16. Aplikasi sudah memakainya penuh lewat server tiruan.
+
+Peta ke milo-ai. Di sana tiap integrasi punya modul `connect.ts` sendiri (halaman web bertanda tangan yang dikirim lewat
+WhatsApp); aplikasi memakai satu pintu untuk semuanya, jadi `GET /connections` adalah penyusun dari tabel koneksi yang
+sudah ada, dan `start` membungkus `beginAuth`/`connectUrlFor` tiap modul:
+
+| `id` di aplikasi | Modul milo-ai | Catatan |
+|---|---|---|
+| `gcal`, `gmail`, `gdrive` | `src/google/` (`connect.ts`, `client.ts`, `calendar.ts`, `gmail.ts`, `drive.ts`) | satu OAuth Google, tiga layanan (`parseServices`, `enabledServices`); izin `baca_tulis` = scope tulis |
+| `m365` | `src/microsoft/` (`outlook_*`) | menunggu aplikasi Entra + publisher verification |
+| `notion` | `src/notion/` | |
+| `plaud`, `rapat` | `src/plaud/` (DCR + OAuth per pengguna), `src/meetings/` | Recall untuk rapat; `plaud_disconnect` sudah ada |
+| `bca` (Moota) | `src/moota/` (`bank_*`) | nama tampil "Mutasi rekening"; akun = rekening |
+| `moka`, `accurate` | belum ada (riset ERP: OAuth self-service) | tampil di katalog, `start` baru jalan setelah integrasinya ada |
+| `tiktok` | belum ada (rencana "Tokopedia & Shop") | |
+| `github` | `src/github/` (GitHub App) | pengguna memilih repo di halaman GitHub; `account` = login |
+| `smartthings`, `homeassistant`, `imou`, `kotak` | `src/home/providers/` (`smartthings.ts`, `ha.ts`, `imou.ts`, ...), `src/home/connect.ts` | Kotak disambungkan lewat Tambah perangkat, bukan `start` (400 `tidak_valid`) |
+| `shopee`, `instagram` | belum ada | `status: soon` |
+
+- **`connected`/`formerly`**: baris koneksi per pengguna dan layanan; diputus = tandai `revoked_at` (jangan hapus baris)
+  supaya masuk `formerly` dan `since` terjaga. `lastUsed` dari pemakaian alat agen terakhir yang memakai koneksi itu
+  (`activity/log`); `account` dari profil OAuth (email, nama toko).
+- **`ring`**: layanan punya simpul bila ia bagian dari yang digambar di cincin (aturan yang sama dengan `home.ring`);
+  setelah tersambung server menaikkan `home.rev` dan menyiarkan `home` dengan simpul baru di ujung.
+- **`needsAttention`**: token kedaluwarsa/dicabut (refresh gagal dengan `invalid_grant`), perangkat tidak terjangkau
+  (Imou/CCTV), atau webhook mati (Moota). Kalimat siap tampil: "Perlu disambungkan ulang" untuk yang pertama.
+- **`forget`**: memakai `src/privacy/forget.ts` (`planForget` + `runForget`) untuk sumber layanan itu (`FORGET_SOURCES`:
+  `google`/`gmail`/`calendar`/`drive`, `notion`, `outlook`, `moota`, `github`, `plaud`, `meetings`, `rumah`); jumlah =
+  `ForgetPlan` yang dihitung (pesan, catatan, ringkasan yang terhapus). Aplikasi sudah menampilkan layar konfirmasi
+  sendiri, jadi `POST /connections/:id/forget` langsung menjalankan (tanpa kartu `memory_forget` di WhatsApp) dan mencatat
+  riwayatnya di Riwayat. Layanan baru yang menambah ingatan harus ditambahkan ke `SPECS` di `forget.ts`, atau tombolnya
+  tidak menghapus apa-apa (jawab `forgotten: 0`).
+- **`DELETE`**: cabut token di sisi penyedia bila ada endpoint pencabutan (Google `revoke`, GitHub hapus grant), hapus
+  kredensial tersimpan, tandai diputus. Tidak menyentuh ingatan.
+- **`start`/callback**: `state` sekali pakai terikat pengguna + layanan (tabel `connect_states`, TTL 10 menit), PKCE bila
+  didukung, redirect URI terdaftar = `PUBLIC_BASE_URL/connect/<layanan>/callback` (host `PUBLIC_BASE_URL`, ingat
+  kasus domain ganda). Akhir callback: redirect ke `sekretarisai://terhubung/tersambung?id=<id>&ok=1` (atau `ok=0&reason=`),
+  bukan halaman web "sudah tersambung" seperti di alur WhatsApp. Alur WhatsApp lama (tautan bertanda tangan) tetap jalan
+  dan memakai penyimpanan yang sama, jadi sambungan dari WhatsApp muncul di aplikasi lewat event `connection`.
+- `rev`: satu penghitung per pengguna; naik saat layanan tersambung, diputus, atau `needsAttention` berubah.
+- **Izin**: `baca`/`baca_tulis` disimpan per koneksi dan DIPAKSA di alat agen (alat tulis ditolak untuk koneksi `baca`;
+  registri `WRITE_TOOLS` sudah ada). Mengubah izin menaikkan `rev` dan menyiarkan `connection`.

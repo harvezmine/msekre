@@ -16,6 +16,7 @@ import { ApiProvider, useApi } from '@/api/ApiProvider';
 import { ApiSampleProvider } from '@/api/ApiSampleProvider';
 import { ChatProvider } from '@/api/ChatProvider';
 import { BusinessProvider } from '@/api/BusinessProvider';
+import { ConnectionsProvider } from '@/api/ConnectionsProvider';
 import { DevicesProvider } from '@/api/DevicesProvider';
 import { HomeProvider } from '@/api/HomeProvider';
 import { canOpen } from '@/api/routeAccess';
@@ -189,9 +190,11 @@ export default function RootLayout() {
                   <AgendaProvider>
                     <DevicesProvider>
                       <BusinessProvider>
-                        <PushProvider>
-                          <Navigator />
-                        </PushProvider>
+                        <ConnectionsProvider>
+                          <PushProvider>
+                            <Navigator />
+                          </PushProvider>
+                        </ConnectionsProvider>
                       </BusinessProvider>
                     </DevicesProvider>
                   </AgendaProvider>

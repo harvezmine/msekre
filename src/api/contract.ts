@@ -38,6 +38,12 @@
  * | PUT  /box                      | BoxReq               | BoxRes                            |
  * | GET  /business?place=&period=  | -                    | Business (Usaha)                  |
  * | POST /business/reorder         | BusinessReorderReq   | BusinessReorderRes                |
+ * | GET  /connections              | -                    | Connections (Terhubung)           |
+ * | GET  /connections/:id          | -                    | ConnectionDetail                  |
+ * | PUT  /connections/:id/permission | ConnectionPermissionReq | ConnectionDetail             |
+ * | POST /connections/:id/forget   | -                    | ConnectionForgetRes               |
+ * | DELETE /connections/:id        | -                    | OkRes (diputus, pindah ke `formerly`) |
+ * | POST /connections/:id/start    | -                    | ConnectionStartRes (halaman masuk resmi) |
  * | GET  /media/:id                | -                    | berkasnya (gambar QRIS, dokumen)  |
  * | WS   /stream                   | -                    | StreamEvent, satu JSON per pesan  |
  *
@@ -745,11 +751,15 @@ export const businessReportSchema = z.object({
   period: z.string(),
 });
 
-/** Asal data. `key` bebas (`moka`, `moota`, `tiktok_shop`, ...); `connected` false = belum tersambung. */
+/**
+ * Asal data. `key` bebas (`moka`, `moota`, `tiktok_shop`, ...); `connected` false = belum tersambung. `service`: id
+ * layanannya di Terhubung (`GET /connections`), supaya "Sambungkan {sumber}" membuka layanan yang tepat.
+ */
 export const businessSourceSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   connected: z.boolean(),
+  service: z.string().min(1).optional(),
 });
 
 /**
@@ -779,6 +789,83 @@ export const businessQuerySchema = z.object({
 export const businessReorderReqSchema = z.strictObject({ stockId: idSchema });
 /** `draftId`: draf di chat; `messageId`: pesan asisten yang memuat kartunya. */
 export const businessReorderResSchema = z.object({ draftId: idSchema, messageId: idSchema });
+
+// ---- Terhubung ----
+
+/** Kelompok layanan di katalog Terhubung. Kelompok yang belum dikenal aplikasi dibaca `lainnya`. */
+export const serviceCategorySchema = z.enum(['kerja', 'usaha', 'rumah', 'catatan', 'lainnya']);
+/**
+ * Keadaan layanan bagi pengguna: `connected` (tersambung), `available` (bisa disambungkan), `formerly` (pernah tersambung,
+ * sudah diputus), `soon` (segera hadir, belum bisa disambungkan). Yang belum dikenal aplikasi dibaca `available`.
+ */
+export const serviceStatusSchema = z.enum(['connected', 'available', 'formerly', 'soon']);
+
+/**
+ * Satu layanan. `icon`: nama ikon (yang tak dikenal diganti ikon bawaan). `account`: akun yang tersambung dalam kata siap
+ * tampil (alamat email, nama toko). `since`: kapan disambungkan; `lastUsed`: terakhir dipakai Nadia. `ring`: layanan ini
+ * punya simpul di cincin Beranda. `needsAttention`: kalimat siap tampil kalau perlu tindakan (misalnya "Perlu
+ * disambungkan ulang"); layanan tetap `connected`.
+ */
+export const serviceSchema = z.object({
+  id: idSchema,
+  name: z.string().min(1),
+  icon: z.string().min(1),
+  category: serviceCategorySchema.catch('lainnya'),
+  status: serviceStatusSchema.catch('available'),
+  account: z.string().min(1).optional(),
+  since: isoDateTimeSchema.optional(),
+  lastUsed: isoDateTimeSchema.optional(),
+  ring: z.boolean(),
+  needsAttention: z.string().min(1).optional(),
+});
+
+/**
+ * `GET /connections`. `connected`: tersambung (terbaru terakhir); `catalog`: yang bisa disambungkan dan yang `soon`;
+ * `formerly`: pernah tersambung dan sudah diputus. `rev`: nomor perubahan Terhubung per pengguna.
+ */
+export const connectionsSchema = z.object({
+  connected: z.array(serviceSchema),
+  catalog: z.array(serviceSchema),
+  formerly: z.array(serviceSchema),
+  rev: z.number().int().positive(),
+});
+
+/** Izin satu layanan: `baca` = hanya membaca, `baca_tulis` = boleh bertindak (selalu dengan persetujuan pengguna). */
+export const connectionPermissionSchema = z.enum(['baca', 'baca_tulis']);
+/** Satu kemampuan yang bisa dimatikan sendiri. `label` siap tampil. */
+export const connectionCapabilitySchema = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  enabled: z.boolean(),
+});
+
+/**
+ * `GET /connections/:id`, juga untuk layanan yang belum tersambung (untuk layar "Masuk": apa yang akan bisa Nadia
+ * lakukan). `what`: daftar kalimat biasa tentang yang bisa Nadia lakukan. `memoryCount`: berapa hal yang Nadia ingat
+ * dari layanan ini (untuk "Hapus yang Nadia tahu"), tanpa itu tidak diketahui.
+ */
+export const connectionDetailSchema = z.object({
+  service: serviceSchema,
+  capabilities: z.array(connectionCapabilitySchema),
+  permission: connectionPermissionSchema.catch('baca'),
+  what: z.array(z.string().min(1)),
+  memoryCount: z.number().int().nonnegative().optional(),
+});
+
+/** `PUT /connections/:id/permission`. `capabilities`: hanya yang diubah. Mengembalikan detail terbaru. */
+export const connectionPermissionReqSchema = z.strictObject({
+  permission: connectionPermissionSchema,
+  capabilities: z.array(z.object({ key: z.string().min(1), enabled: z.boolean() })).optional(),
+});
+
+/** `POST /connections/:id/forget`: lupakan yang dipelajari dari layanan itu (memory_forget); sambungannya tetap. */
+export const connectionForgetResSchema = z.object({ ok: z.literal(true), forgotten: z.number().int().nonnegative() });
+
+/**
+ * `POST /connections/:id/start`: alamat halaman masuk resmi layanan. `callbackScheme`: skema alamat kembali aplikasi
+ * (`sekretarisai`); aplikasi membuka `url` dan menunggu kembali ke `<callbackScheme>://terhubung/tersambung`.
+ */
+export const connectionStartResSchema = z.object({ url: z.string().min(1), callbackScheme: z.string().min(1) });
 
 // ---- Stream ----
 
@@ -813,6 +900,17 @@ export const streamEventSchema = z.discriminatedUnion('type', [
   }),
   /** Usaha berubah: menggantikan Usaha dengan `place` dan `period` yang sama, kecuali `business.rev` lebih lama (upsert). */
   z.object({ type: z.literal('business'), business: businessSchema }),
+  /**
+   * Satu layanan berubah (tersambung, diputus, perlu perhatian): menggantikan layanan dengan `id` yang sama menurut
+   * `service.status` (`connected`, `formerly`, atau katalog), kecuali `rev` lebih lama dari yang sudah ada (upsert).
+   * `removed`: layanan itu hilang dari semua daftar.
+   */
+  z.object({
+    type: z.literal('connection'),
+    service: serviceSchema,
+    removed: z.boolean().optional(),
+    rev: z.number().int().positive(),
+  }),
   z.object({ type: z.literal('ping') }),
 ]);
 
@@ -920,6 +1018,16 @@ export type BusinessSource = z.infer<typeof businessSourceSchema>;
 export type Business = z.infer<typeof businessSchema>;
 export type BusinessReorderReq = z.infer<typeof businessReorderReqSchema>;
 export type BusinessReorderRes = z.infer<typeof businessReorderResSchema>;
+export type ServiceCategory = z.infer<typeof serviceCategorySchema>;
+export type ServiceStatus = z.infer<typeof serviceStatusSchema>;
+export type Service = z.infer<typeof serviceSchema>;
+export type Connections = z.infer<typeof connectionsSchema>;
+export type ConnectionPermission = z.infer<typeof connectionPermissionSchema>;
+export type ConnectionCapability = z.infer<typeof connectionCapabilitySchema>;
+export type ConnectionDetail = z.infer<typeof connectionDetailSchema>;
+export type ConnectionPermissionReq = z.infer<typeof connectionPermissionReqSchema>;
+export type ConnectionForgetRes = z.infer<typeof connectionForgetResSchema>;
+export type ConnectionStartRes = z.infer<typeof connectionStartResSchema>;
 export type StreamEvent = z.infer<typeof streamEventSchema>;
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;

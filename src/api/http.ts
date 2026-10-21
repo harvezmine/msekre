@@ -36,6 +36,13 @@ import {
   type BusinessPeriod,
   type BusinessReorderRes,
   businessReorderResSchema,
+  connectionForgetResSchema,
+  connectionStartResSchema,
+  type ConnectionDetail,
+  type ConnectionForgetRes,
+  type ConnectionPermissionReq,
+  type ConnectionStartRes,
+  type Connections,
   type DraftActionReq,
   type DraftActionRes,
   type Home,
@@ -59,6 +66,8 @@ import {
   parseAgendaItemResLenient,
   parseAgendaLenient,
   parseBusinessLenient,
+  parseConnectionDetailLenient,
+  parseConnectionsLenient,
   parseDevicesLenient,
   parseHomeLenient,
   parseMessageLenient,
@@ -306,6 +315,39 @@ export class HttpTransport implements Transport {
 
   businessReorder(stockId: string): Promise<BusinessReorderRes> {
     return this.request('POST', '/business/reorder', businessReorderResSchema, { body: { stockId } });
+  }
+
+  connections(): Promise<Connections> {
+    return this.request('GET', '/connections', reader(parseConnectionsLenient));
+  }
+
+  connectionDetail(id: string): Promise<ConnectionDetail> {
+    return this.request('GET', `/connections/${encodeURIComponent(id)}`, reader(parseConnectionDetailLenient));
+  }
+
+  setConnectionPermission(id: string, req: ConnectionPermissionReq): Promise<ConnectionDetail> {
+    return this.request(
+      'PUT',
+      `/connections/${encodeURIComponent(id)}/permission`,
+      reader(parseConnectionDetailLenient),
+      {
+        body: req,
+      },
+    );
+  }
+
+  forgetConnection(id: string): Promise<ConnectionForgetRes> {
+    return this.request('POST', `/connections/${encodeURIComponent(id)}/forget`, connectionForgetResSchema, {
+      body: {},
+    });
+  }
+
+  async disconnectConnection(id: string): Promise<void> {
+    await this.request('DELETE', `/connections/${encodeURIComponent(id)}`, okResSchema);
+  }
+
+  startConnection(id: string): Promise<ConnectionStartRes> {
+    return this.request('POST', `/connections/${encodeURIComponent(id)}/start`, connectionStartResSchema, { body: {} });
   }
 
   async mediaUrl(mediaId: string): Promise<MediaSource> {

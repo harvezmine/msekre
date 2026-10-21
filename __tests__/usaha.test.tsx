@@ -33,10 +33,10 @@ test('Semua cabang: angka, cabang, uang masuk, stok, pesanan, laporan, sumber da
   expect(screen.getByText('Data dari Moka, rekening BCA dan TikTok Shop.')).toBeOnTheScreen();
 });
 
-test('sumber yang belum tersambung mengarah ke Terhubung', async () => {
+test('sumber yang belum tersambung membuka layanannya di Terhubung', async () => {
   await show();
   await fireEvent.press(await screen.findByRole('button', { name: 'Sambungkan Shopee' }));
-  expect(router.push).toHaveBeenCalledWith('/terhubung');
+  expect(router.push).toHaveBeenCalledWith('/terhubung/masuk?id=shopee');
 });
 
 test('angka berganti sesuai tempat', async () => {

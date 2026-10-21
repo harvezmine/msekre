@@ -12,6 +12,11 @@ import type {
   Business,
   BusinessPeriod,
   BusinessReorderRes,
+  ConnectionDetail,
+  ConnectionForgetRes,
+  ConnectionPermissionReq,
+  ConnectionStartRes,
+  Connections,
   DeviceControlReq,
   DeviceControlRes,
   DevicesRes,
@@ -198,6 +203,21 @@ export interface Transport {
    * sama. Barang tidak ada: `tidak_ditemukan`; barang tanpa pemasok: `tidak_valid`.
    */
   businessReorder(stockId: string): Promise<BusinessReorderRes>;
+  /** Layanan tersambung, katalog, dan yang pernah tersambung (`GET /connections`). Perubahan datang lewat event `connection`. */
+  connections(): Promise<Connections>;
+  /** Detail satu layanan (`GET /connections/:id`), juga yang belum tersambung. Tidak ada: `tidak_ditemukan`. */
+  connectionDetail(id: string): Promise<ConnectionDetail>;
+  /** Ubah izin (dan kemampuan) satu layanan tersambung (`PUT /connections/:id/permission`). Mengembalikan detail terbaru. */
+  setConnectionPermission(id: string, req: ConnectionPermissionReq): Promise<ConnectionDetail>;
+  /** Lupakan yang Nadia pelajari dari layanan itu, sambungan tetap (`POST /connections/:id/forget`, memory_forget). */
+  forgetConnection(id: string): Promise<ConnectionForgetRes>;
+  /** Putuskan layanan (`DELETE /connections/:id`); ia pindah ke `formerly`. */
+  disconnectConnection(id: string): Promise<void>;
+  /**
+   * Mulai menyambungkan (`POST /connections/:id/start`): alamat halaman masuk resmi layanan. Layanan `soon` atau yang
+   * sudah tersambung: `tidak_valid`.
+   */
+  startConnection(id: string): Promise<ConnectionStartRes>;
   /**
    * Agenda (`GET /agenda`). Tanpa `range`: Senin pekan ini sampai Minggu pekan depan. Perubahan berikutnya datang lewat
    * event stream `agenda`.

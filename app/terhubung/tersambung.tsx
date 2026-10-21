@@ -1,35 +1,93 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { failureText } from '@/api/connections';
+import { useConnections } from '@/api/useConnections';
+import { useHome } from '@/api/useHome';
 import { serviceInfo } from '@/sample/services';
-import { ringNodes, useSample } from '@/sample/store';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Orbit } from '@/ui/orbit/Orbit';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
 
-// Setelah masuk (desain 2k): simpul baru masuk ke cincin. Selesai kembali ke Beranda.
+// Setelah masuk (desain 2k): simpul baru masuk ke cincin. Juga tujuan alamat kembali dari halaman masuk resmi
+// (`sekretarisai://terhubung/tersambung?id=<id>&ok=1`, atau `ok=0&reason=`), termasuk saat aplikasi dibuka olehnya.
 export default function Tersambung() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, ok, reason } = useLocalSearchParams<{ id?: string; ok?: string; reason?: string }>();
+  const serviceId = typeof id === 'string' ? id : '';
   const { c } = useTheme();
   const live = useLive();
   const insets = useSafeAreaInsets();
-  const { state } = useSample();
-  const service = state.services.find((s) => s.id === id);
-  const info = id ? serviceInfo[id] : undefined;
-  if (!service || !info) {
-    return (
-      <View style={{ flex: 1, backgroundColor: c.paper, justifyContent: 'center', padding: 24, gap: 16 }}>
-        <Txt style={{ textAlign: 'center' }}>Layanan ini tidak ditemukan.</Txt>
-        <Pressable accessibilityRole="button" accessibilityLabel="Selesai" onPress={() => router.dismissTo('/')}>
-          <Txt weight={600} color={c.green} style={{ textAlign: 'center' }}>
-            Selesai
-          </Txt>
-        </Pressable>
-      </View>
+  const { ring } = useHome();
+  const { service, detail, flow, status, handleCallback, retry } = useConnections(serviceId);
+  const fromCallback = typeof ok === 'string';
+  useEffect(() => {
+    if (fromCallback && serviceId) {
+      void handleCallback({ id: serviceId, ok: ok === '1', reason: typeof reason === 'string' ? reason : null });
+    }
+    // Sekali saat dibuka oleh alamat kembali.
+  }, [fromCallback, serviceId, ok, reason, handleCallback]);
+
+  const done = () => router.dismissTo('/');
+  const frame = (children: React.ReactNode) => (
+    <View style={{ flex: 1, backgroundColor: c.paper, justifyContent: 'center', padding: 24, gap: 16 }}>
+      {children}
+    </View>
+  );
+  const link = (label: string, onPress: () => void) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{ minHeight: 48, justifyContent: 'center' }}
+    >
+      <Txt weight={600} color={c.green} style={{ textAlign: 'center' }}>
+        {label}
+      </Txt>
+    </Pressable>
+  );
+
+  const failed = (fromCallback && ok !== '1') || flow.phase === 'failed';
+  if (failed) {
+    const name = service?.name ?? 'layanan ini';
+    return frame(
+      <>
+        <Txt v="title" style={{ textAlign: 'center' }} accessibilityRole="header">
+          Belum tersambung
+        </Txt>
+        <Txt color={c.muted} style={{ textAlign: 'center' }}>
+          {flow.message ?? failureText(name, typeof reason === 'string' ? reason : null)}
+        </Txt>
+        {serviceId ? link('Coba lagi', () => router.replace(`/terhubung/masuk?id=${serviceId}`)) : null}
+        {link('Selesai', done)}
+      </>,
     );
   }
+
+  const connected = service?.status === 'connected';
+  if (!connected) {
+    // Alamat kembali baru tiba: daftar masih dimuat atau menunggu event; setelah selesai dimuat, tak ada yang tersambung.
+    const waiting = status === 'loading' || flow.phase === 'waiting' || (fromCallback && flow.phase !== 'idle');
+    return frame(
+      <>
+        <Txt style={{ textAlign: 'center' }}>
+          {waiting ? 'Sebentar ya, saya cek dulu.' : 'Layanan ini tidak ditemukan.'}
+        </Txt>
+        {!waiting && fromCallback ? link('Cek lagi', () => void retry()) : null}
+        {link('Selesai', done)}
+      </>,
+    );
+  }
+
   const name = service.name.replace(' & Tokopedia', '');
+  const permission = detail?.data?.permission;
+  const permissionText = permission === 'baca_tulis' ? 'Baca dan tulis' : 'Baca saja';
+  const joined = serviceInfo[service.id]?.joined ?? 'Mulai sekarang saya bisa membantu dari sini.';
+  // Simpul baru masuk di ujung cincin; kuncinya sama dengan id layanan bila server memakainya.
+  const joinKey = service.ring
+    ? (ring.find((n) => n.key === service.id)?.key ?? ring[ring.length - 1]?.key)
+    : undefined;
   return (
     <ScrollView
       style={{ backgroundColor: c.paper }}
@@ -41,14 +99,14 @@ export default function Tersambung() {
       }}
     >
       <View style={{ alignItems: 'center' }}>
-        <Orbit nodes={ringNodes(state)} joinKey={service.ring?.key} paused={!live} />
+        <Orbit nodes={ring} joinKey={joinKey} paused={!live} />
       </View>
       <View style={{ gap: 8, marginTop: 32 }}>
         <Txt v="title" style={{ textAlign: 'center' }} accessibilityRole="header">
           {name} sudah terhubung
         </Txt>
         <Txt v="subtitle" weight={400} color={c.muted} style={{ textAlign: 'center', lineHeight: 26 }}>
-          {info.joined}
+          {joined}
         </Txt>
       </View>
       <View
@@ -67,12 +125,9 @@ export default function Tersambung() {
           gap: 12,
         }}
       >
-        <Txt
-          style={{ flex: 1 }}
-          accessibilityLabel={`Izin: ${service.permission === 'read' ? 'Hanya membaca' : 'Boleh bertindak'}`}
-        >
+        <Txt style={{ flex: 1 }} accessibilityLabel={`Izin: ${permissionText}`}>
           <Txt color={c.muted}>Izin: </Txt>
-          <Txt weight={600}>{service.permission === 'read' ? 'Hanya membaca' : 'Boleh bertindak'}</Txt>
+          <Txt weight={600}>{permissionText}</Txt>
         </Txt>
         <Pressable
           accessibilityRole="button"
@@ -90,7 +145,7 @@ export default function Tersambung() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Selesai"
-        onPress={() => router.dismissTo('/')}
+        onPress={done}
         style={{
           height: 56,
           borderRadius: 28,

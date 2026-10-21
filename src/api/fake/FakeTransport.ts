@@ -14,6 +14,7 @@ import {
   boxReqSchema,
   businessQuerySchema,
   businessReorderReqSchema,
+  connectionPermissionReqSchema,
   devicesQuerySchema,
   routineRunReqSchema,
   agendaLeftoverReqSchema,
@@ -48,6 +49,12 @@ import {
   type Business,
   type BusinessPeriod,
   type BusinessReorderRes,
+  type ConnectionDetail,
+  type ConnectionForgetRes,
+  type ConnectionPermissionReq,
+  type ConnectionStartRes,
+  type Connections,
+  type Service,
   type DeviceControlReq,
   type DeviceControlRes,
   type DevicesRes,
@@ -92,6 +99,7 @@ import {
 import { FakeClock } from './clock';
 import { cardFromDevice } from '../devices';
 import { businessFrom } from './business';
+import { connectionsFrom, detailFrom, serviceFrom, startUrlOf, type FakeConnectionsContext } from './connections';
 import { boxFrom, devicesFrom, toDevice } from './devices';
 import { homeFrom } from './home';
 import { draftFromOutgoing, SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
@@ -130,6 +138,8 @@ export interface FakeOptions {
   sample?: SampleState;
   /** Paling banyak pesan per `messagesChanged`, supaya `more` bisa dicoba. Bawaan batas kontrak. */
   afterLimit?: number;
+  /** Jeda dari `startConnection` sampai layanan tersambung (pengguna selesai masuk di halaman resminya). Bawaan 300 ms. */
+  connectMs?: number;
 }
 
 type Timer = ReturnType<typeof setTimeout>;
@@ -233,6 +243,16 @@ export class FakeTransport implements Transport {
   private businessRev = 1;
   /** Barang → id kiriman pesanan yang dibuat "Pesan lagi" (dianggap terbuka selama masih `draft`). */
   private readonly stockDrafts = new Map<string, string>();
+  private connectionsTimer: Promise<void> | null = null;
+  /** Keadaan layanan yang terakhir disiarkan: per id (JSON), untuk menghitung perubahan. */
+  private connectionsSnap = new Map<string, string>();
+  private connectionsRev = 1;
+  private readonly connectMs: number;
+  /** Saat server tiruan dibuat: "terakhir dipakai" layanan dihitung mundur dari sini, jadi tidak berubah-ubah. */
+  private readonly connectionsBase = Date.now();
+  private readonly connectedAt = new Map<string, string>();
+  /** Kemampuan yang diubah pengguna: `id:key` -> aktif. */
+  private readonly capabilityOverrides = new Map<string, boolean>();
   private agendaTimer: Promise<void> | null = null;
   /** Keadaan agenda yang terakhir disiarkan: item per id (JSON) dan sisa tugas, untuk menghitung perubahan. */
   private agendaSnap = new Map<string, string>();
@@ -261,6 +281,7 @@ export class FakeTransport implements Transport {
     this.latencyMs = options.latencyMs ?? 0;
     this.requireSession = options.requireSession ?? false;
     this.afterLimit = options.afterLimit ?? MESSAGES_LIMIT_MAX;
+    this.connectMs = options.connectMs ?? 300;
     this.meValue = sampleMe(this.clock);
     this.waNumber = options.waNumber === undefined ? FAKE_WA_NUMBER : options.waNumber;
     this.pinValue = options.security?.pin ?? null;
@@ -284,6 +305,7 @@ export class FakeTransport implements Transport {
     this.homeSent = this.homeRev;
     this.snapshotAgenda();
     this.snapshotDevices();
+    this.snapshotConnections();
   }
 
   // ---- Jalur kontrak ----
@@ -725,6 +747,69 @@ export class FakeTransport implements Transport {
     });
   }
 
+  connections(): Promise<Connections> {
+    return this.call(true, () => {
+      // Perubahan yang belum disiarkan dihitung dulu, jadi `rev` jawaban ini sudah memuatnya.
+      this.flushConnections();
+      return copy({ ...connectionsFrom(this.sample.getState(), this.connectionsContext()), rev: this.connectionsRev });
+    });
+  }
+
+  connectionDetail(id: string): Promise<ConnectionDetail> {
+    return this.call(true, () => {
+      const detail = detailFrom(this.sample.getState(), id, this.connectionsContext(), this.capabilityOverrides);
+      if (!detail) throw notFound();
+      return copy(detail);
+    });
+  }
+
+  setConnectionPermission(id: string, req: ConnectionPermissionReq): Promise<ConnectionDetail> {
+    return this.call(true, () => {
+      const r = parse(connectionPermissionReqSchema, req);
+      const current = this.sample.getState().services.find((x) => x.id === id);
+      if (!current) throw notFound();
+      this.sample.dispatch({ type: 'setPermission', id, permission: r.permission === 'baca_tulis' ? 'act' : 'read' });
+      for (const c of r.capabilities ?? []) this.capabilityOverrides.set(`${id}:${c.key}`, c.enabled);
+      return copy(detailFrom(this.sample.getState(), id, this.connectionsContext(), this.capabilityOverrides)!);
+    });
+  }
+
+  forgetConnection(id: string): Promise<ConnectionForgetRes> {
+    return this.call(true, (): ConnectionForgetRes => {
+      const detail = detailFrom(this.sample.getState(), id, this.connectionsContext(), this.capabilityOverrides);
+      if (!detail || detail.service.status !== 'connected') throw notFound();
+      const forgotten = detail.memoryCount ?? 0;
+      this.sample.dispatch({ type: 'forget', id });
+      return { ok: true, forgotten };
+    });
+  }
+
+  disconnectConnection(id: string): Promise<void> {
+    return this.call(true, () => {
+      if (!this.sample.getState().services.some((x) => x.id === id)) throw notFound();
+      this.sample.dispatch({ type: 'disconnect', id });
+      this.connectedAt.delete(id);
+    });
+  }
+
+  /**
+   * Mulai menyambungkan: alamat halaman masuk tiruan. Layanan dianggap selesai masuk {@link FakeOptions.connectMs}
+   * kemudian: ia tersambung di penyimpanan contoh, jadi event `connection` dan `home` (simpul cincin baru) menyusul.
+   */
+  startConnection(id: string): Promise<ConnectionStartRes> {
+    return this.call(true, (): ConnectionStartRes => {
+      const state = this.sample.getState();
+      const service = serviceFrom(state, id, this.connectionsContext());
+      if (!service) throw notFound();
+      if (service.status === 'connected' || service.status === 'soon' || id === 'kotak') throw invalid();
+      this.later(this.connectMs, () => {
+        this.connectedAt.set(id, this.clock.iso());
+        this.sample.dispatch({ type: 'connect', id });
+      });
+      return { url: startUrlOf(id, `contoh-${++this.counter}`), callbackScheme: 'sekretarisai' };
+    });
+  }
+
   async mediaUrl(mediaId: string): Promise<MediaSource> {
     await this.checkSession();
     if (mediaId === SAMPLE_QR_MEDIA_ID) return { kind: 'sampleQr' };
@@ -841,6 +926,7 @@ export class FakeTransport implements Transport {
     this.scheduleAgenda();
     this.scheduleDevices();
     this.scheduleBusiness();
+    this.scheduleConnections();
   }
 
   /**
@@ -978,6 +1064,46 @@ export class FakeTransport implements Transport {
     this.businessTimer = Promise.resolve().then(() => {
       this.businessTimer = null;
       this.flushBusiness();
+    });
+  }
+
+  // ---- Terhubung ----
+
+  private connectionsContext(): FakeConnectionsContext {
+    return { base: this.connectionsBase, connectedAt: this.connectedAt };
+  }
+
+  private connectionsSnapshot(): Map<string, Service> {
+    const all = connectionsFrom(this.sample.getState(), this.connectionsContext());
+    return new Map([...all.connected, ...all.catalog, ...all.formerly].map((s) => [s.id, s]));
+  }
+
+  private snapshotConnections() {
+    this.connectionsSnap = new Map([...this.connectionsSnapshot()].map(([id, s]) => [id, JSON.stringify(s)]));
+  }
+
+  /** Hitung layanan yang berubah sejak hitungan terakhir; kalau ada, naikkan `rev` sekali dan siarkan satu event per layanan. */
+  private flushConnections() {
+    const before = this.connectionsSnap;
+    const now = this.connectionsSnapshot();
+    const changed = [...now].filter(([id, s]) => before.get(id) !== JSON.stringify(s));
+    const removed = [...before.keys()].filter((id) => !now.has(id));
+    this.snapshotConnections();
+    if (changed.length === 0 && removed.length === 0) return;
+    this.connectionsRev += 1;
+    for (const [, service] of changed) this.emit({ type: 'connection', service, rev: this.connectionsRev });
+    for (const id of removed) {
+      const service = JSON.parse(before.get(id)!) as Service;
+      this.emit({ type: 'connection', service, removed: true, rev: this.connectionsRev });
+    }
+  }
+
+  /** Perubahan penyimpanan dalam satu giliran digabung menjadi satu putaran event `connection`. */
+  private scheduleConnections() {
+    if (this.connectionsTimer) return;
+    this.connectionsTimer = Promise.resolve().then(() => {
+      this.connectionsTimer = null;
+      this.flushConnections();
     });
   }
 
