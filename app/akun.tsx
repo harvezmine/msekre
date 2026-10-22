@@ -17,6 +17,7 @@ import { useNotifications } from '@/ui/akun/notifications';
 import { ProfileCard } from '@/ui/akun/ProfileCard';
 import { TryRow } from '@/ui/akun/TryRow';
 import { BackHeader } from '@/ui/BackHeader';
+import { LogoDock } from '@/ui/connect/ServiceCard';
 import { Icon } from '@/ui/Icon';
 import { ListRow, Segmented } from '@/ui/kit';
 import { Txt } from '@/ui/Txt';
@@ -102,12 +103,14 @@ export default function Akun() {
             chevron
             onPress={() => router.push('/akun/keamanan')}
           />
+          {/* Di bawah judul: tiga logo pertama yang tersambung (dok kecil); jumlahnya di kanan. */}
           <ListRow
             icon="link"
             tone="terhubung"
             iconSize={ICON}
             title="Layanan tersambung"
             value={linked > 0 ? String(linked) : undefined}
+            detail={linked > 0 ? <LogoDock items={connections.connected} size={24} max={3} more={false} /> : undefined}
             chevron
             onPress={() => router.push('/terhubung')}
           />

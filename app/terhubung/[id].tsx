@@ -1,16 +1,21 @@
+// Niat layar: memahami satu layanan dalam sekejap (logonya, keadaannya, paling banyak tiga hal yang bisa asisten
+// lakukan) dan memilih izinnya. Tindakan tersering: ganti izin (segmen). Sambungkan / Sambungkan ulang menempel di zona
+// jempol bila perlu; Hapus dan Putuskan sebagai tombol teks tenang di bawah.
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { needsReconnect, PERMISSION_OPTIONS, serviceLine } from '@/api/connections';
-import type { ConnectionPermission } from '@/api/contract';
+import type { ConnectionPermission, Service } from '@/api/contract';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
-import { ServiceMark } from '@/ui/connect/ServiceTile';
+import { capabilityIcon } from '@/ui/connect/logos';
+import { connectRoute, logoStatus } from '@/ui/connect/ServiceCard';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
 import type { IconName } from '@/ui/icons';
-import { Segmented } from '@/ui/kit';
+import { Segmented, ServiceLogo } from '@/ui/kit';
+import { PrimaryButton } from '@/ui/PrimaryButton';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 
@@ -19,14 +24,11 @@ const permissionText = (assistant: string): Record<ConnectionPermission, string>
   baca_tulis: `${assistant} boleh bertindak di sini, selalu dengan persetujuan Anda.`,
 });
 
-// Niat layar: memahami satu layanan dalam sekejap (apa yang bisa asisten lakukan, dalam paling banyak tiga baris) dan
-// memilih izinnya. Tindakan tersering: ganti izin (segmen). Hapus dan Putuskan sebagai tombol teks tenang di bawah.
 export default function DetailLayanan() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const serviceId = typeof id === 'string' ? id : '';
   const { c, marker } = useTheme();
   const assistant = useAssistantName();
-  const PERMISSION_TEXT = permissionText(assistant);
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { detail, service: listed, setPermission, reloadDetail } = useConnections(serviceId);
@@ -45,7 +47,12 @@ export default function DetailLayanan() {
           {failed ? (detail?.error ?? '') : 'Sebentar ya, saya ambil dulu.'}
         </Txt>
         {failed ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Coba lagi" onPress={() => void reloadDetail()}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Coba lagi"
+            onPress={() => void reloadDetail()}
+            style={{ minHeight: 48, justifyContent: 'center' }}
+          >
             <Txt weight={600} color={c.brandInk} style={{ textAlign: 'center' }}>
               Coba lagi
             </Txt>
@@ -55,29 +62,10 @@ export default function DetailLayanan() {
     );
   }
   const service = listed ?? data.service;
-  if (service.status !== 'connected') {
-    return (
-      <View style={{ flex: 1, backgroundColor: c.bg }}>
-        {back}
-        <View style={{ padding: 24, gap: 16 }}>
-          <Txt style={{ textAlign: 'center' }}>{service.name} belum tersambung.</Txt>
-          {service.status !== 'soon' ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Sambungkan ${service.name}`}
-              onPress={() => router.replace(`/terhubung/masuk?id=${encodeURIComponent(service.id)}`)}
-            >
-              <Txt weight={600} color={c.brandInk} style={{ textAlign: 'center' }}>
-                Sambungkan
-              </Txt>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-    );
-  }
-  const warn = !!service.attention;
-  const reconnect = needsReconnect(service);
+  const connected = service.status === 'connected';
+  const soon = service.status === 'soon';
+  const warn = connected && !!service.attention;
+  const reconnect = connected && needsReconnect(service);
   const change = async (permission: ConnectionPermission) => {
     const res = await setPermission(service.id, permission);
     if (!res.ok) toast(res.message);
@@ -89,145 +77,148 @@ export default function DetailLayanan() {
       : memory === 0
         ? `Tidak ada yang ${assistant} ingat dari sini.`
         : `${memory} hal diingat ${assistant}.`;
+  const state = connected ? serviceLine(service) : soon ? 'Segera hadir' : 'Belum tersambung';
+  const stateColor = warn ? marker.warn.ink : connected ? c.brandInk : c.muted;
+  const can = data.what.slice(0, 3);
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       {back}
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 16, gap: 24 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 20 }}>
-          <ServiceMark name={service.name} badge={warn ? 'warn' : 'on'} size={72} />
-          <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-            <Txt v="title" accessibilityRole="header">
-              {service.name}
-            </Txt>
-            <Txt v="caption" color={warn ? marker.warn.ink : c.brandInk}>
-              {serviceLine(service)}
-            </Txt>
-          </View>
-        </View>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 16 }}>
+        <Hero service={service} state={state} stateColor={stateColor} />
 
-        {warn ? (
-          <Pressable
-            accessibilityRole={reconnect ? 'button' : 'text'}
-            accessibilityLabel={
-              reconnect ? `Sambungkan ulang ${service.name}` : (service.attention?.text ?? service.name)
-            }
-            disabled={!reconnect}
-            onPress={() => router.push(`/terhubung/masuk?id=${encodeURIComponent(service.id)}`)}
-            style={{
-              marginHorizontal: 16,
-              minHeight: 56,
-              backgroundColor: c.sunken,
-              borderRadius: 20,
-              paddingVertical: 12,
-              paddingHorizontal: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <Icon name="info" size={22} color={marker.warn.ink} />
-            <Txt style={{ flex: 1 }} color={marker.warn.ink}>
-              {service.attention?.text}
-              {reconnect ? '. Ketuk untuk menyambungkan ulang.' : ''}
-            </Txt>
-          </Pressable>
-        ) : null}
-
-        {/* Paling banyak tiga baris pendek: apa yang bisa dilakukan asisten di sini. */}
-        <View style={{ gap: 12, paddingHorizontal: 20 }}>
+        {/* Paling banyak tiga baris pendek: apa yang bisa dilakukan asisten di sini, masing-masing dengan ikon kecil. */}
+        <View style={{ gap: 14, paddingHorizontal: 20, marginTop: 32 }}>
           <Txt v="section" accessibilityRole="header">
             Yang bisa {assistant} lakukan
           </Txt>
-          {data.what.slice(0, 3).map((line) => (
-            <View key={line} style={{ flexDirection: 'row', gap: 12 }}>
+          {can.map((line) => (
+            <View key={line} style={{ flexDirection: 'row', gap: 14 }}>
               <View style={{ marginTop: 2 }}>
-                <Icon name="check" size={20} color={c.brandInk} />
+                <Icon name={capabilityIcon(line)} size={20} color={c.brandInk} />
               </View>
               <Txt style={{ flex: 1 }}>{line}</Txt>
             </View>
           ))}
         </View>
 
-        <View style={{ gap: 10, paddingHorizontal: 20 }}>
-          <Txt v="section" accessibilityRole="header">
-            Izin
-          </Txt>
-          <Segmented
-            role="radio"
-            label="Izin"
-            options={PERMISSION_OPTIONS.map((o) => o.value)}
-            labels={Object.fromEntries(PERMISSION_OPTIONS.map((o) => [o.value, o.title]))}
-            value={data.permission}
-            onChange={(next) => void change(next)}
-          />
-          <Txt v="caption" color={c.muted} accessibilityLiveRegion="polite" style={{ fontSize: 15, lineHeight: 20 }}>
-            {PERMISSION_TEXT[data.permission]}
-          </Txt>
-        </View>
+        {connected ? (
+          <View style={{ gap: 10, paddingHorizontal: 20, marginTop: 32 }}>
+            <Txt v="section" accessibilityRole="header">
+              Izin
+            </Txt>
+            <Segmented
+              role="radio"
+              label="Izin"
+              options={PERMISSION_OPTIONS.map((o) => o.value)}
+              labels={Object.fromEntries(PERMISSION_OPTIONS.map((o) => [o.value, o.title]))}
+              value={data.permission}
+              onChange={(next) => void change(next)}
+            />
+            <Txt v="caption" color={c.muted} accessibilityLiveRegion="polite" style={{ fontSize: 15, lineHeight: 20 }}>
+              {permissionText(assistant)[data.permission]}
+            </Txt>
+          </View>
+        ) : null}
 
-        {/* Hapus dan Putuskan: tombol teks tenang di bawah, tidak bersaing dengan isi. */}
-        <View style={{ flexGrow: 1 }} />
-        <View style={{ paddingHorizontal: 12 }}>
-          <Action
-            icon="trash"
-            label={`Hapus yang ${assistant} tahu dari layanan ini`}
-            color={marker.warn.ink}
-            onPress={() => router.push(`/terhubung/konfirmasi?id=${encodeURIComponent(service.id)}&aksi=lupa`)}
-            note={memoryNote}
-          />
-          <Action
-            icon="x"
-            label="Putuskan"
-            color={c.text}
-            onPress={() => router.push(`/terhubung/konfirmasi?id=${encodeURIComponent(service.id)}&aksi=putus`)}
-          />
+        <View style={{ flexGrow: 1, minHeight: 32 }} />
+        {/* Zona jempol: tombol teks tenang (hapus, putuskan), lalu tombol utama bila ada yang perlu disambungkan. */}
+        <View testID="zona-jempol" style={{ paddingHorizontal: 20, gap: 8 }}>
+          {connected ? (
+            <View>
+              <QuietAction
+                icon="trash"
+                label={`Hapus yang ${assistant} tahu`}
+                value={memory === undefined ? undefined : `${memory} hal`}
+                accessibilityLabel={`Hapus yang ${assistant} tahu dari layanan ini${memoryNote ? `. ${memoryNote}` : ''}`}
+                color={marker.warn.ink}
+                onPress={() => router.push(`/terhubung/konfirmasi?id=${encodeURIComponent(service.id)}&aksi=lupa`)}
+              />
+              <QuietAction
+                icon="x"
+                label="Putuskan"
+                color={c.text}
+                onPress={() => router.push(`/terhubung/konfirmasi?id=${encodeURIComponent(service.id)}&aksi=putus`)}
+              />
+            </View>
+          ) : null}
+          {reconnect ? (
+            <PrimaryButton
+              label={`Sambungkan ulang ${service.name}`}
+              display="Sambungkan ulang"
+              onPress={() => router.push(`/terhubung/masuk?id=${encodeURIComponent(service.id)}`)}
+            />
+          ) : !connected && !soon ? (
+            <PrimaryButton
+              label={`Sambungkan ${service.name}`}
+              display="Sambungkan"
+              onPress={() => router.replace(connectRoute(service.id))}
+            />
+          ) : null}
         </View>
       </ScrollView>
     </View>
   );
 }
 
-function Action({
+/** Kepala: ubin logo besar 72, nama, dan satu baris keadaan. */
+function Hero({ service, state, stateColor }: { service: Service; state: string; stateColor: string }) {
+  return (
+    <View style={{ alignItems: 'center', gap: 16, paddingHorizontal: 24, paddingTop: 4 }}>
+      <ServiceLogo id={service.id} name={service.name} size={72} status={logoStatus(service)} />
+      <View style={{ alignItems: 'center', gap: 4 }}>
+        <Txt v="title" accessibilityRole="header" style={{ textAlign: 'center' }}>
+          {service.name}
+        </Txt>
+        <Txt v="caption" color={stateColor} style={{ textAlign: 'center', fontSize: 15, lineHeight: 20 }}>
+          {state}
+        </Txt>
+      </View>
+    </View>
+  );
+}
+
+function QuietAction({
   icon,
   label,
+  value,
   color,
   onPress,
-  note,
+  accessibilityLabel,
 }: {
   icon: IconName;
   label: string;
+  value?: string;
   color: string;
   onPress: () => void;
-  note?: string;
+  accessibilityLabel?: string;
 }) {
   const { c } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={note ? `${label}. ${note}` : label}
+      accessibilityLabel={accessibilityLabel ?? label}
       onPress={onPress}
       android_ripple={{ color: c.ripple }}
       style={{
-        minHeight: 56,
+        minHeight: 52,
+        marginHorizontal: -8,
         paddingHorizontal: 8,
-        borderRadius: 20,
+        borderRadius: 18,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
       }}
     >
-      <Icon name={icon} size={22} color={color} />
-      <View style={{ flex: 1, paddingVertical: 8 }}>
-        <Txt weight={600} color={color}>
-          {label}
+      <Icon name={icon} size={20} color={color} />
+      <Txt weight={600} color={color} style={{ flex: 1, fontSize: 15, lineHeight: 20 }}>
+        {label}
+      </Txt>
+      {value ? (
+        <Txt v="caption" color={c.muted} tabular>
+          {value}
         </Txt>
-        {note ? (
-          <Txt v="caption" color={c.muted}>
-            {note}
-          </Txt>
-        ) : null}
-      </View>
+      ) : null}
     </Pressable>
   );
 }

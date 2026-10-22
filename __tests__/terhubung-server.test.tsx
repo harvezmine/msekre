@@ -327,7 +327,7 @@ test('mode server: putuskan memanggil DELETE dan layanan pindah ke Pernah tersam
   expect(router.push).toHaveBeenLastCalledWith('/terhubung');
 });
 
-test('tiruan dalam mode server: sambung memakai halaman resmi, simpul baru masuk cincin Beranda', async () => {
+test('tiruan dalam mode server: sambung memakai halaman resmi, logo Plaud bergabung di Tersambung', async () => {
   const api = createTestApi({ mode: 'server', token: 'tok', connectMs: 50 });
   open.mockImplementation(async () => {
     jest.advanceTimersByTime(100);
@@ -340,7 +340,7 @@ test('tiruan dalam mode server: sambung memakai halaman resmi, simpul baru masuk
   expect(open).toHaveBeenCalledWith(expect.stringContaining('app.plaud.ai'), 'sekretarisai://terhubung/tersambung');
   expect(router.replace).toHaveBeenCalledWith('/terhubung/tersambung?id=plaud');
   expect(await screen.findByText('Plaud sudah terhubung')).toBeOnTheScreen();
-  expect(screen.getByTestId('simpul-plaud')).toBeOnTheScreen();
+  expect(screen.getByTestId('sambungan-plaud')).toBeOnTheScreen();
 });
 
 test('mode gelap: detail layanan tampil', async () => {
@@ -359,7 +359,12 @@ test('mode gelap: detail layanan tampil', async () => {
   );
   await showRoute('/terhubung/gmail', { api, scheme: 'dark' });
   expect(await screen.findByText('Yang bisa Nadia lakukan')).toBeOnTheScreen();
-  expect(screen.getByText('Tidak ada yang Nadia ingat dari sini.')).toBeOnTheScreen();
+  expect(
+    screen.getByRole('button', {
+      name: 'Hapus yang Nadia tahu dari layanan ini. Tidak ada yang Nadia ingat dari sini.',
+    }),
+  ).toBeOnTheScreen();
+  expect(screen.getByText('0 hal')).toBeOnTheScreen();
 });
 
 test('perlu disambungkan ulang: detail menawarkan Sambungkan ulang; tanpa jalan, hanya kalimatnya', async () => {

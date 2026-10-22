@@ -160,7 +160,7 @@ test('alur 4: Akun, Layanan tersambung, Sambungkan TikTok Shop, Masuk, Selesai, 
   await advance(250);
   expect(currentRoute()).toBe('/terhubung/tersambung');
   expect(await screen.findByText('TikTok Shop sudah terhubung')).toBeOnTheScreen();
-  expect(screen.getByTestId('simpul-tiktok')).toBeOnTheScreen();
+  expect(screen.getByTestId('sambungan-tiktok')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
   expect(currentStack()).toEqual(['/']);
   expect(sampleState().services.some((x) => x.id === 'tiktok')).toBe(true);

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import Keamanan from '../app/akun/keamanan';
 import { PIN_CHANGED_TEXT } from '@/ui/device/PinReset';
@@ -55,6 +55,10 @@ test('tiga bagian di satu halaman: PIN, HP yang terhubung, dan yang asisten tahu
   expect(screen.getAllByRole('button', { name: /^Keluarkan/ })).toHaveLength(1);
   expect(screen.getByRole('button', { name: 'Hapus yang Nadia tahu dari Moka. 48 hal' })).toBeOnTheScreen();
   expect(screen.getByText('48 hal')).toBeOnTheScreen();
+  // Tiap layanan memakai logonya sendiri.
+  expect(
+    within(screen.getByRole('button', { name: 'Hapus yang Nadia tahu dari Moka. 48 hal' })).getByTestId('logo-moka'),
+  ).toBeOnTheScreen();
   expect(screen.getByRole('button', { name: 'Hapus akun. WhatsApp' })).toBeOnTheScreen();
   expect(screen.getByRole('link', { name: 'Kebijakan privasi' })).toBeOnTheScreen();
   // Keluarkan HP lain dan hapus per layanan memakai lembar konfirmasinya.

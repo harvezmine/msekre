@@ -5,10 +5,14 @@ import { Txt } from './Txt';
 /** Tombol utama penuh lebar, 56 dp (desain layar pertama kali). */
 export function PrimaryButton({
   label,
+  display,
   onPress,
   disabled = false,
 }: {
+  /** Nama tombol untuk pembaca layar (dan tulisannya, bila `display` tidak ada). */
   label: string;
+  /** Tulisan yang lebih pendek di tombol, bila nama lengkapnya terlalu panjang untuk dibaca sekilas. */
+  display?: string;
   onPress: () => void;
   disabled?: boolean;
 }) {
@@ -32,7 +36,7 @@ export function PrimaryButton({
       }}
     >
       <Txt weight={600} color={c.onBrand} style={{ fontSize: 17 }}>
-        {label}
+        {display ?? label}
       </Txt>
     </Pressable>
   );

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import Usaha from '../app/(tabs)/usaha';
@@ -57,9 +57,14 @@ test('Lainnya: semua stok menipis, uang masuk, pesanan, laporan, dan sumber data
   expect(screen.getByText('Data dari Moka, rekening BCA dan TikTok Shop.')).toBeOnTheScreen();
 });
 
-test('sumber yang belum tersambung membuka layanannya di Terhubung', async () => {
+test('sumber yang belum tersambung membuka layanannya di Terhubung; sumber memakai logonya', async () => {
   await lainnya();
-  await fireEvent.press(await screen.findByRole('button', { name: 'Sambungkan Shopee' }));
+  const shopee = await screen.findByRole('button', { name: 'Sambungkan Shopee' });
+  expect(within(shopee).getByTestId('logo-shopee')).toBeOnTheScreen();
+  // Yang tersambung: dok kecil logo di depan "Data dari ..." (rekening BCA lewat layanannya, bukan kuncinya).
+  const dock = screen.getByTestId('dok-layanan');
+  for (const key of ['moka', 'bca', 'tiktok']) expect(within(dock).getByTestId(`logo-${key}`)).toBeOnTheScreen();
+  await fireEvent.press(shopee);
   expect(router.push).toHaveBeenCalledWith('/terhubung/masuk?id=shopee');
 });
 
@@ -96,6 +101,10 @@ test('Rumah tidak punya data usaha: satu kalimat tenang dan satu tindakan', asyn
   await renderWithProviders(<Usaha />, { actions: [at('Rumah')] });
   expect(await screen.findByText('Belum ada data usaha di sini.')).toBeOnTheScreen();
   expect(screen.queryByText('Penjualan hari ini')).toBeNull();
+  // Logo layanan usaha yang bisa disambungkan (dari katalog Terhubung; yang segera hadir tidak).
+  const dock = await screen.findByTestId('dok-layanan');
+  expect(within(dock).getByTestId('logo-tiktok')).toBeOnTheScreen();
+  expect(within(dock).queryByTestId('logo-shopee')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Lainnya' })).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: 'Sambungkan kasir' }));
   expect(router.push).toHaveBeenCalledWith('/terhubung');

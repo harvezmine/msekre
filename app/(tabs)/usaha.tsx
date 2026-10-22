@@ -6,10 +6,12 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Business, BusinessPeriod, BusinessStock } from '@/api/contract';
 import { useBusiness } from '@/api/useBusiness';
+import { useConnections } from '@/api/useConnections';
 import { useHome } from '@/api/useHome';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BranchRows, firstLowStock, SalesHero, StockRow } from '@/ui/business/Hero';
 import { openDraft } from '@/ui/business/openDraft';
+import { LogoDock } from '@/ui/connect/ServiceCard';
 import { Icon } from '@/ui/Icon';
 import { byLayout, PressableScale, Segmented, useLayoutClass } from '@/ui/kit';
 import { PlaceButton } from '@/ui/PlaceButton';
@@ -55,9 +57,10 @@ export default function Usaha() {
         </Txt>
       );
   } else if (!showsData) {
-    // Kosong yang tenang: satu kalimat, satu tindakan.
+    // Kosong yang tenang: logo yang bisa disambungkan, satu kalimat, satu tindakan.
     body = (
       <View style={{ paddingHorizontal: 20, paddingTop: 32, gap: 20, alignItems: 'flex-start' }}>
+        <SourcesDock />
         <Txt v="row" color={c.muted}>
           Belum ada data usaha di sini.
         </Txt>
@@ -144,6 +147,14 @@ export default function Usaha() {
       </ScrollView>
     </View>
   );
+}
+
+/** Logo layanan usaha yang bisa disambungkan (dari katalog Terhubung, bukan nama yang ditulis di aplikasi). */
+function SourcesDock() {
+  const { catalog, formerly } = useConnections();
+  const items = [...catalog, ...formerly].filter((s) => s.category === 'usaha' && s.status !== 'soon');
+  if (!items.length) return null;
+  return <LogoDock items={items} size={40} max={4} more={false} />;
 }
 
 function MainButton({ label, onPress }: { label: string; onPress: () => void }) {

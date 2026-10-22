@@ -1,3 +1,7 @@
+// Niat layar: merayakan dengan tenang bahwa layanan sudah tersambung (logonya meluncur ke tanda S asisten, garis hijau
+// tergambar, lalu centang). Tindakan tersering: Selesai, tombol besar paling bawah (zona jempol).
+// Juga tujuan alamat kembali dari halaman masuk resmi (`sekretarisai://terhubung/tersambung?id=<id>&ok=1`, atau
+// `ok=0&reason=`), termasuk saat aplikasi dibuka olehnya.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -5,37 +9,29 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { failureText } from '@/api/connections';
 import { joinAnimated, markJoinAnimated } from '@/api/joinSeen';
 import { useConnections } from '@/api/useConnections';
-import { useHome } from '@/api/useHome';
 import { serviceJoined } from '@/api/serviceCopy';
 import { useTheme } from '@/theme/ThemeProvider';
+import { JoinMark } from '@/ui/connect/JoinMark';
+import { GradientField } from '@/ui/kit';
 import { useLayoutClass } from '@/ui/kit/layout';
-import { Orbit } from '@/ui/orbit/Orbit';
 import { PrimaryButton } from '@/ui/PrimaryButton';
 import { Txt } from '@/ui/Txt';
-import { useLive } from '@/ui/useLive';
 
-// Niat layar: merayakan dengan tenang bahwa layanan sudah tersambung (simpul baru masuk ke cincin). Tindakan tersering:
-// Selesai, tombol besar paling bawah (zona jempol).
-// Setelah masuk (desain 2k): simpul baru masuk ke cincin. Juga tujuan alamat kembali dari halaman masuk resmi
-// (`sekretarisai://terhubung/tersambung?id=<id>&ok=1`, atau `ok=0&reason=`), termasuk saat aplikasi dibuka olehnya.
 export default function Tersambung() {
   const { id, ok, reason } = useLocalSearchParams<{ id?: string; ok?: string; reason?: string }>();
   const serviceId = typeof id === 'string' ? id : '';
   const { c, shadow } = useTheme();
-  const live = useLive();
   const insets = useSafeAreaInsets();
   const compact = useLayoutClass() === 'compact';
-  const { ring } = useHome();
   const { service, detail, flow, status, handleCallback, retry } = useConnections(serviceId);
   const fromCallback = typeof ok === 'string';
-  // Simpul baru hanya dianimasikan sekali per sambungan, juga kalau layar ini terbuka dua kali (lembar dan alamat kembali).
+  // Gerak bergabung hanya sekali per sambungan, juga kalau layar ini terbuka dua kali (lembar dan alamat kembali).
   const [alreadyAnimated] = useState(() => joinAnimated(serviceId));
-  // Kunci simpul cincin layanan = id layanan (kontrak). Belum ada di cincin: tidak ada yang dianimasikan; begitu event
-  // `home` membawanya, simpul itu masuk dengan animasinya.
-  const joinKey = service?.ring && !alreadyAnimated ? ring.find((n) => n.key === service.id)?.key : undefined;
+  const connected = service?.status === 'connected';
+  const animate = connected && !alreadyAnimated;
   useEffect(() => {
-    if (joinKey) markJoinAnimated(joinKey);
-  }, [joinKey]);
+    if (animate) markJoinAnimated(serviceId);
+  }, [animate, serviceId]);
   useEffect(() => {
     if (fromCallback && serviceId) {
       void handleCallback({ id: serviceId, ok: ok === '1', reason: typeof reason === 'string' ? reason : null });
@@ -65,6 +61,11 @@ export default function Tersambung() {
     const name = service?.name ?? 'layanan ini';
     return frame(
       <>
+        {service ? (
+          <View style={{ alignItems: 'center', marginBottom: 8 }}>
+            <JoinMark id={service.id} name={service.name} size={56} state="idle" />
+          </View>
+        ) : null}
         <Txt v="title" style={{ textAlign: 'center' }} accessibilityRole="header">
           Belum tersambung
         </Txt>
@@ -79,7 +80,6 @@ export default function Tersambung() {
     );
   }
 
-  const connected = service?.status === 'connected';
   if (!connected) {
     // Alamat kembali baru tiba: daftar masih dimuat atau menunggu event; setelah selesai dimuat, tak ada yang tersambung.
     const waiting = status === 'loading' || flow.phase === 'waiting' || (fromCallback && flow.phase !== 'idle');
@@ -99,61 +99,71 @@ export default function Tersambung() {
   const permissionText = permission === 'baca_tulis' ? 'Baca dan tulis' : 'Baca saja';
   const joined = serviceJoined(service.id) ?? 'Mulai sekarang saya bisa membantu dari sini.';
   return (
-    <ScrollView
-      style={{ backgroundColor: c.bg }}
-      contentContainerStyle={{
-        flexGrow: 1,
-        paddingTop: insets.top + (compact ? 24 : 72),
-        paddingBottom: Math.max(32, insets.bottom + 16),
-        paddingHorizontal: 24,
-      }}
-    >
-      <View style={{ alignItems: 'center' }}>
-        <Orbit nodes={ring} joinKey={joinKey} paused={!live} />
-      </View>
-      <View style={{ gap: 8, marginTop: 32 }}>
-        <Txt v="title" style={{ textAlign: 'center' }} accessibilityRole="header">
-          {name} sudah terhubung
-        </Txt>
-        <Txt v="subtitle" weight={400} color={c.muted} style={{ textAlign: 'center', lineHeight: 26 }}>
-          {joined}
-        </Txt>
-      </View>
-      <View
-        style={{
-          marginTop: 24,
-          backgroundColor: c.surface,
-          boxShadow: shadow.e1,
-          borderRadius: 20,
-          paddingVertical: 4,
-          paddingLeft: 16,
-          paddingRight: 8,
-          minHeight: 60,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      {/* Cahaya hijau lembut di atas: perayaan yang tenang. */}
+      <GradientField recipe="hero" height={compact ? 320 : 420} />
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: insets.top + (compact ? 32 : 96),
+          paddingBottom: Math.max(32, insets.bottom + 16),
+          paddingHorizontal: 24,
         }}
       >
-        <Txt style={{ flex: 1 }} accessibilityLabel={`Izin: ${permissionText}`}>
-          <Txt color={c.muted}>Izin: </Txt>
-          <Txt weight={600}>{permissionText}</Txt>
-        </Txt>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ubah"
-          onPress={() => router.push(`/terhubung/${encodeURIComponent(service.id)}`)}
-          android_ripple={{ color: c.ripple }}
-          style={{ height: 48, paddingHorizontal: 12, justifyContent: 'center' }}
-        >
-          <Txt weight={600} color={c.brandInk} style={{ fontSize: 15 }}>
-            Ubah
+        <View style={{ alignItems: 'center' }}>
+          <JoinMark
+            id={service.id}
+            name={service.name}
+            size={compact ? 56 : 72}
+            state="joined"
+            animate={animate}
+            testID={`sambungan-${service.id}`}
+          />
+        </View>
+        <View style={{ gap: 8, marginTop: compact ? 24 : 40 }}>
+          <Txt v="title" style={{ textAlign: 'center' }} accessibilityRole="header">
+            {name} sudah terhubung
           </Txt>
-        </Pressable>
-      </View>
-      <View style={{ flex: 1, minHeight: 24 }} />
-      <View testID="zona-jempol">
-        <PrimaryButton label="Selesai" onPress={done} />
-      </View>
-    </ScrollView>
+          <Txt v="subtitle" weight={400} color={c.muted} style={{ textAlign: 'center', lineHeight: 26 }}>
+            {joined}
+          </Txt>
+        </View>
+        <View
+          style={{
+            marginTop: 28,
+            backgroundColor: c.surface,
+            boxShadow: shadow.e1,
+            borderRadius: 20,
+            paddingVertical: 4,
+            paddingLeft: 16,
+            paddingRight: 8,
+            minHeight: 60,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <Txt style={{ flex: 1 }} accessibilityLabel={`Izin: ${permissionText}`}>
+            <Txt color={c.muted}>Izin: </Txt>
+            <Txt weight={600}>{permissionText}</Txt>
+          </Txt>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ubah"
+            onPress={() => router.push(`/terhubung/${encodeURIComponent(service.id)}`)}
+            android_ripple={{ color: c.ripple }}
+            style={{ height: 48, paddingHorizontal: 12, justifyContent: 'center' }}
+          >
+            <Txt weight={600} color={c.brandInk} style={{ fontSize: 15 }}>
+              Ubah
+            </Txt>
+          </Pressable>
+        </View>
+        <View style={{ flex: 1, minHeight: 24 }} />
+        <View testID="zona-jempol">
+          <PrimaryButton label="Selesai" onPress={done} />
+        </View>
+      </ScrollView>
+    </View>
   );
 }

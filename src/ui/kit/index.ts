@@ -22,6 +22,7 @@ export { RemoteKey, type RemoteKeyProps, type RemoteKeyVariant } from './RemoteK
 export { Rocker } from './Rocker';
 export { Segmented } from './Segmented';
 export { SectionHeader, type SectionAction } from './SectionHeader';
+export { LOGO_SIZES, logoRadius, ServiceLogo, type LogoStatus } from './ServiceLogo';
 export { SuggestionCard } from './SuggestionCard';
 export { Slider, type SliderProps } from './Slider';
 export { toneForName } from './toneForName';

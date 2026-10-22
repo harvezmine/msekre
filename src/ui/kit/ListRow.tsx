@@ -8,6 +8,8 @@ import { AccentIcon, type AccentTone } from './AccentIcon';
 
 export interface KitListRowProps {
   icon?: IconName;
+  /** Pengganti lingkaran ikon (contoh logo layanan); lebarnya dianggap `iconSize`. */
+  leading?: ReactNode;
   tone?: AccentTone;
   title: string;
   /** Satu baris penjelasan (dipotong bila terlalu panjang). */
@@ -25,6 +27,8 @@ export interface KitListRowProps {
   trailing?: ReactNode;
   /** Kontrol di bawah teks (contoh segmen Tampilan). */
   children?: ReactNode;
+  /** Hiasan kecil di bawah judul, di dalam baris yang bisa ditekan (contoh deretan logo layanan). */
+  detail?: ReactNode;
   /** Jarak kiri-kanan; bawaannya tepi halaman 20. */
   inset?: number;
   /** Ukuran lingkaran ikon; bawaan 44. */
@@ -44,6 +48,7 @@ export interface KitListRowProps {
  */
 export function ListRow({
   icon,
+  leading,
   tone = 'neutral',
   title,
   description,
@@ -54,6 +59,7 @@ export function ListRow({
   chevron,
   trailing,
   children,
+  detail,
   inset = 20,
   iconSize = 44,
   accessibilityLabel,
@@ -80,7 +86,7 @@ export function ListRow({
           paddingVertical: 12,
         }}
       >
-        {icon ? <AccentIcon icon={icon} tone={tone} size={iconSize} /> : null}
+        {leading ?? (icon ? <AccentIcon icon={icon} tone={tone} size={iconSize} /> : null)}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Txt v="row" weight={600}>
             {title}
@@ -95,6 +101,7 @@ export function ListRow({
               {description}
             </Txt>
           ) : null}
+          {detail ? <View style={{ marginTop: 8 }}>{detail}</View> : null}
         </View>
         {value !== undefined ? (
           <Txt v="body" tabular color={valueColor ?? c.muted}>
@@ -106,7 +113,9 @@ export function ListRow({
         {showChevron ? <Icon name="chevR" size={20} color={c.faint} /> : null}
       </Pressable>
       {children ? (
-        <View style={{ paddingLeft: inset + (icon ? iconSize + 14 : 0), paddingRight: inset, paddingBottom: 12 }}>
+        <View
+          style={{ paddingLeft: inset + (icon || leading ? iconSize + 14 : 0), paddingRight: inset, paddingBottom: 12 }}
+        >
           {children}
         </View>
       ) : null}

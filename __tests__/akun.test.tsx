@@ -84,6 +84,17 @@ test('enam baris paling banyak, judul satu-dua kata, nilai di kanan, tanpa kalim
   expect(screen.queryByText(/^Paket /)).toBeNull();
 });
 
+test('Layanan tersambung: tiga logo pertama sebagai dok kecil di bawah judul, jumlahnya di kanan', async () => {
+  await show();
+  const linked = await screen.findByRole('button', { name: `Layanan tersambung. ${latest.services.length}` });
+  const dock = within(linked).getByTestId('dok-layanan');
+  expect(within(dock).getByTestId('logo-gcal')).toBeOnTheScreen();
+  expect(within(dock).getByTestId('logo-gmail')).toBeOnTheScreen();
+  expect(within(dock).getByTestId('logo-wa')).toBeOnTheScreen();
+  expect(within(dock).queryByTestId('logo-moka')).toBeNull();
+  expect(within(linked).getByText(String(latest.services.length))).toBeOnTheScreen();
+});
+
 test('baris membuka halamannya; Layanan tersambung membuka Terhubung', async () => {
   await show();
   const opened: [string, string][] = [
