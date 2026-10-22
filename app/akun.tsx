@@ -1,8 +1,11 @@
-// Akun: siapa saya dan paket saya, lalu beberapa pengaturan yang mudah dipahami (paling banyak enam baris).
+// Akun: siapa saya dan paket saya, lalu beberapa pengaturan yang mudah dipahami (paling banyak enam baris; tujuh di mode
+// contoh bila baris Data ada). Mode akun: hanya yang sudah asli (profil, paket, nama asisten) dan pengaturan di HP ini;
+// baris yang isinya masih contoh (Pemberitahuan, Keamanan, Layanan tersambung) disembunyikan.
 import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '@/api/ApiProvider';
+import { useDataMode } from '@/api/dataMode';
 import { ACCOUNT_TZ_MINUTES, HELP_TEXT, openWhatsApp, RENEW_TEXT, WA_UNAVAILABLE_TEXT } from '@/api/account';
 import { formatPhoneDisplay } from '@/api/format';
 import { useAccount } from '@/api/useAccount';
@@ -14,6 +17,7 @@ import { versionText } from '@/api/version';
 import { APPEARANCE_LABEL, APPEARANCE_PREFERENCES, useAppearance } from '@/theme/appearance';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useNotifications } from '@/ui/akun/notifications';
+import { DataRow } from '@/ui/akun/DataRow';
 import { ProfileCard } from '@/ui/akun/ProfileCard';
 import { TryRow } from '@/ui/akun/TryRow';
 import { BackHeader } from '@/ui/BackHeader';
@@ -25,7 +29,7 @@ import { useToast } from '@/ui/toastStore';
 
 const ICON = 46;
 
-/** Nama di kartu profil. Mode contoh memakai isian desain; mode server nama asli, nomor bila belum ada nama. */
+/** Nama di kartu profil. Mode contoh memakai isian desain; mode akun dan server nama asli, nomor bila belum ada nama. */
 function nameOf(p: Profile): string {
   if (p.sample) return 'Rina Wulandari';
   if (p.name) return p.name;
@@ -36,7 +40,8 @@ export default function Akun() {
   const { c, marker } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const { mode } = useApi();
+  const { mode, canUseServer } = useApi();
+  const { hybrid } = useDataMode();
   const profile = useProfile();
   const { account, status, retry } = useAccount();
   const appearance = useAppearance();
@@ -65,25 +70,28 @@ export default function Akun() {
         />
 
         <View style={{ marginTop: 16 }}>
+          {/* Mode akun: nama asisten asli, belum bisa diubah dari aplikasi (halamannya masih contoh). */}
           <ListRow
             icon="chat"
             tone="brand"
             iconSize={ICON}
             title="Asisten"
             value={assistant}
-            chevron
-            onPress={() => router.push('/akun/asisten')}
+            chevron={!hybrid}
+            onPress={hybrid ? undefined : () => router.push('/akun/asisten')}
           />
-          <ListRow
-            icon="bell"
-            tone="agenda"
-            iconSize={ICON}
-            title="Pemberitahuan"
-            value={notifications.value}
-            valueColor={notifications.value === 'Perlu izin' ? marker.warn.ink : undefined}
-            chevron
-            onPress={() => router.push('/akun/notifikasi')}
-          />
+          {hybrid ? null : (
+            <ListRow
+              icon="bell"
+              tone="agenda"
+              iconSize={ICON}
+              title="Pemberitahuan"
+              value={notifications.value}
+              valueColor={notifications.value === 'Perlu izin' ? marker.warn.ink : undefined}
+              chevron
+              onPress={() => router.push('/akun/notifikasi')}
+            />
+          )}
           {/* Tampilan langsung di sini: tiga pilihan, berlaku seketika, tanpa halaman sendiri. */}
           <ListRow icon="moon" tone="usaha" iconSize={ICON} title="Tampilan">
             <Segmented
@@ -94,26 +102,34 @@ export default function Akun() {
               label="Tampilan"
             />
           </ListRow>
-          <ListRow
-            icon="shield"
-            tone="terhubung"
-            iconSize={ICON}
-            title="Keamanan"
-            value={security.state ? (security.state.pinEnabled ? 'PIN' : 'Mati') : undefined}
-            chevron
-            onPress={() => router.push('/akun/keamanan')}
-          />
+          {hybrid ? null : (
+            <ListRow
+              icon="shield"
+              tone="terhubung"
+              iconSize={ICON}
+              title="Keamanan"
+              value={security.state ? (security.state.pinEnabled ? 'PIN' : 'Mati') : undefined}
+              chevron
+              onPress={() => router.push('/akun/keamanan')}
+            />
+          )}
           {/* Di bawah judul: tiga logo pertama yang tersambung (dok kecil); jumlahnya di kanan. */}
-          <ListRow
-            icon="link"
-            tone="terhubung"
-            iconSize={ICON}
-            title="Layanan tersambung"
-            value={linked > 0 ? String(linked) : undefined}
-            detail={linked > 0 ? <LogoDock items={connections.connected} size={24} max={3} more={false} /> : undefined}
-            chevron
-            onPress={() => router.push('/terhubung')}
-          />
+          {hybrid ? null : (
+            <ListRow
+              icon="link"
+              tone="terhubung"
+              iconSize={ICON}
+              title="Layanan tersambung"
+              value={linked > 0 ? String(linked) : undefined}
+              detail={
+                linked > 0 ? <LogoDock items={connections.connected} size={24} max={3} more={false} /> : undefined
+              }
+              chevron
+              onPress={() => router.push('/terhubung')}
+            />
+          )}
+          {/* Akun Anda atau Contoh; hanya bila alamat server diatur. */}
+          <DataRow />
           {/* Bantuan: lapor kendala lewat WhatsApp Sekretaris AI; nomor belum diatur: kalimat ramah. */}
           <ListRow icon="help" iconSize={ICON} title="Bantuan" onPress={() => void whatsApp(HELP_TEXT)} />
         </View>
@@ -134,8 +150,9 @@ export default function Akun() {
         </View>
 
         <View style={{ alignItems: 'center', gap: 2, marginTop: 20 }}>
-          {/* APK pratinjau: penanda kecil bahwa isinya data contoh (tidak di Beranda, supaya Beranda tetap tenang). */}
-          {mode === 'contoh' ? (
+          {/* APK pratinjau tanpa server: penanda kecil bahwa isinya data contoh (tidak di Beranda, supaya Beranda tetap
+              tenang). Dengan server, baris Data yang menyebutnya. */}
+          {mode === 'contoh' && !canUseServer ? (
             <Txt v="micro" color={c.muted}>
               Data contoh
             </Txt>

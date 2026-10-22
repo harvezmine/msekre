@@ -566,11 +566,12 @@ describe('mode data', () => {
     expect(router.push).toHaveBeenCalledWith('/mode');
   });
 
-  test('Server tidak bisa dipilih tanpa alamat server', async () => {
+  test('Akun dan Server tidak bisa dipilih tanpa alamat server', async () => {
     await renderWithProviders(<Mode />);
     expect(screen.getByRole('radio', { name: 'Contoh' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Akun Anda' })).toBeDisabled();
     expect(screen.getByRole('radio', { name: 'Server' })).toBeDisabled();
-    expect(screen.getByText('Alamat server belum diatur')).toBeTruthy();
+    expect(screen.getAllByText('Alamat server belum diatur')).toHaveLength(2);
   });
 });
 

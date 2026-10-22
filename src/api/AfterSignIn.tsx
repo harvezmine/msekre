@@ -8,6 +8,9 @@ import { useAuth } from './useAuth';
  * sesi ada, penjaga rute (`Stack.Protected`) menutup layar sapaan dan masuk, dan baru sesudah itu layar pilih dibuka.
  * Kalau layar masuk sendiri yang membuka layar pilih persis saat status berubah, penjaga masih memakai nilai lama dan
  * mengalihkannya. Mode contoh tidak punya penjaga; layar masuk membukanya sendiri.
+ *
+ * Mode `akun` langsung ke Beranda: layanan yang ditawarkan di layar pilih (Google Kalender, Kotak, Moka) masih contoh
+ * di sana, jadi tawarannya tidak jujur untuk akun asli.
  */
 export function AfterSignIn() {
   const { mode } = useApi();

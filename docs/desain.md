@@ -311,3 +311,26 @@ dan paling dekat dengan jempol).
   `suara-kontrol`. Tambahkan penanda yang sama saat membuat layar baru.
 - Skala huruf 1,3 di 360×640 (layar kunci): teks ≥ 40 dibatasi `maxFontSizeMultiplier` ≤ 1,2 dan teks baca tidak duduk
   di kotak bertinggi tetap < 40.
+
+## Mode akun: akun asli, sebagian layar masih contoh (M1)
+
+Mode data (`src/api/mode.ts`): `contoh` (server tiruan), `akun` (bawaan build rilis bila `EXPO_PUBLIC_API_URL` diisi),
+dan `server` (semuanya dari server asli, hanya pengembangan lewat `/mode`). Mode akun memakai `HybridTransport`
+(`src/api/hybrid.ts`): masuk, `GET /me`, chat, stream, Mode Suara, media, dan token notifikasi ke server asli; selebihnya
+(Beranda, Agenda, Perangkat, Usaha, Terhubung, Riwayat, sebagian Akun) ke server tiruan di aplikasi. Tabel jalurnya
+`HYBRID_ROUTES`; setiap method `Transport` wajib tercantum (tes `api-hybrid`). Nama, nomor, paket, dan nama asisten
+selalu dari `GET /me`, juga di Beranda dan Akun yang isinya contoh.
+
+Aturan layar (baca `useDataMode().hybrid`):
+
+- **Beranda**: sapaan dengan nama asli, Inti, dan "Coba bilang". Persetujuan, agenda berikutnya, dan sakelar favorit
+  tidak tampil (isinya contoh).
+- **Bilah tab**: hanya Beranda dan Agenda; susunannya tidak disimpan.
+- **Layar contoh**: satu baris tenang `SampleBanner` di bawah kepala layar ("Contoh — segera tersambung ke akun Anda"),
+  bisa ditutup per kelompok (`agenda`, `perangkat`, `usaha`, `terhubung`, `riwayat`, `akun`) sampai aplikasi dibuka
+  lagi. Layar baru yang isinya contoh juga memasangnya. Aksinya hanya mengubah data contoh.
+- **Akun**: profil dan paket asli; Asisten hanya dibaca; Pemberitahuan, Keamanan, dan Layanan tersambung disembunyikan.
+  Baris **Data** (Akun Anda / Contoh) ada bila alamat server diatur; ke Contoh tidak keluar dari akun.
+- **Mulai**: "Lihat contoh dulu" di bawah Mulai pindah ke mode contoh tanpa masuk. Setelah masuk langsung ke Beranda
+  (layar pilih layanan masih contoh).
+- **Alarm**: agenda contoh tidak pernah dijadwalkan sebagai alarm HP di mode akun.

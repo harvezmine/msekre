@@ -11,6 +11,7 @@ import { GradientField } from '../kit/GradientField';
 import { byLayout, useLayoutClass } from '../kit/layout';
 import { MoreSheet, type MoreItem } from '../kit/MoreSheet';
 import { PressableScale } from '../kit/PressableScale';
+import { SampleBanner } from '../SampleBanner';
 import { ThumbZone } from '../kit/ThumbZone';
 import { Toggle } from '../Toggle';
 import { Txt } from '../Txt';
@@ -123,6 +124,7 @@ export function RemoteFrame({
           <MoreSheet items={items} footer={footer} defaultOpen={devQuery().lainnya === '1'} />
         ) : null}
       </View>
+      <SampleBanner area="perangkat" />
       {!reachable ? (
         <View
           testID="tak-terjangkau"

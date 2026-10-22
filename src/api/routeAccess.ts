@@ -1,5 +1,5 @@
 import type { AuthStatus } from './useAuth';
-import type { DataMode } from './mode';
+import { needsSignIn, type DataMode } from './mode';
 
 /**
  * Siapa yang boleh membuka sebuah layar, dipakai `app/_layout.tsx` (lewat `Stack.Protected`) dan tiruan navigasi di tes:
@@ -18,11 +18,12 @@ export function routeKind(pathname: string): RouteKind {
 }
 
 /**
- * Mode `contoh` tidak memaksa masuk: semua layar terbuka. Mode `server`: layar aplikasi hanya setelah masuk, layar masuk
- * hanya sebelumnya. Selama sesi diperiksa (`checking`) tidak ada yang terbuka; akar aplikasi menahan tampilan dulu.
+ * Mode `contoh` tidak memaksa masuk: semua layar terbuka. Mode `akun` dan `server`: layar aplikasi hanya setelah masuk,
+ * layar masuk hanya sebelumnya. Selama sesi diperiksa (`checking`) tidak ada yang terbuka; akar aplikasi menahan tampilan
+ * dulu.
  */
 export function canOpen(kind: RouteKind, mode: DataMode, status: AuthStatus): boolean {
-  if (mode !== 'server' || kind === 'open') return true;
+  if (!needsSignIn(mode) || kind === 'open') return true;
   if (kind === 'entry') return status === 'signedOut';
   return status === 'signedIn';
 }

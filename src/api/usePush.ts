@@ -16,6 +16,7 @@ import {
 import { AppState, Linking, Platform } from 'react-native';
 import { DEFAULT_ASSISTANT } from '@/brand';
 import { useApi } from './ApiProvider';
+import { needsSignIn } from './mode';
 import { isChatFocused } from './pushPresence';
 import { canOpen, routeKind } from './routeAccess';
 import { readSecure, writeSecure } from './secureStore';
@@ -189,13 +190,13 @@ export function PushProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Token ke server: setelah izin ada dan (mode server) sudah masuk. Dikirim sekali per proses aplikasi (setiap mulai
-  // dari keadaan mati, supaya pendaftaran yang hilang pulih) dan tiap token berubah; `sent` mencegah kiriman berulang
-  // selama aplikasi hidup. Token terakhir juga disimpan di HP, hanya untuk dicabut saat keluar.
+  // Token ke server: setelah izin ada dan (mode akun dan server) sudah masuk. Dikirim sekali per proses aplikasi (setiap
+  // mulai dari keadaan mati, supaya pendaftaran yang hilang pulih) dan tiap token berubah; `sent` mencegah kiriman
+  // berulang selama aplikasi hidup. Token terakhir juga disimpan di HP, hanya untuk dicabut saat keluar.
   const sent = useRef(new Map<string, string>());
   useEffect(() => {
     if (permission !== 'granted') return;
-    if (mode === 'server' && authStatus !== 'signedIn') return;
+    if (needsSignIn(mode) && authStatus !== 'signedIn') return;
     let alive = true;
     let running = false;
     const key = tokenKey(mode);
@@ -235,11 +236,11 @@ export function PushProvider({ children }: { children: ReactNode }) {
     };
   }, [permission, mode, authStatus, transport]);
 
-  // Keluar (mode server): token yang tadi terkirim dicabut dari server. Pemberitahuan `auth/logout` bisa tidak sampai
+  // Keluar (mode akun dan server): token yang tadi terkirim dicabut dari server. Pemberitahuan `auth/logout` bisa tidak sampai
   // (tanpa sinyal), jadi tokennya dicatat dulu sebagai "belum dicabut" dan dicoba lagi tiap aplikasi dibuka atau
   // kembali aktif selama masih keluar, sampai server menjawab.
   useEffect(() => {
-    if (mode !== 'server' || authStatus !== 'signedOut') return;
+    if (!needsSignIn(mode) || authStatus !== 'signedOut') return;
     const key = tokenKey(mode);
     const pend = pendingKey(mode);
     let running = false;
@@ -321,7 +322,7 @@ export function usePush(): Push {
 /**
  * Ketukan notifikasi membuka chat (atau `data.route`), juga saat aplikasi tertutup (jawaban terakhir yang disimpan
  * sistem). Dipasang di samping navigator, hanya saat navigator sudah tampil; selama sesi masih diperiksa atau
- * pengguna belum boleh membuka layar aplikasi (mode server, belum masuk), ketukan ditahan atau dibuang.
+ * pengguna belum boleh membuka layar aplikasi (mode akun atau server, belum masuk), ketukan ditahan atau dibuang.
  */
 export function useNotificationTap() {
   const { mode } = useApi();
@@ -329,7 +330,7 @@ export function useNotificationTap() {
   const response = useLastNotificationResponse();
   useEffect(() => {
     if (!response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
-    if (mode === 'server' && status === 'checking') return;
+    if (needsSignIn(mode) && status === 'checking') return;
     const id = `${response.notification.request.identifier}@${response.notification.date}`;
     if (handledTap === id) return;
     handledTap = id;

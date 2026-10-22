@@ -10,6 +10,7 @@ import {
 } from './connections';
 import type { ConnectionDetail, ConnectionPermission, Connections, Service, StreamEvent } from './contract';
 import { friendlyError } from './errors';
+import { sampleDomains } from './mode';
 import { isApiFailure, type Transport, type Unsubscribe } from './transport';
 
 export type LoadStatus = 'loading' | 'ready' | 'error';
@@ -183,8 +184,8 @@ export class ConnectionsController {
 
   /**
    * Sambungkan satu layanan: minta alamat halaman masuk resmi, buka, tunggu kembali, lalu pastikan layanannya tampil
-   * tersambung. Tidak ada kata sandi yang lewat aplikasi. Di mode `contoh` tidak ada halaman sungguhan: server tiruan
-   * menyelesaikannya sendiri dan aplikasi menunggu.
+   * tersambung. Tidak ada kata sandi yang lewat aplikasi. Dengan data contoh (mode `contoh`, dan Terhubung di mode
+   * `akun`) tidak ada halaman sungguhan: server tiruan menyelesaikannya sendiri dan aplikasi menunggu.
    */
   connect = (id: string): Promise<void> => {
     const running = this.connecting.get(id);
@@ -198,7 +199,7 @@ export class ConnectionsController {
       try {
         const start = await this.transport.startConnection(id);
         this.setFlow(id, { phase: 'waiting', message: null });
-        if (this.transport.mode === 'contoh') {
+        if (sampleDomains(this.transport.mode)) {
           await this.finish(id, name, { id, ok: true, reason: null }, reconnecting);
           return;
         }

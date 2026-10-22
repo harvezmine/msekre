@@ -19,13 +19,13 @@
       "extends": "base",
       "distribution": "internal",
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_WA_NUMBER": "6288214533604" },
+      "env": { "EXPO_PUBLIC_WA_NUMBER": "6288214533604", "EXPO_PUBLIC_API_URL": "https://app.secretary.my.id" },
       "android": { "buildType": "apk" }
     },
     "production": {
       "extends": "base",
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_WA_NUMBER": "6288214533604" },
+      "env": { "EXPO_PUBLIC_WA_NUMBER": "6288214533604", "EXPO_PUBLIC_API_URL": "https://app.secretary.my.id" },
       "android": { "buildType": "app-bundle" }
     }
   }

@@ -1,5 +1,6 @@
 import { createContext, use, useEffect, useMemo, type ReactNode } from 'react';
 import { useApi } from './ApiProvider';
+import { needsSignIn } from './mode';
 import { HomeController } from './homeController';
 import { useAuth } from './useAuth';
 
@@ -13,7 +14,7 @@ export const HomeContext = createContext<HomeController | null>(null);
 export function HomeProvider({ children }: { children: ReactNode }) {
   const { transport, mode } = useApi();
   const { status } = useAuth();
-  const active = mode === 'contoh' || status === 'signedIn';
+  const active = !needsSignIn(mode) || status === 'signedIn';
   const running = useMemo(() => (active ? new HomeController(transport) : null), [transport, active]);
   const idle = useMemo(() => new HomeController(transport), [transport]);
   useEffect(() => {

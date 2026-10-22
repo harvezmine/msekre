@@ -8,6 +8,7 @@ import { useWindowDimensions, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
 import { needsReconnect } from '@/api/connections';
 import { clearJoinAnimated } from '@/api/joinSeen';
+import { sampleDomains } from '@/api/mode';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
 import { serviceDomain } from '@/api/serviceCopy';
@@ -33,6 +34,8 @@ function Isi({ id }: { id: string }) {
   const { c, marker } = useTheme();
   const assistant = useAssistantName();
   const { mode } = useApi();
+  // Data contoh (mode contoh, dan Terhubung di mode akun): halaman masuk tiruan yang selesai sendiri.
+  const sample = sampleDomains(mode);
   const { close } = useSheet();
   const { height } = useWindowDimensions();
   const { service, detail, flow, connect, resetFlow, status } = useConnections(id);
@@ -76,7 +79,7 @@ function Isi({ id }: { id: string }) {
         ? 'Coba lagi'
         : reconnect
           ? 'Sambungkan ulang'
-          : mode === 'contoh'
+          : sample
             ? 'Masuk (contoh)'
             : `Buka halaman ${shortName}`;
   return (
@@ -119,7 +122,7 @@ function Isi({ id }: { id: string }) {
         </Txt>
       </View>
 
-      {mode === 'contoh' ? (
+      {sample ? (
         <View
           style={{
             marginHorizontal: 16,
@@ -156,7 +159,7 @@ function Isi({ id }: { id: string }) {
         </View>
       ) : null}
 
-      {flow.phase === 'waiting' && mode !== 'contoh' ? (
+      {flow.phase === 'waiting' && !sample ? (
         <Txt color={c.muted} style={{ marginHorizontal: 20 }}>
           Selesaikan masuk di halaman {shortName}, lalu kembali ke sini.
         </Txt>

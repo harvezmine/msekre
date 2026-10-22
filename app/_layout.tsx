@@ -20,6 +20,7 @@ import { ConnectionsProvider } from '@/api/ConnectionsProvider';
 import { DevicesProvider } from '@/api/DevicesProvider';
 import { HistoryProvider } from '@/api/HistoryProvider';
 import { HomeProvider } from '@/api/HomeProvider';
+import { needsSignIn } from '@/api/mode';
 import { canOpen } from '@/api/routeAccess';
 import { PushProvider, PushTapHandler } from '@/api/usePush';
 import { AlarmSyncHost } from '@/alarm/useAlarmSync';
@@ -44,12 +45,12 @@ function Navigator() {
   const { c, scheme } = useTheme();
   const { mode } = useApi();
   const { status } = useAuth();
-  // Mode server: layar aplikasi hanya setelah masuk, layar masuk hanya sebelumnya (src/api/routeAccess.ts). Penjaga
+  // Mode akun dan server: layar aplikasi hanya setelah masuk, layar masuk hanya sebelumnya (src/api/routeAccess.ts). Penjaga
   // menutup layar yang tidak lagi boleh dibuka, juga dari sesi yang dicabut server, dan membuang riwayatnya.
   const app = canOpen('app', mode, status);
   const entry = canOpen('entry', mode, status);
   // Layar pembuka asli menunggu sampai sesi tersimpan selesai diperiksa; setelah itu tidak ada bingkai kertas kosong.
-  const ready = mode === 'contoh' || status !== 'checking';
+  const ready = !needsSignIn(mode) || status !== 'checking';
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(c.bg);
   }, [c.bg]);

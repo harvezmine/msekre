@@ -82,24 +82,34 @@ describe('mode data', () => {
     expect(readApiUrl({ apiUrl: 'http://192.168.1.5:3000' })).toBe('http://192.168.1.5:3000');
   });
 
-  test('server hanya bila dipilih dan alamatnya ada', () => {
+  test('dengan alamat server, bawaannya akun; server hanya bila dipilih di build pengembangan', () => {
     expect(resolveMode(null, null)).toBe('contoh');
-    expect(resolveMode(null, 'https://x.id')).toBe('contoh');
+    // Pemasangan baru di build rilis (alamat diisi): akun asli, mulai dari layar masuk.
+    expect(resolveMode(null, 'https://x.id')).toBe('akun');
+    expect(resolveMode('akun', 'https://x.id')).toBe('akun');
+    expect(resolveMode('akun', null)).toBe('contoh');
+    expect(resolveMode('contoh', 'https://x.id')).toBe('contoh');
     expect(resolveMode('server', null)).toBe('contoh');
     expect(resolveMode('server', 'https://x.id')).toBe('server');
-    expect(resolveMode('lain', 'https://x.id')).toBe('contoh');
+    // Server penuh (dengan jalur 501) hanya untuk pengembangan; di build rilis menjadi akun.
+    expect(resolveMode('server', 'https://x.id', false)).toBe('akun');
+    expect(resolveMode('lain', 'https://x.id')).toBe('akun');
   });
 
-  test('pilihan tersimpan; server tanpa alamat ditolak', async () => {
-    expect(await loadMode('https://x.id')).toBe('contoh');
+  test('pilihan tersimpan; akun dan server tanpa alamat ditolak', async () => {
+    expect(await loadMode('https://x.id')).toBe('akun');
+    expect(await loadMode(null)).toBe('contoh');
     expect(await saveMode('server', null)).toBe(false);
-    expect(await loadMode('https://x.id')).toBe('contoh');
+    expect(await saveMode('akun', null)).toBe(false);
+    expect(await loadMode('https://x.id')).toBe('akun');
     expect(await saveMode('server', 'https://x.id')).toBe(true);
     expect(await loadMode('https://x.id')).toBe('server');
     // Alamatnya dihapus dari app.json: kembali ke contoh walau pilihan tersimpan.
     expect(await loadMode(null)).toBe('contoh');
     expect(await saveMode('contoh', null)).toBe(true);
     expect(await loadMode('https://x.id')).toBe('contoh');
+    expect(await saveMode('akun', 'https://x.id')).toBe(true);
+    expect(await loadMode('https://x.id')).toBe('akun');
   });
 });
 

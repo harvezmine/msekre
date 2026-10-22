@@ -11,6 +11,7 @@ import { BackHeader } from '@/ui/BackHeader';
 import { openDraft } from '@/ui/business/openDraft';
 import { MoneyInSection, OrdersSection, ReportSection, StockSection } from '@/ui/business/Sections';
 import { SourcesRow } from '@/ui/business/SourcesRow';
+import { SampleBanner } from '@/ui/SampleBanner';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 
@@ -34,6 +35,7 @@ export default function UsahaLainnya() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Lainnya" large />
+      <SampleBanner area="usaha" />
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24, gap: 24 }}>
         {!data ? (
           <Txt color={c.muted} style={{ paddingHorizontal: 20, paddingTop: 16 }}>

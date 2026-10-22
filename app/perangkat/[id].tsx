@@ -6,6 +6,7 @@ import { useDeviceControl } from '@/api/useDeviceControl';
 import { useHome } from '@/api/useHome';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
+import { SampleBanner } from '@/ui/SampleBanner';
 import { REMOTES, RemoteContext, remoteKindOf, type RemoteApi } from '@/ui/remote';
 import { useToast } from '@/ui/toastStore';
 import { Txt } from '@/ui/Txt';
@@ -24,12 +25,14 @@ export default function RemotePerangkat() {
       return (
         <View style={{ flex: 1, backgroundColor: c.bg }}>
           <BackHeader title="Perangkat" />
+          <SampleBanner area="perangkat" />
         </View>
       );
     }
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         <BackHeader title="Perangkat" />
+        <SampleBanner area="perangkat" />
         <View style={{ padding: 24, gap: 16, alignItems: 'flex-start' }}>
           <Txt>Perangkat ini tidak ditemukan. Mungkin sudah dihapus dari tempat ini.</Txt>
           <Pressable

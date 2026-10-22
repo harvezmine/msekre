@@ -124,7 +124,13 @@ import { connectionsFrom, detailFrom, serviceFrom, startUrlOf, type FakeConnecti
 import { planControl } from './deviceControl';
 import { boxFrom, devicesFrom, toDevice, withoutGuardedActions } from './devices';
 import { homeFrom } from './home';
-import { draftFromOutgoing, SAMPLE_FILE_MEDIA_ID, SAMPLE_QR_MEDIA_ID, sampleHistory } from './history';
+import {
+  draftFromOutgoing,
+  SAMPLE_FILE_MEDIA_ID,
+  SAMPLE_QR_MEDIA_ID,
+  SAMPLE_SNAPSHOT_PREFIX,
+  sampleHistory,
+} from './history';
 import { FakeScenario, sampleMe } from './scenario';
 import { formatRupiah } from '../format';
 import { VoiceChannel } from '../voiceSession';
@@ -171,6 +177,8 @@ export interface FakeOptions {
   plan?: Partial<AccountPlan>;
   /** Mode Suara menyala untuk akun ini (`Me.features.voice`). Bawaan menyala. */
   voice?: boolean;
+  /** Hanya untuk tes: pemilik akun (`GET /me`) yang menimpa pengguna contoh, misalnya server palsu mode akun. */
+  me?: Partial<Pick<Me, 'name' | 'assistantName' | 'phone' | 'plan'>>;
   /** HP yang terhubung di Akun. Bawaan: Pixel 8 (HP ini) dan Galaxy A54. */
   phones?: AccountPhone[];
 }
@@ -334,7 +342,7 @@ export class FakeTransport implements Transport {
     this.requireSession = options.requireSession ?? false;
     this.afterLimit = options.afterLimit ?? MESSAGES_LIMIT_MAX;
     this.connectMs = options.connectMs ?? 300;
-    this.meValue = { ...sampleMe(this.clock), features: { voice: options.voice ?? true } };
+    this.meValue = { ...sampleMe(this.clock), ...options.me, features: { voice: options.voice ?? true } };
     this.accountState = initialAccountState(this.clock, options);
     this.waNumber = options.waNumber === undefined ? FAKE_WA_NUMBER : options.waNumber;
     this.pinValue = options.security?.pin ?? null;
@@ -1070,7 +1078,7 @@ export class FakeTransport implements Transport {
     if (mediaId === SAMPLE_QR_MEDIA_ID) return { kind: 'sampleQr' };
     if (mediaId === SAMPLE_FILE_MEDIA_ID) return { kind: 'sampleFile' };
     // Gambar terakhir kamera contoh (`snapshotMediaId` = `snap-<id kamera>`).
-    if (mediaId.startsWith('snap-')) return { kind: 'sampleSnapshot' };
+    if (mediaId.startsWith(SAMPLE_SNAPSHOT_PREFIX)) return { kind: 'sampleSnapshot' };
     throw notFound();
   }
 

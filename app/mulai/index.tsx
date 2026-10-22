@@ -1,6 +1,8 @@
 import { router } from 'expo-router';
-import { ScrollView, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useApi } from '@/api/ApiProvider';
 import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
 import { IntiOrb } from '@/ui/inti/IntiOrb';
@@ -10,11 +12,22 @@ import { Txt } from '@/ui/Txt';
 import { Wordmark } from '@/ui/Wordmark';
 
 // Niat layar: berkenalan dengan asisten dalam satu kalimat. Tindakan tersering: Mulai, tombol besar paling bawah (zona
-// jempol). Layar pertama kali 1 (desain 2n): Inti menyapa.
+// jempol). Layar pertama kali 1 (desain 2n): Inti menyapa. Dengan akun asli ada satu jalan tenang di bawahnya: "Lihat
+// contoh dulu" (mode contoh, tanpa masuk).
 export default function Mulai() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const assistant = useAssistantName();
+  const { mode, setMode } = useApi();
+  // Ke Beranda baru setelah mode contoh terpasang: sebelumnya penjaga rute masih meminta masuk.
+  const [toSample, setToSample] = useState(false);
+  useEffect(() => {
+    if (toSample && mode === 'contoh') router.replace('/');
+  }, [toSample, mode]);
+  const seeSample = () => {
+    setToSample(true);
+    void setMode('contoh');
+  };
   return (
     <ScrollView
       style={{ backgroundColor: c.bg }}
@@ -41,6 +54,26 @@ export default function Mulai() {
       <View testID="zona-jempol" style={{ alignSelf: 'stretch', gap: 20 }}>
         <StepDots step={1} />
         <PrimaryButton label="Mulai" onPress={() => router.push('/mulai/masuk')} />
+        {mode !== 'contoh' ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Lihat contoh dulu"
+            onPress={seeSample}
+            disabled={toSample}
+            android_ripple={{ color: c.ripple }}
+            style={{
+              minHeight: 48,
+              marginTop: -8,
+              justifyContent: 'center',
+              alignSelf: 'center',
+              paddingHorizontal: 16,
+            }}
+          >
+            <Txt weight={600} color={c.muted} style={{ fontSize: 15 }}>
+              Lihat contoh dulu
+            </Txt>
+          </Pressable>
+        ) : null}
       </View>
     </ScrollView>
   );

@@ -4,6 +4,7 @@ import { useApi } from '@/api/ApiProvider';
 import { useAgenda } from '@/api/useAgenda';
 import { useAuth } from '@/api/useAuth';
 import { addDays } from '@/api/dates';
+import { needsSignIn } from '@/api/mode';
 import { getAlarmScheduler } from './index';
 import { AlarmSync, ALARM_HORIZON_DAYS } from './sync';
 
@@ -14,14 +15,17 @@ const RESYNC_MS = 60 * 60 * 1000;
  * Menyamakan alarm di HP dengan agenda (lihat {@link AlarmSync}): setiap agenda berubah (muat, event stream), setiap
  * aplikasi kembali ke depan, setiap jam, dan setelah masuk. Sebelum menyamakan, rentang hari ini sampai 7 hari ke depan
  * dipastikan sudah dimuat (pergantian pekan, atau agenda yang belum menjangkau sejauh itu). Keluar membatalkan semua
- * alarm. Dipasang sekali di akar, di dalam `AgendaProvider`.
+ * alarm. Mode `akun`: agendanya masih contoh, jadi tidak ada alarm yang dijadwalkan (yang tersisa dari mode contoh
+ * dibatalkan); pemilik akun asli tidak boleh dibangunkan oleh agenda orang lain. Dipasang sekali di akar, di dalam
+ * `AgendaProvider`.
  */
 export function useAlarmSync() {
   const { mode } = useApi();
   const { status } = useAuth();
   const agenda = useAgenda();
   const { items, status: agendaStatus } = agenda;
-  const active = mode === 'contoh' || status === 'signedIn';
+  const sampleAgenda = mode === 'akun';
+  const active = !sampleAgenda && (!needsSignIn(mode) || status === 'signedIn');
   const ready = active && agendaStatus === 'ready';
   const sync = useRef<AlarmSync | null>(null);
   sync.current ??= new AlarmSync(getAlarmScheduler());
@@ -47,10 +51,11 @@ export function useAlarmSync() {
   }, [ready, items]);
 
   // Hanya saat sudah pasti keluar; selama sesi masih diperiksa (`checking`) alarm yang ada dibiarkan.
-  const signedOut = mode === 'server' && status === 'signedOut';
+  const signedOut = needsSignIn(mode) && status === 'signedOut';
+  const clear = signedOut || sampleAgenda;
   useEffect(() => {
-    if (signedOut) void sync.current?.clear();
-  }, [signedOut]);
+    if (clear) void sync.current?.clear();
+  }, [clear]);
 
   useEffect(() => {
     const go = () => void run.current();

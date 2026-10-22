@@ -35,7 +35,8 @@ const formatPhone = groupPhone;
 const clock = (s: number) => `${pad(Math.floor(s / 60))}.${pad(s % 60)}`;
 
 // Layar pertama kali 2 (desain 2o): nomor WhatsApp dan kode. "Kirim kode" meminta kode ke server (auth/start); "Masuk"
-// mencocokkannya (auth/verify). Nomor contoh terisi hanya di mode contoh; di mode server mulai dari kosong.
+// mencocokkannya (auth/verify). Nomor contoh terisi hanya di mode contoh; di mode akun dan server mulai dari kosong, dan
+// kodenya sungguhan dari WhatsApp.
 // Niat layar: masuk dengan nomor WhatsApp dan kode enam angka, tanpa kata sandi. Tindakan tersering: Masuk, tombol besar
 // paling bawah (zona jempol); Kirim kode tepat di bawah kolom nomor.
 export default function MulaiMasuk() {
@@ -121,7 +122,8 @@ export default function MulaiMasuk() {
   const submit = () =>
     run('verify', async () => {
       await verify(toE164(phone), code);
-      // Mode server: AfterSignIn (akar) membukanya sesudah penjaga rute menutup layar ini.
+      // Mode server: AfterSignIn (akar) membukanya sesudah penjaga rute menutup layar ini. Mode akun: penjaga rute
+      // langsung membawa ke Beranda.
       if (mode === 'contoh') router.push('/mulai/pilih');
     });
 

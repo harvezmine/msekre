@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Device, Draft } from '@/api/contract';
+import { useDataMode } from '@/api/dataMode';
 import { useAgenda } from '@/api/useAgenda';
 import { useChat } from '@/api/useChat';
 import { useDeviceControl } from '@/api/useDeviceControl';
@@ -77,13 +78,17 @@ export default function Beranda() {
   const devices = useDeviceControl('Semua');
   const chat = useChat({ onError: toast });
   const tip = useTip('inti');
+  // Mode akun: persetujuan, agenda, dan perangkat masih contoh, jadi bloknya tidak tampil; tinggal sapaan, Inti, dan
+  // "Coba bilang".
+  const { hybrid } = useDataMode();
 
   const clock = deviceClock();
   const now = agenda.now ?? clock.now;
   const today = agenda.today ?? clock.today;
-  const approval = home ? oldestApproval(home) : null;
-  const next = home ? nextAgenda({ items: agenda.items, today: agenda.today, homeToday: home.agendaToday }, now) : null;
-  const favorites = pickFavorites(devices.devices);
+  const approval = home && !hybrid ? oldestApproval(home) : null;
+  const next =
+    home && !hybrid ? nextAgenda({ items: agenda.items, today: agenda.today, homeToday: home.agendaToday }, now) : null;
+  const favorites = hybrid ? [] : pickFavorites(devices.devices);
   // Pengguna baru: tidak ada yang perlu disetujui, tidak ada agenda dekat, tidak ada perangkat. Menunggu perangkat
   // dimuat dulu, supaya kartu contoh tidak berkedip lalu hilang.
   const devicesKnown = devices.data !== null || devices.status === 'error';

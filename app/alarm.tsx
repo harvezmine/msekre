@@ -11,6 +11,7 @@ import type { AgendaItem } from '@/api/contract';
 import { useAgenda } from '@/api/useAgenda';
 import { dayLabel } from '@/api/dates';
 import { DEMO_ALARM_ID } from '@/api/demo';
+import { needsSignIn } from '@/api/mode';
 import { useAuth } from '@/api/useAuth';
 import { useAssistantName } from '@/api/useProfile';
 import { getAlarmScheduler } from '@/alarm';
@@ -51,10 +52,11 @@ export default function Alarm() {
   const agenda = useAgenda();
   const params = useLocalSearchParams<{ id?: string; preview?: string }>();
   const preview = one(params.preview) === '1';
-  // Mode contoh tanpa id (dibuka dari menu uji): pengingat contoh. Mode server tanpa id: tidak ada yang dibunyikan.
+  // Mode contoh tanpa id (dibuka dari menu uji): pengingat contoh. Mode akun dan server tanpa id: tidak ada yang
+  // dibunyikan.
   const id = one(params.id) ?? (mode === 'contoh' ? DEMO_ALARM_ID : undefined);
   // Hanya dengan sesi aktif (atau mode contoh) item bisa dimuat, tunda dikabarkan ke server, dan chat dibuka.
-  const online = mode === 'contoh' || auth === 'signedIn';
+  const online = !needsSignIn(mode) || auth === 'signedIn';
   const [loaded, setLoaded] = useState<AgendaItem | null>(null);
   // Alarm percobaan dari layar izin alarm hanya ada di HP ini: itemnya dibuat dari jadwal lokal.
   const [test, setTest] = useState<AgendaItem | null>(null);
