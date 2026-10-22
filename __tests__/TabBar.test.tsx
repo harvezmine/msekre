@@ -2,6 +2,8 @@ import { act, fireEvent, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
+import { StyleSheet } from 'react-native';
+import Beranda from '../app/(tabs)/index';
 import { createTestApi, renderWithProviders, toastNow } from './helpers';
 import { HttpTransport, type SocketLike } from '@/api/http';
 import { createMemorySession } from '@/api/session';
@@ -47,7 +49,7 @@ const tabNames = () => screen.queryAllByRole('tab').map((t) => t.props.accessibi
 
 describe('tab tumbuh sesuai pemakaian', () => {
   test('data contoh (perangkat dan usaha): Beranda, Agenda | Inti | Perangkat, Usaha', async () => {
-    await setup();
+    await setup(1);
     expect(tabNames()).toEqual(['Beranda', 'Agenda', 'Perangkat', 'Usaha']);
     expect(screen.getByRole('button', { name: 'Nadia' })).toBeOnTheScreen();
   });
@@ -206,23 +208,41 @@ describe('perpindahan tab', () => {
   });
 });
 
+/** Inti di bilah tab diuji di Agenda (di Beranda Inti besar di atas layar yang dibacakan, lihat beranda-inti.test). */
 describe('Inti', () => {
-  test('di Beranda besar dan naik di atas bilah; di tab lain kecil di dalam bilah', async () => {
+  const HIDDEN = { includeHiddenElements: true };
+  const orbWidth = () =>
+    (StyleSheet.flatten(screen.getByTestId('inti-bola', HIDDEN).props.style) as { width: number }).width;
+
+  test('ukurannya sama di semua tab (48, di dalam bilah, tanpa naik atau membesar di Beranda)', async () => {
     await setup(0);
-    expect(screen.getByTestId('inti-beranda')).toBeOnTheScreen();
+    expect(orbWidth()).toBe(48);
+    expect(StyleSheet.flatten(screen.getByTestId('inti-tab', HIDDEN).props.style).transform).toBeUndefined();
     await screen.unmount();
     await setup(1);
-    expect(screen.getByTestId('inti-tab')).toBeOnTheScreen();
+    expect(orbWidth()).toBe(48);
+  });
+
+  test('di Beranda tidak dibacakan dua kali (Inti besar membawa aksi yang sama), tetapi tetap bisa diketuk dan ditahan', async () => {
+    await setup(0);
+    expect(screen.queryByRole('button', { name: 'Nadia' })).toBeNull();
+    const inti = screen.getByTestId('inti', HIDDEN);
+    await fireEvent.press(inti);
+    expect(router.navigate).toHaveBeenCalledWith('/chat');
+    await fireEvent(inti, 'longPress');
+    expect(router.navigate).toHaveBeenCalledWith({ pathname: '/suara', params: { hold: '1' } });
+    await fireEvent(inti, 'pressOut');
+    expect(holdBridge.isHeld()).toBe(false);
   });
 
   test('ketuk membuka chat', async () => {
-    await setup();
+    await setup(1);
     await fireEvent.press(screen.getByRole('button', { name: 'Nadia' }));
     expect(router.navigate).toHaveBeenCalledWith('/chat');
   });
 
   test('tahan: getar, Mode Suara terbuka selagi jari menempel; diangkat: tahanan dilepas', async () => {
-    await setup();
+    await setup(1);
     const inti = screen.getByRole('button', { name: 'Nadia' });
     expect(inti.props.accessibilityHint).toBe('Ketuk untuk chat, tahan untuk bicara');
     await fireEvent(inti, 'pressIn');
@@ -238,7 +258,7 @@ describe('Inti', () => {
   });
 
   test('ketukan biasa tidak meninggalkan tahanan', async () => {
-    await setup();
+    await setup(1);
     const inti = screen.getByRole('button', { name: 'Nadia' });
     await fireEvent(inti, 'pressIn');
     await fireEvent(inti, 'pressOut');
@@ -247,7 +267,7 @@ describe('Inti', () => {
   });
 
   test('pembaca layar: aksi Chat dan Bicara', async () => {
-    await setup();
+    await setup(1);
     const inti = screen.getByRole('button', { name: 'Nadia' });
     expect(inti.props.accessibilityActions.map((a: { label: string }) => a.label)).toEqual(['Chat', 'Bicara']);
     await fireEvent(inti, 'accessibilityAction', { nativeEvent: { actionName: 'longpress' } });
@@ -258,18 +278,27 @@ describe('Inti', () => {
 
   test('Mode Suara belum tersedia untuk akun ini: tahan memberi catatan, tidak membuka apa pun', async () => {
     const api = createTestApi({ mode: 'server', token: 'tok', voice: false });
-    await setup(0, { api });
+    await setup(1, { api });
     await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress');
     expect(toastNow()?.text).toBe(VOICE_SOON_TEXT);
     expect(router.navigate).not.toHaveBeenCalledWith(expect.objectContaining({ pathname: '/suara' }));
     expect(holdBridge.isHeld()).toBe(false);
   });
 
-  test('petunjuk pertama: Inti di Beranda bercincin halo; ketukan tab menutup petunjuk', async () => {
-    await setup(0, { tips: 'fresh' });
-    const halo = () => screen.queryByTestId('inti-halo', { includeHiddenElements: true });
-    expect(halo()).not.toBeNull();
+  test('petunjuk pertama: halo di Inti besar Beranda (bukan di bilah); ketukan tab menutup petunjuk', async () => {
+    const made = props(0);
+    await renderWithProviders(
+      <>
+        <Beranda />
+        <TabBar {...made.p} />
+      </>,
+      { tips: 'fresh' },
+    );
+    await settle();
+    const halos = () => screen.queryAllByTestId('inti-halo', HIDDEN);
+    expect(halos()).toHaveLength(1);
+    expect(screen.getByTestId('inti-besar', HIDDEN)).toContainElement(halos()[0]!);
     await fireEvent.press(screen.getByRole('tab', { name: 'Agenda' }));
-    expect(halo()).toBeNull();
+    expect(halos()).toHaveLength(0);
   });
 });

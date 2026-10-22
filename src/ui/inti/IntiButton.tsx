@@ -16,13 +16,26 @@ const KEEP_HOLD = { top: 240, bottom: 240, left: 240, right: 240 };
 export const INTI_HINT = 'Ketuk untuk chat, tahan untuk bicara';
 
 /**
- * Inti yang bisa disentuh, di tengah bilah tab:
+ * Inti yang bisa disentuh (di tengah bilah tab, dan besar di atas Beranda):
  * - ketuk: chat;
  * - tahan: Mode Suara terbuka dan langsung mendengar selagi jari masih menempel; diangkat: ucapan dikirim
  *   (`src/voice/holdBridge.ts`). Getar saat tahanan dimulai.
  * Pembaca layar: label nama asisten, aksi "Chat" dan "Bicara". Sentuhan apa pun menutup petunjuk Inti.
  */
-export function IntiButton({ size, halo = false, paused = false }: { size: number; halo?: boolean; paused?: boolean }) {
+export function IntiButton({
+  size,
+  halo = false,
+  paused = false,
+  glowScale,
+  testID = 'inti',
+}: {
+  size: number;
+  halo?: boolean;
+  paused?: boolean;
+  /** Lebar cahaya sebagai kelipatan ukuran (lihat `IntiOrb`). */
+  glowScale?: number;
+  testID?: string;
+}) {
   const name = useAssistantName();
   const voice = useVoiceAvailable();
   const toast = useToast();
@@ -55,7 +68,7 @@ export function IntiButton({ size, halo = false, paused = false }: { size: numbe
 
   return (
     <PressableScale
-      testID="inti"
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={name}
       accessibilityHint={INTI_HINT}
@@ -74,7 +87,7 @@ export function IntiButton({ size, halo = false, paused = false }: { size: numbe
       pressRetentionOffset={KEEP_HOLD}
       style={{ width: size, height: size, borderRadius: size / 2 }}
     >
-      <IntiOrb size={size} halo={halo} paused={paused} />
+      <IntiOrb size={size} halo={halo} paused={paused} glowScale={glowScale} />
     </PressableScale>
   );
 }

@@ -90,7 +90,7 @@ Teks memakai `<Txt v="row">`; angka jam/uang/suhu diberi `tabular`. `readout` da
 | `NextItemRow` | Agenda berikutnya | Kalender biru, jam, judul (≤ 2 baris), chevron; tanpa permukaan |
 | `FavouriteToggle` | Sakelar besar perangkat | 132 tinggi (104 `compact`), ikon 46, nama pendek + satu kata keadaan; ketuk nyala/mati, tahan buka remote; peran `switch` |
 | `SuggestionCard` | "Coba bilang" | Hanya untuk pengguna baru; ketuk membuka chat dengan kalimatnya di kolom ketik |
-| `CoachMark` | Petunjuk sekali-lihat | Gelembung `tip`/`onTip` + panah; lapisan tembus pandang: ketukan di mana pun menutupnya |
+| `CoachMark` | Petunjuk sekali-lihat | Gelembung `tip`/`onTip` + panah (`bottom`: ke bawah, `top`: ke atas); lapisan tembus pandang: ketukan di mana pun menutupnya |
 | `ServiceLogo` | Logo layanan di mana pun layanan tampil | Ubin persegi membulat 28% sisi seperti ikon aplikasi (bukan lingkaran): putih + garis tipis di terang, `raised` di gelap; ukuran 28/40/56/72; `status` `connected` (takik centang hijau), `attention` (titik koral), `soon` (redup). Pemetaan id -> logo hanya di `src/ui/connect/logos.ts` (logo landing, Simple Icons, ubin huruf berwarna merek bila tidak ada logo bebas pakai; id asing dicocokkan lewat nama). Logo SVG dibuat ulang dengan `node scripts/make-logos.mjs` dari `assets/logos/` |
 | `blockEntering`, `blockExiting` | Blok muncul/pergi | Prop `entering`/`exiting` Reanimated: pudar + naik 12, 320 ms, jeda 80; pergi 260 ms |
 
@@ -110,7 +110,7 @@ dibangun ulang dengan kit di R2–R6.
 - Setiap layar: isi atas, spacer lentur, aksi utama di bawah, diukur dari batas aman bawah (`ThumbZone`). Tidak ada
   jarak tetap dari atas untuk mendorong aksi ke bawah.
 - Aksi utama di 40% bawah: Inti, Kirim, − / daya / +, rocker, putar, Tambah.
-- Di `tall`, tinggi lebih masuk ke spacer. Di `compact`: sapaan 28, Inti 76, ubin 104.
+- Di `tall`, tinggi lebih masuk ke spacer. Di `compact`: sapaan 28, Inti besar 122, ubin 104.
 - Target: kontrol utama ≥ 56 dp, tombol remote 60–100, kontrol kedua ≥ 48.
 - Teks tetap rapi sampai skala huruf 1,3: tinggi minimum, bukan tinggi tetap.
 
@@ -119,18 +119,50 @@ dibangun ulang dengan kit di R2–R6.
 - **Beranda tumbuh pelan-pelan** (`src/ui/beranda/blocks.ts`): sapaan pendek ("Pagi, Rina"; pengguna baru "Halo,
   Rina") dan avatar (ke Akun). Paling banyak tiga blok, urutan tetap, masing-masing hanya bila ada isinya:
   persetujuan tertua, agenda berikutnya (dalam 12 jam, tetap 15 menit setelah mulai), 2–3 sakelar favorit. Tanpa blok:
-  satu `SuggestionCard` di zona jempol. Usaha, ringkasan, cincin layanan, dan pemilih tempat tidak di Beranda.
+  satu `SuggestionCard` di zona jempol. Usaha, ringkasan, dan pemilih tempat tidak di Beranda; layanan hanya tampil
+  sebagai jaring logo di sekitar Inti besar.
 - **Favorit**: yang disematkan (`Device.favorite`), atau tiga yang terakhir diatur (`Device.lastUsedAt`) tanpa kunci,
   kamera, dan perangkat yang dijaga. Ketuk lewat `useDeviceControl` (PIN dan "buka kunci?" tetap berlaku).
 - **Inti** (`src/ui/inti/IntiOrb.tsx`, `IntiButton.tsx`): bola gradasi brand (sapuan PNG `assets/brand/inti-sapuan.png`
-  dari `scripts/make-inti.mjs`, diputar 16 detik), cahaya bernapas 4,2 detik, S putih. 92 di Beranda (76 `compact`),
-  pusatnya di garis atas bilah; 48 di tab lain. Ketuk = chat; tahan = `/suara?hold=1` langsung mendengar, jari diangkat
-  mengirim (`src/voice/holdBridge.ts`). Label = nama asisten, petunjuk "Ketuk untuk chat, tahan untuk bicara".
-- **Bilah tab** (`src/ui/TabBar.tsx`, `src/ui/tabSet.ts`): dua paruh mengapit slot Inti 96. Beranda dan Agenda selalu;
+  dari `scripts/make-inti.mjs`, diputar 16 detik), cahaya bernapas 4,2 detik, S putih. Ketuk = chat; tahan =
+  `/suara?hold=1` langsung mendengar, jari diangkat mengirim (`src/voice/holdBridge.ts`). Label = nama asisten, petunjuk
+  "Ketuk untuk chat, tahan untuk bicara".
+- **Inti besar Beranda** (R7, `src/ui/beranda/IntiHero.tsx`, tata letak `heroLayout.ts`, gerak `webMath.ts`): di tengah
+  atas, di bawah sapaan; Inti yang sama (`IntiButton`, ketuk/tahan sama), cahaya 1,7 × ukuran. Ukuran mengikuti layar
+  (`heroMetrics`):
+
+  | Kelas | Inti | Kotak jaring | Ubin simpul | Simpul paling banyak |
+  |---|---|---|---|---|
+  | `compact` (360×640) | 0,34 × lebar, 112–132 (122) | Inti + 60 (182) | 28 | 5 |
+  | `regular` (412×780) | 0,38 × lebar, 136–176 (156) | tinggi − 640, Inti + 64..100 | 30 | 6 |
+  | `tall` (393×873 / 412×915) | 0,4 × lebar, 148–188 (157 / 165) | tinggi − 640, Inti + 64..110 (233 / 275) | 32 | 7 |
+
+  Dengan blok, Inti tepat di bawah sapaan supaya ketiga blok tetap terlihat di HP panjang (pusat ±26% tinggi layar di
+  HP dengan bilah status). Tanpa blok (pengguna baru), Inti turun sampai pusatnya ±34% (paling banyak 120 dp,
+  dianimasikan 320 ms; naik kembali langsung). Pergeseran itu dihitung, bukan spacer lentur: spacer lentur bertabrakan
+  dengan transisi tata letak blok.
+- **Jaring** di sekitar Inti besar: simpul dari `home.ring.nodes` (urutan server) sebagai `ServiceLogo` (logo asli, atau
+  ikon simpul untuk perangkat dan layanan tanpa logo, `fallbackIcon`) di cincin lonjong yang sengaja tidak rata (sudut
+  dan jarak per jumlah simpul, seimbang kiri-kanan; terlalu dekat Inti = didorong keluar atau diputar ke samping). Garis
+  jari-jari bergradasi hijau brand (α 0,4 → 0,12 terang, 0,5 → 0,12 gelap) dari tepi Inti sampai 3 dp sebelum tepi ubin,
+  ditambah paling banyak dua garis tetangga bertitik (satu kiri, satu kanan). Tidak terjangkau: ubin redup kelabu, diam,
+  garis putus-putus kelabu, tanpa titik cahaya. Pengguna tanpa layanan: tiga simpul contoh pudar (WhatsApp, Google
+  Kalender, Gmail) dengan garis putus-putus hijau. Saat memuat: Inti saja. Pembaca layar: satu kalimat "Tersambung: …".
+  Simpul tidak bisa diketuk (tidak bersaing dengan tahan Inti).
+- **Gerak jaring**: satu jam `useFrameCallback` di utas UI (detik, berputar tiap 240 detik; semua periode membaginya,
+  jadi tidak pernah melompat). Simpul melayang ±2,5 dp (sinus pelan 8–24 detik per sumbu). Titik cahaya: jalur keluar
+  tiap 5 detik (Inti → simpul, 1,6 detik, lalu cincin denyut 1,1 detik di simpulnya), jalur balasan tiap 8 detik mulai
+  2,5 detik (simpul → Inti, 1,9 detik, 70% terang); urutan simpul bergantian kiri-kanan. Hanya `transform`/`opacity`
+  yang berubah; garis SVG diam. "Kurangi gerakan": jaring diam tanpa titik cahaya, jam mati. Layar tidak fokus atau
+  aplikasi di latar: jam berhenti. Worklet di `webMath.ts` diuji di `__tests__/worklet-ui.test.tsx`.
+- **Bilah tab** (`src/ui/TabBar.tsx`, `src/ui/tabSet.ts`): dua paruh mengapit slot Inti 96 dengan Inti 48 yang sama di
+  semua tab (tidak membesar atau naik di Beranda); di Beranda tidak dibacakan pembaca layar karena Inti besar membawa
+  aksi yang sama. Beranda dan Agenda selalu;
   Perangkat setelah ada perangkat (Kotak termasuk); Usaha setelah `Home.business` ada. Susunan terakhir disimpan di HP;
   tab yang muncul selagi aplikasi terbuka masuk dengan gerak 360/240 ms dan titik hijau sampai dikunjungi.
 - **Petunjuk** (`src/ui/tips.ts`): "Ketuk untuk chat · Tahan untuk bicara" sekali seumur aplikasi di HP ini, dengan
-  halo di Inti; menutupi kartu contoh selama tampil; ketukan apa pun menutupnya.
+  halo di Inti besar dan gelembung di bawahnya berpanah ke atas (`CoachMark top`); menutupi kartu contoh selama tampil;
+  ketukan apa pun menutupnya.
 
 ## Mode Suara (R3)
 

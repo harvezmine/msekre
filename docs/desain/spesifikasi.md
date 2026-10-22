@@ -194,7 +194,7 @@ Usaha, Terhubung, history and summaries are **never** on Beranda (Usaha has its 
 | Has devices | Beranda, Agenda | Inti | Perangkat | first device connected (Kotak, HA, SmartThings…) |
 | Has business | Beranda, Agenda | Inti | Perangkat, Usaha | first business source (kasir, rekening, marketplace) or user tells the assistant they run a business. If business but no devices: Beranda, Agenda | Inti | Usaha |
 
-The bar is built as two halves around a fixed 96 dp centre slot, so the Inti stays centred whatever the count. Akun is always the avatar at the top right of Beranda (one place). On Beranda the Inti is 92 (76 compact) and rises over the bar; on other tabs it is 48 inline.
+The bar is built as two halves around a fixed 96 dp centre slot, so the Inti stays centred whatever the count. Akun is always the avatar at the top right of Beranda (one place). The bar Inti is 48 inline on every tab. Since R7 the big Inti lives at the top centre of Beranda, under the greeting, with a calm web of the user's service logos around it (see `docs/desain.md`, "Inti besar Beranda").
 
 ### 6.3 Tips (coach marks)
 
@@ -242,7 +242,7 @@ One tip at a time, at most one per day, each shown once, dismissed by any tap, n
 | `DPad`, `Rocker`, `Slider` (56 horizontal, 112×440 vertical), `Segmented` (44 items) | as drawn |
 | `TimeRail` | vertical rail, 56 time column, green now-line, next item card |
 | `AreaChart` | violet line 3, area 14% → 0, end dot 6 with bg ring |
-| `Inti` | 92 / 88 / 76 / 48 sizes; glow, sweep core, white S (`s-mono-light.png` + `tintColor`), thinking ring, halo |
+| `Inti` | Beranda hero 122–188 (R7), 88 Mode Suara, 48 tab bar; glow, sweep core, white S (`s-mono-light.png` + `tintColor`), thinking ring, halo |
 
 ---
 
@@ -251,7 +251,7 @@ One tip at a time, at most one per day, each shown once, dismissed by any tap, n
 `useLayoutClass()`: `compact` = height < 700; `tall` = height / width ≥ 2.0 (includes 393×873); `regular` otherwise.
 - Every screen: top content, flexible spacer, bottom actions anchored to the bottom inset.
 - Primary actions in the bottom 40%: Inti, Kirim (falls into it on most phones), − / power / +, rockers, play, Tambah.
-- compact: greeting 28, Inti 76, tiles 104, approval padding 14, dock fade 120 (frame 20 shows all three Beranda blocks fit at 360×640). tall: extra height goes to the spacer (frame 21).
+- compact: greeting 28, big Inti 122 (R7), tiles 104, approval padding 14, dock fade 120 (frame 20 shows all three Beranda blocks fit at 360×640). tall: extra height goes to the spacer (frame 21).
 
 ---
 

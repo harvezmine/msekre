@@ -12,13 +12,25 @@ import { motion } from '@/theme/tokens';
 import { Txt } from '../Txt';
 
 /**
- * Petunjuk sekali-lihat (§6.3, §8): gelembung tinta dengan panah ke bawah, muncul memudar sambil naik 6 dp (280 ms).
- * Mengisi seluruh induknya dengan lapisan tembus pandang: ketukan di mana pun menutupnya. `bottom` = jarak ujung bawah
- * gelembung dari bawah induk, supaya panahnya menunjuk sasaran di bawahnya (Inti).
+ * Petunjuk sekali-lihat (§6.3, §8): gelembung tinta dengan panah, muncul memudar sambil naik 6 dp (280 ms). Mengisi
+ * seluruh induknya dengan lapisan tembus pandang: ketukan di mana pun menutupnya.
+ * - `bottom`: jarak ujung bawah gelembung dari bawah induk; panahnya menunjuk ke bawah (sasaran di bawahnya).
+ * - `top`: jarak ujung atas panah dari atas induk; panahnya menunjuk ke atas (Inti besar di atas Beranda).
  */
-export function CoachMark({ text, bottom, onDismiss }: { text: string; bottom: number; onDismiss: () => void }) {
+export function CoachMark({
+  text,
+  bottom,
+  top,
+  onDismiss,
+}: {
+  text: string;
+  bottom?: number;
+  top?: number;
+  onDismiss: () => void;
+}) {
   const { c } = useTheme();
   const reduce = useReducedMotion();
+  const up = top !== undefined;
   const p = useSharedValue(reduce ? 1 : 0);
   useEffect(() => {
     if (!reduce) p.set(withTiming(1, { duration: motion.coach.duration, easing: Easing.out(Easing.cubic) }));
@@ -35,8 +47,13 @@ export function CoachMark({ text, bottom, onDismiss }: { text: string; bottom: n
     >
       <Animated.View
         pointerEvents="none"
-        style={[{ position: 'absolute', left: 16, right: 16, bottom, alignItems: 'center' }, style]}
+        style={[
+          { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
+          up ? { top } : { bottom: bottom ?? 0 },
+          style,
+        ]}
       >
+        {up ? <Arrow color={c.tip} up /> : null}
         <View
           style={{
             backgroundColor: c.tip,
@@ -50,18 +67,24 @@ export function CoachMark({ text, bottom, onDismiss }: { text: string; bottom: n
             {text}
           </Txt>
         </View>
-        {/* Panah: persegi kecil diputar 45°, setengahnya keluar dari bawah gelembung. */}
-        <View
-          style={{
-            width: 16,
-            height: 16,
-            marginTop: -9,
-            borderRadius: 3,
-            backgroundColor: c.tip,
-            transform: [{ rotate: '45deg' }],
-          }}
-        />
+        {up ? null : <Arrow color={c.tip} />}
       </Animated.View>
     </Pressable>
+  );
+}
+
+/** Panah: persegi kecil diputar 45°, setengahnya keluar dari bawah (atau atas) gelembung. */
+function Arrow({ color, up = false }: { color: string; up?: boolean }) {
+  return (
+    <View
+      style={{
+        width: 16,
+        height: 16,
+        ...(up ? { marginBottom: -9, zIndex: 1 } : { marginTop: -9 }),
+        borderRadius: 3,
+        backgroundColor: color,
+        transform: [{ rotate: '45deg' }],
+      }}
+    />
   );
 }

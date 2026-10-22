@@ -52,6 +52,8 @@ interface Props {
   glow?: boolean;
   /** Keras-pelannya suara yang sudah dihaluskan (0..1): cahaya membesar `1 + 0,45 × level` (§5.1). */
   level?: SharedValue<number>;
+  /** Lebar kotak cahaya sebagai kelipatan ukuran (bawaan 2,1). Inti besar Beranda memakai lebih kecil supaya muat. */
+  glowScale?: number;
 }
 
 /**
@@ -67,10 +69,13 @@ export function IntiOrb({
   dim = false,
   glow = true,
   level,
+  glowScale = 2.1,
 }: Props) {
   const reduce = useReducedMotion();
   const still = reduce || paused;
-  const glowSize = size * 2.1;
+  const glowSize = size * glowScale;
+  // Bayangan bola 14/30/-10 sampai 92 dp; Inti yang lebih besar mendapat bayangan sebanding.
+  const k = Math.max(1, size / 92);
   return (
     <View
       testID="inti-bola"
@@ -86,7 +91,7 @@ export function IntiOrb({
         style={{
           ...StyleSheet.absoluteFill,
           borderRadius: size / 2,
-          boxShadow: '0 14px 30px -10px rgba(20,90,70,0.7)',
+          boxShadow: `0 ${Math.round(14 * k)}px ${Math.round(30 * k)}px -${Math.round(10 * k)}px rgba(20,90,70,0.7)`,
         }}
       >
         <View style={{ flex: 1, borderRadius: size / 2, overflow: 'hidden' }}>

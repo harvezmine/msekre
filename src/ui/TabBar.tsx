@@ -1,25 +1,16 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import { useContext, useEffect } from 'react';
+import { useContext } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, {
-  Easing,
-  FadeIn,
-  LinearTransition,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { useTheme } from '@/theme/ThemeProvider';
 import { motion } from '@/theme/tokens';
 import { Icon } from './Icon';
 import type { IconName } from './icons';
 import { IntiButton } from './inti/IntiButton';
-import { useLayoutClass } from './kit/layout';
 import { INTI_SIZE, INTI_SLOT, TAB_BAR_HEIGHT } from './tabBarMetrics';
 import { splitTabs, useTabSet, visitTab, type TabName } from './tabSet';
 import { TabsLiveContext } from './TabsLiveContext';
-import { dismissTip, useTip } from './tips';
+import { dismissTip } from './tips';
 import { Txt } from './Txt';
 
 export { INTI_SIZE, INTI_SLOT, TAB_BAR_HEIGHT };
@@ -31,23 +22,17 @@ const TABS: Record<TabName, { label: string; icon: IconName }> = {
   usaha: { label: 'Usaha', icon: 'store' },
 };
 
-/** Ukuran Inti Beranda untuk kelas layar ini. */
-export function useBerandaIntiSize(): number {
-  return useLayoutClass() === 'compact' ? INTI_SIZE.compact : INTI_SIZE.beranda;
-}
-
 /**
  * Bilah tab: dua paruh mengapit slot Inti yang tetap di tengah. Tab tumbuh sesuai pemakaian (`useTabSet`): Beranda dan
  * Agenda selalu; Perangkat dan Usaha setelah ada isinya, muncul dengan gerak halus dan titik sampai dikunjungi. Inti di
- * Beranda besar dan naik setengah di atas bilah (zona jempol); di tab lain kecil di dalam bilah.
+ * slot tengah berukuran sama di semua tab (48, di dalam bilah) dan bisa diketuk atau ditahan di mana pun. Di Beranda
+ * Inti besar di atas layar membawa label dan aksi yang sama, jadi Inti bilah tidak dibacakan dua kali oleh pembaca layar.
  */
 export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const { c } = useTheme();
   const live = useContext(TabsLiveContext);
   const reduce = useReducedMotion();
   const set = useTabSet();
-  const tip = useTip('inti');
-  const big = useBerandaIntiSize();
   const activeName = state.routes[state.index]?.name;
   const onBeranda = activeName === 'index';
 
@@ -126,37 +111,18 @@ export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarPr
         // Agenda: kolom Tambah menempel di atas bilah (satu permukaan), jadi tanpa garis pemisah.
         borderTopWidth: activeName === 'agenda' ? 0 : StyleSheet.hairlineWidth,
         borderTopColor: c.line,
-        overflow: 'visible',
       }}
     >
       <View style={{ flex: 1, flexDirection: 'row' }}>{left.map(tab)}</View>
-      <View style={{ width: INTI_SLOT, alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-        <IntiDock big={onBeranda} size={big} halo={onBeranda && tip.visible} paused={!live} />
+      <View
+        testID="inti-tab"
+        accessibilityElementsHidden={onBeranda}
+        importantForAccessibility={onBeranda ? 'no-hide-descendants' : 'auto'}
+        style={{ width: INTI_SLOT, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <IntiButton size={INTI_SIZE.tab} paused={!live} />
       </View>
       <View style={{ flex: 1, flexDirection: 'row' }}>{right.map(tab)}</View>
     </View>
-  );
-}
-
-/**
- * Inti di slot tengah. Digambar seukuran Beranda dan dikecilkan untuk tab lain, supaya peralihannya halus (skala dan
- * naik 280 ms); di Beranda pusatnya tepat di garis atas bilah.
- */
-function IntiDock({ big, size, halo, paused }: { big: boolean; size: number; halo: boolean; paused: boolean }) {
-  const reduce = useReducedMotion();
-  const p = useSharedValue(big ? 1 : 0);
-  useEffect(() => {
-    const to = big ? 1 : 0;
-    p.set(reduce ? to : withTiming(to, { duration: 280, easing: Easing.out(Easing.cubic) }));
-  }, [big, reduce, p]);
-  const small = INTI_SIZE.tab / size;
-  const lift = TAB_BAR_HEIGHT / 2;
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: -lift * p.get() }, { scale: small + (1 - small) * p.get() }],
-  }));
-  return (
-    <Animated.View testID={big ? 'inti-beranda' : 'inti-tab'} style={[{ width: size, height: size }, style]}>
-      <IntiButton size={size} halo={halo} paused={paused} />
-    </Animated.View>
   );
 }

@@ -14,6 +14,10 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { createContext, runInContext } from 'node:vm';
 import { isSharedValue, makeMutable } from 'react-native-reanimated';
+import { renderWithProviders } from './helpers';
+import { heroMetrics, type WebNode } from '@/ui/beranda/heroLayout';
+import { IntiHero } from '@/ui/beranda/IntiHero';
+import * as webMath from '@/ui/beranda/webMath';
 import * as dial from '@/ui/kit/dialGeometry';
 import * as slider from '@/ui/kit/sliderMath';
 import * as sheet from '@/ui/sheetMath';
@@ -29,8 +33,13 @@ interface Worklet {
   __closure?: unknown;
 }
 
-/** Worklet yang dipakai `WavesSkia`, ditangkap dari kait Reanimated dan Skia saat menggambar. */
-const mockCaptured = { frame: [] as Worklet[], derived: [] as Worklet[], path: [] as Worklet[] };
+/** Worklet yang dipakai `WavesSkia` dan jaring Inti, ditangkap dari kait Reanimated dan Skia saat menggambar. */
+const mockCaptured = {
+  frame: [] as Worklet[],
+  derived: [] as Worklet[],
+  path: [] as Worklet[],
+  style: [] as Worklet[],
+};
 
 jest.mock('react-native-reanimated', () => {
   const actual = jest.requireActual('react-native-reanimated');
@@ -46,6 +55,12 @@ jest.mock('react-native-reanimated', () => {
         return (cb: Worklet, deps?: unknown[]) => {
           mockCaptured.derived.push(cb);
           return target.useDerivedValue(cb, deps);
+        };
+      }
+      if (key === 'useAnimatedStyle') {
+        return (cb: Worklet, deps?: unknown[]) => {
+          mockCaptured.style.push(cb);
+          return target.useAnimatedStyle(cb, deps);
         };
       }
       return target[key];
@@ -123,6 +138,7 @@ beforeEach(() => {
   mockCaptured.frame = [];
   mockCaptured.derived = [];
   mockCaptured.path = [];
+  mockCaptured.style = [];
 });
 
 describe('worklet di utas UI (runtime UI tiruan)', () => {
@@ -212,6 +228,118 @@ describe('worklet di utas UI (runtime UI tiruan)', () => {
       for (const [x, y] of points) expect([finite(x), finite(y)]).toEqual([true, true]);
     }
     expect(onFail).not.toHaveBeenCalled();
+  });
+});
+
+/** Semua angka di gaya hasil worklet (termasuk "12deg"), untuk memeriksa NaN dan tak hingga. */
+function numbersIn(value: unknown, out: number[] = []): number[] {
+  if (typeof value === 'number') out.push(value);
+  else if (typeof value === 'string' && /^-?[\d.e+-]+(deg|rad)?$/i.test(value)) out.push(Number.parseFloat(value));
+  else if (Array.isArray(value)) value.forEach((v) => numbersIn(v, out));
+  else if (value && typeof value === 'object') Object.values(value).forEach((v) => numbersIn(v, out));
+  return out;
+}
+
+const RING: WebNode[] = [
+  { key: 'gcal', icon: 'calendar', label: 'Google Kalender' },
+  { key: 'gmail', icon: 'mail', label: 'Gmail' },
+  { key: 'wa', icon: 'chat', label: 'WhatsApp' },
+  { key: 'ac', icon: 'snow', label: 'AC kamar' },
+  { key: 'cctv', icon: 'camera', label: 'CCTV', offline: true },
+  { key: 'kasir', icon: 'receipt', label: 'Kasir Kopi Rindang' },
+  { key: 'bank', icon: 'bank', label: 'Bank' },
+];
+
+describe('jaring Inti Beranda di utas UI (runtime UI tiruan)', () => {
+  test('setiap fungsi webMath adalah worklet, tanpa nilai bawaan parameter', () => {
+    const fns = Object.entries(webMath).filter(([, v]) => typeof v === 'function');
+    expect(fns.length).toBeGreaterThanOrEqual(8);
+    for (const [name, fn] of fns) {
+      expect([name, isWorklet(fn)]).toEqual([name, true]);
+      expect([name, paramsOf((fn as Worklet).__initData!.code)]).not.toEqual([name, expect.stringContaining('=')]);
+    }
+  });
+
+  test('jam, melayang, dan jadwal titik cahaya berjalan di utas UI; masukan rusak tidak menghasilkan NaN', () => {
+    const ui = {
+      advanceClock: onUi(webMath.advanceClock),
+      drift: onUi(webMath.drift),
+      easeInOut: onUi(webMath.easeInOut),
+      pulseIndex: onUi(webMath.pulseIndex),
+      pulseAge: onUi(webMath.pulseAge),
+      pulseAlpha: onUi(webMath.pulseAlpha),
+      pulseTarget: onUi(webMath.pulseTarget),
+      at: onUi(webMath.at),
+    };
+    const LOOP = webMath.WEB_LOOP;
+    expect(ui.advanceClock(0, null, LOOP)).toBeCloseTo(0.016, 6);
+    expect(ui.advanceClock(1, 16, LOOP)).toBeCloseTo(1.016, 6);
+    // Frame pertama setelah jeda panjang: paling banyak 50 ms; jeda rusak: jam diam.
+    expect(ui.advanceClock(1, 5000, LOOP)).toBeCloseTo(1.05, 6);
+    for (const gap of [Number.NaN, -40, Infinity]) expect(finite(ui.advanceClock(1, gap, LOOP))).toBe(true);
+    expect(ui.advanceClock(Number.NaN, 16, LOOP)).toBeCloseTo(0.016, 6);
+    // Berputar mulus di ujung putaran.
+    expect(ui.advanceClock(LOOP - 0.01, 16, LOOP)).toBeCloseTo(0.006, 6);
+    expect(ui.advanceClock(5, 16, Number.NaN)).toBeCloseTo(5.016, 6);
+    // Semua periode membagi putaran: melayang di awal dan di akhir putaran sama.
+    for (let i = 0; i < 7; i++) {
+      for (const axis of [0, 1]) {
+        expect(ui.drift(0, i, axis, 2.5)).toBeCloseTo(ui.drift(LOOP, i, axis, 2.5), 6);
+        expect(Math.abs(ui.drift(13.7, i, axis, 2.5))).toBeLessThanOrEqual(2.5);
+      }
+    }
+    for (const bad of [Number.NaN, Infinity, -1]) {
+      expect(finite(ui.drift(bad, bad, 1, bad))).toBe(true);
+      expect(finite(ui.easeInOut(bad))).toBe(true);
+      expect(ui.pulseAlpha(bad)).toBe(0);
+    }
+    expect(ui.easeInOut(0)).toBe(0);
+    expect(ui.easeInOut(1)).toBe(1);
+    expect(ui.pulseAlpha(0.5)).toBe(1);
+    expect(ui.pulseIndex(1, 5, 2.5)).toBe(-1);
+    expect(ui.pulseIndex(12, 5, 0)).toBe(2);
+    expect(ui.pulseIndex(3, 0, 0)).toBe(-1);
+    expect(ui.pulseAge(12, 5, 0)).toBeCloseTo(2, 6);
+    expect(ui.pulseAge(1, 8, 2.5)).toBe(-1);
+    expect(ui.pulseTarget([2, 0, 1], 4, false)).toBe(0);
+    expect(ui.pulseTarget([2, 0, 1], 4, true)).toBe(0);
+    expect(ui.pulseTarget([2, 0, 1], 0, true)).toBe(1);
+    expect(ui.pulseTarget([], 3, false)).toBe(-1);
+    expect(ui.pulseTarget([1], -1, false)).toBe(-1);
+    expect(ui.at([1, 2], 5, 9)).toBe(9);
+    expect(ui.at([1, Number.NaN], 1, 7)).toBe(7);
+    expect(ui.at([1, 2], -1, 7)).toBe(7);
+  });
+
+  test('jam frame dan gaya jaring (simpul, titik cahaya, denyut) berjalan di utas UI selama dua putaran titik cahaya', async () => {
+    await renderWithProviders(<IntiHero metrics={heroMetrics(393, 873)} nodes={RING} paused={false} halo={false} />);
+    expect(mockCaptured.frame.length).toBeGreaterThan(0);
+    // Simpul (7) + dua jalur titik cahaya (kepala, dan denyut di jalur keluar) + gaya Inti sendiri.
+    expect(mockCaptured.style.length).toBeGreaterThanOrEqual(RING.length + 3);
+    const frame = onUi(mockCaptured.frame.at(-1)!, 'jam jaring');
+    const styles = mockCaptured.style.map((cb, i) => onUi(cb, `gaya ${i}`));
+    const seen = { comet: 0, ping: 0 };
+    for (let i = 0; i < 1200; i++) {
+      const gap = i === 0 ? null : i % 97 === 0 ? Number.NaN : 16.7;
+      frame({ timestamp: i * 16.7, timeSincePreviousFrame: gap, timeSinceFirstFrame: i * 16.7 } as never);
+      if (i % 10 !== 0) continue;
+      for (const [j, style] of styles.entries()) {
+        const out = style() as { opacity?: number };
+        for (const n of numbersIn(out)) expect([`gaya ${j}`, finite(n)]).toEqual([`gaya ${j}`, true]);
+        if (typeof out.opacity === 'number') {
+          expect(out.opacity).toBeGreaterThanOrEqual(0);
+          expect(out.opacity).toBeLessThanOrEqual(1);
+        }
+        const transform = (out as { transform?: Record<string, unknown>[] }).transform ?? [];
+        if ((out.opacity ?? 0) > 0.3 && transform.some((x) => 'rotate' in x)) seen.comet += 1;
+        // Denyut: digeser ke simpul lalu membesar (cahaya Inti hanya membesar, tanpa geser).
+        const moved = transform.some((x) => 'translateX' in x);
+        if ((out.opacity ?? 0) > 0.1 && moved && transform.some((x) => 'scale' in x && x.scale !== 1)) seen.ping += 1;
+      }
+    }
+    // Dalam 20 detik titik cahaya benar-benar terlihat berjalan, dan simpul tujuannya berdenyut.
+    expect(seen.comet).toBeGreaterThan(0);
+    expect(seen.ping).toBeGreaterThan(0);
   });
 });
 

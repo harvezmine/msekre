@@ -1,8 +1,15 @@
-// Niat layar: menunjukkan sekilas yang perlu Anda sekarang (paling banyak tiga hal). Tindakan tersering: ketuk atau tahan
-// Inti di zona jempol (tepat di atas bilah tab) untuk chat atau bicara.
+// Niat layar: Inti besar di tengah atas, tersambung ke semua layanan Anda, untuk diketuk (chat) atau ditahan (bicara),
+// lalu paling banyak tiga hal yang perlu Anda sekarang.
 import { router } from 'expo-router';
-import { Pressable, ScrollView, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Device, Draft } from '@/api/contract';
 import { useAgenda } from '@/api/useAgenda';
@@ -10,6 +17,7 @@ import { useChat } from '@/api/useChat';
 import { useDeviceControl } from '@/api/useDeviceControl';
 import { useHome } from '@/api/useHome';
 import { useTheme } from '@/theme/ThemeProvider';
+import { motion } from '@/theme/tokens';
 import {
   contactInitial,
   deviceIcon,
@@ -21,6 +29,8 @@ import {
   suggestionFor,
   type NextAgenda,
 } from '@/ui/beranda/blocks';
+import { heroMetrics, PLACEHOLDER_NODES, webNodes } from '@/ui/beranda/heroLayout';
+import { IntiHero } from '@/ui/beranda/IntiHero';
 import { Initials } from '@/ui/Initials';
 import {
   ApprovalCard,
@@ -32,14 +42,20 @@ import {
   GradientField,
   NextItemRow,
   SuggestionCard,
-  useLayoutClass,
 } from '@/ui/kit';
-import { useBerandaIntiSize } from '@/ui/TabBar';
 import { TIP_TEXT, useTip } from '@/ui/tips';
 import { useToast } from '@/ui/toastStore';
 import { Txt } from '@/ui/Txt';
+import { useLive } from '@/ui/useLive';
 
 const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Tinggi baris sapaan (avatar 48). */
+const GREETING_ROW = 48;
+/** Halaman tanpa blok (pengguna baru): pusat Inti turun ke kira-kira sepertiga tinggi layar, lebih dekat ke jempol. */
+const HERO_CENTRE = 0.34;
+/** Paling jauh Inti diturunkan (dp). */
+const MAX_DROP = 120;
 /** Jam HP "HH.MM" dan tanggal "YYYY-MM-DD", bila agenda (jam zona pengguna dari server) belum dimuat. */
 function deviceClock(): { now: string; today: string } {
   const d = new Date();
@@ -52,10 +68,12 @@ function deviceClock(): { now: string; today: string } {
 export default function Beranda() {
   const { c, shadow } = useTheme();
   const insets = useSafeAreaInsets();
-  const compact = useLayoutClass() === 'compact';
-  const orb = useBerandaIntiSize();
+  const win = useWindowDimensions();
+  const hero = heroMetrics(win.width, win.height);
+  const compact = hero.cls === 'compact';
+  const live = useLive();
   const toast = useToast();
-  const { home, status, error, retry } = useHome();
+  const { home, ring, status, error, retry } = useHome();
   const agenda = useAgenda();
   const devices = useDeviceControl('Semua');
   const chat = useChat({ onError: toast });
@@ -77,20 +95,41 @@ export default function Beranda() {
   const nextIndex = approval ? 1 : 0;
   const favIndex = nextIndex + (next ? 1 : 0);
 
+  // Jaring: layanan dan perangkat dari cincin Beranda; pengguna tanpa layanan melihat tiga simpul contoh yang redup.
+  const nodes = home === null ? [] : ring.length > 0 ? webNodes(ring, hero.maxNodes) : PLACEHOLDER_NODES;
+  const topPad = compact ? 12 : 20;
+  const heroGap = compact ? 2 : 6;
+  // Dengan blok, Inti tepat di bawah sapaan (ketiga blok tetap terlihat di HP panjang). Tanpa blok, Inti turun ke
+  // sekitar sepertiga layar. Pergeseran itu dihitung, bukan spacer lentur (spacer lentur bertabrakan dengan transisi
+  // tata letak blok); turunnya dianimasikan 320 ms supaya Inti tidak melompat saat data pertama tiba.
+  const [greetingBottom, setGreetingBottom] = useState<number | null>(null);
+  const heroTop = (greetingBottom ?? insets.top + topPad + GREETING_ROW) + heroGap;
+  const lift = Math.min(MAX_DROP, Math.max(0, Math.round(win.height * HERO_CENTRE - heroTop - hero.height / 2)));
+  const drop = fresh ? lift : 0;
+  const reduce = useReducedMotion();
+  const dropSv = useSharedValue(drop);
+  useEffect(() => {
+    // Naik kembali (blok pertama muncul) langsung, supaya tidak bergerak bersamaan dengan transisi tata letak blok.
+    dropSv.set(
+      reduce || drop === 0
+        ? drop
+        : withTiming(drop, { duration: motion.block.duration, easing: Easing.out(Easing.cubic) }),
+    );
+  }, [drop, reduce, dropSv]);
+  const heroStyle = useAnimatedStyle(() => ({ marginTop: heroGap + dropSv.get() }));
+  // Petunjuk pertama menunjuk bagian bawah Inti besar.
+  const tipTop = heroTop + drop + hero.height / 2 + hero.inti / 2 + 14;
+
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       {/* Latar gradasi hijau lembut di belakang sapaan, sampai ke bawah bilah status. */}
       <GradientField recipe="hero" />
       <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingTop: insets.top + (compact ? 14 : 44),
-          // Setengah Inti naik di atas bilah tab: isi terakhir tidak pernah tertutup.
-          paddingBottom: orb / 2 + 24,
-        }}
+        contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + topPad, paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
       >
         <View
+          onLayout={(e) => setGreetingBottom(Math.round(e.nativeEvent.layout.y + e.nativeEvent.layout.height))}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -127,8 +166,12 @@ export default function Beranda() {
           </Pressable>
         </View>
 
+        <Animated.View testID="beranda-inti" style={heroStyle}>
+          <IntiHero metrics={hero} nodes={nodes} paused={!live} halo={tip.visible} />
+        </Animated.View>
+
         {!home && status === 'error' ? (
-          <View style={{ paddingHorizontal: 24, paddingTop: 32, gap: 16, alignItems: 'flex-start' }}>
+          <View style={{ paddingHorizontal: 24, paddingTop: 16, gap: 16, alignItems: 'flex-start' }}>
             <Txt>{error}</Txt>
             <Pressable
               accessibilityRole="button"
@@ -150,7 +193,7 @@ export default function Beranda() {
           </View>
         ) : null}
 
-        <View style={{ gap: 20, paddingTop: compact ? 20 : 28 }}>
+        <View style={{ gap: 20, paddingTop: compact ? 10 : 14 }}>
           {approval ? (
             <Animated.View
               key={`persetujuan-${approval.id}`}
@@ -195,14 +238,14 @@ export default function Beranda() {
           ) : null}
         </View>
 
-        {/* Ruang kosong itu disengaja: kartu contoh pengguna baru duduk di zona jempol, tepat di atas Inti. */}
-        <View style={{ flexGrow: 1, minHeight: 24 }} />
+        {/* Ruang kosong itu disengaja: kartu contoh pengguna baru duduk di zona jempol, tepat di atas bilah tab. */}
+        <View style={{ flexGrow: 1, minHeight: 16 }} />
         {fresh && !tip.visible ? (
           <Animated.View
             testID="blok-saran"
             entering={blockEntering(0)}
             exiting={blockExiting}
-            style={{ paddingHorizontal: 16, marginBottom: compact ? 16 : 42 }}
+            style={{ paddingHorizontal: 16, marginBottom: compact ? 4 : 12 }}
           >
             <SuggestionCard
               text={suggestionFor(today)}
@@ -211,7 +254,7 @@ export default function Beranda() {
           </Animated.View>
         ) : null}
       </ScrollView>
-      {tip.visible ? <CoachMark text={TIP_TEXT.inti} bottom={orb / 2 + 50} onDismiss={tip.dismiss} /> : null}
+      {tip.visible ? <CoachMark text={TIP_TEXT.inti} top={tipTop} onDismiss={tip.dismiss} /> : null}
     </View>
   );
 }

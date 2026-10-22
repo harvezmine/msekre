@@ -53,7 +53,8 @@ describe('pengguna yang sudah terbiasa (data contoh)', () => {
     expect(favs.getAllByRole('switch').map((s) => s.props.accessibilityLabel)).toEqual(['AC kamar', 'Teras', 'TV']);
     expect(favs.getByText('24°')).toBeOnTheScreen();
 
-    // Tidak ada lagi ringkasan, cincin, tempat, kartu Usaha, Rumah, atau penanda contoh di tampilan pertama.
+    // Tidak ada ringkasan, tempat, kartu Usaha, Rumah, atau penanda contoh; layanan hanya sebagai jaring logo di sekitar
+    // Inti besar (tanpa tulisan).
     expect(screen.queryByText('Data contoh')).toBeNull();
     expect(screen.queryByText(/terhubung/)).toBeNull();
     expect(screen.queryByText('Rp4.250.000')).toBeNull();
@@ -193,7 +194,7 @@ describe('pengguna yang sudah terbiasa (data contoh)', () => {
 });
 
 describe('pengguna baru', () => {
-  test('hanya sapaan, satu kartu Coba bilang, dan Inti (di bilah tab)', async () => {
+  test('hanya sapaan, Inti besar, dan satu kartu Coba bilang', async () => {
     await renderWithProviders(<Beranda />, { state: newUserSampleState });
     await settle();
     expect(screen.getByText('Halo, Rina')).toBeOnTheScreen();

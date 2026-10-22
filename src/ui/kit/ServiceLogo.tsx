@@ -3,6 +3,7 @@ import { SvgXml } from 'react-native-svg';
 import { useTheme } from '@/theme/ThemeProvider';
 import { logoFor, type LogoDef } from '../connect/logos';
 import { Icon } from '../Icon';
+import type { IconName } from '../icons';
 import { Txt } from '../Txt';
 import { toneForName } from './toneForName';
 
@@ -57,6 +58,7 @@ export function ServiceLogo({
   status,
   ring,
   shadow = size >= 40,
+  fallbackIcon,
   testID,
   style,
 }: {
@@ -69,6 +71,8 @@ export function ServiceLogo({
   ring?: string;
   /** Bayangan halus di bawah ubin; bawaan untuk 40 ke atas. */
   shadow?: boolean;
+  /** Layanan atau perangkat tanpa logo (ubin huruf netral): tampilkan ikon ini sebagai gantinya (jaring Beranda). */
+  fallbackIcon?: IconName;
   testID?: string;
   style?: StyleProp<ViewStyle>;
 }) {
@@ -91,7 +95,9 @@ export function ServiceLogo({
     : undefined;
 
   let content: React.ReactNode;
-  if (def.kind === 'initial') {
+  if (def.kind === 'initial' && !def.color && fallbackIcon) {
+    content = <Icon name={fallbackIcon} size={Math.round(size * 0.52)} color={c.text} />;
+  } else if (def.kind === 'initial') {
     const text = def.text;
     const fontSize = Math.round(size * (text.length >= 3 ? 0.28 : text.length === 2 ? 0.36 : 0.46));
     content = (

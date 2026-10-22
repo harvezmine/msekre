@@ -260,7 +260,7 @@ test('Sheet: ambang geser memakai tinggi panel yang terukur; sentakan cepat juga
   expect(shouldDismiss(5, 400, 1000)).toBe(true);
 });
 
-test('ToastHost: duduk 16 dp di atas tepi bawah, ditambah tinggi tab bar (dan setengah Inti Beranda) hanya saat tab bar terlihat', async () => {
+test('ToastHost: duduk 16 dp di atas tepi bawah, ditambah tinggi tab bar hanya saat tab bar terlihat', async () => {
   await renderWithProviders(
     <>
       <ToastHost />
@@ -270,8 +270,8 @@ test('ToastHost: duduk 16 dp di atas tepi bawah, ditambah tinggi tab bar (dan se
   const bottom = () => StyleSheet.flatten(screen.getByTestId('toast').parent!.props.style).bottom as number;
   const base = bottom();
   await act(async () => setTabBarShown(true));
-  // 68 tinggi bilah + 46 setengah Inti Beranda yang naik di atasnya.
-  expect(bottom()).toBe(base + 68 + 46);
+  // 68 tinggi bilah (Inti bilah tab tidak lagi naik di atasnya; Inti besar ada di atas Beranda).
+  expect(bottom()).toBe(base + 68);
   await act(async () => setTabBarShown(false));
   expect(bottom()).toBe(base);
 });

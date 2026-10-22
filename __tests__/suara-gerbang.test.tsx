@@ -15,10 +15,10 @@ beforeEach(() => jest.clearAllMocks());
 
 const server = (voice: boolean) => createTestApi({ mode: 'server', token: 'tok', voice });
 
-function tabBarProps() {
+function tabBarProps(index = 0) {
   const routes = ['index', 'agenda', 'perangkat', 'usaha'].map((name) => ({ key: `${name}-k`, name }));
   return {
-    state: { index: 0, routes },
+    state: { index, routes },
     descriptors: {},
     emitter: { emit: jest.fn(() => ({ defaultPrevented: false })) },
     navigateToTab: jest.fn(),
@@ -62,7 +62,8 @@ describe('akun tanpa Mode Suara di server: semua pintu masuk memberi catatan', (
 
 describe('akun dengan Mode Suara', () => {
   test('Inti di tab bar membuka /suara', async () => {
-    await renderWithProviders(<TabBar {...tabBarProps()} />, { api: server(true) });
+    // Agenda: di Beranda Inti bilah tidak dibacakan (Inti besar di atas layar membawa aksi yang sama).
+    await renderWithProviders(<TabBar {...tabBarProps(1)} />, { api: server(true) });
     await flush();
     await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress');
     expect(Haptics.impactAsync).toHaveBeenCalled();
