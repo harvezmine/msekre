@@ -182,15 +182,19 @@ describe('Beranda, chat, dan Mode Suara asli', () => {
 
     expect(screen.getByTestId('suara-ucapan')).toHaveTextContent(DEFAULT_VOICE_TURN.transcript);
     expect(screen.getByText('Sebentar…')).toBeOnTheScreen();
-    // Sedikit lewat jeda jawaban server palsu (1 detik). Jawaban yang datang tepat di ujung langkah jam tiruan memicu
-    // catatan error tiruan Reanimated (frame callback), juga di mode contoh; bukan perilaku mode akun.
-    await advance(1100);
+    // Tepat sejauh jeda jawaban server palsu (1 detik): jawabannya datang di ujung langkah jam tiruan. Dulu itu membuat
+    // registri jam frame Reanimated menerima "hapus" untuk id yang belum terdaftar (lihat __tests__/jam-frame.test.tsx).
+    const errors = jest.spyOn(console, 'error');
+    await advance(1000);
     await settle();
     expect(screen.getByTestId('suara-balasan')).toHaveTextContent(DEFAULT_VOICE_TURN.reply);
     expect(audio.players).toHaveLength(1);
     expect((audio.players[0]!.source as { uri: string }).uri).toMatch(/\.mp3$/);
     await act(async () => audio.finishPlayback());
     expect(screen.getByLabelText('Siap')).toBeOnTheScreen();
+    await advance(50);
+    expect(errors.mock.calls.map((a) => a.map(String).join(' ')).filter((m) => /startTime/.test(m))).toEqual([]);
+    errors.mockRestore();
 
     await go('/chat');
     await settle();

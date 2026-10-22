@@ -1,15 +1,16 @@
-import { useEffect, useId } from 'react';
+import { useCallback, useId } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   FadeIn,
   useAnimatedStyle,
-  useFrameCallback,
   useReducedMotion,
   useSharedValue,
+  type FrameInfo,
   type SharedValue,
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Line, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useTheme } from '@/theme/ThemeProvider';
+import { FrameClock } from '@/ui/FrameClock';
 import { IntiButton } from '@/ui/inti/IntiButton';
 import { logoRadius, ServiceLogo } from '@/ui/kit/ServiceLogo';
 import { webLabel, webLayout, type HeroMetrics, type WebLayout, type WebNode } from './heroLayout';
@@ -74,9 +75,10 @@ interface Props {
  * berjalan dari Inti ke satu simpul lalu simpulnya berdenyut, dan simpul yang melayang beberapa dp. Inti sendiri sama
  * dengan di bilah tab: ketuk = chat, tahan = Mode Suara (`IntiButton`).
  *
- * Gerak di utas UI: satu jam `useFrameCallback` (berhenti saat `paused` atau "kurangi gerakan"), simpul dan titik cahaya
- * hanya `transform`/`opacity` dari worklet `webMath.ts`; garis SVG diam (ujungnya berhenti 3 dp sebelum tepi ubin, jadi
- * simpul yang melayang tetap tampak tersambung). "Kurangi gerakan": jaring diam tanpa titik cahaya.
+ * Gerak di utas UI: satu jam frame (`FrameClock`, hanya terpasang saat berjalan: tidak saat `paused`, "kurangi
+ * gerakan", atau tanpa simpul), simpul dan titik cahaya hanya `transform`/`opacity` dari worklet `webMath.ts`; garis SVG
+ * diam (ujungnya berhenti 3 dp sebelum tepi ubin, jadi simpul yang melayang tetap tampak tersambung). "Kurangi gerakan":
+ * jaring diam tanpa titik cahaya.
  */
 export function IntiHero({ metrics: m, nodes, paused, halo }: Props) {
   const { scheme } = useTheme();
@@ -87,17 +89,19 @@ export function IntiHero({ metrics: m, nodes, paused, halo }: Props) {
   const running = !reduce && !paused && hasNodes;
 
   const clock = useSharedValue(0);
-  const frame = useFrameCallback((info) => {
-    'worklet';
-    clock.set(advanceClock(clock.get(), info.timeSincePreviousFrame, WEB_LOOP));
-  }, running);
-  useEffect(() => {
-    frame.setActive(running);
-  }, [frame, running]);
+  // Worklet stabil; jamnya dipasang hanya saat berjalan (`FrameClock`), jadi jeda = lepas, tanpa setActive.
+  const tick = useCallback(
+    (info: FrameInfo) => {
+      'worklet';
+      clock.set(advanceClock(clock.get(), info.timeSincePreviousFrame, WEB_LOOP));
+    },
+    [clock],
+  );
 
   const showPulses = !reduce && layout.pulseOrder.length > 0;
   return (
     <View testID="inti-besar" style={{ width: m.width, height: m.height }}>
+      {running ? <FrameClock onFrame={tick} /> : null}
       {hasNodes ? (
         <Animated.View
           testID="jaring"

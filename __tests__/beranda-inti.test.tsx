@@ -21,18 +21,29 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
   default: () => mockDims,
 }));
 
-/** Jam frame jaring: nilai `autostart` dan setiap `setActive`, supaya tes tahu kapan gerak jalan atau berhenti. */
-const mockFrame = { active: [] as boolean[] };
+/**
+ * Jam frame jaring (`FrameClock`): berapa yang sedang terpasang dan berapa kali dipasang, supaya tes tahu kapan gerak
+ * jalan atau berhenti. Jam hanya dipasang saat berjalan (selalu `autostart`) dan tidak pernah memakai `setActive`.
+ */
+const mockFrame = { live: 0, mounts: 0, autostart: [] as boolean[], setActive: 0 };
 jest.mock('react-native-reanimated', () => {
   const actual = jest.requireActual('react-native-reanimated');
+  const { useEffect } = jest.requireActual('react');
   const useReducedMotion = jest.fn(() => false);
   const useFrameCallback = (cb: unknown, autostart?: boolean) => {
-    mockFrame.active.push(!!autostart);
+    mockFrame.autostart.push(autostart !== false);
+    useEffect(() => {
+      mockFrame.live += 1;
+      mockFrame.mounts += 1;
+      return () => {
+        mockFrame.live -= 1;
+      };
+    }, []);
     const real = actual.useFrameCallback(cb, autostart);
     return {
       ...real,
       setActive: (on: boolean) => {
-        mockFrame.active.push(on);
+        mockFrame.setActive += 1;
         real.setActive(on);
       },
     };
@@ -64,7 +75,10 @@ const nodeKeys = () =>
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockFrame.active = [];
+  mockFrame.live = 0;
+  mockFrame.mounts = 0;
+  mockFrame.autostart = [];
+  mockFrame.setActive = 0;
   jest.mocked(Reanimated.useReducedMotion).mockReturnValue(false);
 });
 
@@ -121,7 +135,9 @@ describe('jaring dari simpul cincin Beranda', () => {
 
   test('gerak jalan: jam frame menyala, dua jalur titik cahaya dan denyut simpul tergambar', async () => {
     await show();
-    expect(mockFrame.active.at(-1)).toBe(true);
+    expect(mockFrame.live).toBe(1);
+    expect(mockFrame.autostart.every((on) => on)).toBe(true);
+    expect(mockFrame.setActive).toBe(0);
     expect(screen.getByTestId('jaring-cahaya-0', HIDDEN)).toBeTruthy();
     expect(screen.getByTestId('jaring-cahaya-1', HIDDEN)).toBeTruthy();
     expect(screen.getByTestId('jaring-denyut-0', HIDDEN)).toBeTruthy();
@@ -133,15 +149,15 @@ describe('jaring dari simpul cincin Beranda', () => {
     expect(nodeKeys()).toHaveLength(7);
     expect(screen.queryByTestId(/^jaring-cahaya-/, HIDDEN)).toBeNull();
     expect(screen.queryByTestId(/^jaring-denyut-/, HIDDEN)).toBeNull();
-    expect(mockFrame.active.length).toBeGreaterThan(0);
-    expect(mockFrame.active.every((on) => !on)).toBe(true);
+    // Jam frame tidak pernah dipasang.
+    expect(mockFrame.mounts).toBe(0);
   });
 
   test('layar tidak terlihat: jam frame berhenti', async () => {
     jest.mocked(useIsFocused).mockReturnValue(false);
     try {
       await show();
-      expect(mockFrame.active.at(-1)).toBe(false);
+      expect(mockFrame.live).toBe(0);
     } finally {
       jest.mocked(useIsFocused).mockReturnValue(true);
     }

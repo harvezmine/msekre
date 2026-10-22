@@ -11,21 +11,22 @@ import {
   usePathValue,
   type SkPathBuilder,
 } from '@shopify/react-native-skia';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
   cancelAnimation,
   Easing,
   useDerivedValue,
-  useFrameCallback,
   useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
+  type FrameInfo,
   type SharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { gradients } from '@/theme/tokens';
+import { FrameClock } from '@/ui/FrameClock';
 import {
   approach,
   bandBottom,
@@ -84,9 +85,10 @@ const PULSE_MS = 1200;
 
 /**
  * Gelombang Mode Suara ala Gemini (§5.1): empat lapis gradasi lembut yang ditambahkan (`plus`) di atas kanvas gelap,
- * masing-masing diberi pita alfa vertikal (`dstIn`) dan blur. Semua gerak dihitung di utas UI: jam frame
- * (`useFrameCallback`) memajukan fase, level halus, kecepatan, terang, dan kilau; jalur dibangun ulang di worklet tiap
- * frame (`usePathValue`). Tidak ada kerja di utas JS per frame. "Kurangi gerakan": bingkai diam yang hanya berdenyut.
+ * masing-masing diberi pita alfa vertikal (`dstIn`) dan blur. Semua gerak dihitung di utas UI: jam frame (`FrameClock`,
+ * terpasang hanya saat berjalan) memajukan fase, level halus, kecepatan, terang, dan kilau; jalur dibangun ulang di
+ * worklet tiap frame (`usePathValue`). Tidak ada kerja di utas JS per frame. Jeda = jamnya dilepas; keadaan gerak ada di
+ * shared value, jadi saat lanjut gelombang tidak melompat. "Kurangi gerakan": bingkai diam yang hanya berdenyut.
  */
 export function WavesSkia({
   state,
@@ -119,44 +121,50 @@ export function WavesSkia({
   const alpha = useSharedValue(goalAlpha(state, muted, quiet));
   const shimmer = useSharedValue(goalShimmer(state));
 
+  // Pelapor kendala yang stabil: worklet jam frame menangkapnya sekali, `onFail` terbaru dibaca saat melapor. Dengan
+  // begitu `onFail` baru dari induk (tiap render) tidak membuat jam frame didaftarkan ulang.
+  const failRef = useRef(onFail);
+  useEffect(() => {
+    failRef.current = onFail;
+  }, [onFail]);
+  const report = useCallback((why: string) => failRef.current?.(why), []);
+
   // Utas UI: kesalahan di sini tidak ditangkap siapa pun di build rilis dan menutup paksa aplikasi. Jadi semua nilai
   // dijaga (NaN, tak hingga, di luar 0..1), dan kesalahan apa pun menghentikan jam ini lalu dilaporkan sekali.
+  // Worklet stabil (hanya shared value dan pelapor stabil); jamnya dipasang hanya saat berjalan (`FrameClock`).
   const broken = useSharedValue(false);
-  const frame = useFrameCallback((info) => {
-    'worklet';
-    if (broken.get()) return;
-    try {
-      // Frame pertama setelah jeda: paling banyak 50 ms, supaya tidak melompat.
-      const dt = frameSeconds(info.timeSincePreviousFrame);
-      const t = finiteOr(clock.get(), 0) + dt;
-      clock.set(t);
-      const st = stateSv.get();
-      const m = mutedSv.get();
-      const sp = clampTo(finiteOr(approach(finiteOr(speed.get(), 0), goalSpeed(st, m), dt), 0), 0, 2);
-      speed.set(sp);
-      phase.set(finiteOr(phase.get(), STILL_PHASE) + sp * dt);
-      alpha.set(clampTo(approach(finiteOr(alpha.get(), 0), goalAlpha(st, m, quietSv.get()), dt), 0, 1));
-      shimmer.set(clampTo(approach(finiteOr(shimmer.get(), 0), goalShimmer(st), dt), 0, 1));
-      const mic = clampTo(finiteOr(level.get(), 0), 0, 1);
-      const L = clampTo(smoothLevel(clampTo(lv.get(), 0, 1), targetLevel(st, t, mic, m), dt), 0, 1);
-      lv.set(L);
-      if (glow) glow.set(L);
-    } catch (e) {
-      broken.set(true);
-      if (glow) glow.set(0);
-      if (onFail) {
+  const tick = useCallback(
+    (info: FrameInfo) => {
+      'worklet';
+      if (broken.get()) return;
+      try {
+        // Frame pertama setelah jeda: paling banyak 50 ms, supaya tidak melompat.
+        const dt = frameSeconds(info.timeSincePreviousFrame);
+        const t = finiteOr(clock.get(), 0) + dt;
+        clock.set(t);
+        const st = stateSv.get();
+        const m = mutedSv.get();
+        const sp = clampTo(finiteOr(approach(finiteOr(speed.get(), 0), goalSpeed(st, m), dt), 0), 0, 2);
+        speed.set(sp);
+        phase.set(finiteOr(phase.get(), STILL_PHASE) + sp * dt);
+        alpha.set(clampTo(approach(finiteOr(alpha.get(), 0), goalAlpha(st, m, quietSv.get()), dt), 0, 1));
+        shimmer.set(clampTo(approach(finiteOr(shimmer.get(), 0), goalShimmer(st), dt), 0, 1));
+        const mic = clampTo(finiteOr(level.get(), 0), 0, 1);
+        const L = clampTo(smoothLevel(clampTo(lv.get(), 0, 1), targetLevel(st, t, mic, m), dt), 0, 1);
+        lv.set(L);
+        if (glow) glow.set(L);
+      } catch (e) {
+        broken.set(true);
+        if (glow) glow.set(0);
         try {
-          scheduleOnRN(onFail, String(e));
+          scheduleOnRN(report, String(e));
         } catch {
           // Tidak bisa melapor: gelombang tetap berhenti dengan aman.
         }
       }
-    }
-  }, running);
-
-  useEffect(() => {
-    frame.setActive(running);
-  }, [frame, running]);
+    },
+    [broken, clock, stateSv, mutedSv, quietSv, speed, phase, alpha, shimmer, level, lv, glow, report],
+  );
 
   // Bingkai diam: keadaan berganti tetap terlihat (level dan terang khas keadaan), tanpa aliran.
   useEffect(() => {
@@ -196,6 +204,7 @@ export function WavesSkia({
       pointerEvents="none"
       style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height }}
     >
+      {running ? <FrameClock onFrame={tick} /> : null}
       <View testID={still ? 'gelombang-diam' : 'gelombang-mengalir'} style={StyleSheet.absoluteFill}>
         {/* testID = keadaan yang dituju; kanvasnya tetap sama saat keadaan berganti (tanpa pasang ulang, tanpa lompatan). */}
         <Canvas testID={`gelombang-${state}`} style={{ width, height }} opaque>

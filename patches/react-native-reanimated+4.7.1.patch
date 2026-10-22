@@ -1,0 +1,50 @@
+diff --git a/node_modules/react-native-reanimated/lib/module/frameCallback/FrameCallbackRegistryUI.js b/node_modules/react-native-reanimated/lib/module/frameCallback/FrameCallbackRegistryUI.js
+index e3dbc6f..a3ab79b 100644
+--- a/node_modules/react-native-reanimated/lib/module/frameCallback/FrameCallbackRegistryUI.js
++++ b/node_modules/react-native-reanimated/lib/module/frameCallback/FrameCallbackRegistryUI.js
+@@ -69,13 +69,19 @@ export const prepareUIRegistry = () => scheduleOnUI(() => {
+       if (callbackId === -1) {
+         return;
+       }
++      // patch Sekretaris AI: an id that is not (or no longer) registered must not throw on the UI runtime (an
++      // uncaught error there aborts release builds) and must not become active (the frame loop reads its entry).
++      const callback = this.frameCallbackRegistry.get(callbackId);
++      if (!callback) {
++        this.activeFrameCallbacks.delete(callbackId);
++        return;
++      }
+       if (state) {
+         if (!this.activeFrameCallbacks.has(callbackId)) {
+           this.activeFrameCallbacks.add(callbackId);
+           this.runCallbacks(this.nextCallId);
+         }
+       } else {
+-        const callback = this.frameCallbackRegistry.get(callbackId);
+         callback.startTime = null;
+         this.activeFrameCallbacks.delete(callbackId);
+         if (this.activeFrameCallbacks.size === 0) {
+diff --git a/node_modules/react-native-reanimated/src/frameCallback/FrameCallbackRegistryUI.ts b/node_modules/react-native-reanimated/src/frameCallback/FrameCallbackRegistryUI.ts
+index f7c8f5a..1c4b163 100644
+--- a/node_modules/react-native-reanimated/src/frameCallback/FrameCallbackRegistryUI.ts
++++ b/node_modules/react-native-reanimated/src/frameCallback/FrameCallbackRegistryUI.ts
+@@ -110,13 +110,19 @@ export const prepareUIRegistry = () =>
+         if (callbackId === -1) {
+           return;
+         }
++        // patch Sekretaris AI: an id that is not (or no longer) registered must not throw on the UI runtime (an
++        // uncaught error there aborts release builds) and must not become active (the frame loop reads its entry).
++        const callback = this.frameCallbackRegistry.get(callbackId);
++        if (!callback) {
++          this.activeFrameCallbacks.delete(callbackId);
++          return;
++        }
+         if (state) {
+           if (!this.activeFrameCallbacks.has(callbackId)) {
+             this.activeFrameCallbacks.add(callbackId);
+             this.runCallbacks(this.nextCallId);
+           }
+         } else {
+-          const callback = this.frameCallbackRegistry.get(callbackId)!;
+           callback.startTime = null;
+ 
+           this.activeFrameCallbacks.delete(callbackId);
