@@ -235,7 +235,7 @@ test('Usaha: Pesan lagi membuat draf, Lihat draf membuka chat di kartu itu', asy
   expect(screen.getByText('PT Sumber Susu')).toBeOnTheScreen();
 });
 
-test('Terhubung: dari Akun, sambungkan TikTok, simpul baru di cincin, hapus yang diingat, putuskan', async () => {
+test('Terhubung: dari Akun, sambungkan TikTok, logonya bergabung, hapus yang diingat, putuskan', async () => {
   await showRoute('/');
   await settle();
   await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
@@ -248,7 +248,7 @@ test('Terhubung: dari Akun, sambungkan TikTok, simpul baru di cincin, hapus yang
   await advance(250);
   await settle();
   expect(currentRoute()).toBe('/terhubung/tersambung');
-  expect(screen.getByTestId('simpul-tiktok')).toBeOnTheScreen();
+  expect(screen.getByTestId('sambungan-tiktok')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
   await settle();
   expect(currentRoute()).toBe('/');

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import Beranda from '../app/(tabs)/index';
 import Terhubung from '../app/terhubung/index';
@@ -17,11 +17,16 @@ afterAll(() => {
   restoreParams();
 });
 
-test('kisi: tujuh layanan tersambung bercentang hijau, CCTV perlu perhatian, katalog menurut kelompok', async () => {
+test('kartu logo: dok tujuh layanan tersambung, centang hijau, CCTV perlu perhatian, katalog menurut kelompok', async () => {
   await show();
-  expect(await screen.findByText('Tersambung')).toBeOnTheScreen();
+  expect(await screen.findByText('7 layanan tersambung')).toBeOnTheScreen();
   // Sedikit tulisan: tanpa kalimat keterangan di bawah judul.
   expect(screen.queryByText('Semua yang sudah Nadia kenal.')).toBeNull();
+  // Dok: logo yang tersambung bertumpuk tipis (tanpa lencana), lalu kartu dengan centang hijau di logonya.
+  const dock = screen.getByTestId('dok-layanan');
+  expect(within(dock).getByTestId('logo-gcal')).toBeOnTheScreen();
+  expect(within(dock).getByTestId('logo-sekretaris')).toBeOnTheScreen();
+  expect(within(dock).queryByTestId('lencana-tersambung')).toBeNull();
   expect(screen.getAllByTestId('lencana-tersambung')).toHaveLength(6);
   expect(screen.getAllByTestId('lencana-perhatian')).toHaveLength(1);
   expect(screen.getByRole('button', { name: 'Moka. Kopi Rindang · Terakhir dipakai 1 menit lalu' })).toBeOnTheScreen();
@@ -40,13 +45,26 @@ test('kisi: tujuh layanan tersambung bercentang hijau, CCTV perlu perhatian, kat
   expect(
     screen.getByLabelText('Merek perangkat rumah. LG, Samsung, Philips Hue, Aqara, dan 5 lainnya'),
   ).toBeOnTheScreen();
+  // Tiap kartu memakai logo layanannya sendiri, bukan lingkaran huruf.
+  expect(within(screen.getByRole('button', { name: /^Moka\./ })).getByTestId('logo-moka')).toBeOnTheScreen();
+  expect(
+    within(screen.getByRole('button', { name: 'Sambungkan TikTok Shop & Tokopedia' })).getByTestId('logo-tiktok'),
+  ).toBeOnTheScreen();
+  expect(
+    within(screen.getByRole('button', { name: 'Sambungkan Notion' })).getByTestId('logo-notion'),
+  ).toBeOnTheScreen();
+  // Nama panjang dipendekkan di kartu; nama lengkap tetap dibacakan.
+  expect(screen.getByText('TikTok Shop')).toBeOnTheScreen();
 });
 
 test('katalog menandai layanan yang segera hadir tanpa tombol Sambungkan', async () => {
   await show();
   expect(await screen.findByLabelText('Shopee. Segera hadir')).toBeOnTheScreen();
   expect(screen.queryByRole('button', { name: 'Sambungkan Shopee' })).toBeNull();
-  expect(screen.getAllByText('Segera hadir')).toHaveLength(2);
+  expect(screen.getAllByText('Segera')).toHaveLength(2);
+  expect(within(screen.getByLabelText('Shopee. Segera hadir')).getByTestId('logo-shopee')).toHaveStyle({
+    opacity: 0.45,
+  });
 });
 
 test('baris layanan membuka detailnya', async () => {
@@ -88,7 +106,7 @@ test('alur 4: Sambungkan TikTok, Masuk (contoh), tersambung, Selesai, kembali ke
   expect(await screen.findByText('TikTok Shop sudah terhubung')).toBeOnTheScreen();
   expect(screen.getByText('Mulai sekarang saya kabari pesanan baru dan yang perlu dikirim.')).toBeOnTheScreen();
   expect(screen.getByText('Baca saja')).toBeOnTheScreen();
-  expect(screen.getByTestId('simpul-tiktok')).toBeOnTheScreen();
+  expect(screen.getByTestId('sambungan-tiktok')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
   expect(router.dismissTo).toHaveBeenCalledWith('/');
   expect(currentStack()).toEqual(['/']);
@@ -97,9 +115,12 @@ test('alur 4: Sambungkan TikTok, Masuk (contoh), tersambung, Selesai, kembali ke
   expect(await screen.findByRole('button', { name: /^TikTok Shop/ })).toBeOnTheScreen();
 });
 
-test('tersambung: simpul baru ada, izin tampil, Ubah membuka detail layanan', async () => {
+test('tersambung: logo layanan bergabung dengan tanda S, izin tampil, Ubah membuka detail layanan', async () => {
   await showRoute('/terhubung/tersambung?id=tiktok', { actions: [{ type: 'connect', id: 'tiktok' }] });
-  expect(await screen.findByTestId('simpul-tiktok')).toBeOnTheScreen();
+  const join = await screen.findByTestId('sambungan-tiktok');
+  expect(within(join).getByTestId('logo-tiktok')).toBeOnTheScreen();
+  expect(within(join).getByTestId('logo-sekretaris')).toBeOnTheScreen();
+  expect(within(join).getByTestId('sambungan-centang')).toBeOnTheScreen();
   await fireEvent.press(await screen.findByRole('button', { name: 'Ubah' }));
   expect(router.push).toHaveBeenCalledWith('/terhubung/tiktok');
   expect(await screen.findByText('Baca saja')).toBeOnTheScreen();
@@ -117,7 +138,7 @@ test('alamat kembali dengan ok=1 saat aplikasi dibuka dingin: daftar dimuat, lay
   await advance(10);
   await showRoute('/terhubung/tersambung?id=notion&ok=1', { api, state: api.transport.sample.getState() });
   expect(await screen.findByText('Notion sudah terhubung')).toBeOnTheScreen();
-  expect(screen.getByTestId('simpul-notion')).toBeOnTheScreen();
+  expect(screen.getByTestId('sambungan-notion')).toBeOnTheScreen();
 });
 
 test('alamat kembali dengan ok=0: kalimat ramah dan Coba lagi membuka lembar masuk', async () => {
@@ -147,6 +168,27 @@ test('detail Moka: tiga kemampuan, akun, dan izin Baca saja terpilih', async () 
   expect(screen.getByText('Kopi Rindang · Terakhir dipakai 1 menit lalu')).toBeOnTheScreen();
   expect(screen.getByRole('radio', { name: 'Baca saja' })).toBeChecked();
   expect(screen.getByRole('radio', { name: 'Baca dan tulis' })).not.toBeChecked();
+});
+
+test('detail: kepala logo 72 bercentang; tanpa tombol utama bila tidak ada yang perlu disambungkan', async () => {
+  await show('/terhubung/moka');
+  expect(await screen.findByRole('header', { name: 'Moka' })).toBeOnTheScreen();
+  expect(screen.getByTestId('logo-moka')).toHaveStyle({ width: 72, height: 72 });
+  expect(screen.getByTestId('lencana-tersambung')).toBeOnTheScreen();
+  expect(screen.getByText('Hapus yang Nadia tahu')).toBeOnTheScreen();
+  expect(screen.getByText('48 hal')).toBeOnTheScreen();
+  expect(screen.queryByRole('button', { name: /^Sambungkan/ })).toBeNull();
+});
+
+test('detail layanan yang belum tersambung: logo, yang bisa dilakukan, Sambungkan di zona jempol', async () => {
+  await show('/terhubung/notion');
+  expect(await screen.findByText('Belum tersambung')).toBeOnTheScreen();
+  expect(screen.getByTestId('logo-notion')).toBeOnTheScreen();
+  expect(screen.queryByRole('radio', { name: 'Baca saja' })).toBeNull();
+  const go = screen.getByRole('button', { name: 'Sambungkan Notion' });
+  expect(within(screen.getByTestId('zona-jempol')).getByRole('button', { name: 'Sambungkan Notion' })).toBe(go);
+  await fireEvent.press(go);
+  expect(router.replace).toHaveBeenCalledWith('/terhubung/masuk?id=notion');
 });
 
 test('izin: Baca dan tulis mengubah layanan dan mencatat riwayat', async () => {
@@ -201,7 +243,7 @@ test('Batal di konfirmasi tidak mengubah apa pun', async () => {
   expect(toastNow()).toBeNull();
 });
 
-test('Putuskan: konfirmasi, simpul hilang dari cincin Beranda, pindah ke Pernah tersambung dengan toast', async () => {
+test('Putuskan: konfirmasi, toast, lalu kembali ke kelompoknya sebagai kartu Sambungkan', async () => {
   await show('/terhubung/moka');
   await fireEvent.press(await screen.findByRole('button', { name: 'Putuskan' }));
   expect(router.push).toHaveBeenCalledWith('/terhubung/konfirmasi?id=moka&aksi=putus');
@@ -211,9 +253,10 @@ test('Putuskan: konfirmasi, simpul hilang dari cincin Beranda, pindah ke Pernah 
   expect(toastNow()?.text).toBe('Moka diputuskan.');
   expect(router.dismissTo).toHaveBeenCalledWith('/');
   expect(router.push).toHaveBeenLastCalledWith('/terhubung');
-  // Moka bisa disambungkan lagi dari daftar.
-  expect(await screen.findByText('Pernah tersambung')).toBeOnTheScreen();
-  await fireEvent.press(screen.getByRole('button', { name: 'Sambungkan Moka' }));
+  // Moka bisa disambungkan lagi dari daftar: kartunya tanpa centang di kelompok Usaha.
+  const again = await screen.findByRole('button', { name: 'Sambungkan Moka' });
+  expect(within(again).queryByTestId('lencana-tersambung')).toBeNull();
+  await fireEvent.press(again);
   expect(router.push).toHaveBeenCalledWith('/terhubung/masuk?id=moka');
 });
 
@@ -245,6 +288,6 @@ test('Beranda tidak lagi memuat cincin layanan; Terhubung dibuka dari Akun', asy
 
 test('mode gelap: daftar Terhubung tampil', async () => {
   await renderWithProviders(<Terhubung />, { scheme: 'dark' });
-  expect(await screen.findByText('Tersambung')).toBeOnTheScreen();
+  expect(await screen.findByText('7 layanan tersambung')).toBeOnTheScreen();
   expect(screen.getByRole('button', { name: 'Imou · CCTV. Tidak terjangkau sejak 10.12' })).toBeOnTheScreen();
 });

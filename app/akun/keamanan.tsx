@@ -12,7 +12,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
 import { PinPad, type PinVerdict } from '@/ui/device/PinPad';
 import { PIN_CHANGED_TEXT, PinReset } from '@/ui/device/PinReset';
-import { ListRow, SectionHeader } from '@/ui/kit';
+import { ListRow, SectionHeader, ServiceLogo } from '@/ui/kit';
 import { Toggle } from '@/ui/Toggle';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
@@ -241,7 +241,12 @@ export default function Keamanan() {
             services.map((s) => (
               <ListRow
                 key={s.id}
-                icon="shield"
+                leading={
+                  // Logo 40 di kolom ikon 46, supaya nama sejajar dengan baris lain.
+                  <View style={{ width: ICON, alignItems: 'center' }}>
+                    <ServiceLogo id={s.id} name={s.name} size={40} />
+                  </View>
+                }
                 iconSize={ICON}
                 title={s.name}
                 value={`${s.memoryCount} hal`}

@@ -1,3 +1,5 @@
+// Niat lembar: memastikan satu tindakan yang sulit dibatalkan dari detail layanan, hapus yang asisten pelajari
+// (aksi=lupa) atau putuskan (aksi=putus). Tindakan tersering: tombol konfirmasi besar di bawah, Batal di sebelahnya.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
@@ -6,7 +8,6 @@ import { Sheet, useSheet } from '@/ui/Sheet';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 
-// Lembar konfirmasi dari detail layanan: hapus yang Nadia pelajari (aksi=lupa) atau putuskan (aksi=putus).
 export default function Konfirmasi() {
   const { id, aksi } = useLocalSearchParams<{ id?: string; aksi?: string }>();
   return (
