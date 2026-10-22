@@ -100,7 +100,8 @@ export default function Beranda() {
   const favIndex = nextIndex + (next ? 1 : 0);
 
   // Jaring: layanan dan perangkat dari cincin Beranda; pengguna tanpa layanan melihat tiga simpul contoh yang redup.
-  const nodes = home === null ? [] : ring.length > 0 ? webNodes(ring, hero.maxNodes) : PLACEHOLDER_NODES;
+  // Mode akun: cincinnya masih contoh, jadi yang tampil simpul redup, bukan layanan contoh seolah tersambung.
+  const nodes = home === null ? [] : !hybrid && ring.length > 0 ? webNodes(ring, hero.maxNodes) : PLACEHOLDER_NODES;
   const topPad = compact ? 12 : 20;
   const heroGap = compact ? 2 : 6;
   // Dengan blok, Inti tepat di bawah sapaan (ketiga blok tetap terlihat di HP panjang). Tanpa blok, Inti turun ke
