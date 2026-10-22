@@ -9,8 +9,9 @@ import type { ExpoConfig } from 'expo/config';
 // - Build di cloud EAS: berkas yang tidak masuk git tidak ikut terunggah. Simpan sebagai EAS file secret bernama
 //   `GOOGLE_SERVICES_JSON` (expo.dev → proyek → Environment variables → jenis File, atau `npx eas-cli env:create`);
 //   EAS mengisi variabel itu dengan jalur berkasnya saat build.
-// - Alamat server: variabel `EXPO_PUBLIC_API_URL` (contoh `https://app.sekertaris.com`) saat build/`expo start`;
-//   kosong berarti mode server tidak bisa dipilih (hanya mode contoh).
+// - Alamat server: variabel `EXPO_PUBLIC_API_URL` (asal saja, tanpa `/app/v1`) saat build/`expo start`. Build EAS
+//   preview dan production mengisinya di eas.json (`https://app.secretary.my.id`): pemasangan baru mulai di mode akun
+//   (masuk dengan kode WhatsApp). Kosong berarti hanya mode contoh.
 // - Nomor WhatsApp Sekretaris AI: `EXPO_PUBLIC_WA_NUMBER` (contoh `6281100002222`), cadangan untuk tombol "Mulai lewat
 //   WhatsApp" bila server tidak menyebut nomornya.
 const localGoogleServices = './google-services.json';

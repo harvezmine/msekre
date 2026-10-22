@@ -1,6 +1,7 @@
 import { createContext, use, useEffect, useMemo, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 import { useApi } from './ApiProvider';
+import { needsSignIn } from './mode';
 import { HistoryController } from './historyController';
 import { useAuth } from './useAuth';
 
@@ -14,7 +15,7 @@ export const HistoryContext = createContext<HistoryController | null>(null);
 export function HistoryProvider({ children }: { children: ReactNode }) {
   const { transport, mode } = useApi();
   const { status } = useAuth();
-  const active = mode === 'contoh' || status === 'signedIn';
+  const active = !needsSignIn(mode) || status === 'signedIn';
   const running = useMemo(() => (active ? new HistoryController(transport) : null), [transport, active]);
   const idle = useMemo(() => new HistoryController(transport), [transport]);
   useEffect(() => {

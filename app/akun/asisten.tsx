@@ -10,6 +10,7 @@ import { DEFAULT_ASSISTANT } from '@/brand';
 import { useAccount } from '@/api/useAccount';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
+import { SampleBanner } from '@/ui/SampleBanner';
 import { FilterChips } from '@/ui/FilterChips';
 import { ListRow, Segmented } from '@/ui/kit';
 import { PrimaryButton } from '@/ui/PrimaryButton';
@@ -42,6 +43,7 @@ export default function Asisten() {
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         <BackHeader title="Asisten" large />
+        <SampleBanner area="akun" />
         <Txt color={c.muted} style={{ padding: 24, textAlign: 'center' }}>
           {status === 'error' ? error : 'Sebentar ya, saya ambil dulu.'}
         </Txt>
@@ -97,6 +99,7 @@ export default function Asisten() {
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior="padding">
       <BackHeader title="Asisten" large />
+      <SampleBanner area="akun" />
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: insets.bottom + 32, gap: 28 }}

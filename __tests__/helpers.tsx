@@ -2,7 +2,7 @@ import { render } from '@testing-library/react-native';
 import { useSyncExternalStore, type ReactElement } from 'react';
 import { AccountProvider } from '@/api/AccountProvider';
 import { AgendaProvider } from '@/api/AgendaProvider';
-import { ApiProvider, useApi, type Api } from '@/api/ApiProvider';
+import { ApiProvider, useApi, type Api, type ApiFactory } from '@/api/ApiProvider';
 import { ChatProvider } from '@/api/ChatProvider';
 import { BusinessProvider } from '@/api/BusinessProvider';
 import { ConnectionsProvider } from '@/api/ConnectionsProvider';
@@ -21,6 +21,7 @@ import {
   type SampleState,
 } from '@/sample/store';
 import { createToastStore, ToastProvider } from '@/ui/toastStore';
+import { resetSampleBanners } from '@/ui/SampleBanner';
 import { resetTabSet } from '@/ui/tabSet';
 import { resetTips } from '@/ui/tips';
 import { holdBridge } from '@/voice/holdBridge';
@@ -35,6 +36,10 @@ interface Options {
   scheme?: Scheme;
   /** Sumber data; bawaannya server tiruan di memori (mode contoh) tanpa sesi. */
   api?: Api;
+  /** Alamat server (`extra.apiUrl`); bawaannya `null`, jadi mode akun dan server tidak bisa dipilih. */
+  apiUrl?: string | null;
+  /** Pembuat sumber data saat mode diganti (`setMode`); bawaannya `createApi`. */
+  factory?: ApiFactory;
   /** Pasang pilihan Tampilan (dimuat dari penyimpanan) di luar tema, seperti di akar aplikasi. */
   appearance?: boolean;
   /**
@@ -75,11 +80,12 @@ export function useSample(): { state: SampleState } {
 /** Render dengan tema dan penyimpanan contoh, seperti di akar aplikasi. */
 export async function renderWithProviders(
   ui: ReactElement,
-  { state, actions = [], scheme, api, appearance = false, tips = 'seen' }: Options = {},
+  { state, actions = [], scheme, api, apiUrl = null, factory, appearance = false, tips = 'seen' }: Options = {},
 ) {
-  // Keadaan per HP yang hidup di modul (petunjuk, susunan tab, tahanan Inti) dimulai bersih tiap render.
+  // Keadaan per HP yang hidup di modul (petunjuk, susunan tab, tahanan Inti, penanda contoh) dimulai bersih tiap render.
   resetTips(tips);
   resetTabSet(null);
+  resetSampleBanners();
   holdBridge.reset();
   // Mode contoh: keadaan awal dipasang di penyimpanan milik server tiruan (itu yang dilihat layar dan skenario).
   const seeded = stateAfter(actions, state);
@@ -88,7 +94,7 @@ export async function renderWithProviders(
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider scheme={scheme}>
         <ToastProvider store={testToasts}>
-          <ApiProvider initial={api ?? createTestApi({ sample: seeded })} apiUrl={null}>
+          <ApiProvider initial={api ?? createTestApi({ sample: seeded })} apiUrl={apiUrl} factory={factory}>
             <AuthProvider>
               <ChatProvider>
                 <HomeProvider>

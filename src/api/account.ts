@@ -1,5 +1,5 @@
 import { Linking } from 'react-native';
-import type { AccountNotifications, AccountPlan, AssistantStyle } from './contract';
+import type { AccountNotifications, AccountPlan, AssistantStyle, Me } from './contract';
 import { assistantNameSchema } from './contract';
 import { readWaNumber, waUrl } from './waNumber';
 
@@ -73,6 +73,21 @@ export function planLine(plan: AccountPlan, now: number = Date.now(), tz: number
   const thisYear = new Date(now + tz * 60_000).getUTCFullYear();
   const lastYear = new Date(s.last + tz * 60_000).getUTCFullYear();
   return `Aktif sampai ${dateIn(s.last, tz, lastYear !== thisYear)}`;
+}
+
+/**
+ * Paket dari `GET /me` (nama dan akhirnya) dalam bentuk paket Akun, untuk kartu profil mode `akun` (data Akun lain masih
+ * contoh). Server menamai paketnya ("Coba gratis 7 hari", "Bisnis", "... (berakhir)", "Belum ada paket"); keadaannya
+ * dibaca dari nama itu, hari terakhirnya dari `activeUntil`.
+ */
+export function planFromMe(plan: Me['plan']): AccountPlan {
+  const name = plan.name.trim();
+  const status: AccountPlan['status'] = /berakhir|^belum ada/i.test(name)
+    ? 'berakhir'
+    : /^coba|trial/i.test(name)
+      ? 'trial'
+      : 'aktif';
+  return { name, status, ...(plan.activeUntil ? { until: plan.activeUntil } : {}) };
 }
 
 /**

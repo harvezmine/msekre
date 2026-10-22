@@ -13,6 +13,15 @@ type QrisStatus = Extract<Card, { kind: 'qris' }>['status'];
  */
 export const SAMPLE_QR_MEDIA_ID = 'contoh-qris';
 export const SAMPLE_FILE_MEDIA_ID = 'contoh-laporan';
+/** Gambar terakhir kamera contoh: `snap-<id kamera>`. */
+export const SAMPLE_SNAPSHOT_PREFIX = 'snap-';
+
+/** Media milik data contoh (QRIS, laporan, gambar kamera), bukan berkas di server asli. */
+export function isSampleMediaId(mediaId: string): boolean {
+  return (
+    mediaId === SAMPLE_QR_MEDIA_ID || mediaId === SAMPLE_FILE_MEDIA_ID || mediaId.startsWith(SAMPLE_SNAPSHOT_PREFIX)
+  );
+}
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const mainAc = initialDevices.find((d) => d.id === MAIN_AC_ID)!;

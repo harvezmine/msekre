@@ -1,6 +1,7 @@
 import { createContext, use, useEffect, useMemo, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 import { useApi } from './ApiProvider';
+import { needsSignIn } from './mode';
 import { AgendaController } from './agendaController';
 import { useAuth } from './useAuth';
 
@@ -14,7 +15,7 @@ export const AgendaContext = createContext<AgendaController | null>(null);
 export function AgendaProvider({ children }: { children: ReactNode }) {
   const { transport, mode } = useApi();
   const { status } = useAuth();
-  const active = mode === 'contoh' || status === 'signedIn';
+  const active = !needsSignIn(mode) || status === 'signedIn';
   const running = useMemo(() => (active ? new AgendaController(transport) : null), [transport, active]);
   const idle = useMemo(() => new AgendaController(transport), [transport]);
   useEffect(() => {

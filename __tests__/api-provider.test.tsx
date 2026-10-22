@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { ApiProvider, FAKE_LATENCY_MS, SESSION_KEYS, useApi, type ApiValue } from '@/api/ApiProvider';
 import { FakeTransport } from '@/api/fake/FakeTransport';
 import { HttpTransport } from '@/api/http';
+import { HybridTransport } from '@/api/hybrid';
 import { createMemorySession } from '@/api/session';
 
 const mockStore = new Map<string, string>();
@@ -52,7 +53,7 @@ test('bawaannya contoh dengan server tiruan; sesinya di kunci sendiri', async ()
   expect(mockStore.has(SESSION_KEYS.server)).toBe(false);
 });
 
-test('mode server tidak bisa dipilih tanpa alamat server', async () => {
+test('mode akun dan server tidak bisa dipilih tanpa alamat server', async () => {
   const { Probe, api } = setupProbe();
   await render(
     <ApiProvider apiUrl={null}>
@@ -61,8 +62,51 @@ test('mode server tidak bisa dipilih tanpa alamat server', async () => {
   );
   await screen.findByText('mode contoh');
   expect(await api().setMode('server')).toBe(false);
+  expect(await api().setMode('akun')).toBe(false);
   expect(screen.getByText('mode contoh')).toBeTruthy();
   expect(mockStore.has('mode.data')).toBe(false);
+});
+
+test('alamat server diisi (build rilis), pemasangan baru: mode akun dengan sesi server asli', async () => {
+  const { Probe, api } = setupProbe();
+  await render(
+    <ApiProvider apiUrl={API_URL}>
+      <Probe />
+    </ApiProvider>,
+  );
+  expect(await screen.findByText('mode akun')).toBeTruthy();
+  const transport = api().transport as HybridTransport;
+  expect(transport).toBeInstanceOf(HybridTransport);
+  expect(transport.real).toBeInstanceOf(HttpTransport);
+  expect(transport.fake).toBeInstanceOf(FakeTransport);
+  expect(SESSION_KEYS.akun).toBe(SESSION_KEYS.server);
+  // Belum ada pilihan yang disimpan: akun hanya bawaan.
+  expect(mockStore.has('mode.data')).toBe(false);
+});
+
+test('akun ke contoh dan kembali: sesi akun tetap tersimpan, tidak perlu masuk lagi', async () => {
+  const { Probe, api } = setupProbe();
+  await render(
+    <ApiProvider apiUrl={API_URL}>
+      <Probe />
+    </ApiProvider>,
+  );
+  await screen.findByText('mode akun');
+  await act(() => api().session.set('tok-akun'));
+  const hybrid = api().transport;
+  const dispose = jest.spyOn(hybrid, 'dispose');
+
+  expect(await act(() => api().setMode('contoh'))).toBe(true);
+  expect(await screen.findByText('mode contoh')).toBeTruthy();
+  expect(dispose).toHaveBeenCalledTimes(1);
+  expect(mockStore.get('mode.data')).toBe('contoh');
+  // Sesi akun tidak dipakai di mode contoh, tapi tidak dihapus.
+  expect(mockStore.get(SESSION_KEYS.akun)).toBe('tok-akun');
+  expect(await api().session.get()).toBeNull();
+
+  expect(await act(() => api().setMode('akun'))).toBe(true);
+  expect(await screen.findByText('mode akun')).toBeTruthy();
+  expect(await api().session.get()).toBe('tok-akun');
 });
 
 test('ganti ke server: HttpTransport, transport lama dilepas, pilihan bertahan setelah dibuka ulang', async () => {
@@ -72,9 +116,9 @@ test('ganti ke server: HttpTransport, transport lama dilepas, pilihan bertahan s
       <Probe />
     </ApiProvider>,
   );
-  await screen.findByText('mode contoh');
-  const fake = api().transport;
-  const dispose = jest.spyOn(fake, 'dispose');
+  await screen.findByText('mode akun');
+  const hybrid = api().transport;
+  const dispose = jest.spyOn(hybrid, 'dispose');
   expect(api().canUseServer).toBe(true);
 
   expect(await act(() => api().setMode('server'))).toBe(true);

@@ -1,6 +1,7 @@
-import { API_PREFIX } from '@/api/contract';
+import { API_PREFIX, type VoiceClientMessage, type VoiceEvent } from '@/api/contract';
 import { FakeTransport, type FakeOptions } from '@/api/fake/FakeTransport';
 import { HttpTransport, type SocketLike } from '@/api/http';
+import { HybridTransport } from '@/api/hybrid';
 import { createMemorySession, type Session } from '@/api/session';
 import { ApiFailure, type FailureCode } from '@/api/transport';
 import type { Api } from '@/api/ApiProvider';
@@ -60,6 +61,119 @@ class ServerSocket implements SocketLike {
   send() {}
 }
 
+/** Byte awal berkas MP3 (tanda ID3), cukup untuk tes: pemutar ditiru. */
+export const FAKE_MP3_BASE64 = 'SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA';
+
+/** Isi satu giliran Mode Suara server palsu: apa yang "terdengar" dan jawabannya. */
+export interface VoiceTurnScript {
+  transcript: string;
+  reply: string;
+  /** Suara balasan (MP3, satu potongan) ikut dikirim. Bawaan ya. */
+  audio?: boolean;
+  /** Ganti seluruh giliran dengan satu kode error (misalnya `stt_gagal`, `lama`). */
+  error?: string;
+}
+
+/**
+ * Soket `/voice` sisi server, meniru server asli (Fase 1b-mini): ucapan ditampung sampai `stop`, lalu `transcript`
+ * final, `thinking on`, `reply` + `audio` (MP3 satu potongan), `thinking off`. Ucapan dan balasannya juga masuk utas
+ * (bertanda suara), jadi muncul di chat lewat stream. Tanpa potongan audio: `tidak_terdengar`.
+ */
+class VoiceServerSocket implements SocketLike {
+  onopen: ((ev: unknown) => void) | null = null;
+  onmessage: ((ev: { data?: unknown }) => void) | null = null;
+  onerror: ((ev: unknown) => void) | null = null;
+  onclose: ((ev: { code?: number }) => void) | null = null;
+  closed = false;
+  /** Pesan dari aplikasi, dari yang pertama. */
+  received: VoiceClientMessage[] = [];
+  private turn: string | null = null;
+  private chunks = 0;
+  constructor(
+    readonly url: string,
+    readonly headers: Record<string, string>,
+    private readonly backend: FakeTransport,
+    private readonly script: () => VoiceTurnScript,
+    private readonly thinkMs: number,
+  ) {}
+  close() {
+    this.closed = true;
+  }
+  send(data: string) {
+    if (this.closed) return;
+    const message = JSON.parse(data) as VoiceClientMessage;
+    this.received.push(message);
+    switch (message.type) {
+      case 'start':
+        this.turn = message.clientId;
+        this.chunks = 0;
+        return;
+      case 'audio':
+        this.chunks += 1;
+        return;
+      case 'stop':
+        return this.respond(this.turn, this.chunks > 0 ? this.script().transcript : '');
+      case 'text':
+        return this.respond(message.clientId ?? null, message.text);
+      case 'cancel':
+        this.emit({ type: 'end', reason: 'cancelled', ...(this.turn ? { turn: this.turn } : {}) });
+        this.turn = null;
+        return;
+    }
+  }
+  private emit(event: VoiceEvent) {
+    if (!this.closed) this.onmessage?.({ data: JSON.stringify(event) });
+  }
+  private respond(turn: string | null, heard: string) {
+    const t = turn ? { turn } : {};
+    const script = this.script();
+    if (!heard.trim()) {
+      this.emit({ type: 'transcript', text: '', final: true, ...t });
+      this.emit({ type: 'error', code: 'tidak_terdengar', ...t });
+      return;
+    }
+    if (script.error) {
+      this.emit({ type: 'transcript', text: heard, final: true, ...t });
+      this.emit({ type: 'error', code: script.error, ...t });
+      return;
+    }
+    this.emit({ type: 'transcript', text: heard, final: true, ...t });
+    this.emit({ type: 'thinking', on: true, ...t });
+    this.backend.receive({ from: 'user', via: 'app', voice: true, parts: [{ type: 'text', text: heard }] });
+    setTimeout(() => {
+      if (this.closed) return;
+      const answer = this.backend.receive({
+        from: 'assistant',
+        via: 'app',
+        voice: true,
+        parts: [{ type: 'text', text: script.reply }],
+      });
+      this.emit({ type: 'reply', text: script.reply, messageId: answer.id, ...t });
+      if (script.audio !== false) {
+        this.emit({ type: 'audio', seq: 0, data: FAKE_MP3_BASE64, mime: 'audio/mpeg', final: true, ...t });
+      }
+      this.emit({ type: 'thinking', on: false, ...t });
+    }, this.thinkMs);
+  }
+}
+
+export interface FakeHttpOptions {
+  /**
+   * Sumber data aplikasi memakai mode `akun` (`HybridTransport` di atas `HttpTransport` yang sama): chat dan suara ke
+   * server palsu ini, layar lain ke server tiruan di aplikasi (dengan pilihan ini bila berupa objek).
+   */
+  akun?: boolean | FakeOptions;
+  /** Giliran Mode Suara di soket `/voice`. Bawaan: satu kalimat pengingat dan jawabannya. */
+  voice?: () => VoiceTurnScript;
+  /** Jeda dari `thinking on` sampai jawaban di soket `/voice`. Bawaan 1 detik. */
+  voiceThinkMs?: number;
+}
+
+export const DEFAULT_VOICE_TURN: VoiceTurnScript = {
+  transcript: 'Ingatkan saya rapat besok jam 9',
+  reply: 'Siap, besok jam 9 saya ingatkan.',
+};
+
 export interface FakeHttpServer {
   /** Otak server: server tiruan yang sama dengan mode contoh. */
   backend: FakeTransport;
@@ -67,6 +181,17 @@ export interface FakeHttpServer {
   requests: LoggedRequest[];
   /** Soket stream yang pernah dibuka klien. */
   sockets: ServerSocket[];
+  /** Soket Mode Suara yang pernah dibuka klien. */
+  voiceSockets: VoiceServerSocket[];
+  /** Transport asli ke server palsu ini (juga di dalam `api` mode akun). */
+  http: HttpTransport;
+  /** Mode akun: server tiruan di aplikasi untuk layar contoh. `null` di mode server. */
+  sample: FakeTransport | null;
+  /**
+   * Sumber data mode akun yang baru (transport baru, sesi yang sama), seperti `createApi('akun')` setiap mode diganti:
+   * untuk pembuat sumber data (`factory`) di tes ganti mode. Dilepas bersama server.
+   */
+  newAkunApi(): Api;
   /** Token yang sekarang sah, atau `null`. */
   token(): string | null;
   /** Sesi klien (memori) dan transport asli yang dipasang ke aplikasi. */
@@ -82,8 +207,9 @@ export interface FakeHttpServer {
   dispose(): void;
 }
 
-export function createFakeHttpServer(options: FakeOptions = {}): FakeHttpServer {
+export function createFakeHttpServer(options: FakeOptions = {}, extra: FakeHttpOptions = {}): FakeHttpServer {
   const fake = options;
+  const voiceSockets: VoiceServerSocket[] = [];
   const backendSession = createMemorySession(null);
   const backend = new FakeTransport(backendSession, { ...fake, requireSession: true, mode: 'server' });
   let valid: string | null = null;
@@ -241,7 +367,43 @@ export function createFakeHttpServer(options: FakeOptions = {}): FakeHttpServer 
     return { status, ok: status >= 200 && status < 300, text: async () => text };
   };
 
+  const voiceSocketFn = (url: string, headers: Record<string, string>): SocketLike => {
+    const socket = new VoiceServerSocket(
+      url,
+      headers,
+      backend,
+      extra.voice ?? (() => DEFAULT_VOICE_TURN),
+      extra.voiceThinkMs ?? 1000,
+    );
+    voiceSockets.push(socket);
+    setTimeout(() => {
+      if (socket.closed) return;
+      if (upgrade) {
+        socket.onerror?.({});
+        socket.onclose?.({ code: 1006 });
+        return;
+      }
+      if (valid === null || headers.Authorization !== `Bearer ${valid}`) {
+        socket.onerror?.({});
+        socket.onclose?.({ code: 4401 });
+        return;
+      }
+      // Tanpa mesin pengenal ucapan (`features.voice` mati): seperti server asli, ditutup 4501.
+      void backend.me().then((me) => {
+        if (socket.closed) return;
+        if (me.features?.voice === false) {
+          socket.closed = true;
+          socket.onclose?.({ code: 4501 });
+          return;
+        }
+        socket.onopen?.({});
+      });
+    }, 0);
+    return socket;
+  };
+
   const socketFn = (url: string, headers: Record<string, string>): SocketLike => {
+    if (url.endsWith('/voice')) return voiceSocketFn(url, headers);
     const socket = new ServerSocket(url, headers);
     sockets.push(socket);
     setTimeout(() => {
@@ -268,19 +430,34 @@ export function createFakeHttpServer(options: FakeOptions = {}): FakeHttpServer 
   };
 
   const session: Session = createMemorySession(null);
-  const transport = new HttpTransport('https://app.sekertaris.com', session, {
-    fetch: fetchFn as unknown as typeof globalThis.fetch,
-    socket: socketFn,
-    random: () => 0.5,
-    appVersion: '1.0.0',
-  });
+  const httpTransport = () =>
+    new HttpTransport('https://app.sekertaris.com', session, {
+      fetch: fetchFn as unknown as typeof globalThis.fetch,
+      socket: socketFn,
+      random: () => 0.5,
+      appVersion: '1.0.0',
+    });
+  const transport = httpTransport();
+  const sampleOptions = (): FakeOptions => (typeof extra.akun === 'object' ? extra.akun : {});
+  const created: Api[] = [];
+
+  const sample =
+    extra.akun === undefined || extra.akun === false
+      ? null
+      : new FakeTransport(createMemorySession(null), sampleOptions());
+  const api: Api = sample
+    ? { mode: 'akun', session, transport: new HybridTransport(transport, sample, session) }
+    : { mode: 'server', session, transport };
 
   const server: FakeHttpServer = {
     backend,
     requests,
     sockets,
+    voiceSockets,
+    http: transport,
+    sample,
     token: () => valid,
-    api: { mode: 'server', session, transport },
+    api,
     revoke({ sockets: close = true } = {}) {
       valid = null;
       if (!close) return;
@@ -303,7 +480,22 @@ export function createFakeHttpServer(options: FakeOptions = {}): FakeHttpServer 
       return res.token;
     },
     hits: (method, path) => requests.filter((r) => r.method === method && r.path === path),
+    newAkunApi() {
+      const fresh: Api = {
+        mode: 'akun',
+        session,
+        transport: new HybridTransport(
+          httpTransport(),
+          new FakeTransport(createMemorySession(null), sampleOptions()),
+          session,
+        ),
+      };
+      created.push(fresh);
+      return fresh;
+    },
     dispose() {
+      for (const a of created) a.transport.dispose();
+      api.transport.dispose();
       transport.dispose();
       backend.dispose();
     },

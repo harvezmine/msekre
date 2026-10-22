@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Modal } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useApi } from '@/api/ApiProvider';
+import { MODE_LABEL } from '@/api/mode';
 import type { IconName } from '../icons';
 import { ListRow } from '../kit';
 import { Sheet, useSheet } from '../Sheet';
@@ -53,7 +54,7 @@ export function TryRow() {
     { icon: 'clock', title: 'Alarm', route: '/alarm' },
     ...(__DEV__
       ? ([
-          { icon: 'globe', title: 'Mode data', value: mode === 'server' ? 'Server' : 'Contoh', route: '/mode' },
+          { icon: 'globe', title: 'Mode data', value: MODE_LABEL[mode], route: '/mode' },
           { icon: 'info', title: 'Pemeriksa Inti', route: '/inti' },
           { icon: 'palette', title: 'Komponen', route: '/dev/kit' },
         ] satisfies Item[])

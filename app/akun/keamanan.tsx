@@ -10,6 +10,7 @@ import { useAssistantName } from '@/api/useProfile';
 import { useSecurity } from '@/api/useSecurity';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BackHeader } from '@/ui/BackHeader';
+import { SampleBanner } from '@/ui/SampleBanner';
 import { PinPad, type PinVerdict } from '@/ui/device/PinPad';
 import { PIN_CHANGED_TEXT, PinReset } from '@/ui/device/PinReset';
 import { ListRow, SectionHeader, ServiceLogo } from '@/ui/kit';
@@ -125,6 +126,7 @@ export default function Keamanan() {
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         <BackHeader title="Keamanan" large />
+        <SampleBanner area="akun" />
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: insets.bottom + 32 }}
@@ -139,6 +141,7 @@ export default function Keamanan() {
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         <BackHeader title="Keamanan" large />
+        <SampleBanner area="akun" />
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: insets.bottom + 32 }}
@@ -161,6 +164,7 @@ export default function Keamanan() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Keamanan" large />
+      <SampleBanner area="akun" />
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
         {/* PIN opsional untuk kamera, alarm rumah, dan kunci pintu; nama lengkap sakelarnya dibacakan pembaca layar. */}
         <ListRow

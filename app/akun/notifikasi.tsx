@@ -7,6 +7,7 @@ import { useAccount } from '@/api/useAccount';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useNotifications } from '@/ui/akun/notifications';
 import { BackHeader } from '@/ui/BackHeader';
+import { SampleBanner } from '@/ui/SampleBanner';
 import type { IconName } from '@/ui/icons';
 import { ListRow, type AccentTone } from '@/ui/kit';
 import { Toggle } from '@/ui/Toggle';
@@ -38,6 +39,7 @@ export default function Notifikasi() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Pemberitahuan" large />
+      <SampleBanner area="akun" />
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
         {/* Izin HP: sudah menyala cukup dibaca; belum, ketuk untuk meminta izin atau membuka pengaturan HP. */}
         <ListRow

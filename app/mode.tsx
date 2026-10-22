@@ -1,7 +1,7 @@
 import { Redirect, router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
-import type { DataMode } from '@/api/mode';
+import { MODE_LABEL, needsSignIn, type DataMode } from '@/api/mode';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Icon } from '@/ui/Icon';
 import { Sheet, useSheet } from '@/ui/Sheet';
@@ -9,11 +9,12 @@ import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 
 const OPTIONS: { id: DataMode; title: string; note: string }[] = [
-  { id: 'contoh', title: 'Contoh', note: 'Data tiruan di aplikasi, tanpa jaringan' },
-  { id: 'server', title: 'Server', note: 'Server asli, harus masuk dengan nomor WhatsApp' },
+  { id: 'contoh', title: MODE_LABEL.contoh, note: 'Data tiruan di aplikasi, tanpa jaringan' },
+  { id: 'akun', title: MODE_LABEL.akun, note: 'Chat dan suara dari server asli, layar lain contoh' },
+  { id: 'server', title: MODE_LABEL.server, note: 'Semua dari server asli, harus masuk dengan nomor WhatsApp' },
 ];
 
-// Lembar pilihan mode data (menu Coba). Server tidak bisa dipilih sebelum alamatnya diatur.
+// Lembar pilihan mode data (menu Coba). Akun dan Server tidak bisa dipilih sebelum alamatnya diatur.
 export default function Mode() {
   // Hanya untuk pengembangan: di build rilis tidak ada jalan ke mode server dari sini.
   if (!__DEV__) return <Redirect href="/" />;
@@ -33,7 +34,7 @@ function Pilihan() {
     if (id === mode) return close();
     close(() => {
       void setMode(id).then((ok) => {
-        if (ok) toast(`Mode data: ${id === 'server' ? 'Server' : 'Contoh'}.`);
+        if (ok) toast(`Mode data: ${MODE_LABEL[id]}.`);
       });
     });
   };
@@ -45,7 +46,7 @@ function Pilihan() {
       <View accessibilityRole="radiogroup">
         {OPTIONS.map((o, i) => {
           const selected = o.id === mode;
-          const disabled = o.id === 'server' && !canUseServer;
+          const disabled = needsSignIn(o.id) && !canUseServer;
           return (
             <Pressable
               key={o.id}

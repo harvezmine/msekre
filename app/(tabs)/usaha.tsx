@@ -15,6 +15,7 @@ import { LogoDock } from '@/ui/connect/ServiceCard';
 import { Icon } from '@/ui/Icon';
 import { byLayout, PressableScale, Segmented, useLayoutClass } from '@/ui/kit';
 import { PlaceButton } from '@/ui/PlaceButton';
+import { SampleBanner } from '@/ui/SampleBanner';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 
@@ -133,6 +134,7 @@ export default function Usaha() {
             </PressableScale>
           ) : null}
         </View>
+        <SampleBanner area="usaha" />
         {showsData || !shown ? (
           <Segmented
             options={PERIODS}

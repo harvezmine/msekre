@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useApi } from '@/api/ApiProvider';
 import { friendlyError } from '@/api/errors';
+import { sampleDomains } from '@/api/mode';
 import { useSecurity } from '@/api/useSecurity';
 import { isApiFailure } from '@/api/transport';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -124,7 +125,7 @@ export function PinReset({ onDone, onCancel }: Props) {
   }[step];
   return (
     <View style={{ gap: 8 }}>
-      {step === 'code' && mode === 'contoh' ? (
+      {step === 'code' && sampleDomains(mode) ? (
         <Txt v="caption" color={c.muted} style={{ textAlign: 'center' }}>
           {SAMPLE_RESET_HINT}
         </Txt>

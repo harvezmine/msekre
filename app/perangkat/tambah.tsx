@@ -3,6 +3,7 @@ import { BRANDS } from '@/api/constants';
 import { useTheme } from '@/theme/ThemeProvider';
 import { onVoice } from '@/theme/tokens';
 import { BackHeader } from '@/ui/BackHeader';
+import { SampleBanner } from '@/ui/SampleBanner';
 import { Icon } from '@/ui/Icon';
 import { ListGroup } from '@/ui/ListRow';
 import { useToast } from '@/ui/toastStore';
@@ -15,6 +16,7 @@ export default function TambahPerangkat() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <BackHeader title="Tambah perangkat" />
+      <SampleBanner area="perangkat" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24, gap: 16 }}>
         <View style={{ backgroundColor: c.surface, boxShadow: shadow.e2, borderRadius: 28, padding: 20, gap: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

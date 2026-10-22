@@ -6,7 +6,7 @@ import { VOICE_SOON_TEXT } from './texts';
 
 export { VOICE_SOON_TEXT } from './texts';
 
-/** Mode Suara boleh dibuka? Mode contoh selalu; mode server menurut `Me.features.voice` (hilang = belum). */
+/** Mode Suara boleh dibuka? Mode contoh selalu; mode akun dan server menurut `Me.features.voice` (hilang = belum). */
 export function useVoiceAvailable(): boolean {
   return useProfile().voice;
 }

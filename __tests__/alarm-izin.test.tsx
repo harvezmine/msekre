@@ -363,4 +363,14 @@ describe('sinkron alarm dengan agenda (pasang di akar)', () => {
     await advance(0);
     expect(await idsOf(scheduler)).toEqual([TEST_ALARM_ID]);
   });
+
+  test('mode akun (agenda masih contoh): tidak ada alarm contoh di HP, sisa dari mode contoh dibatalkan', async () => {
+    const scheduler = install();
+    await scheduler.schedule({ id: 'jemput:2025-10-20', at: Date.now() + 60_000, title: 'Jemput' });
+    const api = createTestApi({ mode: 'akun', token: 'tok' });
+    await renderWithProviders(<AlarmSyncHost />, { api });
+    for (let i = 0; i < 4; i++) await advance(0);
+    expect(await idsOf(scheduler)).toEqual([]);
+    expect(api.transport.alarmAcks).toEqual([]);
+  });
 });

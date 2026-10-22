@@ -2,6 +2,7 @@ import { createContext, use, useEffect, useMemo, useSyncExternalStore, type Reac
 import { AppState } from 'react-native';
 import { AccountController } from './accountController';
 import { useApi } from './ApiProvider';
+import { needsSignIn } from './mode';
 import { useAuth } from './useAuth';
 
 export const AccountContext = createContext<AccountController | null>(null);
@@ -18,7 +19,7 @@ export const AssistantNameContext = createContext<string | null>(null);
 export function AccountProvider({ children }: { children: ReactNode }) {
   const { transport, mode } = useApi();
   const { status, me, setMe } = useAuth();
-  const active = mode === 'contoh' || status === 'signedIn';
+  const active = !needsSignIn(mode) || status === 'signedIn';
   const running = useMemo(() => (active ? new AccountController(transport) : null), [transport, active]);
   const idle = useMemo(() => new AccountController(transport), [transport]);
   const controller = running ?? idle;

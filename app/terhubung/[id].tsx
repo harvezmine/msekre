@@ -9,6 +9,7 @@ import type { ConnectionPermission, Service } from '@/api/contract';
 import { useConnections } from '@/api/useConnections';
 import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
+import { SampleBanner } from '@/ui/SampleBanner';
 import { capabilityIcon } from '@/ui/connect/logos';
 import { connectRoute, logoStatus } from '@/ui/connect/ServiceCard';
 import { Icon } from '@/ui/Icon';
@@ -33,9 +34,12 @@ export default function DetailLayanan() {
   const toast = useToast();
   const { detail, service: listed, setPermission, reloadDetail } = useConnections(serviceId);
   const back = (
-    <View style={{ paddingTop: insets.top, height: 64 + insets.top, justifyContent: 'center', paddingHorizontal: 8 }}>
-      <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
-    </View>
+    <>
+      <View style={{ paddingTop: insets.top, height: 64 + insets.top, justifyContent: 'center', paddingHorizontal: 8 }}>
+        <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
+      </View>
+      <SampleBanner area="terhubung" />
+    </>
   );
   const data = detail?.data;
   if (!data) {

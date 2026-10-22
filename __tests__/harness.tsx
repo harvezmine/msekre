@@ -40,7 +40,7 @@ import { renderWithProviders, useSample } from './helpers';
 import { AfterSignIn } from '@/api/AfterSignIn';
 import { useApi } from '@/api/ApiProvider';
 import { canOpen, REDIRECT_APP, REDIRECT_ENTRY, routeKind } from '@/api/routeAccess';
-import type { DataMode } from '@/api/mode';
+import { needsSignIn, type DataMode } from '@/api/mode';
 import { useAuth, type AuthStatus } from '@/api/useAuth';
 import { type SampleState } from '@/sample/store';
 import { TabBar } from '@/ui/TabBar';
@@ -167,7 +167,7 @@ function Rute({ start }: { start: string }) {
   // eslint-disable-next-line react-hooks/globals
   access = { mode, status };
   // Seperti penjaga rute: yang menjadi tertolak dibuang saat itu juga (selama sesi diperiksa, akar menahan tampilan).
-  if (!(mode === 'server' && status === 'checking')) {
+  if (!(needsSignIn(mode) && status === 'checking')) {
     const open = stack.filter((e) => canOpen(routeKind(e.path), mode, status));
     if (open.length !== stack.length) {
       // eslint-disable-next-line react-hooks/globals
@@ -178,7 +178,7 @@ function Rute({ start }: { start: string }) {
     // Tujuan yang ditolak penjaga dialihkan ke `redirectTo` kelompoknya.
     const guarded = (e: Entry): Entry => {
       const { mode: m, status: st } = access;
-      if (m === 'server' && st === 'checking') return e;
+      if (needsSignIn(m) && st === 'checking') return e;
       const kind = routeKind(e.path);
       if (canOpen(kind, m, st)) return e;
       return parseRoute(kind === 'entry' ? REDIRECT_ENTRY : REDIRECT_APP);

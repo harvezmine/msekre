@@ -517,6 +517,9 @@ export class VoiceController {
         this.turnId = null;
         if (event.code === 'kartu_tidak_dikenal') this.set({ phase: 'idle', note: CARD_UNREADABLE_TEXT });
         else if (event.code === 'tidak_terdengar') this.set({ phase: 'idle', note: NOT_HEARD_TEXT });
+        // Server tidak mendapat jawaban asisten dalam batas waktunya: sama dengan batas tunggu di HP.
+        else if (event.code === 'lama') this.set({ phase: 'error', note: TURN_TIMEOUT_TEXT });
+        // `stt_gagal`, `tanpa_jawaban`, `sudah_ada`, `tidak_valid`, dan kode lain: kalimat kendala umum, tanpa kode.
         else this.set({ phase: 'error', note: ERROR_TEXT });
         return;
       case 'end':

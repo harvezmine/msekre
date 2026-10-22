@@ -8,6 +8,7 @@ import { countdownText, groupByDay, HISTORY_FILTERS, linkHref, remainingSec, STA
 import { useHistory } from '@/api/useHistory';
 import { useAssistantName } from '@/api/useProfile';
 import { useTheme } from '@/theme/ThemeProvider';
+import { SampleBanner } from '@/ui/SampleBanner';
 import { Icon } from '@/ui/Icon';
 import { IconButton } from '@/ui/IconButton';
 import { iconOr } from '@/ui/icons';
@@ -91,6 +92,7 @@ export default function Riwayat() {
         onPick={setLabel}
         onClose={() => setPicking(false)}
       />
+      <SampleBanner area="riwayat" />
       <ScrollView
         testID="riwayat-daftar"
         onScroll={onScroll}

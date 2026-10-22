@@ -18,6 +18,7 @@ import { byLayout, useLayoutClass } from '@/ui/kit/layout';
 import { PressableScale } from '@/ui/kit/PressableScale';
 import { Segmented } from '@/ui/kit/Segmented';
 import { Surface } from '@/ui/kit/Surface';
+import { SampleBanner } from '@/ui/SampleBanner';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 
@@ -213,6 +214,7 @@ export default function Perangkat() {
             <Icon name="plus" size={26} color={c.text} strokeWidth={2} />
           </PressableScale>
         </View>
+        <SampleBanner area="perangkat" />
 
         {data && groups.length > 1 ? (
           <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 20 }}>

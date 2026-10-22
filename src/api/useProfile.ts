@@ -10,8 +10,8 @@ export interface Profile {
   /** Nama asisten pilihan pengguna, atau {@link DEFAULT_ASSISTANT} sebelum `GET /me` selesai (atau tanpa sesi). */
   assistantName: string;
   /**
-   * Nama pengguna untuk sapaan. `null` kalau belum ada: di mode server tidak pernah memakai nama contoh, jadi pengguna
-   * asli tidak disapa dengan nama orang lain.
+   * Nama pengguna untuk sapaan. `null` kalau belum ada: di mode `akun` dan `server` tidak pernah memakai nama contoh, jadi
+   * pengguna asli tidak disapa dengan nama orang lain.
    */
   name: string | null;
   /** Nomor WhatsApp akun (E.164 tanpa "+") dari `GET /me`, atau `null` bila belum terbaca. */
@@ -21,7 +21,7 @@ export interface Profile {
   plan: Me['plan'] | null;
   /** Mode contoh (atau di luar `ApiProvider`): layar boleh memakai isian contoh dari desain. */
   sample: boolean;
-  /** Mode Suara boleh dipakai: selalu di mode contoh, di mode server menurut `Me.features.voice` (hilang = belum). */
+  /** Mode Suara boleh dipakai: selalu di mode contoh, di mode akun dan server menurut `Me.features.voice` (hilang = belum). */
   voice: boolean;
 }
 
@@ -32,7 +32,7 @@ export interface Profile {
 export function useProfile(): Profile {
   const me = use(AuthContext)?.me ?? null;
   const accountName = use(AssistantNameContext);
-  const sample = (use(ApiContext)?.mode ?? 'contoh') !== 'server';
+  const sample = (use(ApiContext)?.mode ?? 'contoh') === 'contoh';
   const name = me?.name ?? (sample ? user.name : null);
   return {
     assistantName: accountName ?? me?.assistantName ?? DEFAULT_ASSISTANT,

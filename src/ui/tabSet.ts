@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react';
+import { useDataMode } from '@/api/dataMode';
 import { readSecure, writeSecure } from '@/api/secureStore';
 import { useDevices } from '@/api/useDevices';
 import { useHome } from '@/api/useHome';
@@ -10,6 +11,9 @@ import { useHome } from '@/api/useHome';
  * - Usaha setelah ada data usaha (`Home.business`).
  * Akun bukan tab (avatar di Beranda). Susunan terakhir disimpan di HP, supaya saat aplikasi dibuka tab tidak muncul
  * satu per satu; tab yang baru muncul selama aplikasi terbuka diberi titik sampai dikunjungi.
+ *
+ * Mode akun: perangkat dan usaha masih contoh, jadi hanya Beranda dan Agenda (Agenda dengan penanda "Contoh"), dan
+ * susunan itu tidak disimpan (milik data contoh).
  */
 export type TabName = 'index' | 'agenda' | 'perangkat' | 'usaha';
 
@@ -103,22 +107,26 @@ export function useTabSet(): TabSet {
   const state = useSyncExternalStore(subscribe, getSnapshot);
   const { home, status: homeStatus } = useHome();
   const devices = useDevices('Semua');
+  const { hybrid } = useDataMode();
   useEffect(() => {
     if (remembered === undefined) read();
   }, []);
 
-  const homeKnown = home !== null;
-  const devicesKnown = devices.data !== null;
-  const flags: TabFlags = {
-    perangkat: devicesKnown
-      ? devices.devices.length > 0 || devices.box !== null
-      : (state.remembered?.perangkat ?? false),
-    usaha: homeKnown ? home.business !== null : (state.remembered?.usaha ?? false),
-  };
+  const homeKnown = home !== null && !hybrid;
+  const devicesKnown = devices.data !== null && !hybrid;
+  const flags: TabFlags = hybrid
+    ? MINIMAL
+    : {
+        perangkat: devicesKnown
+          ? devices.devices.length > 0 || devices.box !== null
+          : (state.remembered?.perangkat ?? false),
+        usaha: homeKnown ? home.business !== null : (state.remembered?.usaha ?? false),
+      };
   // Siap bila ada susunan tersimpan, atau datanya sudah datang. Pembukaan pertama menunggu datanya (tanpa tab yang
   // bermunculan); gagal memuat tanpa susunan tersimpan: Beranda dan Agenda saja.
   const failed = homeStatus === 'error' || devices.status === 'error';
   const ready =
+    hybrid ||
     (state.remembered !== undefined && state.remembered !== null) ||
     (homeKnown && devicesKnown) ||
     (state.remembered === null && failed);

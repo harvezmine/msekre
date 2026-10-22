@@ -7,6 +7,7 @@ import { CATEGORIES, serviceLine } from '@/api/connections';
 import type { Service, ServiceCategory } from '@/api/contract';
 import { useConnections } from '@/api/useConnections';
 import { useTheme } from '@/theme/ThemeProvider';
+import { SampleBanner } from '@/ui/SampleBanner';
 import {
   AttentionBanner,
   CardFrame,
@@ -77,6 +78,7 @@ export default function Terhubung() {
       <View style={{ paddingTop: insets.top, minHeight: 64 + insets.top, justifyContent: 'center', paddingLeft: 8 }}>
         <IconButton icon="back" label="Kembali" onPress={() => router.back()} />
       </View>
+      <SampleBanner area="terhubung" />
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32, gap: 28 }}>
         {!loaded ? (
           <View style={{ gap: 16, paddingHorizontal: 20 }}>
