@@ -36,7 +36,6 @@ import {
   ApprovalCard,
   blockEntering,
   blockExiting,
-  blockLayout,
   CoachMark,
   FavouriteToggle,
   GradientField,
@@ -200,7 +199,6 @@ export default function Beranda() {
               testID="blok-persetujuan"
               entering={blockEntering(0)}
               exiting={blockExiting}
-              layout={blockLayout}
               style={{ paddingHorizontal: 16 }}
             >
               <Approval draft={approval} chat={chat} compact={compact} />
@@ -212,7 +210,6 @@ export default function Beranda() {
               testID="blok-agenda"
               entering={blockEntering(nextIndex)}
               exiting={blockExiting}
-              layout={blockLayout}
             >
               <NextItemRow
                 time={nextTime(next)}
@@ -228,7 +225,6 @@ export default function Beranda() {
               testID="blok-favorit"
               entering={blockEntering(favIndex)}
               exiting={blockExiting}
-              layout={blockLayout}
               style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 16 }}
             >
               {favorites.map((d) => (
