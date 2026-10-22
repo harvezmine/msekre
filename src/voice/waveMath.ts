@@ -3,7 +3,35 @@ import { gradients } from '@/theme/tokens';
 /**
  * Hitungan gelombang Mode Suara (spesifikasi §5.1), tanpa Skia: dipakai `WavesSkia` di utas UI (fungsi `worklet`) dan
  * diuji langsung di Jest. Semua fungsi murni dan tanpa alokasi, jadi aman dipanggil di setiap frame.
+ *
+ * Aturan worklet (diperiksa __tests__/worklet-ui.test.tsx). Di build rilis, kesalahan di worklet utas UI tidak ditangkap
+ * siapa pun dan langsung menutup paksa aplikasi, jadi:
+ * - setiap fungsi di sini memakai `'worklet'` dan hanya memanggil fungsi worklet lain;
+ * - TANPA nilai bawaan parameter (`ms = KONSTANTA`): di utas UI nilai bawaan dihitung sebelum isi penutup (`__closure`)
+ *   dibuka, jadi konstanta modulnya belum ada dan setiap frame melempar ReferenceError. Isi nilai bawaannya di badan
+ *   fungsi (lihat {@link approach});
+ * - nilai yang masuk dijaga dengan {@link finiteOr} dan {@link clampTo}, jadi NaN atau tak hingga tidak sampai ke Skia.
  */
+
+/** `v` bila angka terhingga, selain itu `fallback` (NaN, tak hingga, atau bukan angka). */
+export function finiteOr(v: number, fallback: number): number {
+  'worklet';
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
+/** `v` dibatasi ke `lo..hi`; NaN menjadi `lo`. */
+export function clampTo(v: number, lo: number, hi: number): number {
+  'worklet';
+  if (!(v >= lo)) return lo;
+  return v > hi ? hi : v;
+}
+
+/** Lama frame dalam detik dari jam frame (ms): 0 sampai 0,05; frame pertama (tanpa nilai) 16 ms. */
+export function frameSeconds(ms: number | null | undefined): number {
+  'worklet';
+  const v = ms === null || ms === undefined ? 16 : ms;
+  return clampTo(v / 1000, 0, 0.05);
+}
 
 export type WaveState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'off' | 'error';
 
@@ -200,10 +228,15 @@ export function smoothLevel(current: number, target: number, dt: number): number
   return current + (target - current) * k;
 }
 
-/** Mendekati nilai tujuan dengan peluruhan eksponensial: sekitar 95% dalam `ms` (bawaan 300 ms). */
-export function approach(current: number, target: number, dt: number, ms = WAVE_CROSSFADE_MS): number {
+/**
+ * Mendekati nilai tujuan dengan peluruhan eksponensial: sekitar 95% dalam `ms` (bawaan {@link WAVE_CROSSFADE_MS}).
+ * Bawaannya diisi di badan fungsi, bukan `ms = WAVE_CROSSFADE_MS` di parameter: di utas UI bentuk itu melempar
+ * ReferenceError di setiap frame dan menutup paksa aplikasi saat Mode Suara terbuka (APK 1.0.0 (4)).
+ */
+export function approach(current: number, target: number, dt: number, ms?: number): number {
   'worklet';
-  const k = 1 - Math.exp((-3 * Math.max(0, dt) * 1000) / ms);
+  const span = ms !== undefined && ms > 0 ? ms : WAVE_CROSSFADE_MS;
+  const k = 1 - Math.exp((-3 * Math.max(0, dt) * 1000) / span);
   return current + (target - current) * k;
 }
 

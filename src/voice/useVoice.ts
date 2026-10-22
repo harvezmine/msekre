@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { useApi } from '@/api/ApiProvider';
+import { reportError } from '@/crash';
 import { createSpeaker, enterVoiceAudio, leaveVoiceAudio } from './audio';
 import { VoiceController, type VoiceState } from './controller';
 
@@ -38,16 +39,25 @@ export function useVoice(): Voice {
     sampleRate: 16000,
     channels: 1,
     encoding: 'int16',
-    onBuffer: (buffer) => controllerRef.current?.pushBuffer(buffer),
+    // Dipanggil dari peristiwa modul native: kesalahan yang lolos dari sini menutup paksa aplikasi di build rilis.
+    onBuffer: (buffer) => {
+      try {
+        controllerRef.current?.pushBuffer(buffer);
+      } catch (e) {
+        reportError('Mode Suara: potongan mikrofon', e);
+      }
+    },
   });
   const controller = useMemo(
     () =>
       new VoiceController({
         transport,
+        // Mikrofon dinyalakan hanya oleh pengendali, setelah izinnya pasti (`holdStart`).
         mic: { start: () => stream.start(), stop: () => stream.stop() },
         speaker: createSpeaker(),
-        haptic: () => void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
-        onLevel: (value) => level.set(value),
+        haptic: () => void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)?.catch(() => {}),
+        // Level masuk ke gelombang di utas UI: hanya angka 0..1.
+        onLevel: (value) => level.set(Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0),
       }),
     [transport, stream, level],
   );
@@ -56,11 +66,23 @@ export function useVoice(): Voice {
     controllerRef.current = controller;
     void enterVoiceAudio();
     // Layar tetap menyala; kalau HP (atau peramban) menolak, Mode Suara tetap jalan.
-    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
-    controller.start();
+    try {
+      activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
+    } catch {
+      // Layar boleh redup sendiri.
+    }
+    try {
+      controller.start();
+    } catch (e) {
+      reportError('Mode Suara: membuka sesi', e);
+    }
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'background' || state === 'inactive') controller.suspend();
-      else void controller.recheckPermission();
+      try {
+        if (state === 'background' || state === 'inactive') controller.suspend();
+        else void controller.recheckPermission().catch((e: unknown) => reportError('Mode Suara: cek izin', e));
+      } catch (e) {
+        reportError('Mode Suara: aplikasi berpindah', e);
+      }
     });
     return () => {
       sub.remove();
@@ -71,7 +93,11 @@ export function useVoice(): Voice {
         // Mikrofon sudah berhenti.
       }
       controllerRef.current = null;
-      deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
+      try {
+        deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
+      } catch {
+        // Sudah tidak aktif.
+      }
       void leaveVoiceAudio();
     };
   }, [controller, stream]);

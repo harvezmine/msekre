@@ -3,6 +3,7 @@ import type { Card, VoiceEvent } from '@/api/contract';
 import { VOICE_MAX_UTTERANCE_SEC } from '@/api/contract';
 import type { Transport, VoiceCloseReason, VoiceSession } from '@/api/transport';
 import { checkMic as realCheckMic, removeSpeechFile, requestMic as realRequestMic, writeSpeechFile } from './audio';
+import { reportError } from '@/crash';
 import { VOICE_SOON_TEXT } from './texts';
 import type { MicPermission, Speaker, SpeechSource } from './audio';
 import { level, pcmBytes, pcmMs, toBase64, toVoiceFormat } from './pcm';
@@ -154,12 +155,29 @@ export class VoiceController {
 
   // ---- Tahan untuk bicara ----
 
-  /** Inti ditekan. Menyela balasan yang sedang berjalan (barge-in). */
+  /**
+   * Inti ditekan. Menyela balasan yang sedang berjalan (barge-in). Mikrofon hanya dinyalakan setelah izinnya pasti
+   * `granted`; belum ditanya atau ditolak = lembar izin, tanpa merekam. Tidak pernah melempar: kendala tak terduga
+   * menjadi kabar "mikrofon belum bisa dipakai" (dipanggil dari sentuhan dan dari layar yang baru terbuka).
+   */
   holdStart = async (): Promise<void> => {
+    try {
+      await this.beginHold();
+    } catch (e) {
+      this.failHold('mulai bicara', e);
+    }
+  };
+
+  private async beginHold(): Promise<void> {
     if (this.disposed || this.pressed || this.state.permission) return;
     this.pressed = true;
     const check = this.deps.checkMic ?? realCheckMic;
-    const permission = await check();
+    let permission: MicPermission;
+    try {
+      permission = await check();
+    } catch {
+      permission = 'blocked';
+    }
     if (this.disposed) return;
     if (permission !== 'granted') {
       this.pressed = false;
@@ -188,29 +206,69 @@ export class VoiceController {
       confirm: null,
       note: null,
     });
-    this.deps.haptic();
+    this.buzz();
     this.limitTimer = setTimeout(() => void this.holdEnd(), VOICE_MAX_UTTERANCE_SEC * 1000);
     this.micOn = true;
     this.micPending = true;
     this.micStopWanted = false;
-    this.starting = this.deps.mic.start().then(
+    // Modul native boleh melempar langsung (bukan janji yang ditolak): diperlakukan sama, kendala mikrofon.
+    let started: Promise<void>;
+    try {
+      started = this.deps.mic.start();
+    } catch (e) {
+      started = Promise.reject(e);
+    }
+    this.starting = Promise.resolve(started).then(
       () => {
         this.micPending = false;
         if (this.micStopWanted) this.stopMic();
       },
-      () => {
+      (e: unknown) => {
         this.micPending = false;
         this.micOn = false;
+        reportError('Mode Suara: mikrofon gagal menyala', e);
         if (this.disposed || epoch !== this.epoch) return;
         this.session?.send({ type: 'cancel' });
         this.turnId = null;
         this.set({ phase: 'error', note: MIC_FAILED_TEXT });
       },
     );
+  }
+
+  /** Kendala tak terduga saat menahan atau melepas Inti: mikrofon mati, giliran batal, kabar ramah. */
+  private failHold(step: string, e: unknown) {
+    reportError(`Mode Suara: ${step}`, e);
+    this.pressed = false;
+    try {
+      this.clearLimit();
+      this.stopMic();
+      this.turnId = null;
+      this.epoch += 1;
+      if (!this.disposed) this.set({ phase: 'error', note: MIC_FAILED_TEXT });
+    } catch (again) {
+      reportError(`Mode Suara: ${step} (memulihkan)`, again);
+    }
+  }
+
+  /** Getar ringan; hanya hiasan, jadi kegagalannya diabaikan. */
+  private buzz() {
+    try {
+      this.deps.haptic();
+    } catch {
+      // Tanpa getar.
+    }
+  }
+
+  /** Inti dilepas: kirim, atau batal kalau terlalu singkat. Tidak pernah melempar. */
+  holdEnd = async (): Promise<void> => {
+    try {
+      await this.endHold();
+    } catch (e) {
+      this.failHold('lepas Inti', e);
+    }
   };
 
-  /** Inti dilepas: kirim, atau batal kalau terlalu singkat. */
-  holdEnd = async (): Promise<void> => {
+  private async endHold(): Promise<void> {
     this.pressed = false;
     if (this.disposed || this.state.phase !== 'listening') return;
     const epoch = this.epoch;
@@ -218,7 +276,7 @@ export class VoiceController {
     // Mikrofon yang sedang menyala dimatikan setelah selesai menyala.
     await this.starting;
     if (this.disposed || this.state.phase !== 'listening' || epoch !== this.epoch) return;
-    this.deps.haptic();
+    this.buzz();
     if (this.chunks === 0 || pcmMs(this.samples) < MIN_UTTERANCE_MS) {
       this.turnId = null;
       this.set({ phase: 'idle', transcript: '', note: HINT_HOLD });
@@ -228,7 +286,7 @@ export class VoiceController {
     // Keadaan lebih dulu (ini yang mematikan mikrofon), baru `stop` ke server.
     this.set({ phase: 'sending' });
     this.session?.send({ type: 'stop' });
-  };
+  }
 
   /** Potongan PCM dari mikrofon. */
   pushBuffer = (buffer: { data: ArrayBuffer; sampleRate: number; channels: number }) => {

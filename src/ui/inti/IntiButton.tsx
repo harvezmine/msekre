@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useAssistantName } from '@/api/useProfile';
+import { reportError } from '@/crash';
 import { motion } from '@/theme/tokens';
 import { haptic } from '../kit/haptics';
 import { PressableScale } from '../kit/PressableScale';
@@ -30,18 +31,25 @@ export function IntiButton({ size, halo = false, paused = false }: { size: numbe
     dismissTip('inti');
     router.navigate('/chat');
   };
+  // Dipanggil dari penangan sentuhan: kesalahan di sini menutup paksa aplikasi di build rilis, jadi dijaga. Getar
+  // (`haptic`) sudah aman sendiri; gagal membuka Mode Suara = tahanan dilupakan dan Inti tetap bisa dipakai.
   const talk = (hold: boolean) => {
     dismissTip('inti');
     if (!voice) {
       toast(VOICE_SOON_TEXT);
       return;
     }
-    if (hold) {
-      haptic('medium');
-      holdBridge.begin();
-      router.navigate({ pathname: '/suara', params: { hold: '1' } });
-    } else {
-      router.navigate('/suara');
+    try {
+      if (hold) {
+        haptic('medium');
+        holdBridge.begin();
+        router.navigate({ pathname: '/suara', params: { hold: '1' } });
+      } else {
+        router.navigate('/suara');
+      }
+    } catch (e) {
+      holdBridge.cancel();
+      reportError('Inti: buka Mode Suara', e);
     }
   };
 

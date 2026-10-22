@@ -24,6 +24,7 @@ import { canOpen } from '@/api/routeAccess';
 import { PushProvider, PushTapHandler } from '@/api/usePush';
 import { AlarmSyncHost } from '@/alarm/useAlarmSync';
 import { AuthProvider, useAuth } from '@/api/useAuth';
+import { installCrashGuard } from '@/crash';
 import { AppearanceProvider } from '@/theme/appearance';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { useLaunchSplash } from '@/ui/LaunchSplash';
@@ -33,6 +34,8 @@ import { ToastProvider } from '@/ui/toastStore';
 // Tautan langsung ke /chat, /suara, /inti tetap punya tab di bawahnya.
 export const unstable_settings = { anchor: '(tabs)' };
 
+// Sedini mungkin: di build rilis kesalahan JavaScript yang tidak tertangkap dicatat dan tidak menutup paksa aplikasi.
+installCrashGuard();
 SplashScreen.preventAutoHideAsync();
 /** Batas paling lama layar pembuka menunggu pemeriksaan sesi. */
 const SPLASH_MAX_MS = 6000;

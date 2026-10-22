@@ -32,6 +32,7 @@ import { Icon } from '@/ui/Icon';
 import type { IconName } from '@/ui/icons';
 import { IntiOrb } from '@/ui/inti/IntiOrb';
 import { PressableScale, useLayoutClass } from '@/ui/kit';
+import { Boundary } from '@/ui/Boundary';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
 import { ConfirmArea } from '@/voice/ConfirmArea';
@@ -42,6 +43,7 @@ import { holdBridge } from '@/voice/holdBridge';
 import { VOICE_SOON_TEXT } from '@/voice/texts';
 import { useVoice } from '@/voice/useVoice';
 import { Waves } from '@/voice/Waves';
+import { WavesBand } from '@/voice/WavesBand';
 import { WAVE_HEIGHT_RATIO, type WaveState } from '@/voice/waveMath';
 
 const WAVE: Record<VoicePhase, WaveState> = {
@@ -68,7 +70,69 @@ export const THINKING_TEXT = 'Sebentar…';
 
 /** Mode Suara: tahan Inti sambil bicara, lepas untuk mengirim. Teksnya selalu tampil. Belum tersedia: hanya catatan. */
 export default function Suara() {
+  return (
+    <Boundary where="Mode Suara" fallback={(retry) => <SuaraKendala onRetry={retry} />}>
+      <SuaraPilih />
+    </Boundary>
+  );
+}
+
+function SuaraPilih() {
   return useVoiceAvailable() ? <SuaraAktif /> : <SuaraSegera />;
+}
+
+export const VOICE_TROUBLE_TEXT = 'Mode Suara lagi ada kendala. Coba lagi sebentar ya.';
+
+/**
+ * Mode Suara gagal digambar (batas kesalahan di atas): layar tetap terbuka dengan pita cahaya diam, kalimat ramah,
+ * "Coba lagi", dan Selesai. Mikrofon tidak menyala dari sini; tahanan Inti yang masih berjalan dilupakan.
+ */
+function SuaraKendala({ onRetry }: { onRetry: () => void }) {
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  useEffect(() => {
+    holdBridge.cancel();
+  }, []);
+  return (
+    <View testID="suara-kendala" style={{ flex: 1, backgroundColor: dark.voiceCanvas }}>
+      <StatusBar style="light" />
+      <WavesBand state="off" width={width} height={Math.round(height * WAVE_HEIGHT_RATIO)} />
+      <View
+        style={{
+          flex: 1,
+          paddingTop: insets.top + 24,
+          paddingBottom: Math.max(insets.bottom, 12) + 18,
+          paddingHorizontal: 28,
+          justifyContent: 'center',
+          gap: 32,
+        }}
+      >
+        <Txt v="title" color={onVoice.strong} style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">
+          {VOICE_TROUBLE_TEXT}
+        </Txt>
+        <View style={{ gap: 12 }}>
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel="Coba lagi"
+            onPress={onRetry}
+            style={{
+              alignSelf: 'center',
+              minHeight: 56,
+              paddingHorizontal: 40,
+              borderRadius: 28,
+              backgroundColor: dark.brand,
+              justifyContent: 'center',
+            }}
+          >
+            <Txt v="subtitle" color={dark.onBrand}>
+              Coba lagi
+            </Txt>
+          </PressableScale>
+          <DoneButton />
+        </View>
+      </View>
+    </View>
+  );
 }
 
 /** Akun yang belum mendapat Mode Suara: tidak membuka sesi atau mikrofon. */
@@ -115,8 +179,13 @@ function SuaraAktif() {
   useEffect(() => {
     if (hold !== '1' || !holdBridge.isHeld()) return;
     const off = holdBridge.onRelease(() => void holdEnd());
+    // Izin diperiksa dulu di pengendali: belum ditanya atau ditolak = lembar izin, mikrofon tidak menyala.
     void holdStart();
-    return off;
+    return () => {
+      off();
+      // Layar ditutup selagi jari masih menempel: tahanan dilupakan tanpa mengirim.
+      holdBridge.cancel();
+    };
     // Sekali saat layar terbuka: tahanan berikutnya lewat Inti di layar ini.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

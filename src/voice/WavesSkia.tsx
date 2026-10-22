@@ -24,11 +24,15 @@ import {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { gradients } from '@/theme/tokens';
 import {
   approach,
   bandBottom,
   bandTop,
+  clampTo,
+  finiteOr,
+  frameSeconds,
   goalAlpha,
   goalShimmer,
   goalSpeed,
@@ -61,6 +65,14 @@ export interface WavesProps {
   glow?: SharedValue<number>;
 }
 
+export interface WavesSkiaProps extends WavesProps {
+  /**
+   * Jam frame di utas UI berkendala (ditangkap di sana, jadi aplikasi tidak tertutup): gelombang berhenti dan pemanggil
+   * menggantinya dengan pita diam (src/voice/Waves.tsx). `why` = pesan kendalanya, untuk log.
+   */
+  onFail?: (why: string) => void;
+}
+
 const RAMP = ['rgba(0,0,0,1)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0)'];
 const RAMP_AT = [0, 0.25, 1];
 const CREST = ['rgba(183,224,122,0)', 'rgba(214,245,190,1)', 'rgba(170,220,255,1)', 'rgba(183,224,122,0)'];
@@ -85,7 +97,8 @@ export function WavesSkia({
   muted = false,
   quiet = false,
   glow,
-}: WavesProps) {
+  onFail,
+}: WavesSkiaProps) {
   const reduce = useReducedMotion();
   const still = reduce;
   const running = !still && !paused;
@@ -106,22 +119,39 @@ export function WavesSkia({
   const alpha = useSharedValue(goalAlpha(state, muted, quiet));
   const shimmer = useSharedValue(goalShimmer(state));
 
+  // Utas UI: kesalahan di sini tidak ditangkap siapa pun di build rilis dan menutup paksa aplikasi. Jadi semua nilai
+  // dijaga (NaN, tak hingga, di luar 0..1), dan kesalahan apa pun menghentikan jam ini lalu dilaporkan sekali.
+  const broken = useSharedValue(false);
   const frame = useFrameCallback((info) => {
     'worklet';
-    // Frame pertama setelah jeda: paling banyak 50 ms, supaya tidak melompat.
-    const dt = Math.min(0.05, (info.timeSincePreviousFrame ?? 16) / 1000);
-    const t = clock.get() + dt;
-    clock.set(t);
-    const st = stateSv.get();
-    const m = mutedSv.get();
-    const sp = approach(speed.get(), goalSpeed(st, m), dt);
-    speed.set(sp);
-    phase.set(phase.get() + sp * dt);
-    alpha.set(approach(alpha.get(), goalAlpha(st, m, quietSv.get()), dt));
-    shimmer.set(approach(shimmer.get(), goalShimmer(st), dt));
-    const L = smoothLevel(lv.get(), targetLevel(st, t, level.get(), m), dt);
-    lv.set(L);
-    if (glow) glow.set(L);
+    if (broken.get()) return;
+    try {
+      // Frame pertama setelah jeda: paling banyak 50 ms, supaya tidak melompat.
+      const dt = frameSeconds(info.timeSincePreviousFrame);
+      const t = finiteOr(clock.get(), 0) + dt;
+      clock.set(t);
+      const st = stateSv.get();
+      const m = mutedSv.get();
+      const sp = clampTo(finiteOr(approach(finiteOr(speed.get(), 0), goalSpeed(st, m), dt), 0), 0, 2);
+      speed.set(sp);
+      phase.set(finiteOr(phase.get(), STILL_PHASE) + sp * dt);
+      alpha.set(clampTo(approach(finiteOr(alpha.get(), 0), goalAlpha(st, m, quietSv.get()), dt), 0, 1));
+      shimmer.set(clampTo(approach(finiteOr(shimmer.get(), 0), goalShimmer(st), dt), 0, 1));
+      const mic = clampTo(finiteOr(level.get(), 0), 0, 1);
+      const L = clampTo(smoothLevel(clampTo(lv.get(), 0, 1), targetLevel(st, t, mic, m), dt), 0, 1);
+      lv.set(L);
+      if (glow) glow.set(L);
+    } catch (e) {
+      broken.set(true);
+      if (glow) glow.set(0);
+      if (onFail) {
+        try {
+          scheduleOnRN(onFail, String(e));
+        } catch {
+          // Tidak bisa melapor: gelombang tetap berhenti dengan aman.
+        }
+      }
+    }
   }, running);
 
   useEffect(() => {
@@ -151,9 +181,12 @@ export function WavesSkia({
   }, [still, paused, pulse]);
   // Terang akhir = terang keadaan × denyut; dihitung di Skia (kanvas buram di Android adalah SurfaceView, yang tidak
   // mengikuti opacity View induknya).
-  const light = useDerivedValue(() => alpha.get() * pulse.get());
+  const light = useDerivedValue(() => clampTo(finiteOr(alpha.get() * pulse.get(), 0), 0, 1));
 
-  const shimmerC = useDerivedValue(() => ({ x: shimmerX(clock.get()) * width, y: height * 0.58 }));
+  const shimmerC = useDerivedValue(() => ({
+    x: finiteOr(shimmerX(finiteOr(clock.get(), 0)) * width, 0),
+    y: height * 0.58,
+  }));
 
   return (
     <View
@@ -197,19 +230,31 @@ interface LayerProps {
 function Layer({ layer, width, height, phase, level, alpha }: LayerProps) {
   const path = usePathValue((b: SkPathBuilder) => {
     'worklet';
-    const p = phase.get();
-    const L = level.get();
-    b.moveTo(0, height);
-    for (let i = 0; i <= WAVE_POINTS; i++) {
-      const u = i / WAVE_POINTS;
-      b.lineTo(u * width, waveY(layer, u, p, L, height));
+    // Dijaga seperti jam frame: titik bukan angka diganti garis dasar, kesalahan = lapis ini kosong satu frame.
+    try {
+      const p = finiteOr(phase.get(), STILL_PHASE);
+      const L = clampTo(finiteOr(level.get(), 0), 0, 1);
+      const rest = height * layer.base;
+      b.moveTo(0, height);
+      for (let i = 0; i <= WAVE_POINTS; i++) {
+        const u = i / WAVE_POINTS;
+        b.lineTo(u * width, finiteOr(waveY(layer, u, p, L, height), rest));
+      }
+      b.lineTo(width, height);
+      b.close();
+    } catch {
+      // Lapis kosong satu frame.
     }
-    b.lineTo(width, height);
-    b.close();
   });
-  const rampStart = useDerivedValue(() => ({ x: 0, y: bandTop(layer, level.get(), height) }));
-  const rampEnd = useDerivedValue(() => ({ x: 0, y: bandBottom(layer, level.get(), height) }));
-  const opacity = useDerivedValue(() => layer.alpha * alpha.get());
+  const rampStart = useDerivedValue(() => ({
+    x: 0,
+    y: finiteOr(bandTop(layer, clampTo(finiteOr(level.get(), 0), 0, 1), height), 0),
+  }));
+  const rampEnd = useDerivedValue(() => ({
+    x: 0,
+    y: finiteOr(bandBottom(layer, clampTo(finiteOr(level.get(), 0), 0, 1), height), height),
+  }));
+  const opacity = useDerivedValue(() => clampTo(layer.alpha * finiteOr(alpha.get(), 0), 0, 1));
   return (
     <Path path={path} opacity={opacity} blendMode="plus" dither>
       {/* Anak pertama = tujuan (warna), kedua = sumber (alfa): dstIn menyisakan warna sebesar alfa pita. */}
@@ -226,16 +271,21 @@ function Layer({ layer, width, height, phase, level, alpha }: LayerProps) {
 function Crest({ layer, width, height, phase, level, alpha }: LayerProps) {
   const path = usePathValue((b: SkPathBuilder) => {
     'worklet';
-    const p = phase.get();
-    const L = level.get();
-    for (let i = 0; i <= WAVE_POINTS; i++) {
-      const u = i / WAVE_POINTS;
-      const y = waveY(layer, u, p, L, height);
-      if (i === 0) b.moveTo(0, y);
-      else b.lineTo(u * width, y);
+    try {
+      const p = finiteOr(phase.get(), STILL_PHASE);
+      const L = clampTo(finiteOr(level.get(), 0), 0, 1);
+      const rest = height * layer.base;
+      for (let i = 0; i <= WAVE_POINTS; i++) {
+        const u = i / WAVE_POINTS;
+        const y = finiteOr(waveY(layer, u, p, L, height), rest);
+        if (i === 0) b.moveTo(0, y);
+        else b.lineTo(u * width, y);
+      }
+    } catch {
+      // Garis puncak kosong satu frame.
     }
   });
-  const opacity = useDerivedValue(() => 0.32 * alpha.get());
+  const opacity = useDerivedValue(() => clampTo(0.32 * finiteOr(alpha.get(), 0), 0, 1));
   return (
     <Path path={path} style="stroke" strokeWidth={3} opacity={opacity} blendMode="plus">
       <LinearGradient start={{ x: 0, y: 0 }} end={{ x: width, y: 0 }} colors={CREST} positions={CREST_AT} />

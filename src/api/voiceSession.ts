@@ -23,7 +23,19 @@ export class VoiceChannel implements VoiceSession {
   send(message: VoiceClientMessage) {
     if (this.done) return;
     if (this.queue) this.queue.push(message);
-    else this.transmit(message);
+    else this.safeTransmit(message);
+  }
+
+  /**
+   * Soket yang sedang tertutup boleh menolak pesan: sama dengan sinyal putus (batas tunggu giliran di pengendali yang
+   * menanganinya). Pengirimnya antara lain peristiwa mikrofon dari modul native, jadi kesalahannya tidak boleh keluar.
+   */
+  private safeTransmit(message: VoiceClientMessage) {
+    try {
+      this.transmit(message);
+    } catch (e) {
+      console.error('Pesan suara gagal dikirim', e);
+    }
   }
 
   close() {
@@ -49,7 +61,7 @@ export class VoiceChannel implements VoiceSession {
   opened() {
     const queued = this.queue ?? [];
     this.queue = null;
-    for (const m of queued) this.transmit(m);
+    for (const m of queued) this.safeTransmit(m);
   }
 
   receive(event: VoiceEvent) {
