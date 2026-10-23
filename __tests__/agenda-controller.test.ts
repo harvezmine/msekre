@@ -1,6 +1,6 @@
-import { AgendaController } from '@/api/agendaController';
+import { AgendaController, isGone } from '@/api/agendaController';
 import type { AgendaItem } from '@/api/contract';
-import { ERROR_TEXT } from '@/api/errors';
+import { ERROR_TEXT, UNAVAILABLE_TEXT } from '@/api/errors';
 import { FakeTransport } from '@/api/fake/FakeTransport';
 import { createMemorySession } from '@/api/session';
 
@@ -132,6 +132,53 @@ test('tambah memakai item pratinjau; pratinjau gagal memberi teks ramah', async 
   expect(await controller.preview('apa saja')).toEqual({ ok: false, error: ERROR_TEXT });
   expect(await controller.ackAlarm('a10', '2025-10-21T00:00:00.000Z')).toBe(true);
   expect(await controller.ackAlarm('zzz', '2025-10-21T00:00:00.000Z')).toBe(false);
+  controller.stop();
+});
+
+test('server belum bisa membaca atau menyimpan agenda (501): ditandai `unavailable`, selain itu tidak', async () => {
+  const { transport, controller } = await setup();
+  transport.failNext('unavailable');
+  expect(await controller.preview('Ingatkan saya minum obat jam 8 malam')).toEqual({
+    ok: false,
+    error: UNAVAILABLE_TEXT,
+    unavailable: true,
+  });
+  const res = await controller.preview('Ingatkan saya minum obat jam 8 malam');
+  if (!res.ok) throw new Error('pratinjau gagal');
+  transport.failNext('unavailable');
+  expect(await controller.add(res.item)).toEqual({ error: UNAVAILABLE_TEXT, unavailable: true });
+  transport.failNext('network');
+  expect(await controller.add(res.item)).toEqual({ error: ERROR_TEXT });
+  controller.stop();
+});
+
+test('markDone: juga item yang belum dimuat; gagal melempar kegagalan asli dan mengembalikan keadaan', async () => {
+  const { transport, controller, state } = await setup();
+  // Item di luar rentang yang dimuat (dibuka dari notifikasi): tetap sampai ke server.
+  transport.sample.dispatch({
+    type: 'addAgenda',
+    item: { date: '2026-03-01', time: '05.45', title: 'Subuh di bandara', kind: 'reminder' },
+  });
+  const far = transport.sample.getState().agenda.at(-1)!.id;
+  await controller.markDone(far);
+  expect(transport.sample.getState().agenda.find((a) => a.id === far)?.done).toBe(true);
+
+  // Tanpa internet: kembali seperti semula dan pemanggil tahu sebabnya.
+  transport.failNext('network');
+  await expect(controller.markDone('a10')).rejects.toMatchObject({ code: 'network' });
+  expect(state().items.find((i) => i.id === 'a10')?.done).toBeUndefined();
+  expect(isGone(new Error('x'))).toBe(false);
+
+  // Sudah tidak ada di server: dibuang dari layar.
+  const gone = await controller.markDone('zzz').then(
+    () => null,
+    (e: unknown) => e,
+  );
+  expect(isGone(gone)).toBe(true);
+  await controller.markDone('a10');
+  expect(state().items.find((i) => i.id === 'a10')?.done).toBe(true);
+  await controller.snoozeStrict('a9', '2025-10-24T12:40:00.000Z');
+  expect(state().items.find((i) => i.id === 'a9')?.snoozedUntil).toBe('2025-10-24T12:40:00.000Z');
   controller.stop();
 });
 

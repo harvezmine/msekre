@@ -1,5 +1,6 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import Agenda from '../app/(tabs)/agenda';
 import Akun from '../app/akun';
@@ -10,6 +11,18 @@ import { createTestApi, renderWithProviders, toastNow } from './helpers';
 import { MemoryAlarmScheduler, setAlarmScheduler } from '@/alarm';
 import { TEST_ALARM_DELAY_MS, TEST_ALARM_ID } from '@/alarm/testAlarm';
 import { AlarmSyncHost } from '@/alarm/useAlarmSync';
+import { useApi } from '@/api/ApiProvider';
+import type { DataMode } from '@/api/mode';
+
+/** `setMode` dari `useApi` terakhir (tes ganti mode data). */
+let setModeForTest: (mode: DataMode) => Promise<boolean> = async () => false;
+function ModeProbe() {
+  const api = useApi();
+  useEffect(() => {
+    setModeForTest = api.setMode;
+  });
+  return null;
+}
 
 let mockManufacturer: string | null = 'Google';
 jest.mock('expo-device', () => ({
@@ -364,13 +377,40 @@ describe('sinkron alarm dengan agenda (pasang di akar)', () => {
     expect(await idsOf(scheduler)).toEqual([TEST_ALARM_ID]);
   });
 
-  test('mode akun (agenda masih contoh): tidak ada alarm contoh di HP, sisa dari mode contoh dibatalkan', async () => {
+  test('mode akun (agenda asli dari server): alarmnya dijadwalkan di HP dan dikabarkan', async () => {
     const scheduler = install();
-    await scheduler.schedule({ id: 'jemput:2025-10-20', at: Date.now() + 60_000, title: 'Jemput' });
     const api = createTestApi({ mode: 'akun', token: 'tok' });
     await renderWithProviders(<AlarmSyncHost />, { api });
     for (let i = 0; i < 4; i++) await advance(0);
-    expect(await idsOf(scheduler)).toEqual([]);
-    expect(api.transport.alarmAcks).toEqual([]);
+    expect(await idsOf(scheduler)).toEqual(['jemput:2025-10-20', 'a10', 'a9', 'jemput:2025-10-26']);
+    expect(api.transport.alarmAcks.map((a) => a.id)).toEqual(['jemput:2025-10-20', 'a10', 'a9', 'jemput:2025-10-26']);
+  });
+
+  test('ganti mode data: alarm mode sebelumnya dibatalkan dan tanda terima dilupakan, lalu mode baru disamakan', async () => {
+    const scheduler = install();
+    const contoh = createTestApi();
+    const akun = createTestApi({ mode: 'akun', token: 'tok' });
+    // Item yang hanya ada di mode contoh: tidak boleh tertinggal di HP setelah pindah ke akun.
+    contoh.transport.sample.dispatch({
+      type: 'addAgenda',
+      item: { date: '2025-10-22', time: '06.00', title: 'Hanya contoh', kind: 'reminder', way: 'alarm' },
+    });
+    const sampleOnly = contoh.transport.sample.getState().agenda.at(-1)!.id;
+    await renderWithProviders(
+      <>
+        <AlarmSyncHost />
+        <ModeProbe />
+      </>,
+      { api: contoh, apiUrl: 'https://app.sekertaris.com', factory: () => akun },
+    );
+    for (let i = 0; i < 4; i++) await advance(0);
+    expect(await idsOf(scheduler)).toContain(sampleOnly);
+    await act(async () => {
+      await setModeForTest('akun');
+    });
+    for (let i = 0; i < 6; i++) await advance(0);
+    expect(await idsOf(scheduler)).not.toContain(sampleOnly);
+    // Tanda terima mode baru dikirim lagi walau id dan waktunya sama dengan mode sebelumnya.
+    expect(akun.transport.alarmAcks.map((a) => a.id)).toEqual(['jemput:2025-10-20', 'a10', 'a9', 'jemput:2025-10-26']);
   });
 });

@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import Agenda from '../app/(tabs)/agenda';
-import Tambah, { PREVIEW_DEBOUNCE_MS } from '../app/agenda/tambah';
+import Tambah, { PREVIEW_DEBOUNCE_MS, VIA_CHAT_TEXT } from '../app/agenda/tambah';
 import { ERROR_TEXT } from '@/api/errors';
 import { createTestApi, renderWithProviders, toastNow, useSample } from './helpers';
 import { detailWords, snoozedText } from '@/ui/agenda/AgendaItem';
@@ -289,6 +289,46 @@ test('Tambah: simpan yang gagal tidak menutup lembar dan menampilkan pesan ramah
   expect(screen.getByText(ERROR_TEXT)).toBeOnTheScreen();
   await advance(300);
   expect(router.back).not.toHaveBeenCalled();
+});
+
+test('Tambah: server belum bisa membaca kalimat (501): "Saya catat lewat chat ya", Simpan mengirimnya ke chat', async () => {
+  const api = createTestApi();
+  const send = jest.spyOn(api.transport, 'send');
+  await renderWithProviders(<Tambah />, { api });
+  api.transport.failNext('unavailable');
+  await fireEvent.changeText(
+    screen.getByPlaceholderText('Ingatkan saya bayar pajak motor tanggal 25'),
+    'Ingatkan saya bayar pajak motor tanggal 25',
+  );
+  await advance(PREVIEW_DEBOUNCE_MS);
+  expect(screen.getByText(VIA_CHAT_TEXT)).toBeOnTheScreen();
+  expect(screen.queryByText('Akan saya simpan sebagai')).toBeNull();
+  expect(screen.queryByText('Menyiapkan pratinjau…')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Simpan' })).toBeEnabled();
+  await fireEvent.press(screen.getByRole('button', { name: 'Simpan' }));
+  await advance(0);
+  expect(send).toHaveBeenCalledWith(
+    expect.objectContaining({ kind: 'text', text: 'Ingatkan saya bayar pajak motor tanggal 25' }),
+  );
+  expect(toastNow()?.text).toBe(VIA_CHAT_TEXT);
+  await advance(300);
+  expect(router.back).toHaveBeenCalled();
+});
+
+test('Tambah: pratinjau ada tapi menyimpan belum tersedia (501): kalimatnya dikirim ke chat', async () => {
+  const api = createTestApi();
+  const send = jest.spyOn(api.transport, 'send');
+  await renderWithProviders(<Tambah />, { api });
+  await fireEvent.changeText(
+    screen.getByPlaceholderText('Ingatkan saya bayar pajak motor tanggal 25'),
+    'Cek stok gudang',
+  );
+  await advance(PREVIEW_DEBOUNCE_MS);
+  api.transport.failNext('unavailable');
+  await fireEvent.press(screen.getByRole('button', { name: 'Simpan' }));
+  await advance(0);
+  expect(send).toHaveBeenCalledWith(expect.objectContaining({ text: 'Cek stok gudang' }));
+  expect(toastNow()?.text).toBe(VIA_CHAT_TEXT);
 });
 
 test('Agenda di mode server tanpa jawaban: pesan ramah dan Coba lagi memuat ulang', async () => {

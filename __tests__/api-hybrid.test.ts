@@ -202,6 +202,15 @@ describe('event stream', () => {
     expect(thinking.map((e) => e.type === 'thinking' && e.on)).toEqual([true, false]);
     expect(texts().filter((t) => t === 'Halo')).toHaveLength(1);
 
+    // Agenda asli: event agenda dari server asli sampai, yang dari data contoh tidak.
+    events.length = 0;
+    await real.agendaPatch('a10', { done: true });
+    await fake.agendaPatch('a9', { done: true });
+    await jest.advanceTimersByTimeAsync(50);
+    const agendaEvents = events.filter((e) => e.type === 'agenda');
+    expect(agendaEvents).toHaveLength(1);
+    expect(agendaEvents[0]!.type === 'agenda' && agendaEvents[0]!.items?.map((i) => i.id)).toEqual(['a10']);
+
     // Perangkat diatur di server tiruan: satu event perangkat. Yang sama di server asli: tidak diteruskan.
     events.length = 0;
     await fake.controlDevice('lampu-utama', { on: false });

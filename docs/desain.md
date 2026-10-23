@@ -316,8 +316,8 @@ dan paling dekat dengan jempol).
 
 Mode data (`src/api/mode.ts`): `contoh` (server tiruan), `akun` (bawaan build rilis bila `EXPO_PUBLIC_API_URL` diisi),
 dan `server` (semuanya dari server asli, hanya pengembangan lewat `/mode`). Mode akun memakai `HybridTransport`
-(`src/api/hybrid.ts`): masuk, `GET /me`, chat, stream, Mode Suara, media, dan token notifikasi ke server asli; selebihnya
-(Beranda, Agenda, Perangkat, Usaha, Terhubung, Riwayat, sebagian Akun) ke server tiruan di aplikasi. Tabel jalurnya
+(`src/api/hybrid.ts`): masuk, `GET /me`, chat, stream, Mode Suara, media, token notifikasi, dan Agenda (U2) ke server
+asli; selebihnya (Beranda, Perangkat, Usaha, Terhubung, Riwayat, sebagian Akun) ke server tiruan di aplikasi. Tabel jalurnya
 `HYBRID_ROUTES`; setiap method `Transport` wajib tercantum (tes `api-hybrid`). Nama, nomor, paket, dan nama asisten
 selalu dari `GET /me`, juga di Beranda dan Akun yang isinya contoh.
 
@@ -333,4 +333,8 @@ Aturan layar (baca `useDataMode().hybrid`):
   Baris **Data** (Akun Anda / Contoh) ada bila alamat server diatur; ke Contoh tidak keluar dari akun.
 - **Mulai**: "Lihat contoh dulu" di bawah Mulai pindah ke mode contoh tanpa masuk. Setelah masuk langsung ke Beranda
   (layar pilih layanan masih contoh).
-- **Alarm**: agenda contoh tidak pernah dijadwalkan sebagai alarm HP di mode akun.
+- **Agenda** (U2): asli, tanpa penanda contoh. `POST /agenda/parse` yang masih 501: lembar Tambah menulis "Saya catat
+  lewat chat ya" dan Simpan mengirim kalimatnya ke asisten sebagai pesan chat. Blok agenda berikutnya di Beranda tetap
+  tersembunyi (isi Beranda masih contoh).
+- **Alarm dan pengingat**: dari agenda asli. Ganti mode data atau keluar membatalkan semuanya dan melupakan tanda
+  terimanya.

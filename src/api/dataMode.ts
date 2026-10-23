@@ -7,9 +7,9 @@ export interface DataModeInfo {
   /** Akun asli yang masuk dengan nomor WhatsApp (`akun`, `server`). */
   signIn: boolean;
   /**
-   * Mode `akun`: chat dan Mode Suara dari server asli, layar lain (Agenda, Perangkat, Usaha, Terhubung, Riwayat, sebagian
-   * Akun) masih data contoh. Layar memakai ini untuk berterus terang: Beranda tidak menampilkan blok yang isinya contoh,
-   * bilah tab hanya Beranda dan Agenda, dan layar contoh diberi penanda (`SampleBanner`).
+   * Mode `akun`: chat, Mode Suara, dan Agenda dari server asli, layar lain (Perangkat, Usaha, Terhubung, Riwayat,
+   * sebagian Akun) masih data contoh. Layar memakai ini untuk berterus terang: Beranda tidak menampilkan blok yang isinya
+   * contoh, bilah tab hanya Beranda dan Agenda, dan layar contoh diberi penanda (`SampleBanner`).
    */
   hybrid: boolean;
 }

@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { TextInput, View } from 'react-native';
+import { useChatController } from '@/api/ChatProvider';
 import type { AgendaNew } from '@/api/contract';
 import { useAgenda } from '@/api/useAgenda';
 import { dayLabel } from '@/api/dates';
@@ -25,6 +26,9 @@ const KIND_LABEL: Record<AgendaNew['kind'], string> = {
 /** Jeda setelah mengetik sebelum pratinjau diminta ke server. */
 export const PREVIEW_DEBOUNCE_MS = 400;
 
+/** Server belum bisa membaca kalimat agenda (501): kalimatnya dititipkan ke asisten lewat chat. */
+export const VIA_CHAT_TEXT = 'Saya catat lewat chat ya.';
+
 interface Preview {
   /** Teks yang menghasilkan pratinjau ini. */
   text: string;
@@ -34,7 +38,8 @@ interface Preview {
 
 // Niat lembar: menulis satu hal untuk agenda seperti bicara biasa, lalu melihat dulu bagaimana saya menyimpannya. Tindakan
 // tersering: Simpan, tombol besar paling bawah (zona jempol). Server yang membaca kalimatnya (`POST /agenda/parse`); lembar
-// menunggu sebentar setelah berhenti mengetik, lalu menampilkan pratinjau.
+// menunggu sebentar setelah berhenti mengetik, lalu menampilkan pratinjau. Server yang belum bisa membacanya (501):
+// "Saya catat lewat chat ya", dan Simpan mengirim kalimat itu ke asisten sebagai pesan chat.
 export default function Tambah() {
   return (
     <Sheet onClose={() => router.back()}>
@@ -49,15 +54,20 @@ function Isi() {
   const toast = useToast();
   const openSuara = useOpenVoice();
   const agenda = useAgenda();
+  const chat = useChatController();
   const { preview: ask, add } = agenda;
   const [text, setText] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Teks yang tidak bisa dibaca server karena jalurnya belum ada (501): Simpan menitipkannya lewat chat.
+  const [viaChat, setViaChat] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const typed = text.trim();
   // Pratinjau hanya berlaku untuk teks yang menghasilkannya; selama teks berubah, ia menunggu yang baru.
   const parsed = preview && preview.text === typed ? preview : null;
-  const preparing = typed !== '' && !parsed && error === null;
+  const chatOnly = viaChat !== null && viaChat === typed;
+  const preparing = typed !== '' && !parsed && !chatOnly && error === null;
+  const ready = parsed !== null || chatOnly;
 
   useEffect(() => {
     if (!typed) return;
@@ -67,6 +77,10 @@ function Isi() {
         if (stale) return;
         if (res.ok) {
           setPreview({ text: typed, item: res.item, guessedTime: res.guessedTime });
+          setError(null);
+        } else if (res.unavailable) {
+          setPreview(null);
+          setViaChat(typed);
           setError(null);
         } else {
           setPreview(null);
@@ -80,12 +94,20 @@ function Isi() {
     };
   }, [typed, ask]);
 
+  const sendViaChat = () => {
+    chat.send(typed);
+    toast(VIA_CHAT_TEXT);
+    close();
+  };
+
   const save = async () => {
-    if (!parsed || saving) return;
+    if (!ready || saving) return;
+    if (!parsed) return sendViaChat();
     setSaving(true);
     const failed = await add(parsed.item);
     setSaving(false);
-    if (failed) return setError(failed);
+    if (failed?.unavailable) return sendViaChat();
+    if (failed) return setError(failed.error);
     toast('Tersimpan di agenda.');
     close();
   };
@@ -160,6 +182,14 @@ function Isi() {
           {error}
         </Txt>
       ) : null}
+      {chatOnly ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <AccentIcon icon="chat" tone="brand" size={44} />
+          <Txt v="row" weight={600} style={{ flex: 1 }} accessibilityLiveRegion="polite">
+            {VIA_CHAT_TEXT}
+          </Txt>
+        </View>
+      ) : null}
 
       {parsed ? (
         <View style={{ gap: 8 }}>
@@ -195,8 +225,8 @@ function Isi() {
       <PressableScale
         accessibilityRole="button"
         accessibilityLabel="Simpan"
-        accessibilityState={{ disabled: !parsed || saving }}
-        disabled={!parsed || saving}
+        accessibilityState={{ disabled: !ready || saving }}
+        disabled={!ready || saving}
         haptic="success"
         onPress={() => void save()}
         style={{
@@ -204,10 +234,10 @@ function Isi() {
           borderRadius: 28,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: parsed ? c.brand : c.sunken2,
+          backgroundColor: ready ? c.brand : c.sunken2,
         }}
       >
-        <Txt weight={600} color={parsed ? c.onBrand : c.muted} style={{ fontSize: 17 }}>
+        <Txt weight={600} color={ready ? c.onBrand : c.muted} style={{ fontSize: 17 }}>
           Simpan
         </Txt>
       </PressableScale>

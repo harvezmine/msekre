@@ -15,7 +15,9 @@ export interface AgendaApi extends AgendaState {
   add: AgendaController['add'];
   toggle: AgendaController['toggle'];
   setDone: AgendaController['setDone'];
+  markDone: AgendaController['markDone'];
   snooze: AgendaController['snooze'];
+  snoozeStrict: AgendaController['snoozeStrict'];
   resolveLeftover: AgendaController['resolveLeftover'];
   ackAlarm: AgendaController['ackAlarm'];
 }
@@ -38,10 +40,13 @@ const noLoad = async () => {};
 const noItem = async () => null;
 const noPreview: AgendaController['preview'] = async () => ({ ok: false, error: '' });
 const noAck = async () => false;
+const noStrict = async () => {
+  throw new Error('Agenda belum siap');
+};
 
 /**
- * Agenda untuk layar: dari pengendali bersama di {@link AgendaProvider} (`GET /agenda`, event `agenda`). Sama di mode
- * `contoh` dan `server`. Di luar provider hasilnya kosong (`status: 'loading'`).
+ * Agenda untuk layar: dari pengendali bersama di {@link AgendaProvider} (`GET /agenda`, event `agenda`). Sama di semua
+ * mode (mode `akun` juga dari server asli). Di luar provider hasilnya kosong (`status: 'loading'`).
  */
 export function useAgenda(): AgendaApi {
   const controller = useAgendaControllerOptional();
@@ -59,7 +64,9 @@ export function useAgenda(): AgendaApi {
     add: controller?.add ?? noError,
     toggle: controller?.toggle ?? noError,
     setDone: controller?.setDone ?? noError,
+    markDone: controller?.markDone ?? noStrict,
     snooze: controller?.snooze ?? noError,
+    snoozeStrict: controller?.snoozeStrict ?? noStrict,
     resolveLeftover: controller?.resolveLeftover ?? noError,
     ackAlarm: controller?.ackAlarm ?? noAck,
   };

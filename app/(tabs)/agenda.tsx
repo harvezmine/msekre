@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { alarmBlocked, useAlarmStatus } from '@/alarm/useAlarmStatus';
-import { useDataMode } from '@/api/dataMode';
 import { daysInMonth, isoDate, MONTH_NAMES, parts } from '@/api/dates';
 import { useAgenda } from '@/api/useAgenda';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -14,7 +13,6 @@ import { MonthSheet } from '@/ui/agenda/MonthGrid';
 import { weekDays, WeekStrip } from '@/ui/agenda/WeekStrip';
 import { Icon } from '@/ui/Icon';
 import { PressableScale, TimeRail, useLayoutClass } from '@/ui/kit';
-import { SampleBanner } from '@/ui/SampleBanner';
 import { Txt } from '@/ui/Txt';
 import { useToast } from '@/ui/toastStore';
 import { useOpenVoice } from '@/voice/available';
@@ -26,8 +24,6 @@ export default function Agenda() {
   const toast = useToast();
   const alarm = useAlarmStatus();
   const agenda = useAgenda();
-  // Mode akun: agenda masih contoh, jadi HP tidak membunyikan alarmnya dan izin alarm tidak perlu diminta di sini.
-  const { hybrid } = useDataMode();
   const { itemsOn, marked, ensureRange } = agenda;
   const [picked, setPicked] = useState<string | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
@@ -89,7 +85,6 @@ export default function Agenda() {
     return (
       <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
         {header}
-        <SampleBanner area="agenda" />
         <View style={{ paddingHorizontal: 20, gap: 16, alignItems: 'flex-start' }}>
           {agenda.status === 'error' ? (
             <>
@@ -121,9 +116,7 @@ export default function Agenda() {
 
   // Hanya diingatkan kalau memang ada pengingat yang dibunyikan HP.
   const blocked =
-    !hybrid &&
-    alarmBlocked(alarm.status) &&
-    agenda.items.some((i) => i.way === 'alarm' && !i.done && i.kind !== 'task');
+    alarmBlocked(alarm.status) && agenda.items.some((i) => i.way === 'alarm' && !i.done && i.kind !== 'task');
   const tz = agenda.tzOffsetMinutes;
   const isToday = selected === TODAY;
   const items = itemsOn(selected);
@@ -152,7 +145,6 @@ export default function Agenda() {
     <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
         {header}
-        <SampleBanner area="agenda" />
         <WeekStrip
           selected={selected}
           today={TODAY}
