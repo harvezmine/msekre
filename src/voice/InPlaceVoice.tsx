@@ -1,6 +1,15 @@
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { BackHandler, Linking, Pressable, ScrollView, StyleSheet, View, type GestureResponderEvent, type ViewInstance } from 'react-native';
+import {
+  BackHandler,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type GestureResponderEvent,
+  type ViewInstance,
+} from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -89,7 +98,15 @@ export function useInPlaceVoice(): { hero: HeroVoice; dim: SharedValue<number>; 
     if (!focused) inPlace.close();
   }, [focused]);
 
-  const hero: HeroVoice = { mode, level, cancel, smooth, focus, active: session.open, thinking: session.open && thinking };
+  const hero: HeroVoice = {
+    mode,
+    level,
+    cancel,
+    smooth,
+    focus,
+    active: session.open,
+    thinking: session.open && thinking,
+  };
   const overlay = session.open ? <InPlaceLayer session={session} hero={hero} onThinking={setThinking} /> : null;
   return { hero, dim: focus, overlay };
 }
@@ -301,7 +318,14 @@ function InPlaceView({
             ) : null}
             {confirm ? <ConfirmArea card={confirm.card} messageId={confirm.messageId} /> : null}
           </ScrollView>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 8,
+            }}
+          >
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={muted ? 'Suarakan' : 'Bisukan'}

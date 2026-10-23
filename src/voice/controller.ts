@@ -4,14 +4,7 @@ import { VOICE_MAX_UTTERANCE_SEC } from '@/api/contract';
 import type { Transport, VoiceCloseReason, VoiceSession } from '@/api/transport';
 import { checkMic as realCheckMic, removeSpeechFile, requestMic as realRequestMic, writeSpeechFile } from './audio';
 import { reportError } from '@/crash';
-import {
-  IN_CHAT_TEXT,
-  LATE_TEXT,
-  NOT_HEARD_TEXT,
-  SHORT_HOLD_TEXT,
-  STT_FAILED_TEXT,
-  VOICE_SOON_TEXT,
-} from './texts';
+import { IN_CHAT_TEXT, LATE_TEXT, NOT_HEARD_TEXT, SHORT_HOLD_TEXT, STT_FAILED_TEXT, VOICE_SOON_TEXT } from './texts';
 import type { MicPermission, Speaker, SpeechSource } from './audio';
 import { level } from './pcm';
 import { concatPcm, encodeChunks, firstChannel, prepareUtterance, resample, resampleTo16k, VOICE_RATE } from './prep';

@@ -267,7 +267,9 @@ export default function Beranda() {
           </Animated.View>
         ) : null}
       </ScrollView>
-      {tip.visible && !heroVoice.active ? <CoachMark text={TIP_TEXT.inti} top={tipTop} onDismiss={tip.dismiss} /> : null}
+      {tip.visible && !heroVoice.active ? (
+        <CoachMark text={TIP_TEXT.inti} top={tipTop} onDismiss={tip.dismiss} />
+      ) : null}
       {overlay}
     </View>
   );

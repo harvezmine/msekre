@@ -73,7 +73,9 @@ export default function Notifikasi() {
           tone="agenda"
           iconSize={ICON}
           title="Getar"
-          trailing={<Toggle value={sound.vibrate} onChange={(next) => void sound.set({ vibrate: next })} label="Getar" />}
+          trailing={
+            <Toggle value={sound.vibrate} onChange={(next) => void sound.set({ vibrate: next })} label="Getar" />
+          }
         />
 
         <View style={{ height: 16 }} />

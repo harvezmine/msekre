@@ -69,7 +69,15 @@ export function createNotificationsMock() {
       return category;
     }),
     scheduleNotificationAsync: jest.fn(
-      async ({ identifier, content, trigger }: { identifier?: string; content: Request['content']; trigger: never }) => {
+      async ({
+        identifier,
+        content,
+        trigger,
+      }: {
+        identifier?: string;
+        content: Request['content'];
+        trigger: never;
+      }) => {
         const id = identifier ?? `notif-${++seq}`;
         state.scheduled.set(id, { identifier: id, content, trigger });
         return id;

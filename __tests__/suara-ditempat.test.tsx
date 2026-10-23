@@ -26,7 +26,6 @@ import {
   wrapUnit,
 } from '@/voice/radialMath';
 
-const HIDDEN = { includeHiddenElements: true };
 const ANCHOR = { x: 196, y: 300, size: 140 };
 
 async function settle() {

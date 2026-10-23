@@ -65,7 +65,9 @@ test('tahan Inti besar di Beranda: bicara di tempat; dilepas: ucapan dikirim, ja
 test('tahan Inti bilah tab: Mode Suara layar penuh mendengar, cahaya mengembang dari jari; dilepas: dikirim', async () => {
   await showRoute('/agenda');
   await settle();
-  await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress', { nativeEvent: { pageX: 196, pageY: 830 } });
+  await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress', {
+    nativeEvent: { pageX: 196, pageY: 830 },
+  });
   expect(currentRoute()).toBe('/suara');
   await settle();
   expect(stream.start).toHaveBeenCalledTimes(1);

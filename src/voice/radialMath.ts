@@ -72,7 +72,9 @@ export function wrapUnit(v: number): number {
 /** Fase jam cincin berikutnya: maju `dt × laju / periode`, berputar di 0..1. */
 export function advancePhase(p: number, dt: number, pace: number): number {
   'worklet';
-  return wrapUnit(finiteOr(p, 0) + (clampTo(finiteOr(dt, 0), 0, 0.05) * clampTo(finiteOr(pace, 0), 0, 2)) / RING_PERIOD);
+  return wrapUnit(
+    finiteOr(p, 0) + (clampTo(finiteOr(dt, 0), 0, 0.05) * clampTo(finiteOr(pace, 0), 0, 2)) / RING_PERIOD,
+  );
 }
 
 /** Kemajuan cincin ke-`i` (0 di tepi Inti, 1 paling jauh). */

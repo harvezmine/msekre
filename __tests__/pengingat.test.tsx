@@ -65,7 +65,8 @@ afterEach(() => {
 });
 
 const scheduledIds = () => [...mock.scheduled.values()].map((r) => r.content.data?.id);
-const triggerOf = (id: string) => mock.scheduled.get(notificationIdOf(id))?.trigger as { date: number; channelId: string };
+const triggerOf = (id: string) =>
+  mock.scheduled.get(notificationIdOf(id))?.trigger as { date: number; channelId: string };
 
 describe('pengingat mana yang dijadwalkan', () => {
   test('pengingat, rutin, dan tugas berjam, bukan alarm atau telepon, belum selesai, dalam 7 hari ke depan', () => {

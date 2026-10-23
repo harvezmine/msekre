@@ -862,7 +862,10 @@ export const weatherQuerySchema = z
     lat: z.coerce.number().min(-90).max(90).optional(),
     lon: z.coerce.number().min(-180).max(180).optional(),
   })
-  .refine((q) => (q.lat === undefined) === (q.lon === undefined), { path: ['lon'], message: 'lat dan lon berpasangan' });
+  .refine((q) => (q.lat === undefined) === (q.lon === undefined), {
+    path: ['lon'],
+    message: 'lat dan lon berpasangan',
+  });
 /**
  * Cuaca saat ini untuk satu tempat. `place`: nama tempat ("Kantor", nama kota). `tempC`: suhu sekarang (bulat).
  * `icon`: kode ikon penyedia (OpenWeather, contoh `10d`), boleh diabaikan; aplikasi memilih ikon dari `condition`.

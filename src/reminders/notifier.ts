@@ -2,7 +2,13 @@ import * as Notifications from 'expo-notifications';
 import { AndroidImportance, AndroidNotificationPriority, AndroidNotificationVisibility } from 'expo-notifications';
 import { Platform } from 'react-native';
 import { light } from '@/theme/tokens';
-import type { PresentedReminder, ReminderNotifier, ReminderPermission, ReminderRequest, ScheduledReminder } from './types';
+import type {
+  PresentedReminder,
+  ReminderNotifier,
+  ReminderPermission,
+  ReminderRequest,
+  ScheduledReminder,
+} from './types';
 
 /**
  * Saluran Android pengingat lokal. Getar dan suara saluran tidak bisa diubah setelah saluran dibuat (Android), jadi

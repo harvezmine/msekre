@@ -38,7 +38,8 @@ export default function Agenda() {
   // Dibuka dari notifikasi pengingat (`/agenda?id=&tanggal=`): hari item itu, dengan butirnya terbuka.
   const params = useLocalSearchParams<{ id?: string; tanggal?: string }>();
   const linkId = typeof params.id === 'string' ? params.id : null;
-  const linkDate = typeof params.tanggal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.tanggal) ? params.tanggal : null;
+  const linkDate =
+    typeof params.tanggal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.tanggal) ? params.tanggal : null;
   const [shownLink, setShownLink] = useState<string | null>(null);
   const linked = linkId ? (agenda.items.find((i) => i.id === linkId) ?? null) : null;
   const linkKey = linkId ? `${linkId}@${linkDate}` : null;
