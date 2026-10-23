@@ -62,7 +62,7 @@ test('tahan Inti besar di Beranda: bicara di tempat; dilepas: ucapan dikirim, ja
   expect(currentRoute()).toBe('/chat');
 });
 
-test('tahan Inti bilah tab: Mode Suara layar penuh mendengar, cahaya mengembang dari jari; dilepas: dikirim', async () => {
+test('tahan Inti bilah tab: Mode Suara layar penuh mendengar tanpa kilatan cahaya; dilepas: dikirim', async () => {
   await showRoute('/agenda');
   await settle();
   await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress', {
@@ -72,7 +72,8 @@ test('tahan Inti bilah tab: Mode Suara layar penuh mendengar, cahaya mengembang 
   await settle();
   expect(stream.start).toHaveBeenCalledTimes(1);
   expect(screen.getByLabelText('Mendengar')).toBeOnTheScreen();
-  expect(screen.getByTestId('suara-cahaya-asal', HIDDEN)).toBeTruthy();
+  // Tanpa cahaya pembuka: setengah layar atas tidak pernah berkedip hijau.
+  expect(screen.queryByTestId('suara-cahaya-asal', HIDDEN)).toBeNull();
   for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
   await act(async () => holdBridge.release());
   await advance(RELEASE_TAIL_MS);

@@ -2,8 +2,7 @@ import type { HoldOrigin } from './holdBridge';
 
 /**
  * Peralihan dari Inti bilah tab ke Mode Suara layar penuh tanpa lompatan: Inti Mode Suara muncul tepat di tempat jari
- * menahan (sebesar Inti bilah, lalu tumbuh), cahaya brand mengembang dari titik itu, dan setelah jari diangkat Inti
- * meluncur ke tempatnya di atas "Selesai". Hitungan murni, diuji langsung.
+ * menahan (sebesar Inti bilah, lalu tumbuh), dan setelah jari diangkat Inti meluncur ke tempatnya di atas "Selesai". Hitungan murni, diuji langsung.
  */
 
 /** Inti di Mode Suara (app/suara.tsx). */
@@ -34,10 +33,4 @@ export function handoffFrom(origin: HoldOrigin | null, rest: { x: number; y: num
   if (!Number.isFinite(dx) || !Number.isFinite(dy)) return null;
   const scale = Math.min(1, Math.max(0.4, origin.size / VOICE_INTI));
   return { dx, dy, scale: Number.isFinite(scale) ? scale : 1 };
-}
-
-/** Jari-jari cahaya pembuka: dari titik asal sampai sudut layar terjauh. */
-export function glowRadius(origin: { x: number; y: number }, width: number, height: number): number {
-  const r = Math.hypot(Math.max(origin.x, width - origin.x), Math.max(origin.y, height - origin.y));
-  return Number.isFinite(r) && r > 0 ? Math.ceil(r) : Math.max(width, height);
 }

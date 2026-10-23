@@ -1,7 +1,7 @@
 import { useCallback, useId } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, type FrameInfo, type SharedValue } from 'react-native-reanimated';
-import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useTheme } from '@/theme/ThemeProvider';
 import { advanceClock } from '@/ui/beranda/webMath';
 import { FrameClock } from '@/ui/FrameClock';
@@ -10,9 +10,6 @@ import {
   goalPace,
   goalPresence,
   goalSpread,
-  hugAlpha,
-  hugScale,
-  hugTurn,
   RADIAL_LOOP,
   radialTarget,
   RING_COUNT,
@@ -41,23 +38,10 @@ export interface RadialDrive {
   smooth: SharedValue<number>;
 }
 
-/** Garis wavy melingkar (jari-jari `r`, `lobes` lekukan setinggi `amp`), dihitung sekali; hanya diputar dan diskala. */
-function wavyRing(cx: number, cy: number, r: number, lobes: number, amp: number, phase: number): string {
-  const steps = 96;
-  let d = '';
-  for (let i = 0; i <= steps; i++) {
-    const a = (i / steps) * Math.PI * 2;
-    const rr = r + amp * Math.sin(lobes * a + phase) + amp * 0.35 * Math.sin((lobes + 3) * a - phase * 1.7);
-    d += `${i === 0 ? 'M' : 'L'}${(cx + rr * Math.cos(a)).toFixed(2)} ${(cy + rr * Math.sin(a)).toFixed(2)}`;
-  }
-  return `${d}Z`;
-}
-
 /**
- * Gelombang suara melingkar di sekitar Inti besar Beranda (Mode Suara di tempat): tiga cincin lembut bergradasi brand
- * yang berangkat dari tepi Inti dan memudar ke luar (jangkauan dan terang mengikuti level mikrofon yang dihaluskan),
- * ditambah dua garis bergelombang yang memeluk Inti dan berputar pelan berlawanan arah. Berpikir: cincin merapat dan
- * melambat (kilau tenang); menjawab: mengikuti selubung bicara tiruan; digeser batal: meredup.
+ * Gelombang suara di sekitar Inti besar Beranda (Mode Suara di tempat), seperti sinyal radio: empat cincin tipis bergradasi
+ * brand yang berangkat dari tepi Inti, melambat ke luar, dan memudar (jangkauan dan terang mengikuti level mikrofon yang
+ * dihaluskan). Berpikir: cincin merapat dan melambat; menjawab: mengikuti selubung bicara tiruan; digeser batal: meredup.
  *
  * Hanya `transform`/`opacity` yang berubah (SVG di dalamnya diam). Satu jam frame di utas UI, hanya terpasang selama
  * berjalan (`FrameClock`); "kurangi gerakan" atau `paused`: satu cincin diam yang terangnya mengikuti mode.
@@ -89,18 +73,18 @@ export function RadialWaves({ size, drive, still }: { size: number; drive: Radia
     [mode, level, cancel, smooth, clock, phase, pace, presence, spread, cancelMix],
   );
 
-  // Kotak gambar 2 × Inti, berpusat di Inti; cincin ber-skala 1 = garis tengah Inti.
+  // Kotak gambar 2 × Inti, berpusat di Inti (pembungkusnya di titik pusat Inti, jadi kotaknya digeser setengah kotak,
+  // bukan setengah Inti); cincin ber-skala 1 = garis tengah Inti.
   const box = size * 2;
-  const c = box / 2;
   const r = size / 2;
-  const stroke = Math.max(1.6, size / 70);
+  const stroke = Math.max(1.2, size / 96);
   return (
     <View
       testID="suara-cincin"
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={{ position: 'absolute', left: -size / 2, top: -size / 2, width: box, height: box }}
+      style={{ position: 'absolute', left: -box / 2, top: -box / 2, width: box, height: box }}
     >
       {still ? null : <FrameClock onFrame={tick} />}
       {still ? (
@@ -117,20 +101,6 @@ export function RadialWaves({ size, drive, still }: { size: number; drive: Radia
               colors={ink}
               phase={phase}
               spread={spread}
-              presence={presence}
-              smooth={smooth}
-              cancel={cancelMix}
-            />
-          ))}
-          {[0, 1].map((k) => (
-            <Hug
-              key={k}
-              k={k}
-              box={box}
-              path={wavyRing(c, c, r + (k ? 13 : 7), k ? 9 : 6, k ? 2.6 : 3.4, k ? 1.3 : 0)}
-              stroke={stroke * 0.9}
-              color={ink[k ? 2 : 0]}
-              clock={clock}
               presence={presence}
               smooth={smooth}
               cancel={cancelMix}
@@ -184,40 +154,6 @@ function Ring({
           </LinearGradient>
         </Defs>
         <Circle cx={box / 2} cy={box / 2} r={r} stroke={`url(#rg${uid})`} strokeWidth={stroke} fill="none" />
-      </Svg>
-    </Animated.View>
-  );
-}
-
-function Hug({
-  k,
-  box,
-  path,
-  stroke,
-  color,
-  clock,
-  presence,
-  smooth,
-  cancel,
-}: {
-  k: number;
-  box: number;
-  path: string;
-  stroke: number;
-  color: string;
-  clock: SharedValue<number>;
-  presence: SharedValue<number>;
-  smooth: SharedValue<number>;
-  cancel: SharedValue<number>;
-}) {
-  const style = useAnimatedStyle(() => ({
-    opacity: hugAlpha(smooth.get(), presence.get(), cancel.get()) * (k ? 0.7 : 1),
-    transform: [{ rotate: `${hugTurn(clock.get(), k)}deg` }, { scale: hugScale(smooth.get(), k) }],
-  }));
-  return (
-    <Animated.View testID={`suara-peluk-${k}`} style={[StyleSheet.absoluteFill, style]}>
-      <Svg width={box} height={box}>
-        <Path d={path} stroke={color} strokeWidth={stroke} strokeOpacity={0.9} fill="none" strokeLinejoin="round" />
       </Svg>
     </Animated.View>
   );

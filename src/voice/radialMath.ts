@@ -18,8 +18,8 @@ export const RADIAL_REST = 4;
 
 /** Putaran jam (detik); semua gerak periodik di sini membaginya. */
 export const RADIAL_LOOP = 240;
-/** Tiga cincin yang berangkat dari tepi Inti, bergeser sepertiga periode. */
-export const RING_COUNT = 3;
+/** Empat cincin yang berangkat dari tepi Inti, bergeser seperempat periode (seperti sinyal radio). */
+export const RING_COUNT = 4;
 /** Satu cincin dari tepi Inti sampai hilang, detik (saat mendengar; mode lain lebih pelan). */
 export const RING_PERIOD = 2.4;
 
@@ -84,47 +84,28 @@ export function ringPhase(p: number, i: number, count: number): number {
   return wrapUnit(finiteOr(p, 0) + finiteOr(i, 0) / n);
 }
 
-/** Skala cincin (1 = garis tengah Inti): dari tepi Inti, jangkauan ikut sebaran dan level. */
+/**
+ * Skala cincin (1 = garis tengah Inti): berangkat dari tepi Inti dan melambat ke luar (ease-out, seperti riak), jangkauan
+ * ikut sebaran dan level.
+ */
 export function ringScale(u: number, spread: number, lvl: number): number {
   'worklet';
   const k = clampTo(finiteOr(u, 0), 0, 1);
   const s = clampTo(finiteOr(spread, 0), 0, 1);
   const l = clampTo(finiteOr(lvl, 0), 0, 1);
-  return 1.06 + k * (0.18 + 0.42 * s + 0.3 * s * l);
+  const eased = 1 - (1 - k) * (1 - k);
+  return 1.04 + eased * (0.45 + 0.6 * s + 0.35 * s * l);
 }
 
-/** Terang cincin: muncul cepat di tepi Inti, memudar ke luar; ikut level dan keberadaan; meredup saat digeser batal. */
+/** Terang cincin: muncul halus di tepi Inti, memudar pelan ke luar; ikut level dan keberadaan; meredup saat digeser batal. */
 export function ringAlpha(u: number, lvl: number, presence: number, cancel: number): number {
   'worklet';
   const k = clampTo(finiteOr(u, 0), 0, 1);
-  const rise = clampTo(k / 0.12, 0, 1);
-  const fade = Math.pow(1 - k, 1.5);
-  const base = 0.3 + 0.6 * clampTo(finiteOr(lvl, 0), 0, 1);
+  const rise = clampTo(k / 0.1, 0, 1);
+  const fade = Math.pow(1 - k, 1.6);
+  const base = 0.35 + 0.55 * clampTo(finiteOr(lvl, 0), 0, 1);
   const a = rise * fade * base * clampTo(finiteOr(presence, 0), 0, 1) * (1 - 0.75 * clampTo(finiteOr(cancel, 0), 0, 1));
   return clampTo(a, 0, 1);
-}
-
-/** Gelombang yang memeluk Inti: membesar sedikit mengikuti level (`k` 0..1 = lapis dalam/luar). */
-export function hugScale(lvl: number, k: number): number {
-  'worklet';
-  return 1 + (0.04 + 0.08 * clampTo(finiteOr(k, 0), 0, 1)) * clampTo(finiteOr(lvl, 0), 0, 1);
-}
-
-export function hugAlpha(lvl: number, presence: number, cancel: number): number {
-  'worklet';
-  const a =
-    (0.22 + 0.68 * clampTo(finiteOr(lvl, 0), 0, 1)) *
-    clampTo(finiteOr(presence, 0), 0, 1) *
-    (1 - 0.7 * clampTo(finiteOr(cancel, 0), 0, 1));
-  return clampTo(a, 0, 1);
-}
-
-/** Putaran gelombang pemeluk (derajat): pelan, berlawanan arah per lapis, membagi {@link RADIAL_LOOP}. */
-export function hugTurn(t: number, k: number): number {
-  'worklet';
-  const dir = k > 0.5 ? -1 : 1;
-  const deg = (dir * 360 * finiteOr(t, 0)) / (k > 0.5 ? 40 : 30);
-  return finiteOr(deg % 360, 0);
 }
 
 /** "Kurangi gerakan": satu cincin diam, terangnya per mode. */

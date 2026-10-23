@@ -2,7 +2,7 @@
 // lalu paling banyak tiga hal yang perlu Anda sekarang.
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -79,9 +79,9 @@ export default function Beranda() {
   const devices = useDeviceControl('Semua');
   const chat = useChat({ onError: toast });
   const tip = useTip('inti');
-  // Menahan Inti besar: bicara di tempat. Isi lain Beranda meredup, Inti tetap di tengah.
+  // Menahan Inti besar: bicara di tempat. Isi lain Beranda menghilang (latar polos), Inti tetap di tengah.
   const { hero: heroVoice, dim, overlay } = useInPlaceVoice();
-  const dimStyle = useAnimatedStyle(() => ({ opacity: 1 - 0.75 * dim.get() }));
+  const dimStyle = useAnimatedStyle(() => ({ opacity: 1 - dim.get() }));
   // Mode akun: persetujuan, agenda, dan perangkat masih contoh, jadi bloknya tidak tampil; tinggal sapaan, Inti, dan
   // "Coba bilang".
   const { hybrid } = useDataMode();
@@ -132,7 +132,9 @@ export default function Beranda() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       {/* Latar gradasi hijau lembut di belakang sapaan, sampai ke bawah bilah status. */}
-      <GradientField recipe="hero" />
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, dimStyle]}>
+        <GradientField recipe="hero" />
+      </Animated.View>
       <ScrollView
         scrollEnabled={!heroVoice.active}
         contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + topPad, paddingBottom: 20 }}

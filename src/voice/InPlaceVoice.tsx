@@ -201,7 +201,7 @@ function InPlaceView({
   releaseHint: boolean;
   onClose: () => void;
 }) {
-  const { c, shadow, marker } = useTheme();
+  const { c, marker } = useTheme();
   const insets = useSafeAreaInsets();
   const root = useRef<ViewInstance>(null);
   // Posisi lapisan di jendela (biasanya 0,0): pusat Inti diukur di jendela.
@@ -285,7 +285,7 @@ function InPlaceView({
 
       {anchor ? <HoldProxy cx={cx} cy={cy} size={size} /> : null}
 
-      {/* Di bawah Inti: jawaban, dibacakan; bisukan dan buka percakapan. */}
+      {/* Di bawah Inti: jawaban, dibacakan, langsung di atas latar polos (tanpa kotak); bisukan dan buka percakapan. */}
       {reply || confirm ? (
         <Animated.View
           testID="suara-ditempat-kartu"
@@ -297,20 +297,16 @@ function InPlaceView({
             right: 16,
             top: cardTop,
             maxHeight: cardMax,
-            borderRadius: 28,
-            backgroundColor: c.surface,
-            boxShadow: shadow.e2,
-            paddingTop: 18,
-            paddingBottom: 8,
+            paddingTop: 4,
           }}
         >
-          <ScrollView bounces={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+          <ScrollView bounces={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 12 }}>
             {reply ? (
               <Txt
                 testID="suara-ditempat-balasan"
                 accessibilityLiveRegion="polite"
                 weight={500}
-                style={{ fontSize: 19, lineHeight: 27 }}
+                style={{ fontSize: 20, lineHeight: 28, textAlign: 'center' }}
                 maxFontSizeMultiplier={1.3}
               >
                 {reply}
@@ -322,8 +318,9 @@ function InPlaceView({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: 8,
+              justifyContent: 'center',
+              gap: 8,
+              paddingTop: 4,
             }}
           >
             <Pressable

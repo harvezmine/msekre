@@ -59,9 +59,9 @@ const TAIL = 16;
 const COMET_H = 14;
 /** Lebar cahaya Inti besar sebagai kelipatan ukurannya (Inti kecil: 2,1), supaya cahaya tidak menutupi simpul. */
 const HERO_GLOW = 1.7;
-/** Mode Suara di tempat: Inti membesar sedikit, jaring mundur hampir hilang. */
+/** Mode Suara di tempat: Inti membesar sedikit, jaring menghilang (latar polos di belakang Inti). */
 const FOCUS_SCALE = 0.06;
-const FOCUS_FADE = 0.84;
+const FOCUS_FADE = 1;
 
 /** Mode Suara di tempat (Beranda): nilai bersama dari `InPlaceVoice`. */
 export interface HeroVoice extends RadialDrive {

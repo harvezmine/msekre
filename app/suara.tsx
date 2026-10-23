@@ -40,8 +40,8 @@ import { PermissionPanel } from '@/voice/PermissionPanel';
 import { useVoiceAvailable } from '@/voice/available';
 import { HINT_HOLD, type VoicePhase } from '@/voice/controller';
 import { demoState, useDemoLevel, voiceDemo } from '@/voice/demo';
-import { glowRadius, handoffFrom, restCentre, type Handoff } from '@/voice/handoff';
-import { holdBridge, type HoldOrigin } from '@/voice/holdBridge';
+import { handoffFrom, restCentre, type Handoff } from '@/voice/handoff';
+import { holdBridge } from '@/voice/holdBridge';
 import { VOICE_SOON_TEXT } from '@/voice/texts';
 import { useVoice } from '@/voice/useVoice';
 import { Waves } from '@/voice/Waves';
@@ -178,7 +178,7 @@ function SuaraAktif() {
   // sama mengirim ucapannya (src/voice/holdBridge.ts).
   const { hold } = useLocalSearchParams<{ hold?: string }>();
   const { holdStart, holdEnd } = voice;
-  // Ditahan dari Inti bilah tab: Inti di sini muncul tepat di bawah jari, dan cahaya mengembang dari titik itu.
+  // Ditahan dari Inti bilah tab: Inti di sini muncul tepat di bawah jari, lalu meluncur ke tempatnya setelah dilepas.
   const [from] = useState(() => (hold === '1' && holdBridge.isHeld() ? holdBridge.origin() : null));
   const [handoff] = useState(() => handoffFrom(from, restCentre(width, height, insets.bottom)));
   useEffect(() => {
@@ -215,7 +215,6 @@ function SuaraAktif() {
   return (
     <View testID="suara" style={{ flex: 1, backgroundColor: dark.voiceCanvas }}>
       <StatusBar style="light" />
-      {from ? <OriginGlow origin={from} width={width} height={height} /> : null}
       <Waves
         state={WAVE[phase]}
         level={voice.level}
@@ -556,43 +555,6 @@ function RoundAction({
     >
       <Icon name={icon} size={26} color={selected ? dark.brandInk : onVoice.text} />
     </PressableScale>
-  );
-}
-
-/**
- * Cahaya brand yang mengembang dari Inti bilah tab yang ditahan sampai menutupi layar, lalu memudar: Mode Suara terasa
- * tumbuh dari bawah jari, bukan muncul tiba-tiba. Sekali saat layar terbuka; diam (tanpa gerak) dengan gerak dikurangi.
- */
-function OriginGlow({ origin, width, height }: { origin: HoldOrigin; width: number; height: number }) {
-  const reduce = useReducedMotion();
-  const r = glowRadius(origin, width, height);
-  const grow = useSharedValue(reduce ? 1 : origin.size / 2 / r);
-  const fade = useSharedValue(reduce ? 0 : 0.55);
-  useEffect(() => {
-    if (reduce) return;
-    grow.set(withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) }));
-    fade.set(withTiming(0, { duration: 900, easing: Easing.in(Easing.quad) }));
-  }, [reduce, grow, fade]);
-  const style = useAnimatedStyle(() => ({ opacity: fade.get(), transform: [{ scale: grow.get() }] }));
-  return (
-    <Animated.View
-      testID="suara-cahaya-asal"
-      pointerEvents="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      style={[
-        {
-          position: 'absolute',
-          left: origin.x - r,
-          top: origin.y - r,
-          width: r * 2,
-          height: r * 2,
-          borderRadius: r,
-          backgroundColor: dark.brand,
-        },
-        style,
-      ]}
-    />
   );
 }
 

@@ -125,14 +125,21 @@ export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarPr
         <IntiButton size={INTI_SIZE.tab} paused={!live} />
       </View>
       <View style={{ flex: 1, flexDirection: 'row' }}>{right.map(tab)}</View>
-      {/* Mode Suara di tempat (Beranda) terbuka: bilah ikut meredup, dan ketukan di sana menutupnya. */}
+      {/* Mode Suara di tempat (Beranda) terbuka: bilah tertutup latar halaman (polos), dan ketukan di sana menutupnya. */}
       {voiceOpen ? (
         <Pressable
           testID="bilah-tab-tutup-suara"
           accessibilityRole="button"
           accessibilityLabel="Tutup"
           onPress={() => inPlace.close()}
-          style={[StyleSheet.absoluteFill, { backgroundColor: c.bg, opacity: 0.6 }]}
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            top: -StyleSheet.hairlineWidth,
+            backgroundColor: c.bg,
+          }}
         />
       ) : null}
     </View>

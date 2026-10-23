@@ -52,9 +52,9 @@ const tabOrb = () => style(within(screen.getByTestId('inti-tab', HIDDEN)).getByT
 
 /** Ukuran per kelas layar: Inti besar, kotak jaring, ubin simpul, jumlah simpul paling banyak. */
 const UKURAN = [
-  { w: 360, h: 640, cls: 'compact', inti: 122, box: 182, node: 28, max: 5, greeting: 28, tile: 104 },
-  { w: 393, h: 873, cls: 'tall', inti: 157, box: 233, node: 32, max: 7, greeting: 32, tile: 132 },
-  { w: 412, h: 915, cls: 'tall', inti: 165, box: 275, node: 32, max: 7, greeting: 32, tile: 132 },
+  { w: 360, h: 640, cls: 'compact', inti: 134, box: 194, node: 28, max: 5, greeting: 28, tile: 104 },
+  { w: 393, h: 873, cls: 'tall', inti: 173, box: 237, node: 32, max: 7, greeting: 32, tile: 132 },
+  { w: 412, h: 915, cls: 'tall', inti: 181, box: 275, node: 32, max: 7, greeting: 32, tile: 132 },
 ] as const;
 
 test.each(UKURAN)(
@@ -72,11 +72,11 @@ test.each(UKURAN)(
   },
 );
 
-test('Inti besar mengikuti layar: kira-kira 0,4 × lebar, dibatasi tinggi layar; HP pendek lebih kecil', () => {
-  expect(heroMetrics(360, 800).inti).toBe(148);
-  expect(heroMetrics(412, 780)).toMatchObject({ cls: 'regular', inti: 156, node: 30, maxNodes: 6 });
-  expect(heroMetrics(480, 1000).inti).toBe(188);
-  expect(heroMetrics(320, 568).inti).toBe(112);
+test('Inti besar mengikuti layar: kira-kira 0,44 × lebar, dibatasi tinggi layar; HP pendek lebih kecil', () => {
+  expect(heroMetrics(360, 800).inti).toBe(164);
+  expect(heroMetrics(412, 780)).toMatchObject({ cls: 'regular', inti: 172, node: 30, maxNodes: 6 });
+  expect(heroMetrics(480, 1000).inti).toBe(208);
+  expect(heroMetrics(320, 568).inti).toBe(124);
 });
 
 /** Ukuran yang diuji untuk tata letak jaring, termasuk HP sedang dan lipat kecil. */

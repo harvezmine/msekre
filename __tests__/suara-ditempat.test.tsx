@@ -5,14 +5,16 @@
  */
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { makeMutable } from 'react-native-reanimated';
 import Beranda from '../app/(tabs)/index';
 import { audio, stream } from './audioMock';
 import { advance, currentRoute, mockParams, restoreParams, showRoute } from './harness';
 import { createTestApi, renderWithProviders, toastNow } from './helpers';
 import { THINK_MS } from '@/sample/chat';
 import { RELEASE_TAIL_MS, SHORT_HOLD_TEXT } from '@/voice/controller';
-import { glowRadius, handoffFrom, restCentre, VOICE_INTI } from '@/voice/handoff';
+import { handoffFrom, restCentre, VOICE_INTI } from '@/voice/handoff';
 import { ARMED_HINT_TEXT, SLIDE_HINT_TEXT } from '@/voice/InPlaceVoice';
+import { RadialWaves } from '@/voice/RadialWaves';
 import { CANCEL_DISTANCE, inPlace, SLIDE_START, slideZoneFor } from '@/voice/inPlace';
 import {
   advancePhase,
@@ -151,6 +153,17 @@ test('bilah tab ikut meredup selama lapisan terbuka; ketukan di sana menutupnya'
   expect(currentRoute()).toBe('/');
 });
 
+test('gelombang melingkar tepat berpusat di Inti: kotak 2 × Inti digeser setengah kotak dari titik pusatnya', async () => {
+  const drive = { mode: makeMutable(1), level: makeMutable(0.5), cancel: makeMutable(0), smooth: makeMutable(0) };
+  await renderWithProviders(<RadialWaves size={140} drive={drive} still={false} />);
+  const box = screen.getByTestId('suara-cincin', { includeHiddenElements: true });
+  const style = box.props.style as { left: number; top: number; width: number; height: number };
+  expect(style).toMatchObject({ width: 280, height: 280, left: -140, top: -140 });
+  // Pusat kotak = titik pusat Inti (0, 0 di pembungkusnya).
+  expect(style.left + style.width / 2).toBe(0);
+  expect(style.top + style.height / 2).toBe(0);
+});
+
 describe('hitungan murni', () => {
   test('zona geser: diam, bergeser, siap batal; masukan rusak = diam', () => {
     expect(slideZoneFor(0, 0)).toBe('none');
@@ -168,7 +181,6 @@ describe('hitungan murni', () => {
     expect(h.scale).toBeCloseTo(48 / VOICE_INTI);
     expect(handoffFrom(null, rest)).toBeNull();
     expect(handoffFrom({ x: Number.NaN, y: 1, size: 48 }, rest)).toBeNull();
-    expect(glowRadius({ x: 196, y: 830 }, 393, 873)).toBeGreaterThanOrEqual(830);
   });
 
   test('gelombang melingkar: angka selalu terhingga dan dalam batas', () => {

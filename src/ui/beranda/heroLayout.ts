@@ -43,15 +43,15 @@ const RESERVED = 640;
 export function heroMetrics(width: number, height: number): HeroMetrics {
   const cls = layoutClassFor(width, height);
   if (cls === 'compact') {
-    const inti = Math.round(clamp(Math.min(width * 0.34, height * 0.19), 112, 132));
+    const inti = Math.round(clamp(Math.min(width * 0.38, height * 0.21), 124, 148));
     return { cls, width, height: inti + 60, inti, node: 28, maxNodes: 5, drift: 2, clear: 22 };
   }
   if (cls === 'regular') {
-    const inti = Math.round(clamp(Math.min(width * 0.38, height * 0.2), 136, 176));
+    const inti = Math.round(clamp(Math.min(width * 0.42, height * 0.22), 152, 196));
     const box = Math.round(clamp(height - RESERVED, inti + 64, inti + 100));
     return { cls, width, height: box, inti, node: 30, maxNodes: 6, drift: 2.5, clear: 26 };
   }
-  const inti = Math.round(clamp(Math.min(width * 0.4, height * 0.2), 148, 188));
+  const inti = Math.round(clamp(Math.min(width * 0.44, height * 0.22), 164, 208));
   const box = Math.round(clamp(height - RESERVED, inti + 64, inti + 110));
   return { cls, width, height: box, inti, node: 32, maxNodes: 7, drift: 2.5, clear: 28 };
 }
