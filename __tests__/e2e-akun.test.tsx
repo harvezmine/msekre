@@ -7,7 +7,8 @@ import { advance, currentRoute, go, mockParams, restoreParams, showRoute } from 
 import { createTestApi, renderWithProviders, toastNow } from './helpers';
 import type { Api, ApiFactory } from '@/api/ApiProvider';
 import { SAMPLE_BANNER_TEXT } from '@/ui/SampleBanner';
-import { VOICE_SOON_TEXT } from '@/voice/texts';
+import { RELEASE_TAIL_MS } from '@/voice/controller';
+import { STT_FAILED_TEXT, VOICE_SOON_TEXT } from '@/voice/texts';
 
 // Mode akun dari ujung ke ujung: HybridTransport di atas HttpTransport asli yang bicara lewat fetch dan soket palsu ke
 // server palsu (`__tests__/fakeHttp.ts`, perilakunya seperti server Fase 1b-mini). Chat dan Mode Suara ke server itu;
@@ -171,6 +172,9 @@ describe('Beranda, chat, dan Mode Suara asli', () => {
     for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
     await fireEvent(inti, 'pressOut');
     await settle();
+    // Mikrofon menyala sebentar setelah dilepas, lalu ucapannya dikirim sekaligus.
+    await advance(RELEASE_TAIL_MS);
+    await settle();
 
     const socket = server.voiceSockets[0]!;
     expect(socket.url).toBe('wss://app.sekertaris.com/app/v1/voice');
@@ -210,7 +214,9 @@ describe('Beranda, chat, dan Mode Suara asli', () => {
     for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
     await fireEvent(inti, 'pressOut');
     await settle();
-    expect(screen.getByText('Lagi ada kendala, sudah dilaporkan ke tim. Coba lagi sebentar ya.')).toBeOnTheScreen();
+    await advance(RELEASE_TAIL_MS);
+    await settle();
+    expect(screen.getByText(STT_FAILED_TEXT)).toBeOnTheScreen();
     expect(screen.queryByText(/stt_gagal/)).toBeNull();
   });
 

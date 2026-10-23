@@ -7,7 +7,8 @@ import { createTestApi, toastNow } from './helpers';
 import { DEBOUNCE_MS } from '@/api/devicesController';
 import { THINK_MS } from '@/sample/chat';
 import { deviceById, MAIN_AC_ID } from '@/sample/store';
-import { holdBridge } from '@/voice/holdBridge';
+import { RELEASE_TAIL_MS } from '@/voice/controller';
+import { inPlace } from '@/voice/inPlace';
 
 // Perjalanan pengguna di mode contoh, dari layar pertama sampai keluar, lewat navigasi tiruan (harness) dan server tiruan.
 // Tiap tes memulai dari layar yang masuk akal dan berpindah dengan mengetuk, seperti pengguna.
@@ -337,22 +338,22 @@ test('Akun: ganti nama asisten mengubah Beranda dan chat; Pemberitahuan dan Keam
   expect(screen.getByLabelText('Tulis pesan untuk Sari')).toBeOnTheScreen();
 });
 
-test('Mode Suara: tahan Inti, ucapan menjadi teks, balasan, lalu Selesai; lalu Keluar kembali ke layar pertama', async () => {
+test('suara di tempat: tahan Inti besar, ucapan menjadi teks, jawaban di kartu, ketuk di luar; lalu Keluar kembali ke layar pertama', async () => {
   await showRoute('/');
   await settle();
-  // Satu gerakan: tahan Inti, Mode Suara langsung mendengar, jari diangkat mengirim.
+  // Satu gerakan: tahan Inti besar, Beranda langsung mendengar di tempat, jari diangkat mengirim.
   await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress');
-  expect(currentRoute()).toBe('/suara');
+  expect(currentRoute()).toBe('/');
   await advance(1);
   expect(stream.start).toHaveBeenCalledTimes(1);
   for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
-  await act(async () => holdBridge.release());
-  await advance(1);
-  expect(screen.getByTestId('suara-ucapan')).toHaveTextContent('Matikan AC kamar.');
+  await act(async () => inPlace.release());
+  await advance(RELEASE_TAIL_MS);
+  expect(screen.getByTestId('suara-ditempat-ucapan')).toHaveTextContent('Matikan AC kamar.');
   await advance(THINK_MS);
-  expect(screen.getByTestId('suara-balasan')).toHaveTextContent('Sudah. AC kamar saya matikan.');
+  expect(screen.getByTestId('suara-ditempat-balasan')).toHaveTextContent('Sudah. AC kamar saya matikan.');
   await advance(4500);
-  await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
+  await fireEvent.press(screen.getByTestId('suara-ditempat-tutup'));
   expect(currentRoute()).toBe('/');
   await settle();
   expect(screen.getByRole('switch', { name: 'AC kamar' })).not.toBeChecked();
