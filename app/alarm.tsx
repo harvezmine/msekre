@@ -15,11 +15,13 @@ import { needsSignIn } from '@/api/mode';
 import { useAuth } from '@/api/useAuth';
 import { useAssistantName } from '@/api/useProfile';
 import { getAlarmScheduler } from '@/alarm';
-import { SNOOZE_MINUTES, snoozeAlarm } from '@/alarm/snooze';
-import { localAlarmItem, TEST_ALARM_ID, testAlarmItem } from '@/alarm/testAlarm';
+import { SNOOZE_CHOICES, snoozeAlarm } from '@/alarm/snooze';
+import { localAlarmItem, snoozeTestAlarm, TEST_ALARM_ID, testAlarmItem } from '@/alarm/testAlarm';
 import { ringWindowEnd } from '@/alarm/ringWindow';
 import type { ScheduledAlarm } from '@/alarm/types';
+import { useSoundSettings } from '@/reminders/soundSettings';
 import { gradients, light, onVoice } from '@/theme/tokens';
+import { BreathingGlow } from '@/ui/alarm/BreathingGlow';
 import { Icon } from '@/ui/Icon';
 import { IntiOrb } from '@/ui/inti/IntiOrb';
 import { SwipeToConfirm } from '@/ui/SwipeToConfirm';
@@ -32,7 +34,8 @@ const BUZZ_MS = 2000;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 // Niat layar: mematikan alarm dengan tenang, atau menundanya. Tindakan tersering: geser untuk mematikan, paling bawah
-// di zona jempol (Tunda dan Tanya tepat di atasnya); jam besar dan judul di atas.
+// di zona jempol (pilihan tunda 5, 10, 30 menit tepat di atasnya, "Tanya" kecil di atasnya lagi); jam besar dengan
+// cahaya bernapas dan judulnya di atas.
 // Alarm layar penuh (desain 2l). Dibuka dari alarm di HP (`sekretarisai://alarm?id=`) atau dengan menahan sebuah
 // pengingat di Agenda (`preview=1`: hanya melihat, alarm aslinya tidak disentuh). Itemnya dimuat lewat kontrak; kalau
 // tidak bisa (tanpa internet, sesi habis), layar tetap tampil dari catatan alarm di HP (`getRinging`), dengan Tunda dan
@@ -47,6 +50,7 @@ export default function Alarm() {
   const compact = useLayoutClass() === 'compact';
   const live = useLive();
   const toast = useToast();
+  const { vibrate } = useSoundSettings();
   const { mode } = useApi();
   const { status: auth } = useAuth();
   const agenda = useAgenda();
@@ -150,15 +154,15 @@ export default function Alarm() {
     return () => clearTimeout(timer);
   }, [preview, id, windowEnd, leave]);
 
-  // Getar hanya selama layar ini terlihat, aplikasi aktif, dan jendela bunyi belum habis; setelah pindah ke chat atau
-  // ke latar, berhenti.
+  // Getar hanya selama layar ini terlihat, aplikasi aktif, jendela bunyi belum habis, dan getar tidak dimatikan di
+  // Akun → Pemberitahuan; setelah pindah ke chat atau ke latar, berhenti.
   useEffect(() => {
-    if (!live || expired) return;
+    if (!live || expired || !vibrate) return;
     const buzz = () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     buzz();
     const t = setInterval(buzz, BUZZ_MS);
     return () => clearInterval(t);
-  }, [live, expired]);
+  }, [live, expired, vibrate]);
 
   const busy = useRef(false);
   if (!item) {
@@ -215,26 +219,19 @@ export default function Alarm() {
     leave();
   };
 
-  const snooze = async () => {
+  const snooze = async (minutes: number) => {
     if (preview) return leave();
     if (busy.current) return;
     busy.current = true;
     const scheduler = getAlarmScheduler();
     if (item.id === TEST_ALARM_ID) {
-      // Alarm percobaan: tidak ada server, jadwal ulang langsung di HP.
-      await scheduler.cancel(item.id);
-      await scheduler.schedule({
-        id: item.id,
-        at: Date.now() + SNOOZE_MINUTES * 60_000,
-        title: item.title,
-        note: item.note,
-      });
+      await snoozeTestAlarm(scheduler, item, minutes);
       await scheduler.releaseLockScreen();
       return leave();
     }
     // Dipasang di HP lebih dulu (tanpa menunggu internet), baru dikabarkan ke server. Server tidak terjangkau: alarm
     // tundaan tetap berbunyi pada waktunya dan kabarnya diulang pada penyamaan alarm berikutnya.
-    const result = await snoozeAlarm({ scheduler, item, snooze: online ? agenda.snooze : null });
+    const result = await snoozeAlarm({ scheduler, item, minutes, snooze: online ? agenda.snooze : null });
     await scheduler.releaseLockScreen();
     if (!result.armed) {
       toast('Alarm belum bisa bunyi di HP ini. Cek izinnya di Akun.');
@@ -279,17 +276,24 @@ export default function Alarm() {
             Ini hanya pratinjau. Alarm yang sebenarnya tidak berubah.
           </Txt>
         ) : null}
-        <Txt
-          weight={300}
-          tabular
-          color={onVoice.strong}
-          maxFontSizeMultiplier={1.1}
-          adjustsFontSizeToFit
-          numberOfLines={1}
-          style={{ fontSize: compact ? 88 : 104, lineHeight: compact ? 96 : 112, letterSpacing: -4 }}
-        >
-          {item.time}
-        </Txt>
+        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+          <BreathingGlow
+            size={compact ? 260 : 320}
+            paused={!live || expired}
+            style={{ position: 'absolute', alignSelf: 'center' }}
+          />
+          <Txt
+            weight={300}
+            tabular
+            color={onVoice.strong}
+            maxFontSizeMultiplier={1.1}
+            adjustsFontSizeToFit
+            numberOfLines={1}
+            style={{ fontSize: compact ? 88 : 104, lineHeight: compact ? 96 : 112, letterSpacing: -4 }}
+          >
+            {item.time}
+          </Txt>
+        </View>
         <Txt
           weight={600}
           color={onVoice.strong}
@@ -322,13 +326,37 @@ export default function Alarm() {
       {/* Ruang lentur: semua tindakan menempel di bawah (zona jempol), tanpa jarak tetap dari atas. */}
       <View style={{ flexGrow: 1, minHeight: 24 }} />
       <View testID="zona-jempol" style={{ gap: 16 }}>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          {canAsk ? (
-            <AlarmButton label={`Tanya ${assistantName}`} onPress={() => void ask()}>
-              <IntiOrb size={32} glow={false} paused={!live} />
-            </AlarmButton>
-          ) : null}
-          <AlarmButton label={`Tunda ${SNOOZE_MINUTES} menit`} onPress={() => void snooze()} />
+        {canAsk ? (
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel={`Tanya ${assistantName}`}
+            onPress={() => void ask()}
+            haptic="light"
+            style={{
+              alignSelf: 'center',
+              minHeight: 48,
+              paddingHorizontal: 16,
+              borderRadius: 24,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <IntiOrb size={24} glow={false} paused={!live} />
+            <Txt weight={600} color={onVoice.label} numberOfLines={1}>
+              Tanya {assistantName}
+            </Txt>
+          </PressableScale>
+        ) : null}
+        <View style={{ gap: 8 }}>
+          <Txt weight={600} color={onVoice.soft} style={{ textAlign: 'center', fontSize: 15, lineHeight: 20 }}>
+            Tunda
+          </Txt>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {SNOOZE_CHOICES.map((minutes) => (
+              <SnoozePill key={minutes} minutes={minutes} onPress={() => void snooze(minutes)} />
+            ))}
+          </View>
         </View>
         <SwipeToConfirm label="Geser untuk mematikan" actionLabel="Matikan" onConfirm={() => void stop()} />
       </View>
@@ -336,28 +364,32 @@ export default function Alarm() {
   );
 }
 
-function AlarmButton({ label, onPress, children }: { label: string; onPress: () => void; children?: React.ReactNode }) {
+/** Satu pilihan tunda: pil besar di zona jempol, angkanya menonjol. */
+function SnoozePill({ minutes, onPress }: { minutes: number; onPress: () => void }) {
   return (
     <PressableScale
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={`Tunda ${minutes} menit`}
       onPress={onPress}
       haptic="light"
       style={{
         flex: 1,
-        minHeight: 60,
-        paddingHorizontal: 12,
-        borderRadius: 30,
+        minHeight: 64,
+        borderRadius: 32,
         backgroundColor: onVoice.button,
-        flexDirection: 'row',
+        borderWidth: 1,
+        borderColor: onVoice.buttonLine,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
+        flexDirection: 'row',
+        gap: 4,
       }}
     >
-      {children}
-      <Txt weight={600} color={onVoice.text} numberOfLines={1} style={{ flexShrink: 1 }}>
-        {label}
+      <Txt weight={600} tabular color={onVoice.text} style={{ fontSize: 22, lineHeight: 28 }}>
+        {minutes}
+      </Txt>
+      <Txt color={onVoice.soft} style={{ fontSize: 15, lineHeight: 20 }}>
+        menit
       </Txt>
     </PressableScale>
   );

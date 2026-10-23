@@ -4,6 +4,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { AccountNotifications } from '@/api/contract';
 import { useAccount } from '@/api/useAccount';
+import { useSoundSettings } from '@/reminders/soundSettings';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useNotifications } from '@/ui/akun/notifications';
 import { BackHeader } from '@/ui/BackHeader';
@@ -30,6 +31,7 @@ export default function Notifikasi() {
   const toast = useToast();
   const { account, status, error, retry, setNotifications } = useAccount();
   const { kinds, phoneOn, alarm, alarmReady } = useNotifications(account);
+  const sound = useSoundSettings();
   const change = async (key: keyof AccountNotifications, on: boolean) => {
     const res = await setNotifications({ [key]: on });
     if (!res.ok && res.message) toast(res.message);
@@ -65,6 +67,14 @@ export default function Notifikasi() {
             onPress={() => router.push('/izin-alarm')}
           />
         ) : null}
+        {/* Di HP ini saja: pengingat dan layar alarm bergetar. */}
+        <ListRow
+          icon="wave"
+          tone="agenda"
+          iconSize={ICON}
+          title="Getar"
+          trailing={<Toggle value={sound.vibrate} onChange={(next) => void sound.set({ vibrate: next })} label="Getar" />}
+        />
 
         <View style={{ height: 16 }} />
 
