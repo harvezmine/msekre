@@ -13,6 +13,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { FrameClock } from '@/ui/FrameClock';
 import { IntiButton } from '@/ui/inti/IntiButton';
 import { logoRadius, ServiceLogo } from '@/ui/kit/ServiceLogo';
+import { RadialWaves, type RadialDrive } from '@/voice/RadialWaves';
 import { webLabel, webLayout, type HeroMetrics, type WebLayout, type WebNode } from './heroLayout';
 import {
   advanceClock,
@@ -58,6 +59,19 @@ const TAIL = 16;
 const COMET_H = 14;
 /** Lebar cahaya Inti besar sebagai kelipatan ukurannya (Inti kecil: 2,1), supaya cahaya tidak menutupi simpul. */
 const HERO_GLOW = 1.7;
+/** Mode Suara di tempat: Inti membesar sedikit, jaring mundur hampir hilang. */
+const FOCUS_SCALE = 0.06;
+const FOCUS_FADE = 0.84;
+
+/** Mode Suara di tempat (Beranda): nilai bersama dari `InPlaceVoice`. */
+export interface HeroVoice extends RadialDrive {
+  /** 0..1: lapisan suara terbuka (dianimasikan). */
+  focus: SharedValue<number>;
+  /** Lapisan suara terbuka: cincin terpasang, jaring diam. */
+  active: boolean;
+  /** Berpikir: cincin gradasi berputar di Inti. */
+  thinking: boolean;
+}
 
 interface Props {
   metrics: HeroMetrics;
@@ -67,6 +81,8 @@ interface Props {
   paused: boolean;
   /** Petunjuk pertama sedang menunjuk Inti. */
   halo: boolean;
+  /** Mode Suara di tempat; tanpa ini Inti besar membuka Mode Suara layar penuh saat ditahan. */
+  voice?: HeroVoice;
 }
 
 /**
@@ -80,13 +96,18 @@ interface Props {
  * diam (ujungnya berhenti 3 dp sebelum tepi ubin, jadi simpul yang melayang tetap tampak tersambung). "Kurangi gerakan":
  * jaring diam tanpa titik cahaya.
  */
-export function IntiHero({ metrics: m, nodes, paused, halo }: Props) {
+export function IntiHero({ metrics: m, nodes, paused, halo, voice }: Props) {
   const { scheme } = useTheme();
   const ink = INK[scheme === 'dark' ? 'dark' : 'light'];
   const reduce = useReducedMotion();
   const layout = webLayout(m, nodes);
   const hasNodes = layout.points.length > 0;
-  const running = !reduce && !paused && hasNodes;
+  // Selama bicara di tempat jaring diam (mundur ke belakang), cincin suara yang bergerak.
+  const running = !reduce && !paused && hasNodes && !voice?.active;
+  const noFocus = useSharedValue(0);
+  const focus = voice?.focus ?? noFocus;
+  const webFade = useAnimatedStyle(() => ({ opacity: 1 - FOCUS_FADE * focus.get() }));
+  const orbFocus = useAnimatedStyle(() => ({ transform: [{ scale: 1 + FOCUS_SCALE * focus.get() }] }));
 
   const clock = useSharedValue(0);
   // Worklet stabil; jamnya dipasang hanya saat berjalan (`FrameClock`), jadi jeda = lepas, tanpa setActive.
@@ -109,21 +130,37 @@ export function IntiHero({ metrics: m, nodes, paused, halo }: Props) {
           accessible
           accessibilityLabel={webLabel(nodes)}
           pointerEvents="none"
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, webFade]}
         >
           <WebLines layout={layout} m={m} ink={ink} />
         </Animated.View>
       ) : null}
-      <View style={{ position: 'absolute', left: layout.cx - m.inti / 2, top: layout.cy - m.inti / 2 }}>
-        <IntiButton size={m.inti} halo={halo} paused={paused} glowScale={HERO_GLOW} testID="inti-besar-tombol" />
-      </View>
+      {voice?.active ? (
+        <View pointerEvents="none" style={{ position: 'absolute', left: layout.cx, top: layout.cy }}>
+          <RadialWaves size={m.inti} drive={voice} still={reduce || paused} />
+        </View>
+      ) : null}
+      <Animated.View
+        style={[{ position: 'absolute', left: layout.cx - m.inti / 2, top: layout.cy - m.inti / 2 }, orbFocus]}
+      >
+        <IntiButton
+          size={m.inti}
+          halo={halo}
+          paused={paused}
+          glowScale={HERO_GLOW}
+          testID="inti-besar-tombol"
+          hold={voice ? 'inPlace' : 'screen'}
+          level={voice?.active ? voice.smooth : undefined}
+          thinking={!!voice?.active && voice.thinking}
+        />
+      </Animated.View>
       {hasNodes ? (
         <Animated.View
           entering={reduce ? undefined : FadeIn.duration(480)}
           pointerEvents="none"
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, webFade]}
         >
           {layout.points.map((p, i) => (
             <WebNodeTile

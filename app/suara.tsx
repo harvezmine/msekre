@@ -1,7 +1,7 @@
 // Niat layar: bicara dengan asisten sambil menahan Inti di bawah jempol, lalu membaca ucapan dan jawabannya dengan tenang.
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Linking,
@@ -36,10 +36,12 @@ import { Boundary } from '@/ui/Boundary';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
 import { ConfirmArea } from '@/voice/ConfirmArea';
+import { PermissionPanel } from '@/voice/PermissionPanel';
 import { useVoiceAvailable } from '@/voice/available';
 import { HINT_HOLD, type VoicePhase } from '@/voice/controller';
 import { demoState, useDemoLevel, voiceDemo } from '@/voice/demo';
-import { holdBridge } from '@/voice/holdBridge';
+import { glowRadius, handoffFrom, restCentre, type Handoff } from '@/voice/handoff';
+import { holdBridge, type HoldOrigin } from '@/voice/holdBridge';
 import { VOICE_SOON_TEXT } from '@/voice/texts';
 import { useVoice } from '@/voice/useVoice';
 import { Waves } from '@/voice/Waves';
@@ -176,6 +178,9 @@ function SuaraAktif() {
   // sama mengirim ucapannya (src/voice/holdBridge.ts).
   const { hold } = useLocalSearchParams<{ hold?: string }>();
   const { holdStart, holdEnd } = voice;
+  // Ditahan dari Inti bilah tab: Inti di sini muncul tepat di bawah jari, dan cahaya mengembang dari titik itu.
+  const [from] = useState(() => (hold === '1' && holdBridge.isHeld() ? holdBridge.origin() : null));
+  const [handoff] = useState(() => handoffFrom(from, restCentre(width, height, insets.bottom)));
   useEffect(() => {
     if (hold !== '1' || !holdBridge.isHeld()) return;
     const off = holdBridge.onRelease(() => void holdEnd());
@@ -210,6 +215,7 @@ function SuaraAktif() {
   return (
     <View testID="suara" style={{ flex: 1, backgroundColor: dark.voiceCanvas }}>
       <StatusBar style="light" />
+      {from ? <OriginGlow origin={from} width={width} height={height} /> : null}
       <Waves
         state={WAVE[phase]}
         level={voice.level}
@@ -301,6 +307,7 @@ function SuaraAktif() {
                 phase={phase}
                 paused={!live}
                 glow={glow}
+                handoff={handoff}
                 onPressIn={() => void voice.holdStart()}
                 onPressOut={() => void voice.holdEnd()}
               />
@@ -456,12 +463,15 @@ function HoldInti({
   phase,
   paused,
   glow,
+  handoff,
   onPressIn,
   onPressOut,
 }: {
   phase: VoicePhase;
   paused: boolean;
   glow: SharedValue<number>;
+  /** Dibuka dengan menahan Inti bilah tab: mulai di bawah jari, lalu meluncur ke sini setelah jari diangkat. */
+  handoff?: Handoff | null;
   onPressIn: () => void;
   onPressOut: () => void;
 }) {
@@ -471,7 +481,23 @@ function HoldInti({
   useEffect(() => {
     s.set(reduce ? 1 : withSpring(listening ? 1.06 : 1, motion.press.spring));
   }, [listening, reduce, s]);
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: s.get() }] }));
+  // Geser awal dari bawah jari; kembali ke tempatnya begitu tidak lagi mendengar (jari diangkat).
+  const dx = useSharedValue(reduce ? 0 : (handoff?.dx ?? 0));
+  const dy = useSharedValue(reduce ? 0 : (handoff?.dy ?? 0));
+  const k = useSharedValue(reduce ? 1 : (handoff?.scale ?? 1));
+  const settled = useRef(!handoff || reduce);
+  useEffect(() => {
+    if (settled.current) return;
+    // Selagi ditahan Inti tumbuh di bawah jari; setelah dilepas meluncur ke tempatnya.
+    k.set(withTiming(1, { duration: motion.screen.duration, easing: Easing.out(Easing.cubic) }));
+    if (listening) return;
+    dx.set(withSpring(0, motion.press.spring));
+    dy.set(withSpring(0, motion.press.spring));
+    settled.current = true;
+  }, [listening, dx, dy, k]);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: dx.get() }, { translateY: dy.get() }, { scale: s.get() * k.get() }],
+  }));
   return (
     <Pressable
       testID="suara-inti"
@@ -530,6 +556,43 @@ function RoundAction({
     >
       <Icon name={icon} size={26} color={selected ? dark.brandInk : onVoice.text} />
     </PressableScale>
+  );
+}
+
+/**
+ * Cahaya brand yang mengembang dari Inti bilah tab yang ditahan sampai menutupi layar, lalu memudar: Mode Suara terasa
+ * tumbuh dari bawah jari, bukan muncul tiba-tiba. Sekali saat layar terbuka; diam (tanpa gerak) dengan gerak dikurangi.
+ */
+function OriginGlow({ origin, width, height }: { origin: HoldOrigin; width: number; height: number }) {
+  const reduce = useReducedMotion();
+  const r = glowRadius(origin, width, height);
+  const grow = useSharedValue(reduce ? 1 : origin.size / 2 / r);
+  const fade = useSharedValue(reduce ? 0 : 0.55);
+  useEffect(() => {
+    if (reduce) return;
+    grow.set(withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) }));
+    fade.set(withTiming(0, { duration: 900, easing: Easing.in(Easing.quad) }));
+  }, [reduce, grow, fade]);
+  const style = useAnimatedStyle(() => ({ opacity: fade.get(), transform: [{ scale: grow.get() }] }));
+  return (
+    <Animated.View
+      testID="suara-cahaya-asal"
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[
+        {
+          position: 'absolute',
+          left: origin.x - r,
+          top: origin.y - r,
+          width: r * 2,
+          height: r * 2,
+          borderRadius: r,
+          backgroundColor: dark.brand,
+        },
+        style,
+      ]}
+    />
   );
 }
 
@@ -608,101 +671,6 @@ function TypeBar({ onSend }: { onSend: (text: string) => void }) {
           Kirim
         </Txt>
       </PressableScale>
-    </View>
-  );
-}
-
-/** Lembar izin mikrofon: tenang dan singkat. Penjelasan dulu, lalu pengaturan HP kalau sudah ditolak. */
-function PermissionPanel({
-  blocked,
-  waiting,
-  bottom,
-  onAllow,
-  onSettings,
-  onClose,
-}: {
-  blocked: boolean;
-  waiting: boolean;
-  bottom: number;
-  onAllow: () => void;
-  onSettings: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'flex-end' }}>
-      <Pressable
-        importantForAccessibility="no"
-        accessibilityElementsHidden
-        onPress={onClose}
-        style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: dark.scrim }}
-      />
-      <Animated.View
-        testID="suara-izin"
-        accessibilityViewIsModal
-        entering={FadeIn.duration(motion.sheet.scrim)}
-        style={{
-          paddingHorizontal: 24,
-          paddingTop: 28,
-          paddingBottom: bottom + 24,
-          gap: 8,
-          borderTopLeftRadius: 30,
-          borderTopRightRadius: 30,
-          backgroundColor: dark.surface,
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
-        }}
-      >
-        <View
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            marginBottom: 12,
-            backgroundColor: dark.brandSoft,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon name={blocked ? 'micOff' : 'mic'} size={26} color={dark.brandInk} />
-        </View>
-        <Txt v="header" color={onVoice.text} accessibilityRole="header">
-          {waiting ? 'Menunggu mikrofon dinyalakan' : blocked ? 'Mikrofon sedang dimatikan' : 'Izinkan mikrofon ya'}
-        </Txt>
-        <Txt color={onVoice.soft}>
-          {waiting
-            ? 'Nyalakan di pengaturan HP, lalu kembali ke sini.'
-            : blocked
-              ? 'Nyalakan di pengaturan HP.'
-              : 'Saya hanya mendengar saat Inti ditahan.'}
-        </Txt>
-        <View style={{ gap: 4, paddingTop: 20 }}>
-          <PressableScale
-            accessibilityRole="button"
-            accessibilityLabel={blocked ? 'Buka pengaturan' : 'Izinkan'}
-            onPress={blocked ? onSettings : onAllow}
-            style={{
-              minHeight: 56,
-              borderRadius: 28,
-              backgroundColor: dark.brand,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Txt weight={600} color={dark.onBrand} style={{ fontSize: 17 }}>
-              {blocked ? 'Buka pengaturan' : 'Izinkan'}
-            </Txt>
-          </PressableScale>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Nanti saja"
-            onPress={onClose}
-            style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Txt weight={600} color={onVoice.label}>
-              Nanti saja
-            </Txt>
-          </Pressable>
-        </View>
-      </Animated.View>
     </View>
   );
 }

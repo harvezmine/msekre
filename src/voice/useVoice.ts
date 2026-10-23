@@ -8,15 +8,30 @@ import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { useApi } from '@/api/ApiProvider';
 import { reportError } from '@/crash';
 import { createSpeaker, enterVoiceAudio, leaveVoiceAudio } from './audio';
-import { VoiceController, type VoiceState } from './controller';
+import { VoiceController, type VoiceState, type VoiceTurnLog } from './controller';
 
 const KEEP_AWAKE_TAG = 'mode-suara';
+
+/** Catatan tiap giliran (lama, kode, kirim ulang) hanya di build pengembangan, tidak di tes. */
+const devLog =
+  __DEV__ && process.env.NODE_ENV !== 'test'
+    ? (entry: VoiceTurnLog) => console.info('[Mode Suara]', JSON.stringify(entry))
+    : undefined;
+
+export interface VoiceOptions {
+  /** Layar tetap menyala selama terpasang (bawaan ya; Mode Suara di Beranda tidak perlu). */
+  keepAwake?: boolean;
+  /** Nilai bersama untuk level mikrofon (bawaan dibuat sendiri), misalnya cincin suara Inti besar Beranda. */
+  level?: SharedValue<number>;
+}
 
 export interface Voice extends VoiceState {
   /** Keras-pelannya suara dari mikrofon, 0..1; cincin Inti mengikutinya. */
   level: SharedValue<number>;
   holdStart(): Promise<void>;
   holdEnd(): Promise<void>;
+  /** Geser menjauh lalu dilepas: ucapan dibuang tanpa dikirim. */
+  cancelHold(): void;
   sendText(text: string): void;
   setTyping(typing: boolean): void;
   setMuted(muted: boolean): void;
@@ -31,9 +46,10 @@ export interface Voice extends VoiceState {
  * Mode Suara untuk layar: satu sesi suara ke server (`transport.openVoice`), mikrofon PCM dari expo-audio, dan pemutar
  * balasan. Layar menyala selama terbuka. Mikrofon dan pemutar dilepas saat layar ditutup dan saat aplikasi ke latar.
  */
-export function useVoice(): Voice {
+export function useVoice({ keepAwake = true, level: sharedLevel }: VoiceOptions = {}): Voice {
   const { transport } = useApi();
-  const level = useSharedValue(0);
+  const ownLevel = useSharedValue(0);
+  const level = sharedLevel ?? ownLevel;
   const controllerRef = useRef<VoiceController | null>(null);
   const { stream } = useAudioStream({
     sampleRate: 16000,
@@ -58,6 +74,7 @@ export function useVoice(): Voice {
         haptic: () => void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)?.catch(() => {}),
         // Level masuk ke gelombang di utas UI: hanya angka 0..1.
         onLevel: (value) => level.set(Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0),
+        log: devLog,
       }),
     [transport, stream, level],
   );
@@ -66,10 +83,12 @@ export function useVoice(): Voice {
     controllerRef.current = controller;
     void enterVoiceAudio();
     // Layar tetap menyala; kalau HP (atau peramban) menolak, Mode Suara tetap jalan.
-    try {
-      activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
-    } catch {
-      // Layar boleh redup sendiri.
+    if (keepAwake) {
+      try {
+        activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
+      } catch {
+        // Layar boleh redup sendiri.
+      }
     }
     try {
       controller.start();
@@ -93,14 +112,16 @@ export function useVoice(): Voice {
         // Mikrofon sudah berhenti.
       }
       controllerRef.current = null;
-      try {
-        deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
-      } catch {
-        // Sudah tidak aktif.
+      if (keepAwake) {
+        try {
+          deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
+        } catch {
+          // Sudah tidak aktif.
+        }
       }
       void leaveVoiceAudio();
     };
-  }, [controller, stream]);
+  }, [controller, stream, keepAwake]);
 
   // Layar lain menutupi Mode Suara (alarm, notifikasi yang dibuka): rekaman dan suara berhenti.
   const focused = useIsFocused();
@@ -114,6 +135,7 @@ export function useVoice(): Voice {
     level,
     holdStart: controller.holdStart,
     holdEnd: controller.holdEnd,
+    cancelHold: controller.cancelHold,
     sendText: controller.sendText,
     setTyping: controller.setTyping,
     setMuted: controller.setMuted,

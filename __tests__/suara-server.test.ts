@@ -5,17 +5,24 @@ import { createMemorySession } from '@/api/session';
 import type { VoiceCloseReason } from '@/api/transport';
 import type { Speaker, SpeechSource } from '@/voice/audio';
 import {
-  HINT_HOLD,
+  errorNote,
+  IN_CHAT_TEXT,
+  LATE_TEXT,
   NOT_HEARD_TEXT,
   OFFLINE_TEXT,
+  RELEASE_TAIL_MS,
+  SHORT_HOLD_TEXT,
   SIGNED_OUT_TEXT,
+  SLOW_TURN_MS,
   SPEECH_GATHER_MS,
   SPEECH_WAIT_MS,
+  STT_FAILED_TEXT,
   TURN_TIMEOUT_MS,
-  TURN_TIMEOUT_TEXT,
   VoiceController,
   type VoiceDeps,
+  type VoiceTurnLog,
 } from '@/voice/controller';
+import { MAX_GAIN } from '@/voice/prep';
 import { fromBase64, level, silentWav, toBase64, toVoiceFormat } from '@/voice/pcm';
 import { ERROR_TEXT } from '@/api/errors';
 import { VOICE_SOON_TEXT } from '@/voice/texts';
@@ -202,7 +209,7 @@ describe('HttpTransport.openVoice', () => {
 });
 
 describe('VoiceController dengan HttpTransport', () => {
-  function build(transportOverride?: VoiceDeps['transport']) {
+  function build(transportOverride?: VoiceDeps['transport'], extra: Partial<VoiceDeps> = {}) {
     const { session, sockets, transport } = setup();
     const played: { source: SpeechSource; done: () => void }[] = [];
     const speaker: Speaker = {
@@ -213,6 +220,7 @@ describe('VoiceController dengan HttpTransport', () => {
     };
     const mic = { start: jest.fn(async () => {}), stop: jest.fn() };
     const levels: number[] = [];
+    const logs: VoiceTurnLog[] = [];
     const controller = new VoiceController({
       transport: transportOverride ?? transport,
       mic,
@@ -221,8 +229,12 @@ describe('VoiceController dengan HttpTransport', () => {
       onLevel: (v) => levels.push(v),
       checkMic: async () => 'granted',
       requestMic: async () => 'granted',
+      // Langsung dikirim saat dilepas; sisa rekaman 300 ms diuji tersendiri.
+      tailMs: 0,
+      log: (e) => logs.push(e),
+      ...extra,
     });
-    return { session, sockets, transport, controller, played, speaker, mic, levels };
+    return { session, sockets, transport, controller, played, speaker, mic, levels, logs };
   }
 
   async function open(ctx: ReturnType<typeof build>) {
@@ -232,29 +244,44 @@ describe('VoiceController dengan HttpTransport', () => {
     return ctx.sockets[0]!;
   }
 
-  const pcm = (n: number, rate = 16000) => ({
-    data: new Int16Array(n).fill(12000).buffer,
+  const pcm = (n: number, rate = 16000, value = 12000) => ({
+    data: new Int16Array(n).fill(value).buffer,
     sampleRate: rate,
     channels: 1,
   });
 
-  test('start, potongan audio PCM 16 kHz, stop, lalu balasan sampai idle', async () => {
+  /** Tahan, bicara `ms` (16 kHz), lepas. */
+  async function say(ctx: ReturnType<typeof build>, ms = 500) {
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm((ms / 1000) * 16000));
+    await ctx.controller.holdEnd();
+  }
+
+  const types = (ws: FakeSocket) => ws.sent.map((m) => m.type);
+  const clip = () => toBase64(silentWav(100));
+  const startId = (ws: FakeSocket) => ws.sent.filter((m) => m.type === 'start').at(-1)!.clientId as string;
+  const audioOf = (ws: FakeSocket) =>
+    ws.sent.filter((m) => m.type === 'audio').map((m) => new Int16Array(fromBase64(m.data as string).buffer));
+
+  test('ucapan dikirim sekaligus setelah dilepas: start (format 16 kHz mono PCM16), audio, stop; lalu balasan', async () => {
     const ctx = build();
     const ws = await open(ctx);
     await ctx.controller.holdStart();
+    // Selama menahan tidak ada yang dikirim: ketukan atau batal tidak pernah sampai ke server.
+    expect(ws.sent).toEqual([]);
+    // 48 kHz dicuplik ke 16 kHz: 5 × 100 ms menjadi 8000 contoh, 200 ms per potongan.
+    for (let i = 0; i < 5; i++) ctx.controller.pushBuffer(pcm(4800, 48000));
+    expect(ctx.levels.some((v) => v > 0)).toBe(true);
+    await ctx.controller.holdEnd();
     expect(ws.sent[0]).toMatchObject({
       type: 'start',
       lang: 'id',
       format: { codec: 'pcm16', sampleRate: 16000, channels: 1 },
     });
     expect(typeof ws.sent[0]!.clientId).toBe('string');
-    // 48 kHz dicuplik ke 16 kHz: 4800 contoh menjadi 1600.
-    for (let i = 0; i < 5; i++) ctx.controller.pushBuffer(pcm(4800, 48000));
     const chunks = ws.sent.filter((m) => m.type === 'audio');
-    expect(chunks.map((c) => c.seq)).toEqual([0, 1, 2, 3, 4]);
-    expect(fromBase64(chunks[0]!.data as string)).toHaveLength(3200);
-    expect(ctx.levels.some((v) => v > 0)).toBe(true);
-    await ctx.controller.holdEnd();
+    expect(chunks.map((c) => c.seq)).toEqual([0, 1, 2]);
+    expect(audioOf(ws).map((a) => a.length)).toEqual([3200, 3200, 1600]);
     expect(ws.sent.at(-1)).toEqual({ type: 'stop' });
     expect(ctx.controller.getState().phase).toBe('sending');
     expect(ctx.levels.at(-1)).toBe(0);
@@ -272,6 +299,7 @@ describe('VoiceController dengan HttpTransport', () => {
     // Tanpa suara apa pun, kembali siap setelah menunggu.
     jest.advanceTimersByTime(SPEECH_WAIT_MS);
     expect(ctx.controller.getState().phase).toBe('idle');
+    expect(ctx.logs.at(-1)).toMatchObject({ outcome: 'reply', heardMs: 500, speechMs: 500, rate: 48000, gain: 1 });
   });
 
   test('suara balasan: potongan tanpa tanda terakhir diputar setelah sepi; speech lewat media dengan token', async () => {
@@ -314,18 +342,94 @@ describe('VoiceController dengan HttpTransport', () => {
     ws.serve({ type: 'reply', text: 'Halo', messageId: 'm1' });
     await ctx.controller.holdStart();
     expect(ctx.speaker.stop).toHaveBeenCalled();
-    expect(ws.sent.map((m) => m.type)).toEqual(['cancel', 'start']);
+    expect(types(ws)).toEqual(['cancel']);
     expect(ctx.controller.getState()).toMatchObject({ phase: 'listening', reply: null });
   });
 
-  test('ketukan singkat: cancel dan petunjuk', async () => {
+  test('tahanan singkat (< 400 ms): tidak ada yang dikirim, petunjuk "Tahan sedikit lebih lama"', async () => {
     const ctx = build();
     const ws = await open(ctx);
     await ctx.controller.holdStart();
-    ctx.controller.pushBuffer(pcm(800));
+    ctx.controller.pushBuffer(pcm(6000));
     await ctx.controller.holdEnd();
-    expect(ws.sent.map((m) => m.type)).toEqual(['start', 'audio', 'cancel']);
-    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: HINT_HOLD });
+    expect(ws.sent).toEqual([]);
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: SHORT_HOLD_TEXT });
+    expect(SHORT_HOLD_TEXT).toBe('Tahan sedikit lebih lama');
+    expect(ctx.mic.stop).toHaveBeenCalledTimes(1);
+    expect(ctx.logs.at(-1)).toMatchObject({ outcome: 'short', heardMs: 375 });
+  });
+
+  test('hening saja: tidak dikirim, "Belum terdengar jelas"', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(16000, 16000, 0));
+    await ctx.controller.holdEnd();
+    expect(ws.sent).toEqual([]);
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: NOT_HEARD_TEXT });
+    expect(ctx.logs.at(-1)?.outcome).toBe('silent');
+  });
+
+  test('ucapan pelan dinaikkan kerasnya dan hening di ujungnya dipangkas sebelum dikirim', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    // 1 detik hening, 0,6 detik suara pelan (sekitar -36 dBFS), 1 detik hening.
+    ctx.controller.pushBuffer(pcm(16000, 16000, 0));
+    const quiet = new Int16Array(9600).map((_, i) => (i % 2 ? 520 : -520));
+    ctx.controller.pushBuffer({ data: quiet.buffer, sampleRate: 16000, channels: 1 });
+    ctx.controller.pushBuffer(pcm(16000, 16000, 0));
+    await ctx.controller.holdEnd();
+    const sent = audioOf(ws);
+    const total = sent.reduce((n, a) => n + a.length, 0);
+    // 0,6 detik suara + 240 ms sebelum + 360 ms sesudah, bukan 2,6 detik.
+    expect(total).toBe(9600 + 3840 + 5760);
+    const loudest = Math.max(...sent.map((a) => Math.max(...a.map(Math.abs))));
+    expect(loudest).toBe(520 * MAX_GAIN);
+    expect(ctx.logs).toHaveLength(0);
+    ws.serve({ type: 'error', code: 'tidak_terdengar', turn: startId(ws) });
+    expect(ctx.logs.at(-1)).toMatchObject({ outcome: 'tidak_terdengar', leadMs: 760, trailMs: 640, gain: MAX_GAIN });
+  });
+
+  test('sisa rekaman 300 ms setelah dilepas: suku kata terakhir ikut, lalu baru dikirim', async () => {
+    const ctx = build(undefined, { tailMs: RELEASE_TAIL_MS });
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(8000));
+    await ctx.controller.holdEnd();
+    // Sudah tampil "mengirim" (gelombang tenang), mikrofon masih menyala, belum ada yang dikirim.
+    expect(ctx.controller.getState().phase).toBe('sending');
+    expect(ctx.mic.stop).not.toHaveBeenCalled();
+    expect(ws.sent).toEqual([]);
+    ctx.controller.pushBuffer(pcm(3200));
+    jest.advanceTimersByTime(RELEASE_TAIL_MS);
+    expect(ctx.mic.stop).toHaveBeenCalledTimes(1);
+    expect(audioOf(ws).reduce((n, a) => n + a.length, 0)).toBe(11200);
+    expect(ws.sent.at(-1)).toEqual({ type: 'stop' });
+  });
+
+  test('menahan lagi saat sisa rekaman berjalan: tidak ada yang dikirim dari giliran itu', async () => {
+    const ctx = build(undefined, { tailMs: RELEASE_TAIL_MS });
+    const ws = await open(ctx);
+    await say(ctx);
+    await ctx.controller.holdStart();
+    jest.advanceTimersByTime(RELEASE_TAIL_MS * 2);
+    expect(types(ws)).not.toContain('start');
+    expect(ctx.controller.getState().phase).toBe('listening');
+  });
+
+  test('geser untuk batal: mikrofon mati, tidak ada yang dikirim, tenang tanpa catatan', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(16000));
+    ctx.controller.cancelHold();
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: null });
+    expect(ctx.mic.stop).toHaveBeenCalledTimes(1);
+    await ctx.controller.holdEnd();
+    jest.advanceTimersByTime(40_000);
+    expect(ws.sent).toEqual([]);
+    expect(ctx.logs.at(-1)?.outcome).toBe('cancelled');
   });
 
   test('batas 30 detik: berhenti sendiri dan mengirim', async () => {
@@ -356,9 +460,75 @@ describe('VoiceController dengan HttpTransport', () => {
     await ctx.controller.holdStart();
     await flush();
     expect(ctx.sockets).toHaveLength(2);
-    ctx.sockets[1]!.onopen?.({});
-    expect(ctx.sockets[1]!.sent[0]).toMatchObject({ type: 'start' });
     expect(ctx.controller.getState().phase).toBe('listening');
+    ctx.sockets[1]!.onopen?.({});
+    ctx.controller.pushBuffer(pcm(8000));
+    await ctx.controller.holdEnd();
+    expect(ctx.sockets[1]!.sent[0]).toMatchObject({ type: 'start' });
+  });
+
+  test('soket putus selagi menahan: rekaman jalan terus, ucapan dikirim lewat soket baru saat dilepas', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await ctx.controller.holdStart();
+    ctx.controller.pushBuffer(pcm(4000));
+    ws.drop(1006);
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'listening', note: null });
+    expect(ctx.mic.stop).not.toHaveBeenCalled();
+    ctx.controller.pushBuffer(pcm(4000));
+    await ctx.controller.holdEnd();
+    await flush();
+    expect(ctx.sockets).toHaveLength(2);
+    ctx.sockets[1]!.onopen?.({});
+    expect(types(ctx.sockets[1]!)).toEqual(['start', 'audio', 'audio', 'audio', 'stop']);
+  });
+
+  test('putus sebelum server menerima ucapan: dikirim ulang sekali (id sama, audio sama); putus lagi = tidak tersambung', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await say(ctx);
+    const first = ws.sent.slice();
+    ws.drop(1006);
+    // Tetap menunggu dengan tenang; ucapan yang sama dikirim di soket baru.
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'sending', note: null });
+    await flush();
+    expect(ctx.sockets).toHaveLength(2);
+    const again = ctx.sockets[1]!;
+    again.onopen?.({});
+    expect(again.sent).toEqual(first);
+    // Kali kedua tidak dicoba lagi.
+    again.drop(1006);
+    await flush();
+    expect(ctx.sockets).toHaveLength(2);
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'off', note: OFFLINE_TEXT });
+    expect(ctx.logs.at(-1)).toMatchObject({ outcome: 'offline', retried: true });
+  });
+
+  test('kirim ulang yang berhasil: balasan dari soket baru tampil', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    ctx.controller.sendText('Nyalakan AC');
+    const turn = ws.sent[0]!.clientId as string;
+    ws.drop(WS_CLOSE_IDLE);
+    await flush();
+    const again = ctx.sockets[1]!;
+    again.onopen?.({});
+    expect(again.sent).toEqual([{ type: 'text', text: 'Nyalakan AC', clientId: turn }]);
+    again.serve({ type: 'reply', text: 'Sudah nyala.', turn });
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'speaking', reply: 'Sudah nyala.' });
+  });
+
+  test('putus setelah server menerima ucapan: tidak dikirim ulang, jawabannya nanti di chat', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await say(ctx);
+    const turn = startId(ws);
+    ws.serve({ type: 'transcript', text: 'Matikan AC', final: true, turn });
+    ws.serve({ type: 'thinking', on: true, turn });
+    ws.drop(1006);
+    await flush();
+    expect(ctx.sockets).toHaveLength(1);
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: IN_CHAT_TEXT });
   });
 
   test('diam terlalu lama (4408): kembali siap tanpa kendala', async () => {
@@ -368,11 +538,46 @@ describe('VoiceController dengan HttpTransport', () => {
     expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: null });
   });
 
-  test('error dari server: kalimat ramah tanpa kode', async () => {
+  test('putus setelah balasan tampil: balasan tetap, tanpa kabar kendala', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await say(ctx);
+    ws.serve({ type: 'reply', text: 'Sudah.', turn: startId(ws) });
+    jest.advanceTimersByTime(SPEECH_WAIT_MS);
+    ws.drop(1006);
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', reply: 'Sudah.', note: null });
+  });
+
+  test('error dari server yang tidak dikenal: kalimat kendala umum, tanpa kode', async () => {
     const ctx = build();
     const ws = await open(ctx);
     ws.serve({ type: 'error', code: 'stt_down' });
     expect(ctx.controller.getState()).toMatchObject({ phase: 'error', note: ERROR_TEXT });
+  });
+
+  test.each([
+    ['tidak_terdengar', NOT_HEARD_TEXT],
+    ['stt_gagal', STT_FAILED_TEXT],
+    ['lama', LATE_TEXT],
+    ['tanpa_jawaban', LATE_TEXT],
+    ['sudah_ada', IN_CHAT_TEXT],
+  ])('error %s: kalimatnya sendiri, Inti tetap tenang (bukan "kendala")', async (code, text) => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await say(ctx);
+    const turn = startId(ws);
+    ws.serve({ type: 'transcript', text: '', final: true, turn });
+    ws.serve({ type: 'error', code, turn });
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: text });
+    expect(text).not.toMatch(/kendala/);
+    expect(ctx.logs.at(-1)).toMatchObject({ outcome: code });
+  });
+
+  test('kalimat per kode', () => {
+    expect(NOT_HEARD_TEXT).toBe('Belum terdengar jelas, coba lebih dekat ke HP ya.');
+    expect(STT_FAILED_TEXT).toBe('Suaranya belum bisa saya tangkap, coba sekali lagi ya.');
+    expect(LATE_TEXT).toBe('Jawabannya lama, nanti saya kabari di chat.');
+    expect(errorNote('apa_saja')).toEqual({ phase: 'error', note: ERROR_TEXT });
   });
 
   test('kartu konfirmasi yang tidak terbaca: arahkan ke chat, bukan diam', async () => {
@@ -399,20 +604,16 @@ describe('VoiceController dengan HttpTransport', () => {
     expect(ctx.controller.getState().confirm).toBeNull();
   });
 
-  test('ke latar: rekaman dan suara berhenti, server diminta berhenti', async () => {
+  test('ke latar: rekaman dan suara berhenti', async () => {
     const ctx = build();
-    const ws = await open(ctx);
+    await open(ctx);
     await ctx.controller.holdStart();
     ctx.controller.suspend();
     expect(ctx.mic.stop).toHaveBeenCalled();
-    expect(ws.sent.at(-1)).toEqual({ type: 'cancel' });
     expect(ctx.controller.getState().phase).toBe('idle');
   });
 
-  const clip = () => toBase64(silentWav(100));
-  const startId = (ws: FakeSocket) => ws.sent.find((m) => m.type === 'start')!.clientId as string;
-
-  test('sisa event dari giliran yang dibatalkan, saat Inti ditahan lagi: diabaikan, mikrofon tetap merekam', async () => {
+  test('sisa event dari giliran lama saat Inti ditahan lagi: diabaikan, mikrofon tetap merekam', async () => {
     const ctx = build();
     const ws = await open(ctx);
     await ctx.controller.holdStart();
@@ -425,12 +626,14 @@ describe('VoiceController dengan HttpTransport', () => {
     ws.serve({ type: 'speech', mediaId: 'ucapan-1', mime: 'audio/mpeg' });
     ws.serve({ type: 'confirm', card: { kind: 'payment', title: 'T', amountRp: 1, lines: [], ask: 'Ya?' } });
     ws.serve({ type: 'transcript', text: 'ucapan lama', final: true });
+    ws.serve({ type: 'thinking', on: true });
+    ws.serve({ type: 'error', code: 'tidak_valid' });
     await flush();
     expect(ctx.controller.getState()).toMatchObject({ phase: 'listening', reply: null, confirm: null, transcript: '' });
     expect(ctx.played).toHaveLength(0);
     expect(ctx.mic.stop).not.toHaveBeenCalled();
-    // Teks sementara dari giliran ini tetap tampil.
-    ws.serve({ type: 'transcript', text: 'halo', final: false, turn: startId(ws) });
+    // Teks sementara (server yang mengenali ucapan sambil jalan) tetap tampil.
+    ws.serve({ type: 'transcript', text: 'halo', final: false });
     expect(ctx.controller.getState().transcript).toBe('halo');
     ctx.controller.pushBuffer(pcm(8000));
     await ctx.controller.holdEnd();
@@ -441,30 +644,33 @@ describe('VoiceController dengan HttpTransport', () => {
   test('event bertanda giliran lain dibuang setelah menyela; giliran yang berjalan diterima', async () => {
     const ctx = build();
     const ws = await open(ctx);
-    await ctx.controller.holdStart();
+    await say(ctx);
     const first = startId(ws);
-    ctx.controller.pushBuffer(pcm(8000));
-    await ctx.controller.holdEnd();
     expect(ctx.controller.getState().phase).toBe('sending');
     await ctx.controller.holdStart();
-    const second = ws.sent.filter((m) => m.type === 'start')[1]!.clientId as string;
-    expect(second).not.toBe(first);
+    expect(types(ws).at(-1)).toBe('cancel');
     // Pengakuan batal giliran pertama tidak menyentuh keadaan, soket tetap terbuka.
     ws.serve({ type: 'end', reason: 'cancelled', turn: first });
     ws.serve({ type: 'error', code: 'stt_down', turn: first });
     expect(ws.closedWith).toBeNull();
     expect(ctx.controller.getState().phase).toBe('listening');
-    ws.serve({ type: 'transcript', text: 'baru', final: false, turn: second });
-    expect(ctx.controller.getState().transcript).toBe('baru');
+    ctx.controller.pushBuffer(pcm(8000));
+    await ctx.controller.holdEnd();
+    const second = startId(ws);
+    expect(second).not.toBe(first);
+    ws.serve({ type: 'reply', text: 'Dari yang pertama', turn: first });
+    expect(ctx.controller.getState().reply).toBeNull();
+    ws.serve({ type: 'reply', text: 'Baru', turn: second });
+    expect(ctx.controller.getState().reply).toBe('Baru');
   });
 
-  test('keluar dari mendengar lewat jalan apa pun mematikan mikrofon, cincin, dan batas 30 detik', async () => {
+  test('keluar dari mendengar mematikan mikrofon, cincin, dan batas 30 detik', async () => {
     const ctx = build();
     const ws = await open(ctx);
     await ctx.controller.holdStart();
     ctx.controller.pushBuffer(pcm(1600));
-    ws.serve({ type: 'error', code: 'stt_down', turn: startId(ws) });
-    expect(ctx.controller.getState().phase).toBe('error');
+    ctx.controller.suspend();
+    expect(ctx.controller.getState().phase).toBe('idle');
     expect(ctx.mic.stop).toHaveBeenCalledTimes(1);
     expect(ctx.levels.at(-1)).toBe(0);
     const sent = ws.sent.length;
@@ -472,37 +678,21 @@ describe('VoiceController dengan HttpTransport', () => {
     await flush();
     expect(ws.sent).toHaveLength(sent);
     expect(ctx.mic.stop).toHaveBeenCalledTimes(1);
-
-    // Server memutuskan ucapan selesai (thinking) juga mematikannya.
-    await ctx.controller.holdEnd();
-    await ctx.controller.holdStart();
-    ws.serve({ type: 'thinking', on: true, turn: ws.sent.filter((m) => m.type === 'start')[1]!.clientId });
-    expect(ctx.controller.getState().phase).toBe('thinking');
-    expect(ctx.mic.stop).toHaveBeenCalledTimes(2);
   });
 
-  test('ke latar saat balasan berjalan atau saat menahan: mikrofon dan suara berhenti', async () => {
+  test('ke latar saat balasan berjalan: suara berhenti, balasan terlambat dari giliran yang dibatalkan dibuang', async () => {
     const ctx = build();
     const ws = await open(ctx);
-    await ctx.controller.holdStart();
-    ctx.controller.pushBuffer(pcm(1600));
+    await say(ctx);
+    const first = startId(ws);
     ctx.controller.suspend();
-    expect(ctx.mic.stop).toHaveBeenCalledTimes(1);
     expect(ws.sent.at(-1)).toEqual({ type: 'cancel' });
     expect(ctx.controller.getState().phase).toBe('idle');
-    // Balasan dari giliran yang baru saja dibatalkan datang terlambat.
-    ws.serve({ type: 'reply', text: 'Terlambat', messageId: 'x', turn: startId(ws) });
+    ws.serve({ type: 'reply', text: 'Terlambat', messageId: 'x', turn: first });
     expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', reply: null });
 
-    await ctx.controller.holdStart();
-    ctx.controller.pushBuffer(pcm(8000));
-    await ctx.controller.holdEnd();
-    ws.serve({
-      type: 'reply',
-      text: 'Halo',
-      messageId: 'm1',
-      turn: ws.sent.filter((m) => m.type === 'start')[1]!.clientId,
-    });
+    await say(ctx);
+    ws.serve({ type: 'reply', text: 'Halo', messageId: 'm1', turn: startId(ws) });
     expect(ctx.controller.getState().phase).toBe('speaking');
     ctx.controller.suspend();
     expect(ctx.speaker.stop).toHaveBeenCalled();
@@ -518,9 +708,7 @@ describe('VoiceController dengan HttpTransport', () => {
       phases.push(`${(JSON.parse(data) as { type: string }).type}:${ctx.controller.getState().phase}`);
       send(data);
     };
-    await ctx.controller.holdStart();
-    ctx.controller.pushBuffer(pcm(8000));
-    await ctx.controller.holdEnd();
+    await say(ctx);
     expect(phases.at(-1)).toBe('stop:sending');
   });
 
@@ -583,40 +771,50 @@ describe('VoiceController dengan HttpTransport', () => {
     expect(ctx.controller.getState().phase).toBe('idle');
   });
 
-  test('tidak terdengar: kalimat sendiri, bukan teks kendala umum', async () => {
+  test('menunggu lama: "Masih saya kerjakan…" setelah 8 detik; thinking on yang diulang memperpanjang tunggu', async () => {
     const ctx = build();
     const ws = await open(ctx);
-    await ctx.controller.holdStart();
-    ctx.controller.pushBuffer(pcm(8000));
-    await ctx.controller.holdEnd();
+    await say(ctx);
     const turn = startId(ws);
-    ws.serve({ type: 'transcript', text: '', final: true, turn });
-    ws.serve({ type: 'error', code: 'tidak_terdengar', turn });
-    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: NOT_HEARD_TEXT });
-    expect(NOT_HEARD_TEXT).toBe('Belum terdengar, coba lagi ya.');
+    jest.advanceTimersByTime(SLOW_TURN_MS - 1);
+    expect(ctx.controller.getState().slow).toBe(false);
+    jest.advanceTimersByTime(1);
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'sending', slow: true });
+    ws.serve({ type: 'thinking', on: true, turn });
+    // Kabar tetap hidup dari server (`thinking on` diulang) tiap 30 detik: tetap menunggu jauh melewati 95 detik.
+    for (let i = 0; i < 6; i++) {
+      jest.advanceTimersByTime(30_000);
+      ws.serve({ type: 'thinking', on: true, turn });
+    }
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'thinking', slow: true, note: null });
+    ws.serve({ type: 'reply', text: 'Selesai juga.', turn });
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'speaking', slow: false, reply: 'Selesai juga.' });
   });
 
-  test('menunggu balasan lebih dari 25 detik: kendala yang jelas, boleh coba lagi', async () => {
+  test('95 detik tanpa kabar: berhenti menunggu dengan tenang tanpa membatalkan; balasan terlambat tetap tampil', async () => {
     const ctx = build();
     const ws = await open(ctx);
-    await ctx.controller.holdStart();
-    ctx.controller.pushBuffer(pcm(8000));
-    await ctx.controller.holdEnd();
-    expect(ctx.controller.getState().phase).toBe('sending');
+    await say(ctx);
+    const turn = startId(ws);
     jest.advanceTimersByTime(TURN_TIMEOUT_MS - 1);
     expect(ctx.controller.getState().phase).toBe('sending');
     jest.advanceTimersByTime(1);
-    expect(ctx.controller.getState()).toMatchObject({ phase: 'error', note: TURN_TIMEOUT_TEXT });
-    expect(TURN_TIMEOUT_TEXT).toBe('Lama sekali, coba lagi ya.');
-    expect(ws.sent.at(-1)).toEqual({ type: 'cancel' });
-    // Balasan yang datang sesudahnya dari giliran itu dibuang.
-    ws.serve({ type: 'reply', text: 'Terlambat', messageId: 'x', turn: startId(ws) });
-    expect(ctx.controller.getState().reply).toBeNull();
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: LATE_TEXT, slow: false });
+    expect(types(ws)).not.toContain('cancel');
+    expect(ctx.logs.at(-1)?.outcome).toBe('late');
+    ws.serve({ type: 'reply', text: 'Maaf lama, sudah saya catat.', turn });
+    expect(ctx.controller.getState()).toMatchObject({
+      phase: 'speaking',
+      reply: 'Maaf lama, sudah saya catat.',
+      note: null,
+    });
+    // Giliran baru: sisa giliran lama dibuang.
     await ctx.controller.holdStart();
-    expect(ctx.controller.getState().phase).toBe('listening');
+    ws.serve({ type: 'reply', text: 'Sisa', turn });
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'listening', reply: null });
   });
 
-  test('batas tunggu juga berlaku saat berpikir, dan hilang begitu balasan datang', async () => {
+  test('batas tunggu juga berlaku saat berpikir (ketik), dan hilang begitu balasan datang', async () => {
     const ctx = build();
     const ws = await open(ctx);
     ctx.controller.sendText('Halo');
@@ -630,7 +828,7 @@ describe('VoiceController dengan HttpTransport', () => {
 
     ctx.controller.sendText('Lagi');
     jest.advanceTimersByTime(TURN_TIMEOUT_MS);
-    expect(ctx.controller.getState()).toMatchObject({ phase: 'error', note: TURN_TIMEOUT_TEXT });
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: LATE_TEXT });
   });
 
   test('4501 belum tersedia: Inti mati dengan catatan segera hadir', async () => {
@@ -644,10 +842,10 @@ describe('VoiceController dengan HttpTransport', () => {
   test('pengakuan batal dari server tidak menutup soket', async () => {
     const ctx = build();
     const ws = await open(ctx);
-    await ctx.controller.holdStart();
-    ctx.controller.pushBuffer(pcm(1600));
+    await say(ctx);
+    const turn = startId(ws);
     ctx.controller.suspend();
-    ws.serve({ type: 'end', reason: 'cancelled', turn: startId(ws) });
+    ws.serve({ type: 'end', reason: 'cancelled', turn });
     expect(ws.closedWith).toBeNull();
     await ctx.controller.holdStart();
     expect(ctx.sockets).toHaveLength(1);

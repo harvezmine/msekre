@@ -25,6 +25,8 @@ import { resetSampleBanners } from '@/ui/SampleBanner';
 import { resetTabSet } from '@/ui/tabSet';
 import { resetTips } from '@/ui/tips';
 import { holdBridge } from '@/voice/holdBridge';
+import { inPlace } from '@/voice/inPlace';
+import { resetInPlaceHint } from '@/voice/InPlaceVoice';
 import { AppearanceProvider } from '@/theme/appearance';
 import { ThemeProvider, type Scheme } from '@/theme/ThemeProvider';
 
@@ -87,6 +89,8 @@ export async function renderWithProviders(
   resetTabSet(null);
   resetSampleBanners();
   holdBridge.reset();
+  inPlace.reset();
+  resetInPlaceHint();
   // Mode contoh: keadaan awal dipasang di penyimpanan milik server tiruan (itu yang dilihat layar dan skenario).
   const seeded = stateAfter(actions, state);
   testToasts.hide();

@@ -4,7 +4,8 @@ import { wibIso } from '@/api/fake/clock';
 import { formatJam } from '@/api/format';
 import { THINK_MS } from '@/sample/chat';
 import { deviceById, MAIN_AC_ID } from '@/sample/store';
-import { holdBridge } from '@/voice/holdBridge';
+import { RELEASE_TAIL_MS } from '@/voice/controller';
+import { inPlace } from '@/voice/inPlace';
 import { audio, stream } from './audioMock';
 import { advance, currentRoute, go, currentStack, mockParams, restoreParams, sampleState, showRoute } from './harness';
 
@@ -23,31 +24,31 @@ beforeEach(() => {
 });
 afterAll(restoreParams);
 
-test('alur 1: tahan Inti, Mode Suara mematikan AC, Beranda dan Riwayat mencatatnya', async () => {
+test('alur 1: tahan Inti, bicara di tempat mematikan AC, Beranda dan Riwayat mencatatnya', async () => {
   await showRoute('/');
   await settle();
   expect(screen.getByRole('switch', { name: 'AC kamar' })).toBeChecked();
 
-  // Satu gerakan: Inti ditahan, Mode Suara terbuka dan langsung mendengar.
+  // Satu gerakan: Inti besar ditahan, Beranda langsung mendengar di tempat (tanpa pindah layar).
   await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress');
-  expect(router.navigate).toHaveBeenCalledWith({ pathname: '/suara', params: { hold: '1' } });
-  expect(currentRoute()).toBe('/suara');
+  expect(router.navigate).not.toHaveBeenCalled();
+  expect(currentRoute()).toBe('/');
   await advance(1);
   expect(stream.start).toHaveBeenCalledTimes(1);
   expect(deviceById(sampleState(), MAIN_AC_ID)!.on).toBe(true);
 
   // Bicara setengah detik, jari diangkat: server tiruan mendengar "Matikan AC kamar" lalu menjawab.
   for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
-  await act(async () => holdBridge.release());
-  await advance(1);
+  await act(async () => inPlace.release());
+  await advance(RELEASE_TAIL_MS);
   expect(deviceById(sampleState(), MAIN_AC_ID)!.on).toBe(true);
   await advance(THINK_MS); // masuk keadaan berbicara
   expect(deviceById(sampleState(), MAIN_AC_ID)!.on).toBe(false);
   await advance(4500);
-  await fireEvent.press(screen.getByRole('button', { name: 'Selesai' }));
-  expect(router.back).toHaveBeenCalled();
-  expect(currentRoute()).toBe('/');
+  // Ketuk di luar kartu jawaban: kembali ke Beranda biasa.
+  await fireEvent.press(screen.getByTestId('suara-ditempat-tutup'));
   await settle();
+  expect(screen.queryByTestId('suara-ditempat')).toBeNull();
 
   expect(screen.getByRole('switch', { name: 'AC kamar' })).not.toBeChecked();
   await go('/riwayat');

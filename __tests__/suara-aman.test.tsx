@@ -33,9 +33,12 @@ const HIDDEN = { includeHiddenElements: true };
 async function settle() {
   for (let i = 0; i < 3; i++) await advance(0);
 }
-/** Tahan Inti di Beranda sampai Mode Suara terbuka. */
-async function holdFromBeranda() {
-  await showRoute('/');
+/**
+ * Tahan Inti bilah tab (di Agenda) sampai Mode Suara layar penuh terbuka. Inti besar Beranda bicara di tempat, tanpa
+ * pindah layar (lihat suara-ditempat.test.tsx).
+ */
+async function holdFromTabBar() {
+  await showRoute('/agenda');
   await settle();
   await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress');
   expect(currentRoute()).toBe('/suara');
@@ -65,7 +68,7 @@ describe('tahan Inti tanpa izin mikrofon: tidak merekam, lembar izin tampil', ()
   test('pemasangan baru (izin belum ditanya): lembar penjelasan, jari diangkat aman, mikrofon tidak menyala', async () => {
     audio.permission = { status: 'undetermined', granted: false, canAskAgain: true };
     audio.requestResult = { status: 'granted', granted: true, canAskAgain: true };
-    await holdFromBeranda();
+    await holdFromTabBar();
     expect(screen.getByText('Izinkan mikrofon ya')).toBeOnTheScreen();
     expect(stream.start).not.toHaveBeenCalled();
     // Jari masih menempel lalu diangkat dari Inti di bawah Mode Suara.
@@ -85,7 +88,7 @@ describe('tahan Inti tanpa izin mikrofon: tidak merekam, lembar izin tampil', ()
 
   test('izin ditolak permanen: lembar ke pengaturan, mikrofon tidak menyala', async () => {
     audio.permission = { status: 'denied', granted: false, canAskAgain: false };
-    await holdFromBeranda();
+    await holdFromTabBar();
     expect(screen.getByText('Mikrofon sedang dimatikan')).toBeOnTheScreen();
     await act(async () => holdBridge.release());
     expect(stream.start).not.toHaveBeenCalled();
@@ -93,7 +96,7 @@ describe('tahan Inti tanpa izin mikrofon: tidak merekam, lembar izin tampil', ()
 
   test('pemeriksaan izin gagal di modul native: dianggap ditolak, tidak merekam, tidak melempar', async () => {
     jest.mocked(getRecordingPermissionsAsync).mockImplementation(() => Promise.reject(new Error('modul native')));
-    await holdFromBeranda();
+    await holdFromTabBar();
     expect(screen.getByText('Mikrofon sedang dimatikan')).toBeOnTheScreen();
     expect(stream.start).not.toHaveBeenCalled();
   });
@@ -104,7 +107,7 @@ describe('modul native menolak di tengah tahanan', () => {
     stream.start.mockImplementationOnce(() => {
       throw new Error('AudioRecord belum siap');
     });
-    await holdFromBeranda();
+    await holdFromTabBar();
     expect(screen.getByText(MIC_FAILED_TEXT)).toBeOnTheScreen();
     expect(recentErrors().some((e) => e.where.includes('mikrofon gagal menyala'))).toBe(true);
     await act(async () => holdBridge.release());
@@ -129,18 +132,18 @@ describe('modul native menolak di tengah tahanan', () => {
   });
 
   test('Mode Suara ditutup selagi jari masih menempel: tahanan dilupakan', async () => {
-    await holdFromBeranda();
+    await holdFromTabBar();
     expect(holdBridge.isHeld()).toBe(true);
     expect(stream.start).toHaveBeenCalledTimes(1);
     await act(async () => router.back());
     await settle();
-    expect(currentRoute()).toBe('/');
+    expect(currentRoute()).toBe('/agenda');
     expect(holdBridge.isHeld()).toBe(false);
     expect(stream.stop).toHaveBeenCalled();
   });
 
   test('membuka Mode Suara gagal: sentuhan tidak melempar, tahanan dilupakan', async () => {
-    await showRoute('/');
+    await showRoute('/agenda');
     await settle();
     jest.mocked(router.navigate).mockImplementationOnce(() => {
       throw new Error('navigasi');
