@@ -2,9 +2,10 @@ import type { AgendaItem } from '@/api/contract';
 import { getPendingSnoozes, type PendingSnoozes } from './pendingSnooze';
 import type { AlarmScheduler } from './types';
 
-/** Berapa menit "Tunda" menunda alarm. */
+/** Berapa menit "Tunda" menunda alarm (pilihan tengah di layar alarm, dan tombol "Tunda" di notifikasi pengingat). */
 export const SNOOZE_MINUTES = 10;
-const SNOOZE_MS = SNOOZE_MINUTES * 60_000;
+/** Pilihan tunda di layar alarm. */
+export const SNOOZE_CHOICES = [5, 10, 30] as const;
 
 /** Kabari server (`PATCH /agenda/:id`): `null` kalau berhasil, selain itu teks ramah. */
 export type SnoozeFn = (id: string, untilIso: string) => Promise<string | null>;
@@ -12,13 +13,18 @@ export type SnoozeFn = (id: string, untilIso: string) => Promise<string | null>;
 type Snoozable = Pick<AgendaItem, 'id' | 'title' | 'at' | 'snoozedUntil' | 'note'>;
 
 /**
- * Kapan alarm berbunyi lagi: 10 menit dari yang lebih akhir antara jadwal sekarang (tundaan sebelumnya atau waktu
- * semula) dan saat ini. Ditunda telat (alarm berbunyi 07.00, ditekan 07.25) berarti 07.35, bukan 07.10 yang sudah lewat;
- * menunda berkali-kali terus maju.
+ * Kapan alarm berbunyi lagi: `minutes` (bawaan 10) dari yang lebih akhir antara jadwal sekarang (tundaan sebelumnya atau
+ * waktu semula) dan saat ini. Ditunda telat (alarm berbunyi 07.00, ditekan 07.25) berarti 07.35, bukan 07.10 yang sudah
+ * lewat; menunda berkali-kali terus maju.
  */
-export function snoozeTarget(item: Pick<AgendaItem, 'at' | 'snoozedUntil'>, now: number): number {
+export function snoozeTarget(
+  item: Pick<AgendaItem, 'at' | 'snoozedUntil'>,
+  now: number,
+  minutes: number = SNOOZE_MINUTES,
+): number {
   const base = Date.parse(item.snoozedUntil ?? item.at);
-  return Math.max(Number.isNaN(base) ? now : base, now) + SNOOZE_MS;
+  const step = Number.isFinite(minutes) && minutes > 0 ? minutes : SNOOZE_MINUTES;
+  return Math.max(Number.isNaN(base) ? now : base, now) + step * 60_000;
 }
 
 export interface SnoozeResult {
@@ -39,6 +45,7 @@ export async function snoozeAlarm({
   scheduler,
   item,
   snooze,
+  minutes = SNOOZE_MINUTES,
   now = Date.now(),
   pending = getPendingSnoozes(),
 }: {
@@ -46,10 +53,12 @@ export async function snoozeAlarm({
   item: Snoozable;
   /** `null`: tanpa server (belum masuk), jadi hanya dipasang di HP dan tidak ada yang perlu dikabarkan. */
   snooze: SnoozeFn | null;
+  /** Berapa menit (5, 10, atau 30 dari layar alarm). */
+  minutes?: number;
   now?: number;
   pending?: PendingSnoozes;
 }): Promise<SnoozeResult> {
-  const at = snoozeTarget(item, now);
+  const at = snoozeTarget(item, now, minutes);
   const until = new Date(at).toISOString();
   // Yang sedang berbunyi dimatikan dulu (notifikasi dan catatan berbunyinya), lalu tundaannya dipasang.
   await scheduler.cancel(item.id);

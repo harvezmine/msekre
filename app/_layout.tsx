@@ -24,6 +24,7 @@ import { needsSignIn } from '@/api/mode';
 import { canOpen } from '@/api/routeAccess';
 import { PushProvider, PushTapHandler } from '@/api/usePush';
 import { AlarmSyncHost } from '@/alarm/useAlarmSync';
+import { ReminderHost } from '@/reminders/useReminders';
 import { AuthProvider, useAuth } from '@/api/useAuth';
 import { installCrashGuard } from '@/crash';
 import { AppearanceProvider } from '@/theme/appearance';
@@ -187,6 +188,7 @@ function Navigator() {
       </Stack>
       <AfterSignIn />
       <AlarmSyncHost />
+      <ReminderHost />
       <PushTapHandler />
     </SplashShell>
   );

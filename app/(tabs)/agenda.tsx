@@ -1,12 +1,13 @@
 // Niat layar: melihat satu hari sebagai rel waktu dan tahu apa yang berikutnya. Tindakan tersering: Tambah, menempel di
 // zona jempol tepat di atas bilah tab (ketuk untuk menulis, mic untuk bicara).
-import { router } from 'expo-router';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { alarmBlocked, useAlarmStatus } from '@/alarm/useAlarmStatus';
 import { daysInMonth, isoDate, MONTH_NAMES, parts } from '@/api/dates';
 import { useAgenda } from '@/api/useAgenda';
+import { hasUpcomingReminders, offerReminderPermission, useReminderPermission } from '@/reminders/useReminders';
 import { useTheme } from '@/theme/ThemeProvider';
 import { isPast, railItem } from '@/ui/agenda/AgendaItem';
 import { MonthSheet } from '@/ui/agenda/MonthGrid';
@@ -18,12 +19,14 @@ import { useToast } from '@/ui/toastStore';
 import { useOpenVoice } from '@/voice/available';
 
 export default function Agenda() {
-  const { c, marker } = useTheme();
+  const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const compact = useLayoutClass() === 'compact';
   const toast = useToast();
   const alarm = useAlarmStatus();
   const agenda = useAgenda();
+  const focused = useIsFocused();
+  const reminderPermission = useReminderPermission();
   const { itemsOn, marked, ensureRange } = agenda;
   const [picked, setPicked] = useState<string | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
@@ -31,6 +34,28 @@ export default function Agenda() {
   const TODAY = agenda.today;
   const NOW = agenda.now;
   const selected = picked ?? TODAY;
+
+  // Dibuka dari notifikasi pengingat (`/agenda?id=&tanggal=`): hari item itu, dengan butirnya terbuka.
+  const params = useLocalSearchParams<{ id?: string; tanggal?: string }>();
+  const linkId = typeof params.id === 'string' ? params.id : null;
+  const linkDate = typeof params.tanggal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.tanggal) ? params.tanggal : null;
+  const [shownLink, setShownLink] = useState<string | null>(null);
+  const linked = linkId ? (agenda.items.find((i) => i.id === linkId) ?? null) : null;
+  const linkKey = linkId ? `${linkId}@${linkDate}` : null;
+  const linkTarget = linked?.date ?? linkDate;
+  // Diatur saat render (bukan di efek), sekali per tautan: hari itu dipilih dan butirnya dibuka.
+  if (linkId && linkKey !== shownLink && linkTarget) {
+    setShownLink(linkKey);
+    setPicked(linkTarget);
+    setOpened(linkId);
+  }
+
+  // Pengingat yang tidak akan tampil karena notifikasi belum diizinkan: lembar izin dibuka sekali seumur pemasangan.
+  const needsNotifications =
+    reminderPermission !== null && reminderPermission !== 'granted' && hasUpcomingReminders(agenda.items, TODAY);
+  useEffect(() => {
+    if (needsNotifications && focused) void offerReminderPermission(reminderPermission);
+  }, [needsNotifications, focused, reminderPermission]);
 
   // Pekan yang tampil (dan bulan di lembar kalender) dimuat bila di luar rentang bawaan.
   useEffect(() => {
@@ -154,30 +179,18 @@ export default function Agenda() {
             setPicked(date);
           }}
         />
-        {blocked ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Alarm belum bisa bunyi tepat waktu. Atur izinnya"
+        {needsNotifications ? (
+          <PermissionRow
+            label="Pengingat perlu izin"
+            a11y="Pengingat belum bisa muncul di HP ini. Izinkan notifikasi"
+            onPress={() => router.push('/izin-notifikasi')}
+          />
+        ) : blocked ? (
+          <PermissionRow
+            label="Alarm perlu izin"
+            a11y="Alarm belum bisa bunyi tepat waktu. Atur izinnya"
             onPress={() => router.push('/izin-alarm')}
-            android_ripple={{ color: c.ripple }}
-            style={{
-              marginHorizontal: 16,
-              marginTop: 8,
-              minHeight: 56,
-              borderRadius: 20,
-              backgroundColor: c.sunken,
-              paddingHorizontal: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <Icon name="bell" size={22} color={marker.warn.ink} />
-            <Txt weight={600} color={marker.warn.ink} style={{ flex: 1 }}>
-              Alarm perlu izin
-            </Txt>
-            <Icon name="chevR" size={20} color={c.muted} />
-          </Pressable>
+          />
         ) : null}
         <View style={{ paddingTop: compact ? 8 : 16, paddingLeft: 20, paddingRight: 16 }}>
           {items.length === 0 ? (
@@ -205,6 +218,36 @@ export default function Agenda() {
         }}
       />
     </View>
+  );
+}
+
+/** Satu baris tenang di atas rel waktu: ada yang belum bisa berbunyi di HP ini, ketuk untuk mengatur izinnya. */
+function PermissionRow({ label, a11y, onPress }: { label: string; a11y: string; onPress: () => void }) {
+  const { c, marker } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={a11y}
+      onPress={onPress}
+      android_ripple={{ color: c.ripple }}
+      style={{
+        marginHorizontal: 16,
+        marginTop: 8,
+        minHeight: 56,
+        borderRadius: 20,
+        backgroundColor: c.sunken,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      <Icon name="bell" size={22} color={marker.warn.ink} />
+      <Txt weight={600} color={marker.warn.ink} style={{ flex: 1 }}>
+        {label}
+      </Txt>
+      <Icon name="chevR" size={20} color={c.muted} />
+    </Pressable>
   );
 }
 

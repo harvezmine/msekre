@@ -236,18 +236,16 @@ export class AgendaController {
 
   /**
    * Tandai selesai dari luar layar Agenda (tombol "Selesai" di notifikasi pengingat): juga untuk item yang belum dimuat
-   * (aplikasi baru dibuka dari notifikasi). Yang sudah dikenal langsung berubah di layar; kalau gagal kembali. Melempar
-   * kegagalan aslinya (bukan teks), supaya pemanggil bisa membedakan tanpa internet (diulang nanti) dari item yang sudah
-   * tidak ada (dibuang).
+   * (aplikasi baru dibuka dari notifikasi). Layar baru berubah setelah server menerima: tanpa tanda sementara, karena
+   * penyamaan pengingat membaca `done` sebagai "sudah sampai", dan tanda yang dipasang lalu dicabut saat gagal akan
+   * memicu penyamaan berikutnya yang mencoba lagi tanpa henti selama tanpa internet. Melempar kegagalan aslinya (bukan
+   * teks), supaya pemanggil bisa membedakan tanpa internet (diulang nanti) dari item yang sudah tidak ada (dibuang).
    */
   markDone = async (id: string): Promise<void> => {
-    const before = this.state.items.find((i) => i.id === id);
-    if (before) this.upsert([{ ...before, done: true }], [], undefined, this.state.rev);
     try {
       const saved = await this.transport.agendaPatch(id, { done: true });
       this.upsert([saved], [], undefined, this.state.rev);
     } catch (e) {
-      if (before && !isGone(e)) this.upsert([before], [], undefined, this.state.rev);
       if (isGone(e)) this.upsert([], [id], undefined, this.state.rev);
       throw e;
     }
