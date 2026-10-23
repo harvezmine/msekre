@@ -11,6 +11,7 @@ import { Redraw, redraw } from './redraw';
 import { MemoryAlarmScheduler, setAlarmScheduler } from '@/alarm';
 import { getPendingSnoozes, PendingSnoozes, setPendingSnoozes } from '@/alarm/pendingSnooze';
 import { type SampleState } from '@/sample/store';
+import { setSoundSettings, SoundSettingsStore } from '@/reminders/soundSettings';
 
 // Gerak Inti dikurangi di sini. Gerak penuhnya berulang tanpa henti (napas 4 detik, gelombang 2,4 detik); dengan jam
 // tiruan, tes yang memajukan jam satu menit menjalankan ribuan bingkai animasi satu per satu (6-7 detik per tes, lewat
@@ -173,6 +174,48 @@ test('getar berpola tiap 2 detik dan berhenti saat layar ditutup', async () => {
   await advance(10000);
   expect(Haptics.notificationAsync).not.toHaveBeenCalled();
   clear.mockRestore();
+});
+
+test('getar dimatikan di Akun: layar alarm tidak bergetar', async () => {
+  const store = new SoundSettingsStore(false);
+  await store.set({ vibrate: false });
+  setSoundSettings(store);
+  try {
+    await renderWithProviders(<Alarm />);
+    await advance(6000);
+    expect(Haptics.notificationAsync).not.toHaveBeenCalled();
+  } finally {
+    setSoundSettings(null);
+  }
+});
+
+test('pilihan tunda 5 dan 30 menit di zona jempol; cahaya bernapas di belakang jam', async () => {
+  await atTime(SAMPLE_NOW_ISO, async () => {
+    await renderWithProviders(
+      <>
+        <Alarm />
+        <Probe />
+      </>,
+    );
+    expect(screen.getByTestId('alarm-cahaya', { includeHiddenElements: true })).toBeOnTheScreen();
+    for (const m of [5, 10, 30]) expect(screen.getByRole('button', { name: `Tunda ${m} menit` })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Tunda 30 menit' }));
+    await advance(0);
+    expect(latest.agenda.find((a) => a.id === 'a10')!.snoozedUntil).toBe('2025-10-21T00:30:00.000Z');
+  });
+  jest.mocked(router.back).mockClear();
+  await atTime(SAMPLE_NOW_ISO, async () => {
+    await renderWithProviders(
+      <>
+        <Alarm />
+        <Probe />
+      </>,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Tunda 5 menit' }));
+    await advance(0);
+    expect(router.back).toHaveBeenCalled();
+    expect(latest.agenda.find((a) => a.id === 'a10')!.snoozedUntil).toBe('2025-10-21T00:05:00.000Z');
+  });
 });
 
 test('tautan /alarm?id= memuat item dari server walau di luar rentang agenda', async () => {

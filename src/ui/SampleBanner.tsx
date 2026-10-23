@@ -9,7 +9,7 @@ import { Txt } from './Txt';
 export const SAMPLE_BANNER_TEXT = 'Contoh — segera tersambung ke akun Anda';
 
 /** Kelompok layar contoh; menutup penanda berlaku untuk satu kelompok (misalnya Perangkat dan semua remote-nya). */
-export type SampleArea = 'agenda' | 'perangkat' | 'usaha' | 'terhubung' | 'riwayat' | 'akun';
+export type SampleArea = 'perangkat' | 'usaha' | 'terhubung' | 'riwayat' | 'akun';
 
 // Ditutup selama aplikasi hidup (per sesi aplikasi), tidak disimpan di HP.
 let dismissed: ReadonlySet<SampleArea> = new Set();

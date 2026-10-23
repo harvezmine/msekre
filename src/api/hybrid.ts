@@ -67,7 +67,9 @@ export type TransportMethod = Exclude<keyof Transport, 'mode'>;
  * `api-hybrid`), supaya method baru tidak diam-diam jatuh ke salah satu sisi.
  *
  * Yang sudah disediakan server (Fase 1b-mini, `docs/app-api.md` di repo server): masuk, `GET /me`, utas chat, media,
- * stream, Mode Suara, dan token notifikasi. Sisanya dibalas 501 oleh server, jadi di sini memakai data contoh.
+ * stream, Mode Suara, token notifikasi, dan Agenda (`/agenda`, termasuk tanda terima alarm dan event `agenda`). Sisanya
+ * dibalas 501 oleh server, jadi di sini memakai data contoh. `POST /agenda/parse` yang masih 501 tidak jatuh ke data
+ * contoh: lembar Tambah lalu mengirim kalimatnya ke asisten lewat chat.
  */
 export const HYBRID_ROUTES = {
   authStart: 'akun',
@@ -110,13 +112,14 @@ export const HYBRID_ROUTES = {
   setGreeting: 'contoh',
   setNotifications: 'contoh',
   removePhone: 'contoh',
-  agenda: 'contoh',
-  agendaItem: 'contoh',
-  agendaParse: 'contoh',
-  agendaAdd: 'contoh',
-  agendaPatch: 'contoh',
-  agendaLeftover: 'contoh',
-  agendaAlarmAck: 'contoh',
+  // Agenda asli: pengingat dan alarm di HP milik pemilik akun, bukan contoh.
+  agenda: 'akun',
+  agendaItem: 'akun',
+  agendaParse: 'akun',
+  agendaAdd: 'akun',
+  agendaPatch: 'akun',
+  agendaLeftover: 'akun',
+  agendaAlarmAck: 'akun',
   openVoice: 'akun',
   // Media pesan asli dan suara balasan ke server; QRIS, laporan, dan gambar kamera contoh ke server tiruan.
   mediaUrl: 'pilah',
@@ -133,7 +136,7 @@ export const HYBRID_EVENTS = {
   draft: 'akun',
   thinking: 'akun',
   home: 'contoh',
-  agenda: 'contoh',
+  agenda: 'akun',
   device: 'contoh',
   business: 'contoh',
   connection: 'contoh',
@@ -272,6 +275,34 @@ export class HybridTransport implements Transport {
     return isSampleMediaId(mediaId) ? this.fake.mediaUrl(mediaId) : this.real.mediaUrl(mediaId);
   }
 
+  agenda(range?: { from: string; to: string }): Promise<AgendaRes> {
+    return this.real.agenda(range);
+  }
+
+  agendaItem(id: string): Promise<AgendaItem> {
+    return this.real.agendaItem(id);
+  }
+
+  agendaParse(text: string): Promise<AgendaParseRes> {
+    return this.real.agendaParse(text);
+  }
+
+  agendaAdd(item: AgendaNew): Promise<AgendaItem> {
+    return this.real.agendaAdd(item);
+  }
+
+  agendaPatch(id: string, req: AgendaPatchReq): Promise<AgendaItem> {
+    return this.real.agendaPatch(id, req);
+  }
+
+  agendaLeftover(choice: 'today' | 'drop'): Promise<AgendaItem | null> {
+    return this.real.agendaLeftover(choice);
+  }
+
+  agendaAlarmAck(id: string, scheduledFor: string): Promise<void> {
+    return this.real.agendaAlarmAck(id, scheduledFor);
+  }
+
   // ---- Data contoh ----
 
   security(): Promise<SecurityRes> {
@@ -382,34 +413,6 @@ export class HybridTransport implements Transport {
 
   removePhone(id: string): Promise<Account> {
     return this.withAccountIdentity(this.fake.removePhone(id));
-  }
-
-  agenda(range?: { from: string; to: string }): Promise<AgendaRes> {
-    return this.fake.agenda(range);
-  }
-
-  agendaItem(id: string): Promise<AgendaItem> {
-    return this.fake.agendaItem(id);
-  }
-
-  agendaParse(text: string): Promise<AgendaParseRes> {
-    return this.fake.agendaParse(text);
-  }
-
-  agendaAdd(item: AgendaNew): Promise<AgendaItem> {
-    return this.fake.agendaAdd(item);
-  }
-
-  agendaPatch(id: string, req: AgendaPatchReq): Promise<AgendaItem> {
-    return this.fake.agendaPatch(id, req);
-  }
-
-  agendaLeftover(choice: 'today' | 'drop'): Promise<AgendaItem | null> {
-    return this.fake.agendaLeftover(choice);
-  }
-
-  agendaAlarmAck(id: string, scheduledFor: string): Promise<void> {
-    return this.fake.agendaAlarmAck(id, scheduledFor);
   }
 
   // ---- Keduanya ----

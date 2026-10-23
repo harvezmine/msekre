@@ -15,7 +15,7 @@ import { VOICE_SOON_TEXT } from '@/voice/texts';
 
 const API_URL = 'https://app.sekertaris.com';
 /** Jalur yang sudah disediakan server asli. Mode akun tidak pernah meminta jalur lain (yang dibalas 501). */
-const BUILT = /^\/(auth\/(start|verify|logout)|me|messages|push-tokens|media\/.+)$/;
+const BUILT = /^\/(auth\/(start|verify|logout)|me|messages|push-tokens|media\/.+|agenda(\/.+)?)$/;
 const DAY = 86_400_000;
 
 let server: FakeHttpServer;
@@ -228,7 +228,6 @@ describe('Beranda, chat, dan Mode Suara asli', () => {
 
 describe('layar contoh', () => {
   const SAMPLE_SCREENS = [
-    '/agenda',
     '/perangkat',
     '/perangkat/ac-kamar',
     '/perangkat/tambah',
@@ -248,7 +247,7 @@ describe('layar contoh', () => {
     expect(screen.getByRole('button', { name: 'Tutup penanda contoh' })).toBeOnTheScreen();
   });
 
-  test.each(['/', '/chat', '/akun'])('%s: tanpa penanda (isinya asli)', async (path) => {
+  test.each(['/', '/chat', '/akun', '/agenda'])('%s: tanpa penanda (isinya asli)', async (path) => {
     await open(path);
     expect(screen.queryByText(SAMPLE_BANNER_TEXT)).toBeNull();
   });
@@ -283,6 +282,23 @@ describe('layar contoh', () => {
     const sample = await server.sample!.devices('Rumah');
     expect(sample.devices.find((d) => d.id === 'lampu-utama')!.on).toBe(false);
     expect(server.hits('POST', '/home/devices/lampu-utama')).toHaveLength(0);
+    expect(unbuilt()).toEqual([]);
+  });
+});
+
+describe('Agenda asli', () => {
+  test('Agenda dari GET /agenda server asli; mencentang tugas mengirim PATCH ke server, bukan ke data contoh', async () => {
+    await open('/agenda');
+    expect(server.hits('GET', '/agenda').length).toBeGreaterThan(0);
+    const task = await screen.findByRole('checkbox', { name: /^15\.00/ });
+    expect(task).not.toBeChecked();
+    await fireEvent.press(task);
+    await settle();
+    expect(server.hits('PATCH', '/agenda/a3').map((r) => r.body)).toEqual([{ done: true }]);
+    expect(screen.getByRole('checkbox', { name: /^15\.00/ })).toBeChecked();
+    // Data contoh di aplikasi tidak ikut berubah.
+    const sample = await server.sample!.agenda();
+    expect(sample.items.find((i) => i.id === 'a3')?.done).toBeUndefined();
     expect(unbuilt()).toEqual([]);
   });
 });

@@ -91,7 +91,7 @@ beforeEach(() => {
 });
 
 describe('saluran dan penangan', () => {
-  test('Android: saluran Pesan dari Nadia dan Pengingat dibuat, keduanya penting', async () => {
+  test('Android: saluran Pesan dari Nadia dan Kabar penting (push pengingat server) dibuat, keduanya penting', async () => {
     jest.replaceProperty(Platform, 'OS', 'android');
     await mount();
     expect(N.setNotificationChannelAsync).toHaveBeenCalledWith('pesan', {
@@ -100,7 +100,7 @@ describe('saluran dan penangan', () => {
       lockscreenVisibility: 2,
     });
     expect(N.setNotificationChannelAsync).toHaveBeenCalledWith('pengingat', {
-      name: 'Pengingat',
+      name: 'Kabar penting',
       importance: 6,
       sound: 'default',
     });
@@ -123,7 +123,7 @@ describe('saluran dan penangan', () => {
     await settle();
     expect(N.setNotificationChannelAsync).toHaveBeenLastCalledWith(
       'pengingat',
-      expect.objectContaining({ name: 'Pengingat' }),
+      expect.objectContaining({ name: 'Kabar penting' }),
     );
     expect(N.setNotificationChannelAsync).toHaveBeenCalledWith(
       'pesan',

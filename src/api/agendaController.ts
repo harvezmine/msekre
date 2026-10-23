@@ -1,7 +1,7 @@
 import { addDays, weekdayIndex } from '@/api/dates';
 import { friendlyError } from './errors';
 import type { AgendaItem, AgendaNew, AgendaRes, StreamEvent } from './contract';
-import type { Transport, Unsubscribe } from './transport';
+import { isApiFailure, type Transport, type Unsubscribe } from './transport';
 
 export type AgendaStatus = 'loading' | 'ready' | 'error';
 
@@ -50,8 +50,26 @@ function defaultRangeFor(today: string): { from: string; to: string } {
 
 const byTime = (a: AgendaItem, b: AgendaItem) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
 
-/** Hasil pratinjau: item yang akan disimpan, atau teks ramah kalau gagal. */
-export type PreviewResult = { ok: true; item: AgendaNew; guessedTime: boolean } | { ok: false; error: string };
+/**
+ * Hasil pratinjau: item yang akan disimpan, atau teks ramah kalau gagal. `unavailable`: server belum bisa membaca kalimat
+ * agenda (501); lembar Tambah lalu menitipkan kalimatnya ke asisten lewat chat.
+ */
+export type PreviewResult =
+  { ok: true; item: AgendaNew; guessedTime: boolean } | { ok: false; error: string; unavailable?: true };
+
+/** Gagal menyimpan: teks ramah, dan `unavailable` bila server belum menyediakan jalurnya (501). */
+export interface AgendaFailure {
+  error: string;
+  unavailable?: true;
+}
+
+const unavailableOf = (e: unknown): { unavailable?: true } =>
+  isApiFailure(e) && e.code === 'unavailable' ? { unavailable: true } : {};
+
+/** Kegagalan yang tidak akan berhasil walau diulang: itemnya sudah tidak ada di server (404). */
+export function isGone(e: unknown): boolean {
+  return isApiFailure(e) && (e.status === 404 || e.error === 'tidak_ditemukan');
+}
 
 /**
  * Pemilik data Agenda: muat dari `GET /agenda` (rentang bawaan, ditambah rentang lain sesuai layar), perbarui lewat event
@@ -186,18 +204,18 @@ export class AgendaController {
       const res = await this.transport.agendaParse(text);
       return { ok: true, item: res.preview.item, guessedTime: res.preview.guessedTime };
     } catch (e) {
-      return { ok: false, error: friendlyError(e) };
+      return { ok: false, error: friendlyError(e), ...unavailableOf(e) };
     }
   };
 
-  /** Simpan item dari pratinjau. `null` kalau berhasil, selain itu teks ramah. */
-  add = async (item: AgendaNew): Promise<string | null> => {
+  /** Simpan item dari pratinjau. `null` kalau berhasil, selain itu teks ramah (dan `unavailable` untuk 501). */
+  add = async (item: AgendaNew): Promise<AgendaFailure | null> => {
     try {
       const saved = await this.transport.agendaAdd(item);
       this.upsert([saved], [], undefined, this.state.rev);
       return null;
     } catch (e) {
-      return friendlyError(e);
+      return { error: friendlyError(e), ...unavailableOf(e) };
     }
   };
 
@@ -214,6 +232,29 @@ export class AgendaController {
       this.upsert([before], [], undefined, this.state.rev);
       return friendlyError(e);
     }
+  };
+
+  /**
+   * Tandai selesai dari luar layar Agenda (tombol "Selesai" di notifikasi pengingat): juga untuk item yang belum dimuat
+   * (aplikasi baru dibuka dari notifikasi). Layar baru berubah setelah server menerima: tanpa tanda sementara, karena
+   * penyamaan pengingat membaca `done` sebagai "sudah sampai", dan tanda yang dipasang lalu dicabut saat gagal akan
+   * memicu penyamaan berikutnya yang mencoba lagi tanpa henti selama tanpa internet. Melempar kegagalan aslinya (bukan
+   * teks), supaya pemanggil bisa membedakan tanpa internet (diulang nanti) dari item yang sudah tidak ada (dibuang).
+   */
+  markDone = async (id: string): Promise<void> => {
+    try {
+      const saved = await this.transport.agendaPatch(id, { done: true });
+      this.upsert([saved], [], undefined, this.state.rev);
+    } catch (e) {
+      if (isGone(e)) this.upsert([], [id], undefined, this.state.rev);
+      throw e;
+    }
+  };
+
+  /** Seperti {@link snooze}, tapi melempar kegagalan aslinya (lihat {@link markDone}). */
+  snoozeStrict = async (id: string, untilIso: string): Promise<void> => {
+    const saved = await this.transport.agendaPatch(id, { snoozeUntil: untilIso });
+    this.upsert([saved], [], undefined, this.state.rev);
   };
 
   /** Balik status selesai sebuah tugas. */

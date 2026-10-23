@@ -34,22 +34,10 @@ jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(),
   notificationAsync: jest.fn(),
 }));
-// Notifikasi tanpa modul native: semuanya tiruan yang tidak berbuat apa-apa (tes notifikasi mengaturnya sendiri).
-jest.mock('expo-notifications', () => ({
-  AndroidImportance: { HIGH: 6, DEFAULT: 5 },
-  AndroidNotificationVisibility: { PUBLIC: 1, PRIVATE: 2, SECRET: 3 },
-  DEFAULT_ACTION_IDENTIFIER: 'expo.modules.notifications.actions.DEFAULT',
-  setNotificationHandler: jest.fn(),
-  setNotificationChannelAsync: jest.fn(() => Promise.resolve(null)),
-  getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false, status: 'undetermined', canAskAgain: true })),
-  requestPermissionsAsync: jest.fn(() =>
-    Promise.resolve({ granted: false, status: 'undetermined', canAskAgain: true }),
-  ),
-  getDevicePushTokenAsync: jest.fn(() => Promise.resolve({ type: 'android', data: 'token-1' })),
-  addPushTokenListener: jest.fn(() => ({ remove: jest.fn() })),
-  useLastNotificationResponse: jest.fn(() => null),
-  clearLastNotificationResponse: jest.fn(),
-}));
+// Notifikasi tanpa modul native: tiruan di memori (lihat __tests__/notificationsMock.ts). Tes notifikasi mengatur
+// jawabannya sendiri; tes pengingat memeriksa yang terjadwal dan yang tampil lewat `__mock`.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('expo-notifications', () => require('./__tests__/notificationsMock').createNotificationsMock());
 // Versi aplikasi terpasang (Akun menampilkan "Versi 1.0.0 (7)").
 jest.mock('expo-application', () => ({ nativeApplicationVersion: '1.0.0', nativeBuildVersion: '7' }));
 // Berkas, pembuka, dan lembar bagikan tanpa modul native: tiruan di memori (tes dokumen mengatur hasilnya sendiri).

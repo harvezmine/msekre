@@ -4,8 +4,8 @@ import { readSecure, writeSecure } from './secureStore';
 /**
  * Sumber data aplikasi:
  * - `contoh`: server tiruan di dalam aplikasi (`FakeTransport`), tanpa jaringan dan tanpa masuk;
- * - `akun`: akun asli pengguna (`HybridTransport`). Masuk dengan kode WhatsApp; chat dan Mode Suara memakai server asli,
- *   layar yang belum disediakan server (Agenda, Perangkat, Usaha, Terhubung, Riwayat, sebagian Akun) memakai data contoh
+ * - `akun`: akun asli pengguna (`HybridTransport`). Masuk dengan kode WhatsApp; chat, Mode Suara, dan Agenda memakai server
+ *   asli, layar yang belum disediakan server (Perangkat, Usaha, Terhubung, Riwayat, sebagian Akun) memakai data contoh
  *   dengan penanda "Contoh". Bawaan build rilis (`apiUrl` diisi);
  * - `server`: semuanya dari server asli (`HttpTransport`), juga jalur yang masih dibalas 501. Hanya untuk pengembangan.
  * `akun` dan `server` hanya bisa dipakai kalau `apiUrl` diisi.

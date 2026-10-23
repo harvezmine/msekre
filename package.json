@@ -93,7 +93,8 @@
       "<rootDir>/__tests__/audioMock.ts",
       "<rootDir>/__tests__/expoAudioMock.ts",
       "<rootDir>/__tests__/fakeHttp.ts",
-      "<rootDir>/__tests__/skiaMock.ts"
+      "<rootDir>/__tests__/skiaMock.ts",
+      "<rootDir>/__tests__/notificationsMock.ts"
     ]
   }
 }

@@ -14,21 +14,21 @@ const RESYNC_MS = 60 * 60 * 1000;
 /**
  * Menyamakan alarm di HP dengan agenda (lihat {@link AlarmSync}): setiap agenda berubah (muat, event stream), setiap
  * aplikasi kembali ke depan, setiap jam, dan setelah masuk. Sebelum menyamakan, rentang hari ini sampai 7 hari ke depan
- * dipastikan sudah dimuat (pergantian pekan, atau agenda yang belum menjangkau sejauh itu). Keluar membatalkan semua
- * alarm. Mode `akun`: agendanya masih contoh, jadi tidak ada alarm yang dijadwalkan (yang tersisa dari mode contoh
- * dibatalkan); pemilik akun asli tidak boleh dibangunkan oleh agenda orang lain. Dipasang sekali di akar, di dalam
- * `AgendaProvider`.
+ * dipastikan sudah dimuat (pergantian pekan, atau agenda yang belum menjangkau sejauh itu). Keluar dan ganti mode data
+ * membatalkan semua alarm dan melupakan tanda terimanya (agenda mode lain milik server lain, atau contoh). Mode `akun`
+ * memakai agenda asli dari server. Dipasang sekali di akar, di dalam `AgendaProvider`.
  */
 export function useAlarmSync() {
   const { mode } = useApi();
   const { status } = useAuth();
   const agenda = useAgenda();
   const { items, status: agendaStatus } = agenda;
-  const sampleAgenda = mode === 'akun';
-  const active = !sampleAgenda && (!needsSignIn(mode) || status === 'signedIn');
+  const active = !needsSignIn(mode) || status === 'signedIn';
   const ready = active && agendaStatus === 'ready';
   const sync = useRef<AlarmSync | null>(null);
   sync.current ??= new AlarmSync(getAlarmScheduler());
+  // Mode data terakhir yang disamakan: berganti = alarm mode sebelumnya dibatalkan dulu.
+  const lastMode = useRef(mode);
   // Terbaru untuk pendengar yang berumur panjang (foreground, timer).
   const latest = useRef(agenda);
   const readyRef = useRef(ready);
@@ -52,10 +52,14 @@ export function useAlarmSync() {
 
   // Hanya saat sudah pasti keluar; selama sesi masih diperiksa (`checking`) alarm yang ada dibiarkan.
   const signedOut = needsSignIn(mode) && status === 'signedOut';
-  const clear = signedOut || sampleAgenda;
   useEffect(() => {
-    if (clear) void sync.current?.clear();
-  }, [clear]);
+    if (signedOut) void sync.current?.clear();
+  }, [signedOut]);
+  useEffect(() => {
+    if (lastMode.current === mode) return;
+    lastMode.current = mode;
+    void sync.current?.clear().then(() => run.current());
+  }, [mode]);
 
   useEffect(() => {
     const go = () => void run.current();

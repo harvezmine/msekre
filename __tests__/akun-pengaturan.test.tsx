@@ -5,6 +5,7 @@ import { Linking } from 'react-native';
 import { ERASE_TEXT, PRIVACY_URL, RENEW_TEXT, WA_UNAVAILABLE_TEXT } from '@/api/account';
 import { ERROR_TEXT, INVALID_NAME_TEXT } from '@/api/errors';
 import { waUrl } from '@/api/waNumber';
+import { getSoundSettings, setSoundSettings, SoundSettingsStore } from '@/reminders/soundSettings';
 import { newUserSampleState } from '@/sample/fresh';
 import { dark, markerLight } from '@/theme/tokens';
 import {
@@ -245,6 +246,22 @@ describe('Pemberitahuan: izin HP, alarm, dan jenis kabar di satu halaman', () =>
     expect(screen.getByRole('switch', { name: 'Pesan' })).toBeChecked();
     expect(toastNow()?.text).toBe(ERROR_TEXT);
     expect((await api.transport.account()).notifications.pesan).toBe(true);
+  });
+
+  test('Getar: pilihan di HP ini saja (tidak ke server), hidup bawaan', async () => {
+    setSoundSettings(new SoundSettingsStore(false));
+    try {
+      const api = await show('/akun/notifikasi');
+      const spy = jest.spyOn(api.transport, 'setNotifications');
+      expect(screen.getByRole('switch', { name: 'Getar' })).toBeChecked();
+      await fireEvent.press(screen.getByRole('switch', { name: 'Getar' }));
+      await settle();
+      expect(screen.getByRole('switch', { name: 'Getar' })).not.toBeChecked();
+      expect(getSoundSettings().get().vibrate).toBe(false);
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      setSoundSettings(null);
+    }
   });
 
   test('semua jenis dimatikan: baris Akun menyebut Mati (setelah izin HP ada, lihat tes push)', async () => {

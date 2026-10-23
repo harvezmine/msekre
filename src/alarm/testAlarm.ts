@@ -1,4 +1,5 @@
 import type { AgendaItem } from '@/api/contract';
+import type { AlarmScheduler } from './types';
 
 /** Id alarm percobaan dari layar izin alarm: tidak ada di agenda, hanya ada di HP ini. */
 export const TEST_ALARM_ID = 'uji';
@@ -33,4 +34,10 @@ export function testAlarmItem(atMs: number): AgendaItem {
     title: 'Alarm percobaan',
     note: 'Kalau Anda melihat ini, alarm di HP ini sudah bekerja.',
   });
+}
+
+/** Tunda alarm percobaan: tidak ada server, jadwal ulang langsung di HP `minutes` menit dari sekarang. */
+export async function snoozeTestAlarm(scheduler: AlarmScheduler, item: AgendaItem, minutes: number): Promise<void> {
+  await scheduler.cancel(item.id);
+  await scheduler.schedule({ id: item.id, at: Date.now() + minutes * 60_000, title: item.title, note: item.note });
 }

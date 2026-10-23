@@ -15,6 +15,7 @@ import {
 } from 'react';
 import { AppState, Linking, Platform } from 'react-native';
 import { DEFAULT_ASSISTANT } from '@/brand';
+import { reminderData } from '@/reminders/notifier';
 import { useApi } from './ApiProvider';
 import { needsSignIn } from './mode';
 import { isChatFocused } from './pushPresence';
@@ -155,8 +156,10 @@ export function PushProvider({ children }: { children: ReactNode }) {
       importance: AndroidImportance.HIGH,
       lockscreenVisibility: AndroidNotificationVisibility.PRIVATE,
     }).catch(() => {});
+    // Kabar penting dari server. Pengingat agenda yang dijadwalkan HP sendiri memakai saluran `pengingat_getar` dan
+    // `pengingat_tanpa_getar` (src/reminders/notifier.ts), jadi saluran ini diberi nama lain supaya tidak tertukar.
     void Notifications.setNotificationChannelAsync(CHANNEL_PENGINGAT, {
-      name: 'Pengingat',
+      name: 'Kabar penting',
       importance: AndroidImportance.HIGH,
       sound: 'default',
     }).catch(() => {});
@@ -330,6 +333,8 @@ export function useNotificationTap() {
   const response = useLastNotificationResponse();
   useEffect(() => {
     if (!response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
+    // Pengingat yang dijadwalkan HP sendiri: ditangani `useReminderResponses` (Agenda di item itu).
+    if (reminderData(response.notification.request.content.data)) return;
     if (needsSignIn(mode) && status === 'checking') return;
     const id = `${response.notification.request.identifier}@${response.notification.date}`;
     if (handledTap === id) return;
