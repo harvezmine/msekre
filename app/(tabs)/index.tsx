@@ -47,6 +47,7 @@ import { TIP_TEXT, useTip } from '@/ui/tips';
 import { useToast } from '@/ui/toastStore';
 import { Txt } from '@/ui/Txt';
 import { useLive } from '@/ui/useLive';
+import { useInPlaceVoice } from '@/voice/InPlaceVoice';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -78,6 +79,9 @@ export default function Beranda() {
   const devices = useDeviceControl('Semua');
   const chat = useChat({ onError: toast });
   const tip = useTip('inti');
+  // Menahan Inti besar: bicara di tempat. Isi lain Beranda meredup, Inti tetap di tengah.
+  const { hero: heroVoice, dim, overlay } = useInPlaceVoice();
+  const dimStyle = useAnimatedStyle(() => ({ opacity: 1 - 0.75 * dim.get() }));
   // Mode akun: persetujuan, agenda, dan perangkat masih contoh, jadi bloknya tidak tampil; tinggal sapaan, Inti, dan
   // "Coba bilang".
   const { hybrid } = useDataMode();
@@ -130,19 +134,23 @@ export default function Beranda() {
       {/* Latar gradasi hijau lembut di belakang sapaan, sampai ke bawah bilah status. */}
       <GradientField recipe="hero" />
       <ScrollView
+        scrollEnabled={!heroVoice.active}
         contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + topPad, paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
       >
-        <View
+        <Animated.View
           onLayout={(e) => setGreetingBottom(Math.round(e.nativeEvent.layout.y + e.nativeEvent.layout.height))}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingLeft: 24,
-            paddingRight: 16,
-            gap: 12,
-          }}
+          style={[
+            {
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingLeft: 24,
+              paddingRight: 16,
+              gap: 12,
+            },
+            dimStyle,
+          ]}
         >
           <Txt
             v="display"
@@ -169,10 +177,10 @@ export default function Beranda() {
           >
             <Initials />
           </Pressable>
-        </View>
+        </Animated.View>
 
         <Animated.View testID="beranda-inti" style={heroStyle}>
-          <IntiHero metrics={hero} nodes={nodes} paused={!live} halo={tip.visible} />
+          <IntiHero metrics={hero} nodes={nodes} paused={!live} halo={tip.visible} voice={heroVoice} />
         </Animated.View>
 
         {!home && status === 'error' ? (
@@ -198,7 +206,7 @@ export default function Beranda() {
           </View>
         ) : null}
 
-        <View style={{ gap: 20, paddingTop: compact ? 10 : 14 }}>
+        <Animated.View style={[{ gap: 20, paddingTop: compact ? 10 : 14 }, dimStyle]}>
           {approval ? (
             <Animated.View
               key={`persetujuan-${approval.id}`}
@@ -238,7 +246,7 @@ export default function Beranda() {
               ))}
             </Animated.View>
           ) : null}
-        </View>
+        </Animated.View>
 
         {/* Ruang kosong itu disengaja: kartu contoh pengguna baru duduk di zona jempol, tepat di atas bilah tab. */}
         <View style={{ flexGrow: 1, minHeight: 16 }} />
@@ -249,14 +257,18 @@ export default function Beranda() {
             exiting={blockExiting}
             style={{ paddingHorizontal: 16, marginBottom: compact ? 4 : 12 }}
           >
-            <SuggestionCard
-              text={suggestionFor(today)}
-              onPress={() => router.push({ pathname: '/chat', params: { isi: suggestionFor(today) } })}
-            />
+            {/* Redup di lapisan dalam: opacity lapisan luar milik animasi muncul. */}
+            <Animated.View style={dimStyle}>
+              <SuggestionCard
+                text={suggestionFor(today)}
+                onPress={() => router.push({ pathname: '/chat', params: { isi: suggestionFor(today) } })}
+              />
+            </Animated.View>
           </Animated.View>
         ) : null}
       </ScrollView>
-      {tip.visible ? <CoachMark text={TIP_TEXT.inti} top={tipTop} onDismiss={tip.dismiss} /> : null}
+      {tip.visible && !heroVoice.active ? <CoachMark text={TIP_TEXT.inti} top={tipTop} onDismiss={tip.dismiss} /> : null}
+      {overlay}
     </View>
   );
 }

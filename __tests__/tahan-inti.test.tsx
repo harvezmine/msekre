@@ -8,7 +8,11 @@ import { renderWithProviders } from './helpers';
 import { THINK_MS } from '@/sample/chat';
 import { newUserSampleState } from '@/sample/fresh';
 import { TIP_TEXT } from '@/ui/tips';
+import { RELEASE_TAIL_MS } from '@/voice/controller';
 import { holdBridge } from '@/voice/holdBridge';
+import { inPlace } from '@/voice/inPlace';
+
+const HIDDEN = { includeHiddenElements: true };
 
 // Penyimpanan HP di memori: tanda petunjuk yang sudah dilihat bertahan antar pembukaan aplikasi.
 const mockStore = new Map<string, string>();
@@ -33,22 +37,45 @@ beforeEach(() => {
 });
 afterAll(restoreParams);
 
-test('tahan Inti di Beranda: Mode Suara terbuka dan langsung mendengar; jari diangkat: ucapan dikirim', async () => {
+test('tahan Inti besar di Beranda: bicara di tempat; dilepas: ucapan dikirim, jawaban di kartu di bawah Inti', async () => {
   await showRoute('/');
   await settle();
   await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress');
-  expect(currentRoute()).toBe('/suara');
   await settle();
-  // Tanpa menekan apa pun di Mode Suara: mikrofon sudah menyala.
+  // Tetap di Beranda: Inti di tengah, cincin suara di sekitarnya, dan mikrofon langsung menyala.
+  expect(currentRoute()).toBe('/');
   expect(stream.start).toHaveBeenCalledTimes(1);
-  expect(screen.getByLabelText('Mendengar')).toBeOnTheScreen();
+  expect(screen.getByTestId('suara-cincin', HIDDEN)).toBeTruthy();
+  expect(screen.getByTestId('suara-ditempat-ucapan')).toHaveTextContent('Mendengarkan…');
+  expect(screen.getByText('Lepas untuk kirim')).toBeOnTheScreen();
   for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
 
-  // Jari diangkat dari Inti yang sama (di aplikasi Pressable-nya masih terpasang di bawah Mode Suara).
-  await act(async () => holdBridge.release());
+  await act(async () => inPlace.release());
+  await advance(RELEASE_TAIL_MS);
   await settle();
   expect(stream.stop).toHaveBeenCalled();
-  expect(screen.getByText('Sebentar…')).toBeOnTheScreen();
+  expect(screen.getByTestId('suara-ditempat-ucapan')).toHaveTextContent('Matikan AC kamar.');
+  expect(screen.getByTestId('inti-berpikir', HIDDEN)).toBeTruthy();
+  await advance(THINK_MS);
+  expect(screen.getByTestId('suara-ditempat-balasan')).toHaveTextContent('Sudah. AC kamar saya matikan.');
+  await fireEvent.press(screen.getByRole('button', { name: 'Buka percakapan' }));
+  expect(currentRoute()).toBe('/chat');
+});
+
+test('tahan Inti bilah tab: Mode Suara layar penuh mendengar, cahaya mengembang dari jari; dilepas: dikirim', async () => {
+  await showRoute('/agenda');
+  await settle();
+  await fireEvent(screen.getByRole('button', { name: 'Nadia' }), 'longPress', { nativeEvent: { pageX: 196, pageY: 830 } });
+  expect(currentRoute()).toBe('/suara');
+  await settle();
+  expect(stream.start).toHaveBeenCalledTimes(1);
+  expect(screen.getByLabelText('Mendengar')).toBeOnTheScreen();
+  expect(screen.getByTestId('suara-cahaya-asal', HIDDEN)).toBeTruthy();
+  for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
+  await act(async () => holdBridge.release());
+  await advance(RELEASE_TAIL_MS);
+  await settle();
+  expect(stream.stop).toHaveBeenCalled();
   expect(screen.getByTestId('suara-ucapan')).toHaveTextContent('Matikan AC kamar.');
   await advance(THINK_MS);
   expect(screen.getByTestId('suara-balasan')).toHaveTextContent('Sudah. AC kamar saya matikan.');

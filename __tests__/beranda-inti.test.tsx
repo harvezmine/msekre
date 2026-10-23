@@ -14,6 +14,7 @@ import { newUserSampleState } from '@/sample/fresh';
 import { heroMetrics, webLayout } from '@/ui/beranda/heroLayout';
 import { TIP_TEXT } from '@/ui/tips';
 import { holdBridge } from '@/voice/holdBridge';
+import { inPlace } from '@/voice/inPlace';
 
 let mockDims = { width: 393, height: 873, scale: 3, fontScale: 1 };
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -185,16 +186,18 @@ describe('Inti besar: ketuk = chat, tahan = bicara', () => {
     expect(router.navigate).toHaveBeenCalledWith('/chat');
   });
 
-  test('tahan: getar, Mode Suara langsung mendengar; jari diangkat melepas tahanan', async () => {
+  test('tahan: getar, bicara di tempat (tanpa pindah layar); jari diangkat melepas tahanan', async () => {
     await show();
     const inti = screen.getByRole('button', { name: 'Nadia' });
     await fireEvent(inti, 'pressIn');
     await fireEvent(inti, 'longPress');
     expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Medium);
-    expect(router.navigate).toHaveBeenCalledWith({ pathname: '/suara', params: { hold: '1' } });
-    expect(holdBridge.isHeld()).toBe(true);
-    await fireEvent(inti, 'pressOut');
+    expect(router.navigate).not.toHaveBeenCalled();
     expect(holdBridge.isHeld()).toBe(false);
+    expect(inPlace.get()).toMatchObject({ open: true, held: true });
+    expect(screen.getByTestId('suara-ditempat')).toBeOnTheScreen();
+    await fireEvent(inti, 'pressOut');
+    expect(inPlace.get().held).toBe(false);
   });
 });
 

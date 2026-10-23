@@ -7,6 +7,7 @@ import { motion } from '@/theme/tokens';
 import { Icon } from './Icon';
 import type { IconName } from './icons';
 import { IntiButton } from './inti/IntiButton';
+import { inPlace, useInPlace } from '@/voice/inPlace';
 import { INTI_SIZE, INTI_SLOT, TAB_BAR_HEIGHT } from './tabBarMetrics';
 import { splitTabs, useTabSet, visitTab, type TabName } from './tabSet';
 import { TabsLiveContext } from './TabsLiveContext';
@@ -31,6 +32,7 @@ const TABS: Record<TabName, { label: string; icon: IconName }> = {
 export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const { c } = useTheme();
   const live = useContext(TabsLiveContext);
+  const voiceOpen = useInPlace().open;
   const reduce = useReducedMotion();
   const set = useTabSet();
   const activeName = state.routes[state.index]?.name;
@@ -123,6 +125,16 @@ export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarPr
         <IntiButton size={INTI_SIZE.tab} paused={!live} />
       </View>
       <View style={{ flex: 1, flexDirection: 'row' }}>{right.map(tab)}</View>
+      {/* Mode Suara di tempat (Beranda) terbuka: bilah ikut meredup, dan ketukan di sana menutupnya. */}
+      {voiceOpen ? (
+        <Pressable
+          testID="bilah-tab-tutup-suara"
+          accessibilityRole="button"
+          accessibilityLabel="Tutup"
+          onPress={() => inPlace.close()}
+          style={[StyleSheet.absoluteFill, { backgroundColor: c.bg, opacity: 0.6 }]}
+        />
+      ) : null}
     </View>
   );
 }

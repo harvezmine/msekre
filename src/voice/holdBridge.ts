@@ -12,12 +12,28 @@ import { reportError } from '@/crash';
  * `release()` dipanggil dari sentuhan (`onPressOut`): kesalahan di pendengar tidak boleh keluar dari sana, karena
  * kesalahan di penangan sentuhan menutup paksa aplikasi di build rilis.
  */
+/** Pusat Inti yang ditahan (jendela, dp) dan garis tengahnya: Mode Suara memunculkan Inti-nya tepat di bawah jari. */
+export interface HoldOrigin {
+  x: number;
+  y: number;
+  size: number;
+}
+
 let held = false;
+let origin: HoldOrigin | null = null;
 const listeners = new Set<() => void>();
 
+const validOrigin = (o: HoldOrigin | null | undefined): HoldOrigin | null =>
+  o && Number.isFinite(o.x) && Number.isFinite(o.y) && Number.isFinite(o.size) && o.size > 0 ? { ...o } : null;
+
 export const holdBridge = {
-  begin(): void {
+  begin(from?: HoldOrigin | null): void {
     held = true;
+    origin = validOrigin(from);
+  },
+  /** Tempat Inti yang ditahan, bila diketahui (bilah tab). */
+  origin(): HoldOrigin | null {
+    return origin;
   },
   /** Jari diangkat (atau sentuhan dibatalkan sistem). Hanya yang pertama setelah `begin` yang berarti. */
   release(): void {
@@ -47,6 +63,7 @@ export const holdBridge = {
   /** Untuk tes. */
   reset(): void {
     held = false;
+    origin = null;
     listeners.clear();
   },
 };
