@@ -1,5 +1,5 @@
 /**
- * Kontrak API aplikasi, versi 1 (revisi 20 Okt). File ini sumber kontrak server.
+ * Kontrak API aplikasi, versi 1 (revisi 23 Okt). File ini sumber kontrak server.
  *
  * Di Fase 1b file ini dipindah apa adanya ke milo-ai `src/appapi/contract.ts` dan menjadi sumber kebenaran; aplikasi
  * lalu menyalinnya balik lewat `npm run sync:contract`. Karena itu file ini hanya boleh bergantung pada zod: jangan
@@ -27,6 +27,7 @@
  * | POST /account/pin/reset/verify | PinResetVerifyReq    | SecurityRes (PIN baru tersimpan)  |
  * | GET  /home                     | -                    | Home (Beranda)                    |
  * | PUT  /places/current           | PlaceReq             | Home                              |
+ * | GET  /weather?lat=&lon=        | WeatherQuery         | Weather (cuaca untuk Beranda)     |
  * | GET  /agenda?from=&to=         | -                    | AgendaRes                         |
  * | GET  /agenda/:id               | -                    | AgendaItemRes                     |
  * | POST /agenda/parse             | AgendaParseReq       | AgendaParseRes                    |
@@ -74,6 +75,8 @@
  * - 404 `belum_terdaftar`: dari `auth/start`, nomor itu belum punya akun. Aplikasi ini add-on: akun dan masa coba
  *   hanya dibuat lewat WhatsApp. Isinya membawa `waNumber` (nomor WhatsApp Sekretaris AI, E.164 tanpa "+") supaya
  *   aplikasi bisa mengarahkan pengguna memulai lewat WhatsApp. Tidak ada kode yang dikirim;
+ * - 404 `tidak_ada_lokasi`: dari `GET /weather` tanpa `lat`/`lon`, dan pengguna belum menyimpan tempat (kantor, rumah)
+ *   di server. Aplikasi mengirim ulang dengan lokasi HP kalau boleh, atau tidak menampilkan cuaca;
  * - 422 `tidak_paham`: dari `POST /agenda/parse`, kalimatnya tidak berisi waktu atau isi yang bisa dibaca. Aplikasi menampilkan
  *   teks ramah dengan contoh kalimat;
  * - 409 `status_draf`: aksi draf tidak boleh dari status sekarang (lihat aturan draf);
@@ -846,6 +849,36 @@ export const homeSchema = z.object({
 
 export const placeReqSchema = z.strictObject({ place: z.string().min(1) });
 
+// ---- Cuaca (Beranda) ----
+
+/** Keadaan cuaca yang ditampilkan dengan ikon aplikasi sendiri; yang belum dikenal dibaca `lainnya`. */
+export const weatherConditionSchema = z.enum(['cerah', 'berawan', 'hujan', 'badai', 'kabut', 'salju', 'lainnya']);
+/**
+ * `GET /weather?lat=&lon=`: keduanya atau tidak sama sekali. Tanpa keduanya server memakai tempat yang disimpan
+ * pengguna (kantor dulu, lalu rumah); belum ada tempat: 404 `tidak_ada_lokasi`. Tanpa penyedia cuaca: 501.
+ */
+export const weatherQuerySchema = z
+  .object({
+    lat: z.coerce.number().min(-90).max(90).optional(),
+    lon: z.coerce.number().min(-180).max(180).optional(),
+  })
+  .refine((q) => (q.lat === undefined) === (q.lon === undefined), { path: ['lon'], message: 'lat dan lon berpasangan' });
+/**
+ * Cuaca saat ini untuk satu tempat. `place`: nama tempat ("Kantor", nama kota). `tempC`: suhu sekarang (bulat).
+ * `icon`: kode ikon penyedia (OpenWeather, contoh `10d`), boleh diabaikan; aplikasi memilih ikon dari `condition`.
+ * `highC`/`lowC`: suhu tertinggi dan terendah sisa hari ini. `at`: saat yang digambarkan (ISO 8601). Server menyimpan
+ * jawabannya sekitar 15 menit per tempat, jadi meminta lebih sering tidak membuatnya lebih baru.
+ */
+export const weatherSchema = z.object({
+  place: z.string().min(1),
+  tempC: z.number(),
+  condition: weatherConditionSchema.catch('lainnya'),
+  icon: z.string().min(1).optional(),
+  highC: z.number().optional(),
+  lowC: z.number().optional(),
+  at: isoDateTimeSchema,
+});
+
 // ---- Agenda ----
 
 /** Tanggal "YYYY-MM-DD" menurut zona waktu pengguna di server. */
@@ -1342,6 +1375,7 @@ export const apiErrorCodeSchema = z.enum([
   'server',
   'belum_tersedia',
   'nama_tidak_valid',
+  'tidak_ada_lokasi',
 ]);
 export const apiErrorSchema = z.object({
   error: apiErrorCodeSchema,
@@ -1384,6 +1418,9 @@ export type DraftActionRes = z.infer<typeof draftActionResSchema>;
 export type PushTokenReq = z.infer<typeof pushTokenReqSchema>;
 export type PushTokenDeleteReq = z.infer<typeof pushTokenDeleteReqSchema>;
 export type AgendaSummary = z.infer<typeof agendaSummarySchema>;
+export type WeatherCondition = z.infer<typeof weatherConditionSchema>;
+export type WeatherQuery = z.infer<typeof weatherQuerySchema>;
+export type Weather = z.infer<typeof weatherSchema>;
 export type HouseLine = z.infer<typeof houseLineSchema>;
 export type BusinessSummary = z.infer<typeof businessSummarySchema>;
 export type RingNodeSummary = z.infer<typeof ringNodeSchema>;
@@ -1500,6 +1537,13 @@ const turnField = { turn: clientIdSchema.optional() };
 export const voiceEventSchema = z.discriminatedUnion('type', [
   /** Teks ucapan; `final: false` sementara (bisa berubah), `final: true` dipakai untuk menjawab. */
   z.object({ type: z.literal('transcript'), text: z.string(), final: z.boolean(), ...turnField }),
+  /**
+   * Server sedang memproses. Selama agen bekerja, `thinking on` diulang tiap 10 detik (tanda masih hidup, giliran yang
+   * sama); aplikasi boleh memakainya untuk memperpanjang batas tunggunya. Server menunggu jawaban agen paling lama 90
+   * detik; kalau sampai 15 detik belum ada jawaban, server mengirim satu `reply` pengisi tanpa `messageId` ("Masih
+   * saya kerjakan, sebentar ya.") dan berhenti mengulang `thinking on`; jawaban sebenarnya menyusul sebagai `reply`
+   * berikutnya pada giliran yang sama.
+   */
   z.object({ type: z.literal('thinking'), on: z.boolean(), ...turnField }),
   /**
    * Teks balasan. `messageId` = pesan asisten yang sama di utas chat (bertanda `voice`); boleh hilang. Satu `audio`/`speech`

@@ -10,6 +10,7 @@ import { THINK_MS } from '@/sample/chat';
 import { deviceById, type SampleState } from '@/sample/store';
 import { MAIN_AC_ID } from '@/sample/devices';
 import { setAudioModeAsync } from 'expo-audio';
+import { RELEASE_TAIL_MS } from '@/voice/controller';
 
 const flush = () => act(async () => {});
 /** Gelombang dan Inti hanya hiasan (disembunyikan dari pembaca layar): dicari termasuk elemen tersembunyi. */
@@ -21,7 +22,10 @@ const advance = (ms: number) =>
     jest.advanceTimersByTime(ms);
   });
 
-/** Tahan Inti, bicara `chunks` x 100 ms, lalu lepas. */
+/**
+ * Tahan Inti, bicara `chunks` x 100 ms, lalu lepas. Mikrofon tetap menyala sebentar setelah dilepas
+ * ({@link RELEASE_TAIL_MS}), lalu ucapannya dikirim sekaligus.
+ */
 async function speak(chunks = 6) {
   const inti = screen.getByRole('button', { name: 'Tahan untuk bicara' });
   await fireEvent(inti, 'pressIn');
@@ -31,6 +35,7 @@ async function speak(chunks = 6) {
   }
   await fireEvent(inti, 'pressOut');
   await flush();
+  await advance(RELEASE_TAIL_MS);
 }
 
 let appState = captureAppState();
@@ -73,12 +78,13 @@ test('satu ucapan: mendengar, teks bertahap, berpikir, balasan tampil, berbicara
   expect(inti).toBeBusy();
 
   for (let i = 0; i < 3; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
-  // Teks sementara, belum final.
-  expect(screen.getByTestId('suara-ucapan')).toHaveTextContent('Matikan AC');
+  // Selagi menahan belum ada yang dikirim: ucapannya dikirim sekaligus setelah dilepas.
+  expect(screen.queryByTestId('suara-ucapan')).toBeNull();
   for (let i = 0; i < 3; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
 
   await fireEvent(inti, 'pressOut');
   await flush();
+  await advance(RELEASE_TAIL_MS);
   expect(stream.stop).toHaveBeenCalled();
   // Berpikir: satu kata, gelombang tenang, cincin berputar di Inti.
   expect(screen.getByText('Sebentar…')).toBeOnTheScreen();
@@ -153,7 +159,7 @@ test('menyela: menahan Inti saat Nadia berbicara menghentikan suaranya', async (
 test('ketukan singkat tidak mengirim apa-apa dan memberi petunjuk', async () => {
   await renderWithProviders(<Suara />);
   await speak(1);
-  expect(screen.getByText('Tahan Inti sambil bicara')).toBeOnTheScreen();
+  expect(screen.getByText('Tahan sedikit lebih lama')).toBeOnTheScreen();
   expect(screen.queryByText('Sebentar…')).toBeNull();
   await advance(THINK_MS * 2);
   expect(screen.queryByTestId('suara-balasan')).toBeNull();
@@ -400,7 +406,7 @@ test('dilepas sebelum mikrofon selesai menyala: tetap dimatikan', async () => {
   release();
   await flush();
   expect(stream.stop).toHaveBeenCalledTimes(1);
-  expect(screen.getByText('Tahan Inti sambil bicara')).toBeOnTheScreen();
+  expect(screen.getByText('Tahan sedikit lebih lama')).toBeOnTheScreen();
 });
 
 test('layar tetap menyala dan mode audio dipasang; semuanya dilepas saat ditutup', async () => {
@@ -435,15 +441,18 @@ test('mode gelap tampil sama dengan teks yang sama', async () => {
   expect(screen.getByTestId('suara-balasan')).toBeOnTheScreen();
 });
 
-test('ucapan sementara: kata terakhir yang belum pasti lebih redup', async () => {
+test('ucapan tampil utuh setelah dilepas, besar dan sedikit redup selagi menunggu (tanpa teks sementara selagi menahan)', async () => {
   await renderWithProviders(<Suara />);
   await fireEvent(screen.getByRole('button', { name: 'Tahan untuk bicara' }), 'pressIn');
   await flush();
-  for (let i = 0; i < 3; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
+  for (let i = 0; i < 6; i++) await act(async () => audio.emitBuffer(new Array<number>(1600).fill(9000)));
+  expect(screen.queryByTestId('suara-ucapan')).toBeNull();
+  await fireEvent(screen.getByRole('button', { name: 'Tahan untuk bicara' }), 'pressOut');
+  await flush();
+  await advance(RELEASE_TAIL_MS);
   const said = screen.getByTestId('suara-ucapan');
-  expect(said).toHaveTextContent('Matikan AC');
-  expect(screen.getByText('AC')).toHaveStyle({ color: 'rgba(242,243,245,0.42)' });
-  expect(said).toHaveStyle({ fontSize: 32, color: '#F2F3F5' });
+  expect(said).toHaveTextContent('Matikan AC kamar.');
+  expect(said).toHaveStyle({ fontSize: 32, color: 'rgba(242,243,245,0.55)' });
 });
 
 test('tombol bisukan memakai ikon pengeras suara, bukan mikrofon', async () => {
