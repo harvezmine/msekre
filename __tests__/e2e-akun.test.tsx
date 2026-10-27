@@ -4,7 +4,7 @@ import { SAMPLE_CODE_HINT } from '../app/mulai/masuk';
 import { audio } from './audioMock';
 import { createFakeHttpServer, DEFAULT_VOICE_TURN, type FakeHttpServer, type VoiceTurnScript } from './fakeHttp';
 import { advance, currentRoute, go, mockParams, restoreParams, showRoute } from './harness';
-import { createTestApi, renderWithProviders, toastNow } from './helpers';
+import { createTestApi, renderWithProviders, toastNow, openMenu } from './helpers';
 import type { Api, ApiFactory } from '@/api/ApiProvider';
 import { SAMPLE_BANNER_TEXT } from '@/ui/SampleBanner';
 import { RELEASE_TAIL_MS } from '@/voice/controller';
@@ -74,7 +74,7 @@ afterEach(() => server?.dispose());
 afterAll(restoreParams);
 
 describe('masuk', () => {
-  test('pemasangan baru: kode WhatsApp asli, lalu langsung Beranda yang menyapa pemilik akun', async () => {
+  test('pemasangan baru: kode WhatsApp asli, lalu langsung Beranda; nama pemilik akun di menu samping', async () => {
     await open('/mulai', { signedIn: false });
     expect(currentRoute()).toBe('/mulai');
     await fireEvent.press(screen.getByRole('button', { name: 'Mulai' }));
@@ -97,7 +97,10 @@ describe('masuk', () => {
     expect(await server.api.session.get()).toBe(server.token());
     // Layar pilih layanan dilewati: tawarannya masih contoh.
     expect(currentRoute()).toBe('/');
-    expect(await screen.findByText(/, Budi Santoso$/)).toBeOnTheScreen();
+    expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
+    // Pemilik akun tampil di menu samping (tanpa sapaan besar di Beranda).
+    await openMenu();
+    expect(screen.getByTestId('menu-nama')).toHaveTextContent('Budi Santoso');
     expect(unbuilt()).toEqual([]);
   });
 
@@ -117,16 +120,16 @@ describe('masuk', () => {
     await advance(300);
     await settle();
     expect(currentRoute()).toBe('/');
-    expect(await screen.findByText('Pagi, Rina')).toBeOnTheScreen();
+    expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
     expect(server.hits('POST', '/auth/start')).toHaveLength(0);
     expect(server.token()).toBeNull();
   });
 });
 
 describe('Beranda, chat, dan Mode Suara asli', () => {
-  test('Beranda: sapaan pemilik akun, agenda dan cuaca asli dari server di widget, tanpa blok contoh; bilah tab hanya Beranda dan Agenda', async () => {
+  test('Beranda: agenda dan cuaca asli dari server di widget, tanpa blok contoh; bilah tab hanya Beranda dan Agenda', async () => {
     await open('/');
-    expect(await screen.findByText(/, Budi Santoso$/)).toBeOnTheScreen();
+    expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
     for (const id of ['blok-persetujuan', 'blok-favorit']) expect(screen.queryByTestId(id)).toBeNull();
     await settle();
     expect(within(screen.getByTestId('blok-agenda')).getByText('Bayar listrik Kedai Dago')).toBeOnTheScreen();
@@ -364,7 +367,7 @@ describe('Akun', () => {
 describe('sesi ditolak server (401)', () => {
   test('dari soket stream: keluar dan kembali ke layar masuk, seperti mode server', async () => {
     await open('/');
-    expect(await screen.findByText(/, Budi Santoso$/)).toBeOnTheScreen();
+    expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
     server.revoke();
     await advance(400);
     await settle();

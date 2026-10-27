@@ -202,9 +202,8 @@ describe('Inti besar: ketuk = chat, tahan = bicara', () => {
 });
 
 describe('pengguna baru', () => {
-  test('sapaan, Inti besar dengan tiga simpul contoh yang redup, dan kartu Coba bilang', async () => {
+  test('Inti besar dengan tiga simpul contoh yang redup, dan kartu Coba bilang', async () => {
     await show(393, 873, { state: newUserSampleState });
-    expect(screen.getByText('Halo, Rina')).toBeOnTheScreen();
     expect(nodeKeys()).toEqual(['wa', 'gcal', 'gmail']);
     expect(style(screen.getByTestId('simpul-wa', HIDDEN)).opacity).toBe(0.6);
     expect(screen.getByTestId('jari-contoh-wa', HIDDEN).props.strokeDasharray).toBeTruthy();

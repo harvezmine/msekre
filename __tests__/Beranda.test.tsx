@@ -3,7 +3,8 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import Beranda from '../app/(tabs)/index';
-import { createTestApi, renderWithProviders, toastNow } from './helpers';
+import { SideMenu, sideMenu } from '@/ui/SideMenu';
+import { createTestApi, openMenu, renderWithProviders, toastNow } from './helpers';
 import { ERROR_TEXT } from '@/api/errors';
 import { ApiFailure } from '@/api/transport';
 import { BUDI_DRAFT_ID, supplierOrderDraft } from '@/sample/outgoing';
@@ -34,10 +35,14 @@ function blockOrder(): string[] {
 }
 
 describe('pengguna yang sudah terbiasa (data contoh)', () => {
-  test('sapaan pendek, lalu tiga blok berurutan: persetujuan, agenda berikutnya, perangkat favorit', async () => {
+  test('bilah atas aplikasi (menu, judul, tanggal), lalu tiga blok berurutan: persetujuan, agenda berikutnya, perangkat favorit', async () => {
     await renderWithProviders(<Beranda />);
     await settle();
-    expect(screen.getByText('Pagi, Rina')).toBeOnTheScreen();
+    const bar = within(screen.getByTestId('bilah-atas'));
+    expect(bar.getByRole('button', { name: 'Menu' })).toBeOnTheScreen();
+    expect(bar.getByRole('header', { name: 'Beranda' })).toBeOnTheScreen();
+    // Tanpa sapaan besar ala halaman web.
+    expect(screen.queryByText(/^(Halo|Pagi|Siang|Sore|Malam), /)).toBeNull();
     expect(blockOrder()).toEqual(['blok-persetujuan', 'blok-agenda', 'blok-favorit']);
 
     const approval = within(screen.getByTestId('blok-persetujuan'));
@@ -75,7 +80,6 @@ describe('pengguna yang sudah terbiasa (data contoh)', () => {
     await settle();
     expect(blockOrder()).toEqual(['blok-agenda', 'blok-favorit']);
     expect(within(screen.getByTestId('blok-agenda')).getByText('Hari ini masih lega')).toBeOnTheScreen();
-    expect(screen.getByText('Pagi, Rina')).toBeOnTheScreen();
   });
 
   test('persetujuan: Kirim menahan kiriman (5 menit), bloknya pergi, dan getar sukses', async () => {
@@ -189,16 +193,17 @@ describe('pengguna yang sudah terbiasa (data contoh)', () => {
   test('mode gelap: isi sama, teks terang', async () => {
     await renderWithProviders(<Beranda />, { scheme: 'dark' });
     await settle();
-    expect(StyleSheet.flatten(screen.getByText('Pagi, Rina').props.style).color).toBe('#F2F3F5');
+    const title = within(screen.getByTestId('bilah-atas')).getByRole('header', { name: 'Beranda' });
+    expect(StyleSheet.flatten(title.props.style).color).toBe('#F2F3F5');
     expect(blockOrder()).toEqual(['blok-persetujuan', 'blok-agenda', 'blok-favorit']);
   });
 });
 
 describe('pengguna baru', () => {
-  test('sapaan dengan tanggal, Inti besar, widget cuaca dan agenda, dan satu kartu Coba bilang', async () => {
+  test('bilah atas dengan tanggal, Inti besar, widget cuaca dan agenda, dan satu kartu Coba bilang', async () => {
     await renderWithProviders(<Beranda />, { state: newUserSampleState });
     await settle();
-    expect(screen.getByText('Halo, Rina')).toBeOnTheScreen();
+    expect(screen.queryByText('Halo, Rina')).toBeNull();
     expect(screen.getByTestId('beranda-hari-ini')).toHaveTextContent(
       /^(Senin|Selasa|Rabu|Kamis|Jumat|Sabtu|Minggu), \d+ \w+ · \d{2}\.\d{2}$/,
     );
@@ -243,23 +248,26 @@ describe('gagal memuat', () => {
     await renderWithProviders(<Beranda />, { api });
     expect(await screen.findByText(ERROR_TEXT)).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
-    expect(await screen.findByText('Pagi, Rina')).toBeOnTheScreen();
+    expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
     expect(screen.queryByText(ERROR_TEXT)).toBeNull();
-  });
-
-  test('tanpa nama: sapaan lengkap tanpa nama', async () => {
-    const api = createTestApi();
-    jest.spyOn(api.transport, 'home').mockResolvedValue({ ...(await api.transport.home()), greetingName: null });
-    await renderWithProviders(<Beranda />, { api });
-    expect(await screen.findByText('Selamat pagi')).toBeOnTheScreen();
-    expect(screen.queryByText(/Rina/)).toBeNull();
   });
 });
 
-test('avatar di kanan atas membuka Akun', async () => {
-  await renderWithProviders(<Beranda />);
+test('tombol menu di kiri atas membuka menu samping: profil, lalu Pengaturan membuka Akun', async () => {
+  await renderWithProviders(
+    <>
+      <Beranda />
+      <SideMenu />
+    </>,
+  );
   await settle();
-  await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
-  expect(router.push).toHaveBeenCalledWith('/akun');
+  await openMenu();
+  expect(screen.getByTestId('menu-nama')).toHaveTextContent('Rina');
   expect(screen.getByText('RW')).toBeOnTheScreen();
+  for (const label of ['Chat', 'Mode Suara', 'Agenda', 'Integrasi', 'Riwayat', 'Pengaturan', 'Bantuan', 'Keluar']) {
+    expect(screen.getByRole('button', { name: label })).toBeOnTheScreen();
+  }
+  await fireEvent.press(screen.getByRole('button', { name: 'Pengaturan' }));
+  expect(router.push).toHaveBeenCalledWith('/akun');
+  expect(sideMenu.isOpen()).toBe(false);
 });

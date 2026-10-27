@@ -52,18 +52,19 @@ const tabOrb = () => style(within(screen.getByTestId('inti-tab', HIDDEN)).getByT
 
 /** Ukuran per kelas layar: Inti besar, kotak jaring, ubin simpul, jumlah simpul paling banyak. */
 const UKURAN = [
-  { w: 360, h: 640, cls: 'compact', inti: 134, box: 194, node: 28, max: 5, greeting: 28, tile: 104 },
-  { w: 393, h: 873, cls: 'tall', inti: 173, box: 237, node: 32, max: 7, greeting: 32, tile: 132 },
-  { w: 412, h: 915, cls: 'tall', inti: 181, box: 275, node: 32, max: 7, greeting: 32, tile: 132 },
+  { w: 360, h: 640, cls: 'compact', inti: 134, box: 194, node: 28, max: 5, tile: 104 },
+  { w: 393, h: 873, cls: 'tall', inti: 173, box: 237, node: 32, max: 7, tile: 132 },
+  { w: 412, h: 915, cls: 'tall', inti: 181, box: 275, node: 32, max: 7, tile: 132 },
 ] as const;
 
 test.each(UKURAN)(
   '$w×$h ($cls): Inti besar $inti, kotak jaring $box, ubin simpul $node, paling banyak $max simpul; Inti bilah tab 48',
-  async ({ w, h, cls, inti, box, node, max, greeting, tile }) => {
+  async ({ w, h, cls, inti, box, node, max, tile }) => {
     const m = heroMetrics(w, h);
     expect(m).toMatchObject({ cls, inti, height: box, node, maxNodes: max });
     await show(w, h);
-    expect(style(screen.getByText('Pagi, Rina')).fontSize).toBe(greeting);
+    // Bilah atas aplikasi berukuran sama di semua HP (judul 20).
+    expect(style(within(screen.getByTestId('bilah-atas')).getByRole('header')).fontSize).toBe(20);
     expect(style(screen.getByTestId('favorit-ac-kamar')).minHeight).toBe(tile);
     expect(heroOrb()).toBe(inti);
     expect(style(screen.getByTestId('inti-besar', HIDDEN))).toMatchObject({ width: w, height: box });

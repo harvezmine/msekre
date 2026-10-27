@@ -88,7 +88,7 @@ test('/mode tertutup di build rilis, terbuka di pengembangan', async () => {
 
 test('penanda "Data contoh" ada di Akun pada mode contoh, tidak di Beranda; mode server tidak sama sekali', async () => {
   await renderWithProviders(<Beranda />);
-  expect(await screen.findByText('Pagi, Rina')).toBeOnTheScreen();
+  expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
   expect(screen.queryByText('Data contoh')).toBeNull();
   await screen.unmount();
   await renderWithProviders(<Akun />);

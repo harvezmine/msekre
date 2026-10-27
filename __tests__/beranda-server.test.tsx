@@ -11,20 +11,9 @@ import { renderWithProviders } from './helpers';
 
 const BASE = 'https://app.sekertaris.com';
 
-// Jam HP tetap pagi (tanpa jawaban agenda, sapaan memakai jam HP): tes tidak bergantung pada kapan dijalankan.
+// Jam HP tetap pagi: agenda berikutnya dan tanggal tidak bergantung pada kapan tes dijalankan.
 beforeEach(() => jest.setSystemTime(new Date(2025, 9, 20, 8, 0)));
 
-/** Jawaban agenda dengan jam server `now`, untuk sapaan menurut waktu. */
-const agendaAt = (now: string) => ({
-  items: [],
-  leftover: null,
-  from: '2025-10-20',
-  to: '2025-11-02',
-  today: '2025-10-20',
-  now,
-  tzOffsetMinutes: 420,
-  rev: 1,
-});
 const me = {
   id: 'u1',
   name: 'Budi',
@@ -151,10 +140,10 @@ const settle = () =>
     for (let i = 0; i < 4; i++) await Promise.resolve();
   });
 
-test('mode server: Beranda dari GET /home dan GET /devices: sapaan, persetujuan, agenda berikutnya, favorit', async () => {
+test('mode server: Beranda dari GET /home dan GET /devices: persetujuan, agenda berikutnya, favorit', async () => {
   const { api } = serverApi();
   await renderWithProviders(<Beranda />, { api });
-  expect(await screen.findByText('Pagi, Budi')).toBeOnTheScreen();
+  expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
   await settle();
   expect(screen.getByText('Bu Sari')).toBeOnTheScreen();
   expect(screen.getByText('Siap, Bu.')).toBeOnTheScreen();
@@ -192,19 +181,11 @@ test('mode server: pengguna baru (tanpa persetujuan, agenda, perangkat): Halo da
         : undefined,
   );
   await renderWithProviders(<Beranda />, { api });
-  expect(await screen.findByText('Halo, Budi')).toBeOnTheScreen();
+  expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
   await settle();
   expect(screen.getByText('Coba bilang')).toBeOnTheScreen();
   expect(SUGGESTIONS.map((t) => `“${t}”`)).toContain(screen.getByText(/^“/).props.children);
   expect(screen.queryAllByRole('switch')).toHaveLength(0);
-});
-
-test('mode server: tanpa nama, sapaan netral', async () => {
-  const { api } = serverApi((path) =>
-    path === '/home' ? { body: { ...homeBody, greetingName: null, approvals: [] } } : undefined,
-  );
-  await renderWithProviders(<Beranda />, { api });
-  expect(await screen.findByText('Selamat pagi')).toBeOnTheScreen();
 });
 
 test('mode server: event home dari stream mengganti Beranda; yang lebih lama dibuang', async () => {
@@ -267,34 +248,19 @@ test('mode server: gagal memuat -> kalimat ramah dan Coba lagi', async () => {
   expect(await screen.findByText(ERROR_TEXT)).toBeOnTheScreen();
   fail = false;
   await fireEvent.press(screen.getByRole('button', { name: 'Coba lagi' }));
-  expect(await screen.findByText('Pagi, Budi')).toBeOnTheScreen();
+  expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
 });
 
 test('mode server: mode gelap', async () => {
   const { api } = serverApi();
   await renderWithProviders(<Beranda />, { api, scheme: 'dark' });
-  expect(await screen.findByText('Pagi, Budi')).toBeOnTheScreen();
-});
-
-test('mode server: sapaan mengikuti jam di zona pengguna (dari agenda): pagi, siang, sore, malam', async () => {
-  for (const [now, hello] of [
-    ['06.30', 'Pagi, Budi'],
-    ['12.05', 'Siang, Budi'],
-    ['16.40', 'Sore, Budi'],
-    ['20.10', 'Malam, Budi'],
-    ['02.00', 'Malam, Budi'],
-  ] as const) {
-    const { api } = serverApi((path) => (path.startsWith('/agenda') ? { body: agendaAt(now) } : undefined));
-    const view = await renderWithProviders(<Beranda />, { api });
-    expect(await screen.findByText(hello)).toBeOnTheScreen();
-    await view.unmount();
-  }
+  expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
 });
 
 test('mode server: agenda berikutnya hanya bila dalam 12 jam; tidak ada: widget agenda mengajak menambah pengingat', async () => {
   const { api } = serverApi((path) => (path === '/home' ? { body: { ...homeBody, agendaToday: [] } } : undefined));
   await renderWithProviders(<Beranda />, { api });
-  expect(await screen.findByText('Pagi, Budi')).toBeOnTheScreen();
+  expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
   await settle();
   expect(within(screen.getByTestId('blok-agenda')).getByText('Hari ini masih lega')).toBeOnTheScreen();
   expect(screen.getByTestId('blok-persetujuan')).toBeOnTheScreen();

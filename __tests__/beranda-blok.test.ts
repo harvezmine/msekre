@@ -1,13 +1,5 @@
 import type { AgendaItem, Device } from '@/api/contract';
-import {
-  contactInitial,
-  greetingText,
-  nextAgenda,
-  pickFavorites,
-  stateWord,
-  suggestionFor,
-  SUGGESTIONS,
-} from '@/ui/beranda/blocks';
+import { contactInitial, nextAgenda, pickFavorites, stateWord, suggestionFor, SUGGESTIONS } from '@/ui/beranda/blocks';
 
 const item = (p: Partial<AgendaItem> & Pick<AgendaItem, 'id' | 'date' | 'time'>): AgendaItem => ({
   title: `Butir ${p.id}`,
@@ -102,16 +94,6 @@ describe('sakelar favorit', () => {
     expect(stateWord(device({ id: 'k', kind: 'lock', on: false }))).toBe('Terbuka');
     expect(stateWord(device({ id: 'x', kind: 'lamp', reachable: false }))).toBe('Terputus');
   });
-});
-
-test('sapaan: pendek menurut jam; pengguna baru Halo; tanpa nama lengkap', () => {
-  expect(greetingText(7, 'Rina', false)).toBe('Pagi, Rina');
-  expect(greetingText(12, 'Rina', false)).toBe('Siang, Rina');
-  expect(greetingText(16, 'Rina', false)).toBe('Sore, Rina');
-  expect(greetingText(20, 'Rina', false)).toBe('Malam, Rina');
-  expect(greetingText(20, 'Rina', true)).toBe('Halo, Rina');
-  expect(greetingText(7, null, false)).toBe('Selamat pagi');
-  expect(greetingText(7, null, true)).toBe('Halo');
 });
 
 test('inisial penerima tanpa sapaan hormat', () => {

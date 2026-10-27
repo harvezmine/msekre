@@ -7,7 +7,8 @@ import { waUrl } from '@/api/waNumber';
 import Akun from '../app/akun';
 import Beranda from '../app/(tabs)/index';
 import Usaha from '../app/(tabs)/usaha';
-import { createTestApi, renderWithProviders, toastNow, useSample } from './helpers';
+import { createTestApi, openMenu, renderWithProviders, toastNow, useSample } from './helpers';
+import { SideMenu } from '@/ui/SideMenu';
 import { useEffect } from 'react';
 import { type SampleState } from '@/sample/store';
 import { dark } from '@/theme/tokens';
@@ -177,13 +178,19 @@ test('Coba hanya di mode contoh atau build pengembangan; Mode data hanya untuk p
   }
 });
 
-test('avatar RW di Beranda membuka Akun', async () => {
-  await renderWithProviders(<Beranda />);
-  await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
+test('menu samping di Beranda: Pengaturan membuka Akun', async () => {
+  await renderWithProviders(
+    <>
+      <Beranda />
+      <SideMenu />
+    </>,
+  );
+  await openMenu();
+  await fireEvent.press(screen.getByRole('button', { name: 'Pengaturan' }));
   expect(router.push).toHaveBeenLastCalledWith('/akun');
 });
 
-test('Usaha tanpa avatar Akun: Akun selalu di satu tempat, Beranda', async () => {
+test('Usaha tanpa tombol Akun: Akun selalu lewat menu samping Beranda', async () => {
   await renderWithProviders(<Usaha />);
   expect(await screen.findByText('Rp 4,25 jt')).toBeOnTheScreen();
   expect(screen.queryByRole('button', { name: 'Akun' })).toBeNull();

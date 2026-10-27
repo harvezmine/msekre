@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { PREVIEW_DEBOUNCE_MS } from '../app/agenda/tambah';
 import { audio, stream } from './audioMock';
 import { advance, currentRoute, currentStack, go, mockParams, restoreParams, sampleState, showRoute } from './harness';
-import { createTestApi, toastNow } from './helpers';
+import { createTestApi, toastNow, openMenu } from './helpers';
 import { DEBOUNCE_MS } from '@/api/devicesController';
 import { THINK_MS } from '@/sample/chat';
 import { deviceById, MAIN_AC_ID } from '@/sample/store';
@@ -50,7 +50,7 @@ test('onboarding: Mulai, masuk dengan nomor dan kode, pilih minat, tiba di Beran
   expect(toastNow()?.text).toBe('Google Kalender bisa disambungkan dari Terhubung.');
   await settle();
   expect(currentStack()).toEqual(['/']);
-  expect(screen.getByText('Pagi, Rina')).toBeOnTheScreen();
+  expect(screen.getByTestId('bilah-atas')).toBeOnTheScreen();
 });
 
 test('Beranda: persetujuan Kirim, sakelar favorit AC, agenda berikutnya ke Agenda, tab Perangkat', async () => {
@@ -236,10 +236,11 @@ test('Usaha: Pesan lagi membuat draf, Lihat draf membuka chat di kartu itu', asy
   expect(screen.getByText('PT Sumber Susu')).toBeOnTheScreen();
 });
 
-test('Terhubung: dari Akun, sambungkan TikTok, logonya bergabung, hapus yang diingat, putuskan', async () => {
+test('Terhubung: dari menu samping ke Pengaturan, sambungkan TikTok, logonya bergabung, hapus yang diingat, putuskan', async () => {
   await showRoute('/');
   await settle();
-  await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
+  await openMenu();
+  await fireEvent.press(screen.getByRole('button', { name: 'Pengaturan' }));
   await settle();
   await fireEvent.press(await screen.findByRole('button', { name: /^Layanan tersambung/ }));
   expect(currentRoute()).toBe('/terhubung');

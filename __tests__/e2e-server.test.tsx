@@ -75,7 +75,7 @@ test('Beranda dimuat dari GET /home dan GET /devices dengan token; sakelar favor
   const homes = server.hits('GET', '/home');
   expect(homes.length).toBeGreaterThan(0);
   expect(homes[0]!.headers.Authorization).toBe(`Bearer ${server.token()}`);
-  expect(await screen.findByText('Pagi, Rina')).toBeOnTheScreen();
+  expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
   expect(server.hits('GET', '/devices').some((h) => h.query.get('place') === 'Semua')).toBe(true);
   expect(await screen.findByRole('switch', { name: 'AC kamar' })).toBeChecked();
 
@@ -184,7 +184,7 @@ test('keluar: POST /auth/logout, sesi kosong, kembali ke /mulai', async () => {
 
 test('401 dari soket stream (4401): sesi dihapus dan pengguna dibawa ke /mulai', async () => {
   await open('/');
-  expect(await screen.findByText('Pagi, Rina')).toBeOnTheScreen();
+  expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
   server.revoke();
   await advance(400);
   await settle();
@@ -194,7 +194,7 @@ test('401 dari soket stream (4401): sesi dihapus dan pengguna dibawa ke /mulai',
 
 test('401 dari permintaan HTTP di tengah sesi: sesi dihapus dan pengguna dibawa ke /mulai', async () => {
   await open('/');
-  expect(await screen.findByText('Pagi, Rina')).toBeOnTheScreen();
+  expect(await screen.findByTestId('blok-agenda')).toBeOnTheScreen();
   await screen.findByRole('switch', { name: 'AC kamar' });
   server.revoke({ sockets: false });
   await fireEvent.press(screen.getByRole('switch', { name: 'AC kamar' }));

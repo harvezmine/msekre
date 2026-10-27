@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { useSyncExternalStore, type ReactElement } from 'react';
 import { AccountProvider } from '@/api/AccountProvider';
 import { AgendaProvider } from '@/api/AgendaProvider';
@@ -22,6 +22,7 @@ import {
 } from '@/sample/store';
 import { createToastStore, ToastProvider } from '@/ui/toastStore';
 import { resetSampleBanners } from '@/ui/SampleBanner';
+import { sideMenu } from '@/ui/SideMenu';
 import { resetTabSet } from '@/ui/tabSet';
 import { resetTips } from '@/ui/tips';
 import { holdBridge } from '@/voice/holdBridge';
@@ -90,6 +91,7 @@ export async function renderWithProviders(
   resetSampleBanners();
   holdBridge.reset();
   inPlace.reset();
+  sideMenu.reset();
   resetInPlaceHint();
   // Mode contoh: keadaan awal dipasang di penyimpanan milik server tiruan (itu yang dilihat layar dan skenario).
   const seeded = stateAfter(actions, state);
@@ -122,4 +124,14 @@ export async function renderWithProviders(
     </GestureHandlerRootView>
   );
   return render(appearance ? <AppearanceProvider>{tree}</AppearanceProvider> : tree);
+}
+
+/** Buka menu samping lewat tombol Menu di bilah atas Beranda, lalu tunggu panelnya terpasang (`<SideMenu />` dirender). */
+export async function openMenu() {
+  await fireEvent.press(screen.getByRole('button', { name: 'Menu' }));
+  for (let i = 0; i < 2; i++) {
+    await act(async () => {
+      jest.advanceTimersByTime(0);
+    });
+  }
 }

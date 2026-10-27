@@ -8,6 +8,7 @@ import { RELEASE_TAIL_MS } from '@/voice/controller';
 import { inPlace } from '@/voice/inPlace';
 import { audio, stream } from './audioMock';
 import { advance, currentRoute, go, currentStack, mockParams, restoreParams, sampleState, showRoute } from './harness';
+import { openMenu } from './helpers';
 
 // Alur prototipe dari rencana Fase 0b, masing-masing dalam satu penyimpanan contoh dan satu tumpukan navigasi.
 // Chat memakai server tiruan lewat useChat(); server tiruan memegang penyimpanan contoh yang sama dengan Beranda dan Riwayat.
@@ -149,10 +150,10 @@ test('alur 3: alarm Tunda 10 menit, kembali ke Agenda, item ditunda sampai 07.10
   }
 });
 
-test('alur 4: Akun, Layanan tersambung, Sambungkan TikTok Shop, Masuk, Selesai, kembali ke Beranda', async () => {
+test('alur 4: menu samping, Integrasi, Sambungkan TikTok Shop, Masuk, Selesai, kembali ke Beranda', async () => {
   await showRoute('/');
-  await fireEvent.press(screen.getByRole('button', { name: 'Akun' }));
-  await fireEvent.press(await screen.findByRole('button', { name: /^Layanan tersambung/ }));
+  await openMenu();
+  await fireEvent.press(screen.getByRole('button', { name: 'Integrasi' }));
   expect(currentRoute()).toBe('/terhubung');
   await fireEvent.press(await screen.findByRole('button', { name: 'Sambungkan TikTok Shop & Tokopedia' }));
   expect(currentRoute()).toBe('/terhubung/masuk');

@@ -9,6 +9,7 @@ import { FAKE_WA_NUMBER } from '@/api/fake/FakeTransport';
 import { readWaNumber, waStartUrl } from '@/api/waNumber';
 import { ApiFailure } from '@/api/transport';
 import { useAuth, type AuthStatus } from '@/api/useAuth';
+import { SideMenu } from '@/ui/SideMenu';
 import { TabBar } from '@/ui/TabBar';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import Beranda from '../app/(tabs)/index';
@@ -17,7 +18,7 @@ import Akun from '../app/akun';
 import Mode from '../app/mode';
 import Masuk from '../app/mulai/masuk';
 import { currentRoute, currentStack, go, mockParams, restoreParams, showRoute } from './harness';
-import { createTestApi, renderWithProviders } from './helpers';
+import { createTestApi, renderWithProviders, openMenu } from './helpers';
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -287,17 +288,33 @@ describe('profil di mode server', () => {
     return api;
   };
 
-  test('Beranda tanpa nama: sapaan tanpa nama contoh dan avatar ikon', async () => {
+  test('menu samping tanpa nama: "Akun Anda", tanpa nama contoh dan inisial contoh', async () => {
     const api = await serverWithMe({ name: null });
-    await renderWithProviders(<Beranda />, { api });
-    expect(await screen.findByText('Selamat pagi')).toBeTruthy();
+    await renderWithProviders(
+      <>
+        <Beranda />
+        <SideMenu />
+      </>,
+      { api },
+    );
+    await screen.findByTestId('blok-agenda');
+    await openMenu();
+    expect(screen.getByTestId('menu-nama')).toHaveTextContent('Akun Anda');
     expect(screen.queryByText(/Rina/)).toBeNull();
     expect(screen.queryByText('RW')).toBeNull();
   });
 
-  test('Beranda dengan nama dari server menyapa dengan nama itu', async () => {
-    await renderWithProviders(<Beranda />, { api: await serverWithMe({ name: 'Budi Santoso' }) });
-    expect(await screen.findByText('Pagi, Budi Santoso')).toBeTruthy();
+  test('menu samping dengan nama dari server: nama dan inisialnya', async () => {
+    await renderWithProviders(
+      <>
+        <Beranda />
+        <SideMenu />
+      </>,
+      { api: await serverWithMe({ name: 'Budi Santoso' }) },
+    );
+    await screen.findByTestId('blok-agenda');
+    await openMenu();
+    expect(screen.getByTestId('menu-nama')).toHaveTextContent('Budi Santoso');
     expect(screen.getByText('BS')).toBeTruthy();
   });
 
@@ -607,9 +624,9 @@ describe('nama dari server', () => {
       </>,
       { api },
     );
-    // Inti hanya di bilah tab, berlabel nama asisten; Beranda menyapa pengguna dengan namanya.
+    // Inti hanya di bilah tab, berlabel nama asisten; nama pengguna ada di menu samping, bukan sapaan di Beranda.
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'Dewi' })).toHaveLength(1));
-    expect(screen.getByText('Pagi, Budi')).toBeTruthy();
+    expect(screen.queryByText('Pagi, Budi')).toBeNull();
   });
 
   test('tanpa nama dari server: nama bawaan', async () => {

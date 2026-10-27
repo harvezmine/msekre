@@ -25,6 +25,7 @@ import { canOpen } from '@/api/routeAccess';
 import { PushProvider, PushTapHandler } from '@/api/usePush';
 import { AlarmSyncHost } from '@/alarm/useAlarmSync';
 import { ReminderHost } from '@/reminders/useReminders';
+import { SideMenu } from '@/ui/SideMenu';
 import { AuthProvider, useAuth } from '@/api/useAuth';
 import { installCrashGuard } from '@/crash';
 import { AppearanceProvider } from '@/theme/appearance';
@@ -190,6 +191,7 @@ function Navigator() {
       <AlarmSyncHost />
       <ReminderHost />
       <PushTapHandler />
+      <SideMenu />
     </SplashShell>
   );
 }

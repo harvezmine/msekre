@@ -43,6 +43,7 @@ import { canOpen, REDIRECT_APP, REDIRECT_ENTRY, routeKind } from '@/api/routeAcc
 import { needsSignIn, type DataMode } from '@/api/mode';
 import { useAuth, type AuthStatus } from '@/api/useAuth';
 import { type SampleState } from '@/sample/store';
+import { SideMenu } from '@/ui/SideMenu';
 import { TabBar } from '@/ui/TabBar';
 import { ToastHost } from '@/ui/Toast';
 
@@ -248,6 +249,8 @@ export async function showRoute(start = '/', options: Parameters<typeof renderWi
       <Rute start={start} />
       <Probe />
       <ToastHost />
+      {/* Menu samping dipasang di akar aplikasi (app/_layout.tsx), di atas semua layar. */}
+      <SideMenu />
     </>,
     options,
   );

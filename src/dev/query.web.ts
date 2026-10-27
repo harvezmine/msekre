@@ -1,7 +1,8 @@
 /**
  * Pilihan pratinjau dari alamat halaman, hanya saat pengembangan (`scripts/shots.mjs`):
  * - `contoh=baru`: data contoh pengguna baru (belum ada perangkat, agenda, kiriman, atau usaha);
- * - `petunjuk=0|1`: petunjuk Inti dianggap sudah dilihat atau belum.
+ * - `petunjuk=0|1`: petunjuk Inti dianggap sudah dilihat atau belum;
+ * - `menu=1`: menu samping sudah terbuka.
  */
 export function devQuery(): Record<string, string> {
   if (!__DEV__ || typeof window === 'undefined' || !window.location) return {};

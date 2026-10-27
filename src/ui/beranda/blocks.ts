@@ -1,7 +1,6 @@
 import type { AgendaItem, Device, Draft, Home } from '@/api/contract';
 import { addDays, parts } from '@/api/dates';
 import { canSwitch, deviceStateOf } from '@/api/devices';
-import { greetingFor } from '@/api/format';
 
 /**
  * Isi Beranda yang tumbuh pelan-pelan (§6.1 spesifikasi): paling banyak tiga blok, urutannya tetap, masing-masing hanya
@@ -21,15 +20,6 @@ export function suggestionFor(date: string): string {
   // Digeser 3 supaya hari contoh (Senin, 20 Okt 2025) memakai contoh pertama, sama dengan papan desain.
   const day = Math.floor(Date.UTC(y, m - 1, d) / 86_400_000) + 3;
   return SUGGESTIONS[((day % SUGGESTIONS.length) + SUGGESTIONS.length) % SUGGESTIONS.length]!;
-}
-
-/** "Pagi, Rina" menurut jam (batas yang sama dengan sapaan server); pengguna baru "Halo, Rina"; tanpa nama "Selamat pagi". */
-export function greetingText(hour: number, name: string | null, fresh: boolean): string {
-  if (fresh) return name ? `Halo, ${name}` : 'Halo';
-  if (!name) return greetingFor(hour);
-  return `${greetingFor(hour)
-    .replace(/^Selamat /, '')
-    .replace(/^./, (c) => c.toUpperCase())}, ${name}`;
 }
 
 const HONORIFIC = /^(pak|bu|ibu|bapak|mas|mbak|mba|kak|bang|dik|adik|om|tante|pt|cv|ud|tb|toko)\.?$/i;
