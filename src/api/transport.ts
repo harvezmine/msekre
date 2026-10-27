@@ -45,6 +45,8 @@ import type {
   StreamEvent,
   VoiceClientMessage,
   VoiceEvent,
+  Weather,
+  WeatherQuery,
 } from './contract';
 import type { DataMode } from './mode';
 
@@ -298,6 +300,11 @@ export interface Transport {
   agenda(range?: { from: string; to: string }): Promise<AgendaRes>;
   /** Satu item agenda (`GET /agenda/:id`), misalnya untuk layar alarm. Tidak ada: `tidak_ditemukan`. */
   agendaItem(id: string): Promise<AgendaItem>;
+  /**
+   * Cuaca sekarang untuk Beranda (`GET /weather`). Tanpa `lat`/`lon`: tempat tersimpan pengguna (kantor, lalu rumah);
+   * belum ada tempat: `tidak_ada_lokasi` (404). Tanpa penyedia cuaca di server: `belum_tersedia` (501).
+   */
+  weather(query?: WeatherQuery): Promise<Weather>;
   /** Server mengurai kalimat bebas menjadi pratinjau item (`POST /agenda/parse`); belum disimpan. */
   agendaParse(text: string): Promise<AgendaParseRes>;
   /** Simpan item dari pratinjau (`POST /agenda`). */

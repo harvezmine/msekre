@@ -44,6 +44,8 @@ import type {
   SecurityUpdateReq,
   SendMessageReq,
   StreamEvent,
+  Weather,
+  WeatherQuery,
 } from './contract';
 import type { FakeTransport } from './fake/FakeTransport';
 import { isSampleMediaId } from './fake/history';
@@ -120,6 +122,8 @@ export const HYBRID_ROUTES = {
   agendaPatch: 'akun',
   agendaLeftover: 'akun',
   agendaAlarmAck: 'akun',
+  // Cuaca asli dari server (tempat tersimpan pengguna atau perkiraan lokasi HP).
+  weather: 'akun',
   openVoice: 'akun',
   // Media pesan asli dan suara balasan ke server; QRIS, laporan, dan gambar kamera contoh ke server tiruan.
   mediaUrl: 'pilah',
@@ -277,6 +281,10 @@ export class HybridTransport implements Transport {
 
   agenda(range?: { from: string; to: string }): Promise<AgendaRes> {
     return this.real.agenda(range);
+  }
+
+  weather(query?: WeatherQuery): Promise<Weather> {
+    return this.real.weather(query);
   }
 
   agendaItem(id: string): Promise<AgendaItem> {

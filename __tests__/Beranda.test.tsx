@@ -63,7 +63,7 @@ describe('pengguna yang sudah terbiasa (data contoh)', () => {
     // Kata di Beranda sedikit (≤ 15 kata di luar cuplikan pesan).
   });
 
-  test('blok hanya muncul bila ada isinya: tanpa persetujuan dan tanpa agenda dekat, hanya favorit', async () => {
+  test('blok hanya muncul bila ada isinya: tanpa persetujuan dan tanpa agenda dekat, widget dan favorit', async () => {
     await renderWithProviders(<Beranda />, {
       actions: [
         { type: 'sendDraft', id: BUDI_DRAFT_ID },
@@ -73,7 +73,8 @@ describe('pengguna yang sudah terbiasa (data contoh)', () => {
       ],
     });
     await settle();
-    expect(blockOrder()).toEqual(['blok-favorit']);
+    expect(blockOrder()).toEqual(['blok-agenda', 'blok-favorit']);
+    expect(within(screen.getByTestId('blok-agenda')).getByText('Hari ini masih lega')).toBeOnTheScreen();
     expect(screen.getByText('Pagi, Rina')).toBeOnTheScreen();
   });
 
@@ -194,11 +195,21 @@ describe('pengguna yang sudah terbiasa (data contoh)', () => {
 });
 
 describe('pengguna baru', () => {
-  test('hanya sapaan, Inti besar, dan satu kartu Coba bilang', async () => {
+  test('sapaan dengan tanggal, Inti besar, widget cuaca dan agenda, dan satu kartu Coba bilang', async () => {
     await renderWithProviders(<Beranda />, { state: newUserSampleState });
     await settle();
     expect(screen.getByText('Halo, Rina')).toBeOnTheScreen();
-    expect(blockOrder()).toEqual(['blok-saran']);
+    expect(screen.getByTestId('beranda-hari-ini')).toHaveTextContent(
+      /^(Senin|Selasa|Rabu|Kamis|Jumat|Sabtu|Minggu), \d+ \w+ · \d{2}\.\d{2}$/,
+    );
+    expect(blockOrder()).toEqual(['blok-agenda', 'blok-saran']);
+    // Cuaca dimuat dari pengatur waktu sesudah Beranda tampil.
+    await act(async () => {
+      jest.advanceTimersByTime(0);
+    });
+    await settle();
+    expect(within(screen.getByTestId('widget-cuaca')).getByText('27°')).toBeOnTheScreen();
+    expect(within(screen.getByTestId('widget-cuaca')).getByText('Berawan')).toBeOnTheScreen();
     expect(screen.getByText('Coba bilang')).toBeOnTheScreen();
     const quote = screen.getByText(/^“.+”$/);
     expect(SUGGESTIONS.map((s) => `“${s}”`)).toContain(quote.props.children);

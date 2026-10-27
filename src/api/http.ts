@@ -65,6 +65,9 @@ import {
   type SecurityUpdateReq,
   type SendMessageReq,
   type StreamEvent,
+  type Weather,
+  type WeatherQuery,
+  weatherSchema,
 } from './contract';
 import {
   parseChangedPageLenient,
@@ -278,6 +281,11 @@ export class HttpTransport implements Transport {
 
   setPlace(place: string): Promise<Home> {
     return this.request('PUT', '/places/current', reader(parseHomeLenient), { body: { place } });
+  }
+
+  weather(query?: WeatherQuery): Promise<Weather> {
+    const at = query?.lat !== undefined && query.lon !== undefined ? `?lat=${query.lat}&lon=${query.lon}` : '';
+    return this.request('GET', `/weather${at}`, weatherSchema);
   }
 
   agenda(range?: { from: string; to: string }): Promise<AgendaRes> {

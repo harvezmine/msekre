@@ -38,6 +38,18 @@ jest.mock('expo-haptics', () => ({
 // jawabannya sendiri; tes pengingat memeriksa yang terjadwal dan yang tampil lewat `__mock`.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('expo-notifications', () => require('./__tests__/notificationsMock').createNotificationsMock());
+// Lokasi tanpa modul native: izin belum ditanya; tes cuaca mengatur jawabannya sendiri.
+jest.mock('expo-location', () => ({
+  Accuracy: { Lowest: 1, Low: 2, Balanced: 3, High: 4, Highest: 5, BestForNavigation: 6 },
+  getForegroundPermissionsAsync: jest.fn(() =>
+    Promise.resolve({ granted: false, status: 'undetermined', canAskAgain: true }),
+  ),
+  requestForegroundPermissionsAsync: jest.fn(() =>
+    Promise.resolve({ granted: true, status: 'granted', canAskAgain: true }),
+  ),
+  getLastKnownPositionAsync: jest.fn(() => Promise.resolve(null)),
+  getCurrentPositionAsync: jest.fn(() => Promise.resolve({ coords: { latitude: -6.91474, longitude: 107.60981 } })),
+}));
 // Versi aplikasi terpasang (Akun menampilkan "Versi 1.0.0 (7)").
 jest.mock('expo-application', () => ({ nativeApplicationVersion: '1.0.0', nativeBuildVersion: '7' }));
 // Berkas, pembuka, dan lembar bagikan tanpa modul native: tiruan di memori (tes dokumen mengatur hasilnya sendiri).

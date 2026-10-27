@@ -147,26 +147,25 @@ test('dengan blok: Inti besar tepat di bawah sapaan (tanpa turun), ketiga blok d
   expect(ids).toEqual(['beranda-inti', 'blok-persetujuan', 'blok-agenda', 'blok-favorit']);
 });
 
-test('pengguna baru (tanpa blok): Inti turun sampai pusatnya sekitar sepertiga tinggi layar', async () => {
+test('pengguna baru: Inti, lalu widget cuaca dan agenda, lalu kartu Coba bilang; tanpa Inti yang diturunkan', async () => {
   await show(393, 873, newUserSampleState);
   await act(async () => {
     jest.advanceTimersByTime(400);
   });
-  const m = heroMetrics(393, 873);
-  const top = 20 + 48 + heroMargin();
-  const centre = top + m.height / 2;
-  expect(centre / 873).toBeGreaterThan(0.32);
-  expect(centre / 873).toBeLessThan(0.36);
-  expect(webLayout(m, PLACEHOLDER_NODES).points).toHaveLength(3);
+  expect(heroMargin()).toBe(6);
+  const ids = idsInOrder().filter((id) => id === 'beranda-inti' || id.startsWith('blok-'));
+  expect(ids).toEqual(['beranda-inti', 'blok-agenda', 'blok-saran']);
+  expect(webLayout(heroMetrics(393, 873), PLACEHOLDER_NODES).points).toHaveLength(3);
 });
 
-test('HP panjang: kartu contoh pengguna baru di zona jempol, setelah ruang kosong lentur', async () => {
+test('HP panjang: ruang lentur dibagi di atas Inti dan di atas widget, kartu contoh paling bawah (zona jempol)', async () => {
   await show(393, 873, newUserSampleState);
   const card = screen.getByTestId('blok-saran');
   const parent = card.parent!;
   const siblings = parent.children.filter((c): c is typeof card => typeof c !== 'string');
-  const at = siblings.indexOf(card);
-  // Tepat sebelum kartu: spacer lentur (bukan jarak tetap dari atas).
-  expect(style(siblings[at - 1]!).flexGrow).toBe(1);
-  expect(at).toBe(siblings.length - 1);
+  expect(siblings.indexOf(card)).toBe(siblings.length - 1);
+  const hero = siblings.findIndex((c) => c.props.testID === 'beranda-inti');
+  expect(style(siblings[hero - 1]!).flexGrow).toBe(2);
+  const grow = siblings.map((c) => style(c).flexGrow).filter((g) => g !== undefined);
+  expect(grow).toEqual([2, 3]);
 });

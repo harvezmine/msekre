@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import Beranda from '../app/(tabs)/index';
 import Tempat from '../app/tempat';
@@ -291,12 +291,12 @@ test('mode server: sapaan mengikuti jam di zona pengguna (dari agenda): pagi, si
   }
 });
 
-test('mode server: agenda berikutnya hanya bila dalam 12 jam; tidak ada: bloknya tidak tampil', async () => {
+test('mode server: agenda berikutnya hanya bila dalam 12 jam; tidak ada: widget agenda mengajak menambah pengingat', async () => {
   const { api } = serverApi((path) => (path === '/home' ? { body: { ...homeBody, agendaToday: [] } } : undefined));
   await renderWithProviders(<Beranda />, { api });
   expect(await screen.findByText('Pagi, Budi')).toBeOnTheScreen();
   await settle();
-  expect(screen.queryByTestId('blok-agenda')).toBeNull();
+  expect(within(screen.getByTestId('blok-agenda')).getByText('Hari ini masih lega')).toBeOnTheScreen();
   expect(screen.getByTestId('blok-persetujuan')).toBeOnTheScreen();
 });
 

@@ -269,6 +269,8 @@ export function createFakeHttpServer(options: FakeOptions = {}, extra: FakeHttpO
         return backend.home();
       case key === 'PUT /places/current':
         return backend.setPlace(String(body.place));
+      case key === 'GET /weather':
+        return backend.weather(q.has('lat') ? { lat: Number(q.get('lat')), lon: Number(q.get('lon')) } : undefined);
       case key === 'GET /agenda':
         return backend.agenda(q.has('from') ? { from: q.get('from')!, to: q.get('to')! } : undefined);
       case key === 'POST /agenda/parse':

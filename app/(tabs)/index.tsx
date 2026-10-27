@@ -1,15 +1,9 @@
 // Niat layar: Inti besar di tengah atas, tersambung ke semua layanan Anda, untuk diketuk (chat) atau ditahan (bicara),
 // lalu paling banyak tiga hal yang perlu Anda sekarang.
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Device, Draft } from '@/api/contract';
 import { useDataMode } from '@/api/dataMode';
@@ -17,8 +11,8 @@ import { useAgenda } from '@/api/useAgenda';
 import { useChat } from '@/api/useChat';
 import { useDeviceControl } from '@/api/useDeviceControl';
 import { useHome } from '@/api/useHome';
+import { useWeather } from '@/api/useWeather';
 import { useTheme } from '@/theme/ThemeProvider';
-import { motion } from '@/theme/tokens';
 import {
   contactInitial,
   deviceIcon,
@@ -28,10 +22,10 @@ import {
   pickFavorites,
   stateWord,
   suggestionFor,
-  type NextAgenda,
 } from '@/ui/beranda/blocks';
 import { heroMetrics, PLACEHOLDER_NODES, webNodes } from '@/ui/beranda/heroLayout';
 import { IntiHero } from '@/ui/beranda/IntiHero';
+import { AgendaWidget, TodayLine, WeatherWidget } from '@/ui/beranda/Widgets';
 import { Initials } from '@/ui/Initials';
 import {
   ApprovalCard,
@@ -40,7 +34,6 @@ import {
   CoachMark,
   FavouriteToggle,
   GradientField,
-  NextItemRow,
   SuggestionCard,
 } from '@/ui/kit';
 import { TIP_TEXT, useTip } from '@/ui/tips';
@@ -53,10 +46,8 @@ const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Tinggi baris sapaan (avatar 48). */
 const GREETING_ROW = 48;
-/** Halaman tanpa blok (pengguna baru): pusat Inti turun ke kira-kira sepertiga tinggi layar, lebih dekat ke jempol. */
-const HERO_CENTRE = 0.34;
-/** Paling jauh Inti diturunkan (dp). */
-const MAX_DROP = 120;
+/** Pertanyaan yang dibuka saat widget cuaca diketuk. */
+const WEATHER_QUESTION = 'Cuaca hari ini bagaimana?';
 /** Jam HP "HH.MM" dan tanggal "YYYY-MM-DD", bila agenda (jam zona pengguna dari server) belum dimuat. */
 function deviceClock(): { now: string; today: string } {
   const d = new Date();
@@ -82,16 +73,18 @@ export default function Beranda() {
   // Menahan Inti besar: bicara di tempat. Isi lain Beranda menghilang (latar polos), Inti tetap di tengah.
   const { hero: heroVoice, dim, overlay } = useInPlaceVoice();
   const dimStyle = useAnimatedStyle(() => ({ opacity: 1 - dim.get() }));
-  // Mode akun: persetujuan, agenda, dan perangkat masih contoh, jadi bloknya tidak tampil; tinggal sapaan, Inti, dan
-  // "Coba bilang".
+  // Mode akun: persetujuan dan perangkat masih contoh, jadi bloknya tidak tampil. Agenda dan cuaca sudah asli: widgetnya
+  // tampil (sapaan, Inti, widget, dan "Coba bilang" untuk pengguna baru).
   const { hybrid } = useDataMode();
+  const weather = useWeather();
 
   const clock = deviceClock();
   const now = agenda.now ?? clock.now;
   const today = agenda.today ?? clock.today;
   const approval = home && !hybrid ? oldestApproval(home) : null;
-  const next =
-    home && !hybrid ? nextAgenda({ items: agenda.items, today: agenda.today, homeToday: home.agendaToday }, now) : null;
+  const next = home
+    ? nextAgenda({ items: agenda.items, today: agenda.today, homeToday: hybrid ? [] : home.agendaToday }, now)
+    : null;
   const favorites = hybrid ? [] : pickFavorites(devices.devices);
   // Pengguna baru: tidak ada yang perlu disetujui, tidak ada agenda dekat, tidak ada perangkat. Menunggu perangkat
   // dimuat dulu, supaya kartu contoh tidak berkedip lalu hilang.
@@ -99,35 +92,21 @@ export default function Beranda() {
   const fresh = home !== null && devicesKnown && !approval && !next && favorites.length === 0;
   const greeting = home ? greetingText(Number(now.slice(0, 2)), home.greetingName, fresh) : null;
 
-  // Urutan muncul blok yang tampil (jeda 80 ms per blok).
-  const nextIndex = approval ? 1 : 0;
-  const favIndex = nextIndex + (next ? 1 : 0);
+  // Urutan muncul blok yang tampil (jeda 80 ms per blok): persetujuan, widget (cuaca dan agenda), perangkat favorit.
+  const widgetIndex = approval ? 1 : 0;
+  const favIndex = widgetIndex + 1;
 
   // Jaring: layanan dan perangkat dari cincin Beranda; pengguna tanpa layanan melihat tiga simpul contoh yang redup.
   // Mode akun: cincinnya masih contoh, jadi yang tampil simpul redup, bukan layanan contoh seolah tersambung.
   const nodes = home === null ? [] : !hybrid && ring.length > 0 ? webNodes(ring, hero.maxNodes) : PLACEHOLDER_NODES;
   const topPad = compact ? 12 : 20;
   const heroGap = compact ? 2 : 6;
-  // Dengan blok, Inti tepat di bawah sapaan (ketiga blok tetap terlihat di HP panjang). Tanpa blok, Inti turun ke
-  // sekitar sepertiga layar. Pergeseran itu dihitung, bukan spacer lentur (spacer lentur bertabrakan dengan transisi
-  // tata letak blok); turunnya dianimasikan 320 ms supaya Inti tidak melompat saat data pertama tiba.
+  // Inti tepat di bawah sapaan; widget (cuaca dan agenda) mengisi bagian bawahnya, juga untuk pengguna baru.
   const [greetingBottom, setGreetingBottom] = useState<number | null>(null);
   const heroTop = (greetingBottom ?? insets.top + topPad + GREETING_ROW) + heroGap;
-  const lift = Math.min(MAX_DROP, Math.max(0, Math.round(win.height * HERO_CENTRE - heroTop - hero.height / 2)));
-  const drop = fresh ? lift : 0;
-  const reduce = useReducedMotion();
-  const dropSv = useSharedValue(drop);
-  useEffect(() => {
-    // Naik kembali (blok pertama muncul) langsung, supaya tidak bergerak bersamaan dengan transisi tata letak blok.
-    dropSv.set(
-      reduce || drop === 0
-        ? drop
-        : withTiming(drop, { duration: motion.block.duration, easing: Easing.out(Easing.cubic) }),
-    );
-  }, [drop, reduce, dropSv]);
-  const heroStyle = useAnimatedStyle(() => ({ marginTop: heroGap + dropSv.get() }));
-  // Petunjuk pertama menunjuk bagian bawah Inti besar.
-  const tipTop = heroTop + drop + hero.height / 2 + hero.inti / 2 + 14;
+  // Petunjuk pertama menunjuk bagian bawah Inti besar (posisinya diukur: ruang lentur bisa menurunkan Inti).
+  const [heroY, setHeroY] = useState<number | null>(null);
+  const tipTop = (heroY ?? heroTop) + hero.height / 2 + hero.inti / 2 + 14;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -154,14 +133,17 @@ export default function Beranda() {
             dimStyle,
           ]}
         >
-          <Txt
-            v="display"
-            accessibilityRole="header"
-            numberOfLines={2}
-            style={[{ flex: 1 }, compact ? { fontSize: 28, lineHeight: 34 } : null]}
-          >
-            {greeting ?? ''}
-          </Txt>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Txt
+              v="display"
+              accessibilityRole="header"
+              numberOfLines={2}
+              style={compact ? { fontSize: 28, lineHeight: 34 } : null}
+            >
+              {greeting ?? ''}
+            </Txt>
+            {home ? <TodayLine compact={compact} /> : null}
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Akun"
@@ -181,7 +163,13 @@ export default function Beranda() {
           </Pressable>
         </Animated.View>
 
-        <Animated.View testID="beranda-inti" style={heroStyle}>
+        {/* Ruang lentur dibagi di atas dan di bawah Inti: di HP tinggi Inti berada di tengah, tidak menyisakan lubang. */}
+        <View style={{ flexGrow: 2, minHeight: 0 }} />
+        <Animated.View
+          testID="beranda-inti"
+          style={{ marginTop: heroGap }}
+          onLayout={(e) => setHeroY(Math.round(e.nativeEvent.layout.y))}
+        >
           <IntiHero metrics={hero} nodes={nodes} paused={!live} halo={tip.visible} voice={heroVoice} />
         </Animated.View>
 
@@ -208,6 +196,7 @@ export default function Beranda() {
           </View>
         ) : null}
 
+        <View style={{ flexGrow: 3, minHeight: 4 }} />
         <Animated.View style={[{ gap: 20, paddingTop: compact ? 10 : 14 }, dimStyle]}>
           {approval ? (
             <Animated.View
@@ -220,19 +209,22 @@ export default function Beranda() {
               <Approval draft={approval} chat={chat} compact={compact} />
             </Animated.View>
           ) : null}
-          {next ? (
+          {home ? (
             <Animated.View
-              key="agenda-berikutnya"
+              key="widget"
               testID="blok-agenda"
-              entering={blockEntering(nextIndex)}
+              entering={blockEntering(widgetIndex)}
               exiting={blockExiting}
+              style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 16 }}
             >
-              <NextItemRow
-                time={nextTime(next)}
-                title={next.title}
-                compact={compact}
-                onPress={() => router.navigate('/agenda')}
-              />
+              {weather.status !== 'off' ? (
+                <WeatherWidget
+                  view={weather}
+                  compact={compact}
+                  onAsk={() => router.push({ pathname: '/chat', params: { isi: WEATHER_QUESTION } })}
+                />
+              ) : null}
+              <AgendaWidget next={next} compact={compact} onOpen={() => router.navigate('/agenda')} />
             </Animated.View>
           ) : null}
           {favorites.length > 0 ? (
@@ -250,8 +242,7 @@ export default function Beranda() {
           ) : null}
         </Animated.View>
 
-        {/* Ruang kosong itu disengaja: kartu contoh pengguna baru duduk di zona jempol, tepat di atas bilah tab. */}
-        <View style={{ flexGrow: 1, minHeight: 16 }} />
+        <View style={{ height: 20 }} />
         {fresh && !tip.visible ? (
           <Animated.View
             testID="blok-saran"
@@ -276,8 +267,6 @@ export default function Beranda() {
     </View>
   );
 }
-
-const nextTime = (n: NextAgenda) => (n.day === 1 ? `Besok ${n.time}` : n.time);
 
 /** Persetujuan tertua: Kirim menahan kiriman 5 menit (masih bisa dibatalkan di chat atau Riwayat), Ubah membuka chat di drafnya. */
 function Approval({ draft, chat, compact }: { draft: Draft; chat: ReturnType<typeof useChat>; compact: boolean }) {

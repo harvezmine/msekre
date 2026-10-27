@@ -92,6 +92,8 @@ import {
   type SecurityUpdateReq,
   type SendMessageReq,
   type StreamEvent,
+  type Weather,
+  type WeatherQuery,
 } from '../contract';
 import { StreamHub } from '../hub';
 import type { DataMode } from '../mode';
@@ -574,6 +576,19 @@ export class FakeTransport implements Transport {
         rev: this.agendaRev,
       });
     });
+  }
+
+  /** Cuaca contoh: berawan 27° di Bandung (tempat tersimpan contoh), atau di sekitar lokasi HP kalau dikirim. */
+  weather(query?: WeatherQuery): Promise<Weather> {
+    return this.call(true, () => ({
+      place: query?.lat !== undefined ? 'Sekitar Anda' : 'Bandung',
+      tempC: 27,
+      condition: 'berawan',
+      icon: '03d',
+      highC: 30,
+      lowC: 22,
+      at: this.clock.iso(),
+    }));
   }
 
   agendaItem(id: string): Promise<AgendaItem> {

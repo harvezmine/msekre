@@ -32,6 +32,8 @@ const blockedPermissions = [
   'android.permission.WRITE_EXTERNAL_STORAGE',
   'android.permission.USE_BIOMETRIC',
   'android.permission.USE_FINGERPRINT',
+  // Cuaca di Beranda cukup lokasi perkiraan (ACCESS_COARSE_LOCATION); lokasi persis tidak pernah diminta.
+  'android.permission.ACCESS_FINE_LOCATION',
   ...(isDevelopmentBuild ? [] : ['android.permission.SYSTEM_ALERT_WINDOW']),
 ];
 
@@ -82,6 +84,11 @@ const config: ExpoConfig = {
     'expo-status-bar',
     'expo-secure-store',
     'expo-sharing',
+    // Cuaca di Beranda: perkiraan lokasi, hanya saat pengguna mengetuk "Izinkan lokasi" dan tanpa tempat tersimpan.
+    [
+      'expo-location',
+      { locationWhenInUsePermission: 'Sekretaris AI memakai perkiraan lokasi untuk menampilkan cuaca di Beranda.' },
+    ],
     // Mode Suara: mikrofon (RECORD_AUDIO) hanya saat layar suara terbuka; tidak merekam atau memutar di latar.
     [
       'expo-audio',
