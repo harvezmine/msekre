@@ -518,16 +518,37 @@ describe('VoiceController dengan HttpTransport', () => {
     expect(ctx.controller.getState()).toMatchObject({ phase: 'speaking', reply: 'Sudah nyala.' });
   });
 
-  test('putus setelah server menerima ucapan: tidak dikirim ulang, jawabannya nanti di chat', async () => {
+  test('putus setelah server menerima ucapan: dikirim ulang sekali dengan id sama; server mengambil giliran itu dan jawabannya tampil di sini', async () => {
+    const ctx = build();
+    const ws = await open(ctx);
+    await say(ctx);
+    const turn = startId(ws);
+    const first = ws.sent.slice();
+    ws.serve({ type: 'transcript', text: 'Matikan AC', final: true, turn });
+    ws.serve({ type: 'thinking', on: true, turn });
+    ws.drop(1006);
+    await flush();
+    // Tetap berpikir (bukan "nanti di chat"); giliran yang sama dikirim di soket baru.
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'thinking', note: null });
+    expect(ctx.sockets).toHaveLength(2);
+    const again = ctx.sockets[1]!;
+    again.onopen?.({});
+    expect(again.sent).toEqual(first);
+    again.serve({ type: 'reply', text: 'Sudah, AC kamar mati.', messageId: 'm-9', turn });
+    expect(ctx.controller.getState()).toMatchObject({ phase: 'speaking', reply: 'Sudah, AC kamar mati.' });
+  });
+
+  test('server lama membalas sudah_ada untuk giliran yang dikirim ulang: kabar ramah, jawabannya di chat', async () => {
     const ctx = build();
     const ws = await open(ctx);
     await say(ctx);
     const turn = startId(ws);
     ws.serve({ type: 'transcript', text: 'Matikan AC', final: true, turn });
-    ws.serve({ type: 'thinking', on: true, turn });
     ws.drop(1006);
     await flush();
-    expect(ctx.sockets).toHaveLength(1);
+    const again = ctx.sockets[1]!;
+    again.onopen?.({});
+    again.serve({ type: 'error', code: 'sudah_ada', turn });
     expect(ctx.controller.getState()).toMatchObject({ phase: 'idle', note: IN_CHAT_TEXT });
   });
 

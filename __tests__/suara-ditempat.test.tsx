@@ -12,6 +12,7 @@ import { advance, currentRoute, mockParams, restoreParams, showRoute } from './h
 import { createTestApi, renderWithProviders, toastNow } from './helpers';
 import { THINK_MS } from '@/sample/chat';
 import { RELEASE_TAIL_MS, SHORT_HOLD_TEXT } from '@/voice/controller';
+import { STILL_WORKING_TEXT } from '@/voice/texts';
 import { handoffFrom, restCentre, VOICE_INTI } from '@/voice/handoff';
 import { ARMED_HINT_TEXT, SLIDE_HINT_TEXT } from '@/voice/InPlaceVoice';
 import { RadialWaves } from '@/voice/RadialWaves';
@@ -86,6 +87,22 @@ describe('di Beranda', () => {
     await settle();
     expect(screen.queryByTestId('suara-ditempat')).toBeNull();
     expect(inPlace.get().open).toBe(false);
+  });
+
+  test('ketuk di luar selagi menunggu jawaban: lapisan tetap terbuka, jawabannya datang di sini (bukan di chat)', async () => {
+    await renderWithProviders(<Beranda />);
+    await holdAndSpeak();
+    await release();
+    expect(screen.queryByTestId('suara-ditempat-balasan')).toBeNull();
+    await fireEvent.press(screen.getByTestId('suara-ditempat-tutup'));
+    expect(screen.getByTestId('suara-ditempat')).toBeOnTheScreen();
+    expect(screen.getByTestId('suara-ditempat-petunjuk')).toHaveTextContent(STILL_WORKING_TEXT);
+    await advance(THINK_MS);
+    expect(screen.getByTestId('suara-ditempat-balasan')).toHaveTextContent('Sudah. AC kamar saya matikan.');
+    // Jawaban sudah tampil: ketuk di luar menutup seperti biasa.
+    await fireEvent.press(screen.getByTestId('suara-ditempat-tutup'));
+    await settle();
+    expect(screen.queryByTestId('suara-ditempat')).toBeNull();
   });
 
   test('menahan Inti lagi saat jawaban dibacakan: suaranya berhenti, giliran baru mendengar', async () => {

@@ -40,10 +40,18 @@ import { useVoice, type Voice } from './useVoice';
 /** "Lepas untuk kirim" tampil selama tahanan pertama sebanyak ini (seumur pemasangan). */
 const RELEASE_HINT_USES = 3;
 const HINT_KEY = 'suara.ditempat.petunjuk';
+/** Kabar "sedang disiapkan" setelah ketukan di luar selagi menunggu jawaban. */
+const NUDGE_MS = 2500;
 /** Hanya kabar (tanpa balasan): lapisan menutup sendiri sesudah dibaca. */
 const NOTE_CLOSE_MS = 4000;
-/** Jarak teks ucapan dan kartu balasan dari tepi Inti. */
-const GAP = 24;
+/**
+ * Jarak teks dari tepi Inti, mengikuti ukurannya: cincin suara memancar sampai kira-kira setengah garis tengah Inti di
+ * luar tepinya, jadi ucapan (di atas) dan jawaban (di bawah) diberi ruang lega supaya tidak terasa mepet.
+ */
+const gapAbove = (size: number) => Math.max(36, Math.round(size * 0.28));
+const gapBelow = (size: number) => Math.max(44, Math.round(size * 0.42));
+/** Jawaban sepanjang ini atau lebih rata kiri (lebih mudah dibaca); yang pendek di tengah. */
+const LONG_REPLY = 110;
 /** Bilah tab di bawah Beranda (kartu balasan tidak masuk ke bawahnya). */
 const TAB_BAR_ROOM = 96;
 
@@ -142,8 +150,21 @@ function InPlaceLayer({
   const { phase, reply, confirm, note, permission } = voice;
   useEffect(() => {
     hero.mode.set(MODE[phase] ?? RADIAL_HIDDEN);
-    onThinking(phase === 'sending' || phase === 'thinking');
+    const waiting = phase === 'sending' || phase === 'thinking';
+    onThinking(waiting);
+    // Selama menunggu jawaban, ketukan di luar tidak menutup: jawabannya tetap datang di sini, bukan di chat.
+    inPlace.setBusy(waiting);
   }, [phase, hero.mode, onThinking]);
+  useEffect(() => () => inPlace.setBusy(false), []);
+
+  // Ketukan di luar selagi menunggu: kabar singkat bahwa jawabannya sedang disiapkan.
+  const [nudge, setNudge] = useState(false);
+  useEffect(() => inPlace.onNudge(() => setNudge(true)), []);
+  useEffect(() => {
+    if (!nudge) return;
+    const t = setTimeout(() => setNudge(false), NUDGE_MS);
+    return () => clearTimeout(t);
+  }, [nudge]);
 
   // Tidak ada yang perlu dibaca lagi (batal, tahanan dilepas sebelum siap): lapisan menutup; hanya kabar: sesudah dibaca.
   const done = !session.held && phase === 'idle' && !reply && !confirm && !permission;
@@ -185,7 +206,9 @@ function InPlaceLayer({
       session={session}
       voice={voice}
       releaseHint={hint && phase === 'listening'}
+      nudge={nudge}
       onClose={() => inPlace.close()}
+      onDismiss={() => void inPlace.dismiss()}
     />
   );
 }
@@ -194,11 +217,17 @@ function InPlaceView({
   session,
   voice,
   releaseHint,
+  nudge,
   onClose,
+  onDismiss,
 }: {
   session: InPlaceSession;
   voice: Voice;
   releaseHint: boolean;
+  /** Ketukan di luar selagi menunggu jawaban. */
+  nudge: boolean;
+  /** Ketuk di luar: menutup, kecuali jawaban sedang ditunggu. */
+  onDismiss: () => void;
   onClose: () => void;
 }) {
   const { c, marker } = useTheme();
@@ -217,9 +246,9 @@ function InPlaceView({
 
   const said = transcript || (listening ? LISTENING_TEXT : '');
   const slideHint = session.zone === 'armed' ? ARMED_HINT_TEXT : session.zone === 'sliding' ? SLIDE_HINT_TEXT : null;
-  const small = slideHint ?? (releaseHint ? RELEASE_HINT_TEXT : busy && slow ? STILL_WORKING_TEXT : null);
+  const small = slideHint ?? (releaseHint ? RELEASE_HINT_TEXT : busy && (slow || nudge) ? STILL_WORKING_TEXT : null);
   const line = reply || confirm ? null : note;
-  const cardTop = cy + size / 2 + GAP;
+  const cardTop = cy + size / 2 + gapBelow(size);
   const cardMax = Math.max(120, origin.height - cardTop - insets.bottom - TAB_BAR_ROOM);
 
   return (
@@ -244,14 +273,19 @@ function InPlaceView({
         testID="suara-ditempat-tutup"
         accessibilityRole="button"
         accessibilityLabel="Tutup"
-        onPress={onClose}
+        onPress={onDismiss}
         style={StyleSheet.absoluteFill}
       />
 
       {/* Di atas Inti: ucapan (kata sementara lebih redup), lalu petunjuk kecil. */}
       <View
         pointerEvents="none"
-        style={{ position: 'absolute', left: 24, right: 24, bottom: Math.max(0, origin.height - (cy - size / 2 - 12)) }}
+        style={{
+          position: 'absolute',
+          left: 24,
+          right: 24,
+          bottom: Math.max(0, origin.height - (cy - size / 2 - gapAbove(size))),
+        }}
       >
         {said ? (
           <Txt
@@ -306,7 +340,11 @@ function InPlaceView({
                 testID="suara-ditempat-balasan"
                 accessibilityLiveRegion="polite"
                 weight={500}
-                style={{ fontSize: 20, lineHeight: 28, textAlign: 'center' }}
+                style={{
+                  fontSize: 20,
+                  lineHeight: 29,
+                  textAlign: reply.length >= LONG_REPLY ? 'left' : 'center',
+                }}
                 maxFontSizeMultiplier={1.3}
               >
                 {reply}

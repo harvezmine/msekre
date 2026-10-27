@@ -49,6 +49,9 @@ export interface InPlaceSession {
 const CLOSED: InPlaceSession = { open: false, held: false, zone: 'none', anchor: null };
 let session: InPlaceSession = CLOSED;
 let start: Point | null = null;
+/** Jawaban sedang ditunggu: ketukan di luar tidak menutup (jawabannya tetap datang di sini, bukan di chat). */
+let busy = false;
+const nudges = new Set<() => void>();
 const listeners = new Set<() => void>();
 const handlers = new Set<(e: HoldEvent) => void>();
 
@@ -103,10 +106,39 @@ export const inPlace = {
     update({ ...session, held: false, zone: 'none' });
     emit(cancelled ? 'cancel' : 'send');
   },
-  /** Tutup lapisan suara (ketuk di luar, pindah layar, selesai). */
+  /** Tutup lapisan suara (pindah layar, Kembali, selesai). */
   close(): void {
     start = null;
+    busy = false;
     if (session.open || session.held) update(CLOSED);
+  },
+  /**
+   * Ketukan di luar (latar, bilah tab): menutup, kecuali jawaban sedang ditunggu. Saat itu lapisan tetap terbuka dan
+   * memberi tahu bahwa jawabannya sedang disiapkan (`onNudge`). `true` kalau ditutup.
+   */
+  dismiss(): boolean {
+    if (busy && session.open) {
+      for (const n of [...nudges]) {
+        try {
+          n();
+        } catch (e) {
+          reportError('suara di tempat: tahan tutup', e);
+        }
+      }
+      return false;
+    }
+    inPlace.close();
+    return true;
+  },
+  /** Mesin suara mengabarkan sedang menunggu jawaban (mengirim atau berpikir). */
+  setBusy(on: boolean): void {
+    busy = on;
+  },
+  onNudge(listener: () => void): () => void {
+    nudges.add(listener);
+    return () => {
+      nudges.delete(listener);
+    };
   },
   get(): InPlaceSession {
     return session;
@@ -127,8 +159,10 @@ export const inPlace = {
   /** Untuk tes. */
   reset(): void {
     start = null;
+    busy = false;
     session = CLOSED;
     handlers.clear();
+    nudges.clear();
     for (const l of [...listeners]) l();
   },
 };

@@ -678,9 +678,10 @@ export class VoiceController {
     // Menunggu jawaban giliran yang belum dibalas.
     const waiting = isWaiting(phase) && this.turnId !== null && !this.replied;
     if (waiting && dropped) {
-      if (!this.acked && !this.retried && this.turnInput) {
-        // Putus sebelum server menerima ucapannya: kirim ulang sekali di soket baru (id giliran sama, jadi server tidak
-        // pernah menjalankannya dua kali).
+      if (!this.retried && this.turnInput) {
+        // Putus di tengah giliran: kirim ulang sekali di soket baru dengan id giliran yang sama. Server mengambil giliran
+        // yang sudah berjalan (tidak menjalankannya dua kali) dan jawabannya tetap datang di sini, bukan di chat. Server
+        // lama membalas `sudah_ada`: kabar "nanti saya kabari di chat".
         this.retried = true;
         this.transmit();
         return;
