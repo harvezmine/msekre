@@ -223,6 +223,8 @@ export interface Elevation {
   thumb: string;
   /** Jempol penggeser, sakelar, dial. */
   knob: string;
+  /** Dok bilah tab: bayangan lembut ke atas (tanpa garis pemisah). */
+  dock: string;
 }
 
 const shadowLight: Elevation = {
@@ -232,6 +234,7 @@ const shadowLight: Elevation = {
   power: '0 16px 32px -10px rgba(29,117,80,0.65)',
   thumb: '0 1px 2px rgba(21,24,27,0.06), 0 2px 8px -2px rgba(21,24,27,0.10)',
   knob: '0 1px 3px rgba(0,0,0,0.2), 0 4px 10px -2px rgba(21,24,27,0.18)',
+  dock: '0 -1px 0 rgba(21,24,27,0.04), 0 -10px 28px -12px rgba(21,24,27,0.16)',
 };
 
 const shadowDark: Elevation = {
@@ -242,6 +245,7 @@ const shadowDark: Elevation = {
   // Jempol segmen gelap memakai `sunken2` tanpa bayangan.
   thumb: '0 0 0 rgba(0,0,0,0)',
   knob: '0 1px 3px rgba(0,0,0,0.45), 0 4px 10px -2px rgba(0,0,0,0.5)',
+  dock: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 -12px 30px -14px rgba(0,0,0,0.75)',
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
